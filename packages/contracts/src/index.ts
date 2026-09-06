@@ -14,10 +14,86 @@ export const ApiErrorSchema = z
 
 export type ApiError = z.infer<typeof ApiErrorSchema>;
 
+const QUANTITY_MAX = 2_000_000_000;
+const PHOTO_BYTE_MAX = 5 * 1024 * 1024;
+
+const quantitySchema = z.number().int().min(0).max(QUANTITY_MAX);
+const deltaSchema = z.number().int().min(-QUANTITY_MAX).max(QUANTITY_MAX);
+
+export const ShoeSizeStringSchema = z
+  .string()
+  .refine((value) => /^(?:[1-9]|[1-9]\d)(?:\.5)?$/.test(value), {
+    message: 'Shoe size must be a canonical whole or half size string',
+  })
+  .refine(
+    (value) => {
+      const numeric = Number(value);
+      return numeric >= 1 && numeric <= 99.5;
+    },
+    { message: 'Shoe size must be between 1 and 99.5' },
+  );
+
+export type ShoeSizeString = z.infer<typeof ShoeSizeStringSchema>;
+
+const AvailableSizesSchema = z
+  .array(ShoeSizeStringSchema)
+  .superRefine((sizes, ctx) => {
+    const seen = new Set<string>();
+    for (let index = 0; index < sizes.length; index += 1) {
+      const size = sizes[index]!;
+      if (seen.has(size)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'availableSizes must not contain duplicates',
+          path: [index],
+        });
+      }
+      seen.add(size);
+      if (index > 0) {
+        const previous = Number(sizes[index - 1]);
+        const current = Number(size);
+        if (!(previous < current)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'availableSizes must be sorted ascending numerically',
+            path: [index],
+          });
+        }
+      }
+    }
+  });
+
+const publicUsernameSchema = z
+  .string()
+  .regex(
+    /^[a-z0-9._-]{3,64}$/,
+    'Username must be 3–64 lowercase letters, digits, dots, underscores, or hyphens',
+  );
+
+const publicReferenceCodeSchema = z
+  .string()
+  .min(1)
+  .max(32)
+  .regex(
+    /^[A-Z0-9-]+$/,
+    'Reference code must use uppercase letters, digits, and hyphens only',
+  );
+
+const trimmedModelName = z.string().trim().min(1).max(120);
+const trimmedColor = z.string().trim().min(1).max(80);
+const priceCopSchema = z.number().int().min(1).max(QUANTITY_MAX);
+
+const photoEtagSchema = z
+  .string()
+  .regex(
+    /^"[a-f0-9]{64}"$/,
+    'ETag must be a quoted lowercase SHA-256 hex digest',
+  );
+
 export const AdminUserPublicSchema = z
   .object({
     id: z.uuid(),
-    username: z.string().min(1),
+    username: publicUsernameSchema,
   })
   .strict();
 
@@ -31,10 +107,6 @@ export const LoginBodySchema = z
   .strict();
 
 export type LoginBody = z.infer<typeof LoginBodySchema>;
-
-const trimmedModelName = z.string().trim().min(1).max(120);
-const trimmedColor = z.string().trim().min(1).max(80);
-const priceCopSchema = z.number().int().min(1).max(2_000_000_000);
 
 export const CreateReferenceBodySchema = z
   .object({
@@ -66,7 +138,7 @@ export type PatchReferenceBody = z.infer<typeof PatchReferenceBodySchema>;
 
 export const SetStockBodySchema = z
   .object({
-    physicalQuantity: z.number().int().min(0).max(2_000_000_000),
+    physicalQuantity: quantitySchema,
     note: z.string().trim().min(3).max(250),
   })
   .strict();
@@ -113,8 +185,8 @@ export const PhotoPublicSchema = z
   .object({
     url: z.string().min(1),
     mimeType: z.enum(['image/jpeg', 'image/png']),
-    byteSize: z.number().int().positive(),
-    etag: z.string().min(1),
+    byteSize: z.number().int().min(1).max(PHOTO_BYTE_MAX),
+    etag: photoEtagSchema,
   })
   .strict();
 
@@ -141,9 +213,9 @@ export type LoginResponse = z.infer<typeof LoginResponseSchema>;
 export const ReferencePublicSchema = z
   .object({
     id: z.uuid(),
-    code: z.string().min(1),
-    modelName: z.string().min(1),
-    color: z.string().min(1),
+    code: publicReferenceCodeSchema,
+    modelName: trimmedModelName,
+    color: trimmedColor,
     priceCop: priceCopSchema,
     active: z.boolean(),
     photo: PhotoPublicSchema.nullable(),
@@ -157,13 +229,13 @@ export type ReferencePublic = z.infer<typeof ReferencePublicSchema>;
 export const ReferenceSummarySchema = z
   .object({
     id: z.uuid(),
-    code: z.string().min(1),
-    modelName: z.string().min(1),
-    color: z.string().min(1),
+    code: publicReferenceCodeSchema,
+    modelName: trimmedModelName,
+    color: trimmedColor,
     priceCop: priceCopSchema,
     active: z.boolean(),
     photo: PhotoPublicSchema.nullable(),
-    availableSizes: z.array(z.string()),
+    availableSizes: AvailableSizesSchema,
     updatedAt: z.string().datetime(),
   })
   .strict();
@@ -172,13 +244,25 @@ export type ReferenceSummary = z.infer<typeof ReferenceSummarySchema>;
 
 export const StockAvailabilitySchema = z
   .object({
-    size: z.string().min(1),
-    physicalQuantity: z.number().int().min(0),
-    reservedQuantity: z.number().int().min(0),
-    availableQuantity: z.number().int(),
+    size: ShoeSizeStringSchema,
+    physicalQuantity: quantitySchema,
+    reservedQuantity: quantitySchema,
+    availableQuantity: quantitySchema,
     updatedAt: z.string().datetime(),
   })
-  .strict();
+  .strict()
+  .refine((value) => value.reservedQuantity <= value.physicalQuantity, {
+    message: 'reservedQuantity must be <= physicalQuantity',
+  })
+  .refine(
+    (value) =>
+      value.availableQuantity ===
+      value.physicalQuantity - value.reservedQuantity,
+    {
+      message:
+        'availableQuantity must equal physicalQuantity - reservedQuantity',
+    },
+  );
 
 export type StockAvailability = z.infer<typeof StockAvailabilitySchema>;
 
@@ -191,15 +275,19 @@ export type ReferenceDetail = z.infer<typeof ReferenceDetailSchema>;
 export const InventoryMovementPublicSchema = z
   .object({
     id: z.uuid(),
-    size: z.string().min(1),
-    previousQuantity: z.number().int(),
-    newQuantity: z.number().int(),
-    delta: z.number().int(),
-    reason: z.string().min(1),
+    size: ShoeSizeStringSchema,
+    previousQuantity: quantitySchema,
+    newQuantity: quantitySchema,
+    delta: deltaSchema,
+    reason: z.enum(['initial', 'manual_adjustment']),
     note: z.string().nullable(),
     createdAt: z.string().datetime(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (value) => value.delta === value.newQuantity - value.previousQuantity,
+    { message: 'delta must equal newQuantity - previousQuantity' },
+  );
 
 export type InventoryMovementPublic = z.infer<
   typeof InventoryMovementPublicSchema
@@ -223,9 +311,14 @@ export const ListMovementsResultSchema = z
 
 export type ListMovementsResult = z.infer<typeof ListMovementsResultSchema>;
 
-export const StockSetResultSchema = StockAvailabilitySchema.extend({
-  referenceId: z.uuid(),
-}).strict();
+export const StockSetResultSchema = z.intersection(
+  StockAvailabilitySchema,
+  z
+    .object({
+      referenceId: z.uuid(),
+    })
+    .strict(),
+);
 
 export type StockSetResult = z.infer<typeof StockSetResultSchema>;
 

@@ -138,7 +138,8 @@ export const handlers = [
       photo: item.photo,
       availableSizes: item.stock
         .filter((stock) => stock.availableQuantity > 0)
-        .map((stock) => stock.size),
+        .map((stock) => stock.size)
+        .sort((left, right) => Number(left) - Number(right)),
       updatedAt: item.updatedAt,
     }));
 
@@ -333,7 +334,7 @@ export const handlers = [
       url: `/api/admin/references/${found.id}/photo`,
       mimeType: 'image/png',
       byteSize: 68,
-      etag: '"abc"',
+      etag: `"${'b'.repeat(64)}"`,
     };
     found.updatedAt = new Date().toISOString();
     return HttpResponse.json({

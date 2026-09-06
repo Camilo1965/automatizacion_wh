@@ -4,6 +4,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  clearProcessNoColor,
+  sanitizeE2eEnv,
+} from '../src/lib/sanitize-e2e-env';
+import {
   E2E_ADMIN_ORIGIN,
   E2E_API_ORIGIN,
   E2E_DATABASE_URL,
@@ -19,7 +23,7 @@ const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 export { E2E_PASSWORD, E2E_USERNAME } from './constants';
 
 function runPnpm(args: string[]): void {
-  const env = {
+  const env = sanitizeE2eEnv({
     ...process.env,
     DATABASE_URL: E2E_DATABASE_URL,
     MEDIA_ROOT: E2E_MEDIA_ROOT,
@@ -27,7 +31,7 @@ function runPnpm(args: string[]): void {
     CAMILA_API_BASE_URL: E2E_API_ORIGIN,
     CAMILA_E2E_USERNAME: E2E_USERNAME,
     CAMILA_E2E_PASSWORD: E2E_PASSWORD,
-  };
+  });
 
   if (process.platform === 'win32') {
     // .cmd shims cannot be CreateProcess'd with shell:false (EINVAL).
@@ -53,9 +57,7 @@ function runPnpm(args: string[]): void {
 }
 
 export default async function globalSetup(): Promise<void> {
-  if (process.env.FORCE_COLOR !== undefined) {
-    delete process.env.NO_COLOR;
-  }
+  clearProcessNoColor();
 
   mkdirSync(E2E_MEDIA_ROOT, { recursive: true });
 

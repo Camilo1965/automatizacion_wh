@@ -12,30 +12,23 @@ import {
   E2E_MEDIA_ROOT,
 } from './e2e/constants';
 
+import {
+  clearProcessNoColor,
+  sanitizeE2eEnv,
+} from './src/lib/sanitize-e2e-env';
+
 const adminDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(adminDir, '../..');
 
-// Playwright sets FORCE_COLOR; drop NO_COLOR so Node does not warn.
-if (process.env.FORCE_COLOR !== undefined) {
-  delete process.env.NO_COLOR;
-}
+clearProcessNoColor();
 
 function webServerEnv(
   overrides: Record<string, string>,
 ): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined) {
-      env[key] = value;
-    }
-  }
-  Object.assign(env, overrides);
-  if (env.FORCE_COLOR !== undefined) {
-    delete env.NO_COLOR;
-  } else if (env.NO_COLOR !== undefined) {
-    delete env.FORCE_COLOR;
-  }
-  return env;
+  return sanitizeE2eEnv({
+    ...process.env,
+    ...overrides,
+  });
 }
 
 export default defineConfig({

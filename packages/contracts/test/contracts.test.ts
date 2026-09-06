@@ -27,6 +27,7 @@ import {
   ReferenceSummarySchema,
   SessionResponseSchema,
   SetStockBodySchema,
+  ShoeSizeStringSchema,
   StockAvailabilitySchema,
   StockResponseSchema,
   StockSetResultSchema,
@@ -35,11 +36,13 @@ import {
 const SAMPLE_UUID = '22222222-2222-4222-8222-222222222222';
 const SAMPLE_ISO = '2026-09-06T12:00:00.000Z';
 
+const SAMPLE_ETAG = `"${'a'.repeat(64)}"`;
+
 const samplePhoto = {
   url: '/api/admin/references/22222222-2222-4222-8222-222222222222/photo',
   mimeType: 'image/jpeg' as const,
   byteSize: 12345,
-  etag: '"sha256abc"',
+  etag: SAMPLE_ETAG,
 };
 
 const sampleReferencePublic = {
@@ -402,13 +405,13 @@ describe('PhotoPublicSchema', () => {
         url: '/api/admin/references/11111111-1111-4111-8111-111111111111/photo',
         mimeType: 'image/jpeg',
         byteSize: 12345,
-        etag: '"sha256abc"',
+        etag: SAMPLE_ETAG,
       }),
     ).toEqual({
       url: '/api/admin/references/11111111-1111-4111-8111-111111111111/photo',
       mimeType: 'image/jpeg',
       byteSize: 12345,
-      etag: '"sha256abc"',
+      etag: SAMPLE_ETAG,
     });
   });
 
@@ -802,6 +805,224 @@ describe('response envelope schemas', () => {
       ListReferencesResponseSchema.safeParse({
         data: { items: [], nextAfterCode: null },
         page: 1,
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('strict public response contracts', () => {
+  it('rejects non-canonical shoe sizes', () => {
+    for (const size of [
+      'banana',
+      '0',
+      '0.5',
+      '37.0',
+      '37.2',
+      '01',
+      '100',
+      '',
+      ' 37',
+      '37 ',
+    ]) {
+      expect(
+        ShoeSizeStringSchema.safeParse(size).success,
+        `size ${JSON.stringify(size)}`,
+      ).toBe(false);
+    }
+
+    for (const size of ['1', '36', '37', '37.5', '99.5']) {
+      expect(ShoeSizeStringSchema.parse(size)).toBe(size);
+    }
+  });
+
+  it('rejects unordered or duplicate availableSizes', () => {
+    const base = {
+      id: SAMPLE_UUID,
+      code: '01',
+      modelName: 'Ballerina',
+      color: 'Negro',
+      priceCop: 120_000,
+      active: true,
+      photo: null,
+      updatedAt: SAMPLE_ISO,
+    };
+
+    expect(
+      ReferenceSummarySchema.safeParse({
+        ...base,
+        availableSizes: ['38', '37'],
+      }).success,
+    ).toBe(false);
+    expect(
+      ReferenceSummarySchema.safeParse({
+        ...base,
+        availableSizes: ['37', '37'],
+      }).success,
+    ).toBe(false);
+    expect(
+      ReferenceSummarySchema.parse({
+        ...base,
+        availableSizes: [],
+      }).availableSizes,
+    ).toEqual([]);
+    expect(
+      ReferenceSummarySchema.parse({
+        ...base,
+        availableSizes: ['36', '37', '37.5'],
+      }).availableSizes,
+    ).toEqual(['36', '37', '37.5']);
+  });
+
+  it('rejects stock quantity invariants and out-of-range values', () => {
+    expect(
+      StockAvailabilitySchema.safeParse({
+        ...sampleStock,
+        availableQuantity: -1,
+      }).success,
+    ).toBe(false);
+    expect(
+      StockAvailabilitySchema.safeParse({
+        ...sampleStock,
+        physicalQuantity: 3,
+        reservedQuantity: 4,
+        availableQuantity: -1,
+      }).success,
+    ).toBe(false);
+    expect(
+      StockAvailabilitySchema.safeParse({
+        ...sampleStock,
+        physicalQuantity: 5,
+        reservedQuantity: 1,
+        availableQuantity: 3,
+      }).success,
+    ).toBe(false);
+    expect(
+      StockAvailabilitySchema.safeParse({
+        ...sampleStock,
+        physicalQuantity: 2_000_000_001,
+        availableQuantity: 2_000_000_001,
+      }).success,
+    ).toBe(false);
+    expect(
+      StockAvailabilitySchema.safeParse({
+        size: 'banana',
+        physicalQuantity: 1,
+        reservedQuantity: 0,
+        availableQuantity: 1,
+        updatedAt: SAMPLE_ISO,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects movement reason/delta/quantity violations', () => {
+    expect(
+      InventoryMovementPublicSchema.safeParse({
+        ...sampleMovement,
+        previousQuantity: -1,
+        delta: 6,
+      }).success,
+    ).toBe(false);
+    expect(
+      InventoryMovementPublicSchema.safeParse({
+        ...sampleMovement,
+        reason: 'anything',
+      }).success,
+    ).toBe(false);
+    expect(
+      InventoryMovementPublicSchema.safeParse({
+        ...sampleMovement,
+        delta: 99,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects invalid public username, code, etag, and oversized photo', () => {
+    expect(
+      AdminUserPublicSchema.safeParse({
+        id: '11111111-1111-4111-8111-111111111111',
+        username: 'AB',
+      }).success,
+    ).toBe(false);
+    expect(
+      AdminUserPublicSchema.safeParse({
+        id: '11111111-1111-4111-8111-111111111111',
+        username: 'Camila',
+      }).success,
+    ).toBe(false);
+
+    expect(
+      ReferencePublicSchema.safeParse({
+        ...sampleReferencePublic,
+        code: 'ab',
+      }).success,
+    ).toBe(false);
+    expect(
+      ReferencePublicSchema.safeParse({
+        ...sampleReferencePublic,
+        code: 'A'.repeat(33),
+      }).success,
+    ).toBe(false);
+
+    expect(
+      PhotoPublicSchema.safeParse({
+        ...samplePhoto,
+        etag: '"not-a-sha256-digest"',
+      }).success,
+    ).toBe(false);
+    expect(
+      PhotoPublicSchema.safeParse({
+        ...samplePhoto,
+        byteSize: 5 * 1024 * 1024 + 1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects envelopes carrying any of the invalid payloads', () => {
+    expect(
+      StockResponseSchema.safeParse({
+        data: {
+          ...sampleStock,
+          referenceId: SAMPLE_UUID,
+          availableQuantity: -1,
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      ListMovementsResponseSchema.safeParse({
+        data: {
+          items: [{ ...sampleMovement, reason: 'anything' }],
+          nextCursor: null,
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      ListReferencesResponseSchema.safeParse({
+        data: {
+          items: [
+            {
+              id: SAMPLE_UUID,
+              code: '01',
+              modelName: 'Ballerina',
+              color: 'Negro',
+              priceCop: 120_000,
+              active: true,
+              photo: null,
+              availableSizes: ['38', '37'],
+              updatedAt: SAMPLE_ISO,
+            },
+          ],
+          nextAfterCode: null,
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      SessionResponseSchema.safeParse({
+        data: {
+          user: {
+            id: '11111111-1111-4111-8111-111111111111',
+            username: 'X',
+          },
+        },
       }).success,
     ).toBe(false);
   });

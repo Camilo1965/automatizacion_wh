@@ -238,7 +238,7 @@ describe('Catalog flows', () => {
       url: '/api/admin/references/photo',
       mimeType: 'image/png',
       byteSize: 10,
-      etag: '"x"',
+      etag: `"${'c'.repeat(64)}"`,
     };
     let uploads = 0;
     server.use(
@@ -249,7 +249,7 @@ describe('Catalog flows', () => {
           url: '/api/admin/references/photo-new',
           mimeType: 'image/png',
           byteSize: 20,
-          etag: '"y"',
+          etag: `"${'d'.repeat(64)}"`,
         };
         return HttpResponse.json({
           data: {

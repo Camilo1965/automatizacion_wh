@@ -22,6 +22,8 @@ import { LocalPhotoStorage } from '../src/modules/catalog/local-photo-storage.js
 import { PostgresCatalogRepository } from '../src/modules/catalog/postgres-catalog-repository.js';
 import type { PhotoStorage } from '../src/modules/catalog/photo-storage.js';
 import { requireTestDatabaseUrl } from './helpers/test-database.js';
+import { WEBP_BYTES } from './helpers/image-fixtures.js';
+import { fileTypeFromBuffer } from 'file-type';
 
 const PNG_BYTES = Uint8Array.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49,
@@ -654,12 +656,13 @@ describe('admin HTTP API', () => {
     });
     expect(gif.statusCode).toBe(400);
 
+    expect((await fileTypeFromBuffer(WEBP_BYTES))?.mime).toBe('image/webp');
     const webpUpload = buildMultipart([
       {
         name: 'photo',
         filename: 'x.webp',
         contentType: 'image/webp',
-        body: Buffer.from('RIFF....WEBP', 'utf8'),
+        body: WEBP_BYTES,
       },
     ]);
     const webp = await app.inject({
