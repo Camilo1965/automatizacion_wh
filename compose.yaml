@@ -27,6 +27,8 @@ services:
       POSTGRES_DB: camila_test
       POSTGRES_USER: camila_test
       POSTGRES_PASSWORD: camila_test
+    tmpfs:
+      - /var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U camila_test -d camila_test']
       interval: 5s

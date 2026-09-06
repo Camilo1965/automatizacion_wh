@@ -18,7 +18,7 @@ Copia el archivo de ejemplo a `.env` en PowerShell:
 Copy-Item .env.example .env
 ```
 
-`.env` contiene solo valores locales de desarrollo. Nunca versions `.env`, datos reales ni credenciales.
+`.env` contiene solo valores locales de desarrollo. Nunca versiones `.env`, datos reales ni credenciales.
 
 ## Instalación
 
@@ -82,6 +82,8 @@ pnpm verify
 `pnpm verify` ejecuta formato, lint, tipos, pruebas unitarias y build. No incluye la integración con PostgreSQL.
 
 ## Pruebas de integración
+
+`postgres-test` almacena sus datos en memoria temporal y los pierde al eliminar o recrear el contenedor.
 
 Iniciar PostgreSQL de pruebas:
 
