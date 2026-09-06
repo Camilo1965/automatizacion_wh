@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "vitest run --project unit",
-    "test:integration": "vitest run --project integration",
+    "test:integration": "node --env-file=../../.env ./node_modules/vitest/vitest.mjs run --project integration",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=../../.env src/database/migrate.ts",
     "admin:create": "tsx --env-file=../../.env src/cli/admin-create.ts",
