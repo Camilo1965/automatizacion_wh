@@ -1,13 +1,20 @@
-import { CatalogNotFoundError, PhotoCleanupError } from './catalog-errors.js';
+import { CatalogNotFoundError } from './catalog-errors.js';
 import type { CatalogRepository } from './catalog-repository.js';
 import type {
+  AdminMovementsPage,
+  AdminReferenceDetail,
+  AdminReferencesPage,
   AvailableCatalogPage,
   CatalogReference,
   CreateReferenceInput,
+  ListAdminMovementsInput,
+  ListAdminReferencesInput,
   ListAvailableInput,
   PhotoMetadata,
+  ReplacePhotoResult,
   SetPhysicalStockInput,
   StockRecord,
+  UpdateReferenceInput,
 } from './catalog-types.js';
 import { parseShoeSize } from './catalog-validation.js';
 import type { PhotoStorage } from './photo-storage.js';
@@ -16,11 +23,20 @@ const PAGE_SIZE = 4;
 
 export interface CatalogService {
   createReference(input: CreateReferenceInput): Promise<CatalogReference>;
+  getAdminReference(referenceId: string): Promise<AdminReferenceDetail>;
+  listAdminReferences(
+    input: ListAdminReferencesInput,
+  ): Promise<AdminReferencesPage>;
+  updateReference(input: UpdateReferenceInput): Promise<CatalogReference>;
+  activateReference(referenceId: string): Promise<CatalogReference>;
   setPhysicalStock(input: SetPhysicalStockInput): Promise<StockRecord>;
+  listAdminMovements(
+    input: ListAdminMovementsInput,
+  ): Promise<AdminMovementsPage>;
   replacePhoto(
     referenceId: string,
     bytes: Uint8Array,
-  ): Promise<CatalogReference>;
+  ): Promise<ReplacePhotoResult>;
   deactivateReference(referenceId: string): Promise<CatalogReference>;
   listAvailableForConfirmedSize(
     input: ListAvailableInput,
@@ -39,14 +55,57 @@ export class DefaultCatalogService implements CatalogService {
     return this.repository.createReference(input);
   }
 
+  async getAdminReference(referenceId: string): Promise<AdminReferenceDetail> {
+    const reference = await this.repository.findReferenceById(referenceId);
+    if (reference === null) {
+      throw new CatalogNotFoundError('Catalog reference was not found');
+    }
+
+    const stock = await this.repository.listStockForReference(referenceId);
+    return { reference, stock };
+  }
+
+  async listAdminReferences(
+    input: ListAdminReferencesInput,
+  ): Promise<AdminReferencesPage> {
+    const rows = await this.repository.listAdminReferences({
+      ...input,
+      limit: input.limit + 1,
+    });
+    const items = rows.slice(0, input.limit);
+    const lastItem = items.at(-1);
+    const nextAfterCode =
+      rows.length > input.limit && lastItem !== undefined
+        ? lastItem.code
+        : null;
+
+    return { items, nextAfterCode };
+  }
+
+  async updateReference(
+    input: UpdateReferenceInput,
+  ): Promise<CatalogReference> {
+    return this.repository.updateReference(input);
+  }
+
+  async activateReference(referenceId: string): Promise<CatalogReference> {
+    return this.repository.activateReference(referenceId);
+  }
+
   async setPhysicalStock(input: SetPhysicalStockInput): Promise<StockRecord> {
     return this.repository.setPhysicalStock(input);
+  }
+
+  async listAdminMovements(
+    input: ListAdminMovementsInput,
+  ): Promise<AdminMovementsPage> {
+    return this.repository.listAdminMovements(input);
   }
 
   async replacePhoto(
     referenceId: string,
     bytes: Uint8Array,
-  ): Promise<CatalogReference> {
+  ): Promise<ReplacePhotoResult> {
     const existing = await this.repository.findReferenceById(referenceId);
     if (existing === null) {
       throw new CatalogNotFoundError('Catalog reference was not found');
@@ -67,15 +126,13 @@ export class DefaultCatalogService implements CatalogService {
       throw error;
     }
 
+    const warnings: 'old_photo_cleanup_failed'[] = [];
     const previousPhotoKey = previous?.storageKey ?? null;
     if (previousPhotoKey !== null) {
       try {
         await this.photoStorage.delete(previousPhotoKey);
       } catch {
-        throw new PhotoCleanupError(
-          previousPhotoKey,
-          'Photo replacement was applied but the previous file could not be removed',
-        );
+        warnings.push('old_photo_cleanup_failed');
       }
     }
 
@@ -84,7 +141,10 @@ export class DefaultCatalogService implements CatalogService {
       throw new CatalogNotFoundError('Catalog reference was not found');
     }
 
-    return updated;
+    return {
+      reference: updated,
+      warnings,
+    };
   }
 
   async deactivateReference(referenceId: string): Promise<CatalogReference> {

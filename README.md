@@ -2,7 +2,7 @@
 
 Base técnica local para la automatización de ventas de calzado por WhatsApp.
 
-WhatsApp, Chatwoot y 99envíos todavía no están conectados. No existe interfaz administrativa de catálogo todavía.
+WhatsApp, Chatwoot y 99envíos todavía no están conectados. El panel React de operaciones ya cubre autenticación, catálogo e inventario básicos.
 
 ## Requisitos
 
@@ -31,6 +31,45 @@ Para verificar el lockfile:
 ```powershell
 pnpm install --frozen-lockfile
 ```
+
+Navegadores de Playwright (una vez, desde el monorepo):
+
+```powershell
+pnpm --filter @camila/admin exec playwright install chromium
+```
+
+## Panel de administración
+
+El panel vive en `apps/admin` y habla con la API bajo `/api/admin` (Vite proxy en desarrollo).
+
+### Crear o restablecer usuario admin
+
+Con PostgreSQL de desarrollo en marcha y migraciones aplicadas:
+
+```powershell
+pnpm admin:create -- --username=tu_usuario
+pnpm admin:reset-password -- --username=tu_usuario
+```
+
+Los comandos piden la contraseña de forma interactiva. No se documentan contraseñas reales aquí.
+
+### Flujos del panel
+
+- Inicio de sesión con cookie HttpOnly (`credentials: include`)
+- Catálogo con búsqueda, filtro de estado y paginación «Ver más»
+- Alta de referencia (el código puede conservar ceros iniciales, p. ej. `01`)
+- Detalle: editar modelo/color/precio, activar/desactivar con confirmación
+- Foto JPEG/PNG hasta 5 MiB
+- Ajuste de stock por talla con nota e historial de movimientos
+
+### URLs locales
+
+| Servicio              | URL                   |
+| --------------------- | --------------------- |
+| API                   | http://127.0.0.1:3000 |
+| Panel                 | http://127.0.0.1:5173 |
+| PostgreSQL desarrollo | 127.0.0.1:5432        |
+| PostgreSQL pruebas    | 127.0.0.1:5433        |
 
 ## Catálogo interno
 
@@ -89,15 +128,6 @@ O ambos en paralelo:
 pnpm dev
 ```
 
-### URLs locales
-
-| Servicio              | URL                   |
-| --------------------- | --------------------- |
-| API                   | http://127.0.0.1:3000 |
-| Panel                 | http://127.0.0.1:5173 |
-| PostgreSQL desarrollo | 127.0.0.1:5432        |
-| PostgreSQL pruebas    | 127.0.0.1:5433        |
-
 ## Validaciones
 
 ```powershell
@@ -105,11 +135,13 @@ pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test:unit
+pnpm test:integration
+pnpm test:e2e
 pnpm build
 pnpm verify
 ```
 
-`pnpm verify` ejecuta formato, lint, tipos, pruebas unitarias y build. No incluye la integración con PostgreSQL.
+`pnpm verify` ejecuta formato, lint, tipos, unitarias, integración, E2E y build. Integración y E2E requieren `postgres-test` y `TEST_DATABASE_URL`.
 
 ## Pruebas de integración
 
@@ -129,6 +161,18 @@ pnpm test:integration
 ```
 
 Si `TEST_DATABASE_URL` no está definida, el comando falla con una explicación clara.
+
+## Pruebas E2E del panel
+
+Las E2E usan Playwright (Chromium), `postgres-test`, migraciones, un usuario de prueba creado por `AuthService` vía CLI de seed, `MEDIA_ROOT` temporal, API y Vite.
+
+```powershell
+docker compose --profile test up -d postgres-test
+$env:TEST_DATABASE_URL='postgresql://camila_test:camila_test@127.0.0.1:5433/camila_test'
+pnpm test:e2e
+```
+
+`apps/admin/playwright.config.ts` arranca API + Vite (`webServer`) tras `globalSetup`. El usuario E2E se crea en cada corrida; no uses esas credenciales fuera de pruebas locales.
 
 Detener PostgreSQL de pruebas:
 

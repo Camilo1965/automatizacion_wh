@@ -15,7 +15,6 @@ import {
   CatalogConflictError,
   CatalogNotFoundError,
   CatalogValidationError,
-  PhotoCleanupError,
 } from '../src/modules/catalog/catalog-errors.js';
 import { DefaultCatalogService } from '../src/modules/catalog/catalog-service.js';
 import { LocalPhotoStorage } from '../src/modules/catalog/local-photo-storage.js';
@@ -433,11 +432,13 @@ describe('catalog repository and service integration', () => {
     });
 
     const first = await service.replacePhoto(reference.id, PNG_BYTES);
-    expect(first.photo?.storageKey).toBeTruthy();
+    expect(first.reference.photo?.storageKey).toBeTruthy();
 
     const second = await service.replacePhoto(reference.id, PNG_BYTES);
-    expect(second.photo?.storageKey).not.toBe(first.photo?.storageKey);
-    expect(second.photo?.sha256).toBe(
+    expect(second.reference.photo?.storageKey).not.toBe(
+      first.reference.photo?.storageKey,
+    );
+    expect(second.reference.photo?.sha256).toBe(
       createHash('sha256').update(PNG_BYTES).digest('hex'),
     );
 
@@ -451,7 +452,7 @@ describe('catalog repository and service integration', () => {
           return photoStorage.read(storageKey);
         }
         async delete(storageKey: string): Promise<void> {
-          if (storageKey === second.photo?.storageKey) {
+          if (storageKey === second.reference.photo?.storageKey) {
             throw new Error('cannot delete previous');
           }
           await photoStorage.delete(storageKey);
@@ -459,13 +460,18 @@ describe('catalog repository and service integration', () => {
       })(),
     );
 
-    await expect(
-      cleanupService.replacePhoto(reference.id, PNG_BYTES),
-    ).rejects.toBeInstanceOf(PhotoCleanupError);
+    const cleanupResult = await cleanupService.replacePhoto(
+      reference.id,
+      PNG_BYTES,
+    );
+    expect(cleanupResult.warnings).toEqual(['old_photo_cleanup_failed']);
+    expect(cleanupResult.reference.photo?.storageKey).not.toBe(
+      second.reference.photo?.storageKey,
+    );
 
     const afterCleanupError = await repository.findReferenceById(reference.id);
-    expect(afterCleanupError?.photo?.storageKey).not.toBe(
-      second.photo?.storageKey,
+    expect(afterCleanupError?.photo?.storageKey).toBe(
+      cleanupResult.reference.photo?.storageKey,
     );
 
     class FailingDbRepository extends PostgresCatalogRepository {

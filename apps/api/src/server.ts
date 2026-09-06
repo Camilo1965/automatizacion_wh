@@ -1,11 +1,31 @@
 import { loadConfig } from './config.js';
 import { buildApp } from './app.js';
 import { createPostgresDatabase } from './database/client.js';
+import { AuthService } from './modules/auth/auth-service.js';
+import { PostgresAdminAuthRepository } from './modules/auth/postgres-admin-auth-repository.js';
+import { DefaultCatalogService } from './modules/catalog/catalog-service.js';
+import { LocalPhotoStorage } from './modules/catalog/local-photo-storage.js';
+import { PostgresCatalogRepository } from './modules/catalog/postgres-catalog-repository.js';
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
   const database = createPostgresDatabase(config.databaseUrl);
-  const app = await buildApp({ config, database });
+  const authRepository = new PostgresAdminAuthRepository(database);
+  const authService = new AuthService(authRepository);
+  const catalogRepository = new PostgresCatalogRepository(database);
+  const photoStorage = new LocalPhotoStorage(config.mediaRoot);
+  const catalogService = new DefaultCatalogService(
+    catalogRepository,
+    photoStorage,
+  );
+
+  const app = await buildApp({
+    config,
+    database,
+    authService,
+    catalogService,
+    photoStorage,
+  });
 
   const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
     app.log.info({ signal }, 'shutting down');

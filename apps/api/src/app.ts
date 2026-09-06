@@ -1,20 +1,64 @@
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
-import Fastify, { type FastifyInstance, type FastifyError } from 'fastify';
+import multipart from '@fastify/multipart';
+import rateLimit from '@fastify/rate-limit';
+import Fastify, {
+  type FastifyError,
+  type FastifyInstance,
+  type FastifyReply,
+  type FastifyRequest,
+} from 'fastify';
 
 import type { AppConfig } from './config.js';
-import type { DatabaseHealth } from './contracts/database-health.js';
+import type { PostgresDatabase } from './database/client.js';
+import { mapDomainError, sendApiError } from './http/map-domain-error.js';
+import type { AuthService } from './modules/auth/auth-service.js';
+import type { CatalogService } from './modules/catalog/catalog-service.js';
+import type { PhotoStorage } from './modules/catalog/photo-storage.js';
+import { adminRoutes } from './routes/admin/index.js';
 import { healthRoutes } from './routes/health.js';
 
 export type AppDependencies = Readonly<{
   config: AppConfig;
-  database: DatabaseHealth;
+  database: PostgresDatabase;
+  authService: AuthService;
+  catalogService: CatalogService;
+  photoStorage: PhotoStorage;
 }>;
 
 declare module 'fastify' {
   interface FastifyInstance {
-    database: DatabaseHealth;
+    database: PostgresDatabase;
   }
+}
+
+function requireAdminOrigin(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  adminOrigin: string,
+): FastifyReply | undefined {
+  const method = request.method.toUpperCase();
+  if (
+    method === 'GET' ||
+    method === 'HEAD' ||
+    method === 'OPTIONS' ||
+    !request.url.startsWith('/api/admin')
+  ) {
+    return undefined;
+  }
+
+  const origin = request.headers.origin;
+  if (origin !== adminOrigin) {
+    return sendApiError(
+      reply,
+      403,
+      'invalid_origin',
+      'Origin header is required and must match the admin origin',
+    );
+  }
+
+  return undefined;
 }
 
 export async function buildApp(
@@ -29,6 +73,10 @@ export async function buildApp(
           'req.headers.authorization',
           'req.headers.cookie',
           'res.headers["set-cookie"]',
+          'req.body.password',
+          'req.body.passwordConfirmation',
+          'body.password',
+          'body.passwordConfirmation',
         ],
         remove: true,
       },
@@ -38,30 +86,46 @@ export async function buildApp(
   app.decorate('database', dependencies.database);
 
   await app.register(helmet);
+  await app.register(cookie);
   await app.register(cors, {
     origin(origin, callback) {
       callback(null, origin === dependencies.config.adminOrigin);
     },
+    credentials: true,
+  });
+  await app.register(multipart, {
+    limits: {
+      files: 1,
+      fileSize: 5 * 1024 * 1024,
+      fields: 0,
+    },
+  });
+  await app.register(rateLimit, {
+    global: false,
+  });
+
+  app.addHook('preHandler', async (request, reply) => {
+    const rejected = requireAdminOrigin(
+      request,
+      reply,
+      dependencies.config.adminOrigin,
+    );
+    if (rejected !== undefined) {
+      return rejected;
+    }
+  });
+
+  app.setErrorHandler((error: FastifyError, request, reply) => {
+    return mapDomainError(error, request, reply);
   });
 
   await app.register(healthRoutes);
-
-  app.setErrorHandler((error: FastifyError, _request, reply) => {
-    const statusCode = error.statusCode ?? 500;
-    if (statusCode >= 500) {
-      app.log.error({ err: error }, 'request failed');
-      return reply.status(statusCode).send({
-        statusCode,
-        error: 'Internal Server Error',
-        message: 'An unexpected error occurred',
-      });
-    }
-
-    return reply.status(statusCode).send({
-      statusCode,
-      error: error.name,
-      message: error.message,
-    });
+  await app.register(adminRoutes, {
+    prefix: '/api/admin',
+    config: dependencies.config,
+    authService: dependencies.authService,
+    catalogService: dependencies.catalogService,
+    photoStorage: dependencies.photoStorage,
   });
 
   let databaseClosed = false;

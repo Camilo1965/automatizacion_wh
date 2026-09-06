@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { buildApp } from '../src/app.js';
 import type { AppConfig } from '../src/config.js';
-import type { DatabaseHealth } from '../src/contracts/database-health.js';
+import type { PostgresDatabase } from '../src/database/client.js';
+import type { AuthService } from '../src/modules/auth/auth-service.js';
+import type { CatalogService } from '../src/modules/catalog/catalog-service.js';
+import type { PhotoStorage } from '../src/modules/catalog/photo-storage.js';
 
 const config: AppConfig = {
   nodeEnv: 'test',
@@ -15,19 +18,62 @@ const config: AppConfig = {
 };
 
 function createDatabaseMock(
-  overrides: Partial<DatabaseHealth> = {},
-): DatabaseHealth {
+  overrides: Partial<PostgresDatabase> = {},
+): PostgresDatabase {
   return {
     ping: vi.fn(async () => undefined),
     close: vi.fn(async () => undefined),
+    orm: {} as PostgresDatabase['orm'],
     ...overrides,
   };
 }
 
+function createAuthServiceMock(): AuthService {
+  return {
+    createUser: vi.fn(),
+    resetPassword: vi.fn(),
+    login: vi.fn(),
+    logout: vi.fn(),
+    getSession: vi.fn(),
+  } as unknown as AuthService;
+}
+
+function createCatalogServiceMock(): CatalogService {
+  return {
+    createReference: vi.fn(),
+    getAdminReference: vi.fn(),
+    listAdminReferences: vi.fn(),
+    updateReference: vi.fn(),
+    activateReference: vi.fn(),
+    setPhysicalStock: vi.fn(),
+    listAdminMovements: vi.fn(),
+    replacePhoto: vi.fn(),
+    deactivateReference: vi.fn(),
+    listAvailableForConfirmedSize: vi.fn(),
+  } as unknown as CatalogService;
+}
+
+function createPhotoStorageMock(): PhotoStorage {
+  return {
+    save: vi.fn(),
+    read: vi.fn(),
+    delete: vi.fn(),
+  };
+}
+
+async function buildTestApp(databaseOverrides: Partial<PostgresDatabase> = {}) {
+  return buildApp({
+    config,
+    database: createDatabaseMock(databaseOverrides),
+    authService: createAuthServiceMock(),
+    catalogService: createCatalogServiceMock(),
+    photoStorage: createPhotoStorageMock(),
+  });
+}
+
 describe('health endpoints', () => {
   it('responds 200 for liveness', async () => {
-    const database = createDatabaseMock();
-    const app = await buildApp({ config, database });
+    const app = await buildTestApp();
 
     const response = await app.inject({
       method: 'GET',
@@ -42,7 +88,13 @@ describe('health endpoints', () => {
 
   it('does not invoke database.ping for liveness', async () => {
     const database = createDatabaseMock();
-    const app = await buildApp({ config, database });
+    const app = await buildApp({
+      config,
+      database,
+      authService: createAuthServiceMock(),
+      catalogService: createCatalogServiceMock(),
+      photoStorage: createPhotoStorageMock(),
+    });
 
     await app.inject({
       method: 'GET',
@@ -56,7 +108,13 @@ describe('health endpoints', () => {
 
   it('responds 200 for readiness when ping succeeds', async () => {
     const database = createDatabaseMock();
-    const app = await buildApp({ config, database });
+    const app = await buildApp({
+      config,
+      database,
+      authService: createAuthServiceMock(),
+      catalogService: createCatalogServiceMock(),
+      photoStorage: createPhotoStorageMock(),
+    });
 
     const response = await app.inject({
       method: 'GET',
@@ -81,7 +139,13 @@ describe('health endpoints', () => {
         throw new Error('simulated-db-failure-token');
       }),
     });
-    const app = await buildApp({ config, database });
+    const app = await buildApp({
+      config,
+      database,
+      authService: createAuthServiceMock(),
+      catalogService: createCatalogServiceMock(),
+      photoStorage: createPhotoStorageMock(),
+    });
 
     const response = await app.inject({
       method: 'GET',
@@ -106,7 +170,13 @@ describe('health endpoints', () => {
         throw new Error(failureText);
       }),
     });
-    const app = await buildApp({ config, database });
+    const app = await buildApp({
+      config,
+      database,
+      authService: createAuthServiceMock(),
+      catalogService: createCatalogServiceMock(),
+      photoStorage: createPhotoStorageMock(),
+    });
 
     const response = await app.inject({
       method: 'GET',
@@ -120,8 +190,7 @@ describe('health endpoints', () => {
   });
 
   it('includes CORS header for the allowed admin origin', async () => {
-    const database = createDatabaseMock();
-    const app = await buildApp({ config, database });
+    const app = await buildTestApp();
 
     const response = await app.inject({
       method: 'GET',
@@ -134,13 +203,13 @@ describe('health endpoints', () => {
     expect(response.headers['access-control-allow-origin']).toBe(
       config.adminOrigin,
     );
+    expect(response.headers['access-control-allow-credentials']).toBe('true');
 
     await app.close();
   });
 
   it('does not include CORS allow-origin for a different origin', async () => {
-    const database = createDatabaseMock();
-    const app = await buildApp({ config, database });
+    const app = await buildTestApp();
 
     const response = await app.inject({
       method: 'GET',
@@ -156,8 +225,7 @@ describe('health endpoints', () => {
   });
 
   it('includes security headers from Helmet', async () => {
-    const database = createDatabaseMock();
-    const app = await buildApp({ config, database });
+    const app = await buildTestApp();
 
     const response = await app.inject({
       method: 'GET',
@@ -172,7 +240,13 @@ describe('health endpoints', () => {
 
   it('closes the database exactly once when Fastify closes', async () => {
     const database = createDatabaseMock();
-    const app = await buildApp({ config, database });
+    const app = await buildApp({
+      config,
+      database,
+      authService: createAuthServiceMock(),
+      catalogService: createCatalogServiceMock(),
+      photoStorage: createPhotoStorageMock(),
+    });
 
     await app.close();
     await app.close();

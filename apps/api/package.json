@@ -9,11 +9,18 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx --env-file=../../.env src/database/migrate.ts"
+    "db:migrate": "tsx --env-file=../../.env src/database/migrate.ts",
+    "admin:create": "tsx --env-file=../../.env src/cli/admin-create.ts",
+    "admin:reset-password": "tsx --env-file=../../.env src/cli/admin-reset-password.ts"
   },
   "dependencies": {
+    "@camila/contracts": "workspace:*",
+    "@fastify/cookie": "11.0.2",
     "@fastify/cors": "11.3.0",
     "@fastify/helmet": "13.1.1",
+    "@fastify/multipart": "9.3.0",
+    "@fastify/rate-limit": "10.3.0",
+    "@inquirer/password": "4.0.23",
     "drizzle-orm": "0.45.2",
     "fastify": "5.12.3",
     "file-type": "22.0.2",

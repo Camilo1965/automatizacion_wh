@@ -1,0 +1,398 @@
+import { http, HttpResponse } from 'msw';
+
+import {
+  adminUser,
+  movementFixture,
+  referenceDetail,
+  referenceSummary,
+} from './fixtures';
+
+const base = '/api/admin';
+
+type SessionState = {
+  authenticated: boolean;
+  references: (typeof referenceDetail)[];
+  movements: (typeof movementFixture)[];
+  forceUnauthorized: boolean;
+  forceServerError: boolean;
+};
+
+export const state: SessionState = {
+  authenticated: false,
+  references: [],
+  movements: [],
+  forceUnauthorized: false,
+  forceServerError: false,
+};
+
+export function resetState(): void {
+  state.authenticated = false;
+  state.references = [];
+  state.movements = [];
+  state.forceUnauthorized = false;
+  state.forceServerError = false;
+}
+
+function unauthorized() {
+  return HttpResponse.json(
+    {
+      error: {
+        code: 'authentication_required',
+        message: 'Authentication required',
+      },
+    },
+    { status: 401 },
+  );
+}
+
+function requireAuth() {
+  if (state.forceUnauthorized || !state.authenticated) {
+    return unauthorized();
+  }
+  if (state.forceServerError) {
+    return HttpResponse.json(
+      {
+        error: {
+          code: 'internal_error',
+          message: 'An unexpected error occurred',
+        },
+      },
+      { status: 500 },
+    );
+  }
+  return null;
+}
+
+export const handlers = [
+  http.post(`${base}/auth/login`, async ({ request }) => {
+    const body = (await request.json()) as {
+      username?: string;
+      password?: string;
+    };
+    if (body.username === 'camila' && body.password === 'password1234') {
+      state.authenticated = true;
+      return HttpResponse.json({ data: { user: adminUser } });
+    }
+    return HttpResponse.json(
+      {
+        error: {
+          code: 'invalid_credentials',
+          message: 'Credenciales inválidas',
+        },
+      },
+      { status: 401 },
+    );
+  }),
+
+  http.get(`${base}/auth/session`, () => {
+    if (!state.authenticated || state.forceUnauthorized) {
+      return unauthorized();
+    }
+    return HttpResponse.json({ data: { user: adminUser } });
+  }),
+
+  http.post(`${base}/auth/logout`, () => {
+    state.authenticated = false;
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get(`${base}/references`, ({ request }) => {
+    const authError = requireAuth();
+    if (authError) {
+      return authError;
+    }
+
+    const url = new URL(request.url);
+    const query = url.searchParams.get('query')?.toLowerCase() ?? '';
+    const status = url.searchParams.get('status') ?? 'active';
+    const afterCode = url.searchParams.get('afterCode');
+    const limit = Number.parseInt(url.searchParams.get('limit') ?? '25', 10);
+
+    let items = state.references.map((item) => ({
+      id: item.id,
+      code: item.code,
+      modelName: item.modelName,
+      color: item.color,
+      priceCop: item.priceCop,
+      active: item.active,
+      photo: item.photo,
+      availableSizes: item.stock
+        .filter((stock) => stock.availableQuantity > 0)
+        .map((stock) => stock.size),
+      updatedAt: item.updatedAt,
+    }));
+
+    if (status === 'active') {
+      items = items.filter((item) => item.active);
+    } else if (status === 'inactive') {
+      items = items.filter((item) => !item.active);
+    }
+
+    if (query !== '') {
+      items = items.filter(
+        (item) =>
+          item.code.toLowerCase().includes(query) ||
+          item.modelName.toLowerCase().includes(query) ||
+          item.color.toLowerCase().includes(query),
+      );
+    }
+
+    items.sort((a, b) => a.code.localeCompare(b.code));
+
+    if (afterCode !== null && afterCode !== '') {
+      items = items.filter((item) => item.code > afterCode);
+    }
+
+    const page = items.slice(0, limit);
+    const nextAfterCode =
+      items.length > limit ? (page.at(-1)?.code ?? null) : null;
+
+    return HttpResponse.json({
+      data: { items: page, nextAfterCode },
+    });
+  }),
+
+  http.post(`${base}/references`, async ({ request }) => {
+    const authError = requireAuth();
+    if (authError) {
+      return authError;
+    }
+
+    const body = (await request.json()) as {
+      code: string;
+      modelName: string;
+      color: string;
+      priceCop: number;
+    };
+
+    if (body.modelName.trim() === '') {
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'validation_error',
+            message: 'Invalid model name',
+            field: 'modelName',
+          },
+        },
+        { status: 400 },
+      );
+    }
+
+    const created = {
+      ...referenceDetail,
+      id: crypto.randomUUID(),
+      code: body.code.trim().toUpperCase(),
+      modelName: body.modelName.trim(),
+      color: body.color.trim(),
+      priceCop: body.priceCop,
+      active: true,
+      photo: null,
+      stock: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    state.references.push(created);
+    return HttpResponse.json({ data: created }, { status: 201 });
+  }),
+
+  http.get(`${base}/references/:referenceId`, ({ params }) => {
+    const authError = requireAuth();
+    if (authError) {
+      return authError;
+    }
+    const found = state.references.find(
+      (item) => item.id === params.referenceId,
+    );
+    if (found === undefined) {
+      return HttpResponse.json(
+        {
+          error: { code: 'not_found', message: 'Reference was not found' },
+        },
+        { status: 404 },
+      );
+    }
+    return HttpResponse.json({ data: found });
+  }),
+
+  http.patch(`${base}/references/:referenceId`, async ({ params, request }) => {
+    const authError = requireAuth();
+    if (authError) {
+      return authError;
+    }
+    const found = state.references.find(
+      (item) => item.id === params.referenceId,
+    );
+    if (found === undefined) {
+      return HttpResponse.json(
+        {
+          error: { code: 'not_found', message: 'Reference was not found' },
+        },
+        { status: 404 },
+      );
+    }
+    const body = (await request.json()) as {
+      modelName?: string;
+      color?: string;
+      priceCop?: number;
+    };
+    if (body.modelName !== undefined) {
+      found.modelName = body.modelName.trim();
+    }
+    if (body.color !== undefined) {
+      found.color = body.color.trim();
+    }
+    if (body.priceCop !== undefined) {
+      found.priceCop = body.priceCop;
+    }
+    found.updatedAt = new Date().toISOString();
+    return HttpResponse.json({ data: found });
+  }),
+
+  http.post(`${base}/references/:referenceId/activate`, ({ params }) => {
+    const authError = requireAuth();
+    if (authError) {
+      return authError;
+    }
+    const found = state.references.find(
+      (item) => item.id === params.referenceId,
+    );
+    if (found === undefined) {
+      return HttpResponse.json(
+        {
+          error: { code: 'not_found', message: 'Reference was not found' },
+        },
+        { status: 404 },
+      );
+    }
+    found.active = true;
+    found.updatedAt = new Date().toISOString();
+    return HttpResponse.json({ data: found });
+  }),
+
+  http.post(`${base}/references/:referenceId/deactivate`, ({ params }) => {
+    const authError = requireAuth();
+    if (authError) {
+      return authError;
+    }
+    const found = state.references.find(
+      (item) => item.id === params.referenceId,
+    );
+    if (found === undefined) {
+      return HttpResponse.json(
+        {
+          error: { code: 'not_found', message: 'Reference was not found' },
+        },
+        { status: 404 },
+      );
+    }
+    found.active = false;
+    found.updatedAt = new Date().toISOString();
+    return HttpResponse.json({ data: found });
+  }),
+
+  http.put(`${base}/references/:referenceId/photo`, async ({ params }) => {
+    const authError = requireAuth();
+    if (authError) {
+      return authError;
+    }
+    const found = state.references.find(
+      (item) => item.id === params.referenceId,
+    );
+    if (found === undefined) {
+      return HttpResponse.json(
+        {
+          error: { code: 'not_found', message: 'Reference was not found' },
+        },
+        { status: 404 },
+      );
+    }
+    found.photo = {
+      url: `/api/admin/references/${found.id}/photo`,
+      mimeType: 'image/png',
+      byteSize: 68,
+      etag: '"abc"',
+    };
+    found.updatedAt = new Date().toISOString();
+    return HttpResponse.json({ data: found });
+  }),
+
+  http.put(
+    `${base}/references/:referenceId/stock/:size`,
+    async ({ params, request }) => {
+      const authError = requireAuth();
+      if (authError) {
+        return authError;
+      }
+      const found = state.references.find(
+        (item) => item.id === params.referenceId,
+      );
+      if (found === undefined) {
+        return HttpResponse.json(
+          {
+            error: { code: 'not_found', message: 'Reference was not found' },
+          },
+          { status: 404 },
+        );
+      }
+      const body = (await request.json()) as {
+        physicalQuantity: number;
+        note: string;
+      };
+      const size = String(params.size);
+      const existing = found.stock.find((item) => item.size === size);
+      const previous = existing?.physicalQuantity ?? 0;
+      const updated = {
+        size,
+        physicalQuantity: body.physicalQuantity,
+        reservedQuantity: existing?.reservedQuantity ?? 0,
+        availableQuantity:
+          body.physicalQuantity - (existing?.reservedQuantity ?? 0),
+        updatedAt: new Date().toISOString(),
+      };
+      if (existing === undefined) {
+        found.stock.push(updated);
+      } else {
+        Object.assign(existing, updated);
+      }
+      state.movements.unshift({
+        ...movementFixture,
+        id: crypto.randomUUID(),
+        size,
+        previousQuantity: previous,
+        newQuantity: body.physicalQuantity,
+        delta: body.physicalQuantity - previous,
+        note: body.note,
+        createdAt: new Date().toISOString(),
+      });
+      return HttpResponse.json({
+        data: { referenceId: found.id, ...updated },
+      });
+    },
+  ),
+
+  http.get(`${base}/references/:referenceId/movements`, ({ params }) => {
+    const authError = requireAuth();
+    if (authError) {
+      return authError;
+    }
+    const items = state.movements.filter(
+      () => params.referenceId !== undefined,
+    );
+    return HttpResponse.json({
+      data: { items, nextCursor: null },
+    });
+  }),
+];
+
+export function seedDefaultCatalog(): void {
+  state.authenticated = true;
+  state.references = [
+    {
+      ...referenceDetail,
+      stock: [...referenceDetail.stock],
+    },
+  ];
+  state.movements = [];
+}
+
+export { referenceSummary };

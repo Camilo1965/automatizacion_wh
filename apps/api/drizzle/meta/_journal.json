@@ -8,6 +8,13 @@
       "when": 1788666104788,
       "tag": "0000_catalog_core",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788710252405,
+      "tag": "0001_admin_auth",
+      "breakpoints": true
     }
   ]
 }

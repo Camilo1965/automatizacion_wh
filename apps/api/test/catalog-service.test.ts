@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  CatalogNotFoundError,
-  PhotoCleanupError,
-} from '../src/modules/catalog/catalog-errors.js';
+import { CatalogNotFoundError } from '../src/modules/catalog/catalog-errors.js';
 import { DefaultCatalogService } from '../src/modules/catalog/catalog-service.js';
 import type { CatalogRepository } from '../src/modules/catalog/catalog-repository.js';
 import type { CatalogReference } from '../src/modules/catalog/catalog-types.js';
@@ -30,10 +27,15 @@ function createRepository(
   return {
     createReference: vi.fn(),
     findReferenceById: vi.fn(async () => reference),
+    updateReference: vi.fn(),
+    activateReference: vi.fn(),
     deactivateReference: vi.fn(),
     replacePhotoMetadata: vi.fn(async () => null),
     setPhysicalStock: vi.fn(),
+    listStockForReference: vi.fn(async () => []),
+    listAdminReferences: vi.fn(async () => []),
     listInventoryMovements: vi.fn(async () => []),
+    listAdminMovements: vi.fn(async () => ({ items: [], nextCursor: null })),
     listAvailableForConfirmedSize: vi.fn(async () => []),
     ...overrides,
   };
@@ -117,7 +119,7 @@ describe('DefaultCatalogService', () => {
     );
   });
 
-  it('keeps the new photo when deleting the previous file fails', async () => {
+  it('keeps the new photo and returns a cleanup warning when previous delete fails', async () => {
     const previousKey = '33333333-3333-4333-8333-333333333333.png';
     const photoStorage = createPhotoStorage({
       delete: vi.fn(async (storageKey: string) => {
@@ -146,10 +148,13 @@ describe('DefaultCatalogService', () => {
 
     const service = new DefaultCatalogService(repository, photoStorage);
 
-    await expect(
-      service.replacePhoto(reference.id, new Uint8Array([1])),
-    ).rejects.toBeInstanceOf(PhotoCleanupError);
+    const result = await service.replacePhoto(
+      reference.id,
+      new Uint8Array([1]),
+    );
 
+    expect(result.reference.id).toBe(reference.id);
+    expect(result.warnings).toEqual(['old_photo_cleanup_failed']);
     expect(repository.replacePhotoMetadata).toHaveBeenCalled();
   });
 

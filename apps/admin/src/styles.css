@@ -6,6 +6,8 @@
   --panel: #fffdf8;
   --line: #d7cec0;
   --accent: #0f5c4c;
+  --danger: #8a1f1f;
+  --focus: #0b6e4f;
   font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -24,8 +26,12 @@ body {
   min-height: 100vh;
 }
 
+a {
+  color: var(--accent);
+}
+
 .app-shell {
-  width: min(100% - 2rem, 42rem);
+  width: min(100% - 2rem, 48rem);
   margin: 0 auto;
   padding: 2rem 0 3rem;
 }
@@ -34,15 +40,35 @@ body {
   margin-bottom: 1.5rem;
 }
 
+.app-header-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
 .environment-badge {
   display: inline-block;
-  margin: 0 0 0.75rem;
+  margin: 0;
   padding: 0.25rem 0.6rem;
   border: 1px solid var(--line);
   background: var(--panel);
   color: var(--muted);
   font-size: 0.875rem;
   letter-spacing: 0.02em;
+}
+
+.session-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.session-user {
+  color: var(--muted);
+  font-size: 0.95rem;
 }
 
 h1 {
@@ -52,36 +78,223 @@ h1 {
   letter-spacing: -0.02em;
 }
 
+h2,
+h3 {
+  margin: 0 0 0.75rem;
+}
+
 main {
   background: var(--panel);
   border: 1px solid var(--line);
   padding: 1.25rem 1.25rem 1.5rem;
 }
 
-.status-message {
-  margin: 0 0 1.25rem;
+.muted {
+  color: var(--muted);
+}
+
+.section-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.stack-form,
+.filters {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.filters {
+  grid-template-columns: 1fr;
+}
+
+label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+}
+
+textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.button-primary,
+.button-secondary,
+.button-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.button-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.button-secondary {
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.button-danger {
+  background: #fff;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.button-primary:disabled,
+.button-secondary:disabled,
+.button-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-message {
+  margin: 0.25rem 0;
+  color: var(--danger);
+}
+
+.loading-state {
+  margin: 0.5rem 0;
   color: var(--accent);
-  font-size: 1.125rem;
   font-weight: 600;
 }
 
-.upcoming h2 {
-  margin: 0 0 0.5rem;
-  font-size: 1rem;
+.reference-list,
+.movement-list,
+.stock-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
 }
 
-.upcoming p {
-  margin: 0;
-  color: var(--muted);
+.reference-list li {
+  border-top: 1px solid var(--line);
+}
+
+.reference-list a {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.85rem 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.reference-code {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.panel-block {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.photo-preview {
+  display: block;
+  width: min(100%, 16rem);
+  margin: 0.5rem 0 1rem;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.status-pill {
+  display: inline-block;
+  margin: 0 0 1rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--line);
+  background: #f7f3eb;
+}
+
+.status-actions {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(28 25 20 / 45%);
+}
+
+.dialog-panel {
+  width: min(100%, 24rem);
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+@media (min-width: 640px) {
+  .filters {
+    grid-template-columns: 1fr auto auto auto;
+    align-items: end;
+  }
 }
 
 @media (max-width: 480px) {
   .app-shell {
-    width: min(100% - 1.25rem, 42rem);
+    width: min(100% - 1.25rem, 48rem);
     padding-top: 1.25rem;
   }
 
   main {
     padding: 1rem;
+  }
+}
+
+@media (min-width: 360px) {
+  .app-shell {
+    min-width: 0;
   }
 }

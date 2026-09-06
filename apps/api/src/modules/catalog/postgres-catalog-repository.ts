@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, lt, or, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import {
@@ -13,13 +13,19 @@ import {
 } from './catalog-errors.js';
 import type { CatalogRepository } from './catalog-repository.js';
 import type {
+  AdminMovementsPage,
+  AdminReferenceListItem,
   AvailableCatalogItem,
   CatalogReference,
   CreateReferenceInput,
   InventoryMovement,
+  ListAdminMovementsInput,
+  ListAdminReferencesInput,
   PhotoMetadata,
   SetPhysicalStockInput,
+  StockAvailability,
   StockRecord,
+  UpdateReferenceInput,
 } from './catalog-types.js';
 import {
   normalizeReferenceCode,
@@ -74,6 +80,16 @@ function mapStock(row: StockRow): StockRecord {
   };
 }
 
+function mapStockAvailability(row: StockRow): StockAvailability {
+  return {
+    size: formatSize(row.size),
+    physicalQuantity: row.physicalQuantity,
+    reservedQuantity: row.reservedQuantity,
+    availableQuantity: row.physicalQuantity - row.reservedQuantity,
+    updatedAt: row.updatedAt,
+  };
+}
+
 function mapMovement(row: MovementRow): InventoryMovement {
   return {
     id: row.id,
@@ -103,6 +119,37 @@ function isUniqueViolation(error: unknown): boolean {
   return false;
 }
 
+function escapeLikePattern(value: string): string {
+  return value
+    .replaceAll('\\', '\\\\')
+    .replaceAll('%', '\\%')
+    .replaceAll('_', '\\_');
+}
+
+function validateModelName(value: string): string {
+  const modelName = value.trim();
+  if (modelName.length < 1 || modelName.length > 120) {
+    throw new CatalogValidationError(
+      'modelName',
+      'invalid_model_name',
+      'Model name is invalid',
+    );
+  }
+  return modelName;
+}
+
+function validateColor(value: string): string {
+  const color = value.trim();
+  if (color.length < 1 || color.length > 80) {
+    throw new CatalogValidationError(
+      'color',
+      'invalid_color',
+      'Color is invalid',
+    );
+  }
+  return color;
+}
+
 export class PostgresCatalogRepository implements CatalogRepository {
   constructor(private readonly database: PostgresDatabase) {}
 
@@ -111,24 +158,8 @@ export class PostgresCatalogRepository implements CatalogRepository {
   ): Promise<CatalogReference> {
     const code = normalizeReferenceCode(input.code);
     const priceCop = validatePriceCop(input.priceCop);
-    const modelName = input.modelName.trim();
-    const color = input.color.trim();
-
-    if (modelName.length < 1 || modelName.length > 120) {
-      throw new CatalogValidationError(
-        'modelName',
-        'invalid_model_name',
-        'Model name is invalid',
-      );
-    }
-
-    if (color.length < 1 || color.length > 80) {
-      throw new CatalogValidationError(
-        'color',
-        'invalid_color',
-        'Color is invalid',
-      );
-    }
+    const modelName = validateModelName(input.modelName);
+    const color = validateColor(input.color);
 
     try {
       const [row] = await this.database.orm
@@ -149,7 +180,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
     } catch (error) {
       if (isUniqueViolation(error)) {
         throw new CatalogConflictError(
-          'duplicate_code',
+          'reference_code_conflict',
           'A reference with this code already exists',
         );
       }
@@ -169,12 +200,92 @@ export class PostgresCatalogRepository implements CatalogRepository {
     return row === undefined ? null : mapReference(row);
   }
 
+  async updateReference(
+    input: UpdateReferenceInput,
+  ): Promise<CatalogReference> {
+    if (
+      input.modelName === undefined &&
+      input.color === undefined &&
+      input.priceCop === undefined
+    ) {
+      throw new CatalogValidationError(
+        'body',
+        'empty_patch',
+        'At least one field is required',
+      );
+    }
+
+    const values: {
+      modelName?: string;
+      color?: string;
+      priceCop?: number;
+      updatedAt: ReturnType<typeof sql>;
+    } = {
+      updatedAt: sql`clock_timestamp()`,
+    };
+
+    if (input.modelName !== undefined) {
+      values.modelName = validateModelName(input.modelName);
+    }
+    if (input.color !== undefined) {
+      values.color = validateColor(input.color);
+    }
+    if (input.priceCop !== undefined) {
+      values.priceCop = validatePriceCop(input.priceCop);
+    }
+
+    const [row] = await this.database.orm
+      .update(catalogReferences)
+      .set(values)
+      .where(eq(catalogReferences.id, input.referenceId))
+      .returning();
+
+    if (row === undefined) {
+      throw new CatalogNotFoundError('Catalog reference was not found');
+    }
+
+    return mapReference(row);
+  }
+
+  async activateReference(referenceId: string): Promise<CatalogReference> {
+    const existing = await this.findReferenceById(referenceId);
+    if (existing === null) {
+      throw new CatalogNotFoundError('Catalog reference was not found');
+    }
+    if (existing.active) {
+      return existing;
+    }
+
+    const [row] = await this.database.orm
+      .update(catalogReferences)
+      .set({
+        active: true,
+        updatedAt: sql`clock_timestamp()`,
+      })
+      .where(eq(catalogReferences.id, referenceId))
+      .returning();
+
+    if (row === undefined) {
+      throw new CatalogNotFoundError('Catalog reference was not found');
+    }
+
+    return mapReference(row);
+  }
+
   async deactivateReference(referenceId: string): Promise<CatalogReference> {
+    const existing = await this.findReferenceById(referenceId);
+    if (existing === null) {
+      throw new CatalogNotFoundError('Catalog reference was not found');
+    }
+    if (!existing.active) {
+      return existing;
+    }
+
     const [row] = await this.database.orm
       .update(catalogReferences)
       .set({
         active: false,
-        updatedAt: sql`now()`,
+        updatedAt: sql`clock_timestamp()`,
       })
       .where(eq(catalogReferences.id, referenceId))
       .returning();
@@ -204,7 +315,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
         photoMimeType: photo.mimeType,
         photoByteSize: photo.byteSize,
         photoSha256: photo.sha256,
-        updatedAt: sql`now()`,
+        updatedAt: sql`clock_timestamp()`,
       })
       .where(eq(catalogReferences.id, referenceId))
       .returning();
@@ -287,7 +398,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
         .update(catalogStock)
         .set({
           physicalQuantity,
-          updatedAt: sql`now()`,
+          updatedAt: sql`clock_timestamp()`,
         })
         .where(
           and(
@@ -316,6 +427,97 @@ export class PostgresCatalogRepository implements CatalogRepository {
     });
   }
 
+  async listStockForReference(
+    referenceId: string,
+  ): Promise<readonly StockAvailability[]> {
+    const reference = await this.findReferenceById(referenceId);
+    if (reference === null) {
+      throw new CatalogNotFoundError('Catalog reference was not found');
+    }
+
+    const rows = await this.database.orm
+      .select()
+      .from(catalogStock)
+      .where(eq(catalogStock.referenceId, referenceId))
+      .orderBy(asc(catalogStock.size));
+
+    return rows.map(mapStockAvailability);
+  }
+
+  async listAdminReferences(
+    input: ListAdminReferencesInput,
+  ): Promise<AdminReferenceListItem[]> {
+    const conditions = [];
+
+    if (input.status === 'active') {
+      conditions.push(eq(catalogReferences.active, true));
+    } else if (input.status === 'inactive') {
+      conditions.push(eq(catalogReferences.active, false));
+    }
+
+    if (input.afterCode !== undefined) {
+      conditions.push(gt(catalogReferences.code, input.afterCode));
+    }
+
+    if (input.query !== undefined && input.query.trim() !== '') {
+      const pattern = `%${escapeLikePattern(input.query.trim())}%`;
+      conditions.push(
+        sql`(
+          ${catalogReferences.code} ILIKE ${pattern} ESCAPE '\\'
+          OR ${catalogReferences.modelName} ILIKE ${pattern} ESCAPE '\\'
+          OR ${catalogReferences.color} ILIKE ${pattern} ESCAPE '\\'
+        )`,
+      );
+    }
+
+    const rows = await this.database.orm
+      .select()
+      .from(catalogReferences)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(catalogReferences.code), asc(catalogReferences.id))
+      .limit(input.limit);
+
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const referenceIds = rows.map((row) => row.id);
+    const stockRows = await this.database.orm
+      .select()
+      .from(catalogStock)
+      .where(inArray(catalogStock.referenceId, referenceIds));
+
+    const sizesByReference = new Map<string, string[]>();
+    for (const stock of stockRows) {
+      if (stock.physicalQuantity - stock.reservedQuantity <= 0) {
+        continue;
+      }
+      const sizes = sizesByReference.get(stock.referenceId) ?? [];
+      sizes.push(formatSize(stock.size));
+      sizesByReference.set(stock.referenceId, sizes);
+    }
+
+    for (const [referenceId, sizes] of sizesByReference) {
+      sizes.sort((a, b) => Number(a) - Number(b));
+      sizesByReference.set(referenceId, sizes);
+    }
+
+    return rows.map((row) => {
+      const mapped = mapReference(row);
+      return {
+        id: mapped.id,
+        code: mapped.code,
+        modelName: mapped.modelName,
+        color: mapped.color,
+        priceCop: mapped.priceCop,
+        active: mapped.active,
+        photo: mapped.photo,
+        availableSizes: sizesByReference.get(mapped.id) ?? [],
+        updatedAt: mapped.updatedAt,
+      };
+    });
+  }
+
   async listInventoryMovements(
     referenceId: string,
     size: string,
@@ -333,6 +535,50 @@ export class PostgresCatalogRepository implements CatalogRepository {
       .orderBy(asc(inventoryMovements.createdAt));
 
     return rows.map(mapMovement);
+  }
+
+  async listAdminMovements(
+    input: ListAdminMovementsInput,
+  ): Promise<AdminMovementsPage> {
+    const reference = await this.findReferenceById(input.referenceId);
+    if (reference === null) {
+      throw new CatalogNotFoundError('Catalog reference was not found');
+    }
+
+    const conditions = [eq(inventoryMovements.referenceId, input.referenceId)];
+
+    if (input.size !== undefined) {
+      conditions.push(eq(inventoryMovements.size, parseShoeSize(input.size)));
+    }
+
+    if (input.cursor !== undefined) {
+      conditions.push(
+        or(
+          lt(inventoryMovements.createdAt, input.cursor.createdAt),
+          and(
+            eq(inventoryMovements.createdAt, input.cursor.createdAt),
+            lt(inventoryMovements.id, input.cursor.id),
+          ),
+        )!,
+      );
+    }
+
+    const rows = await this.database.orm
+      .select()
+      .from(inventoryMovements)
+      .where(and(...conditions))
+      .orderBy(desc(inventoryMovements.createdAt), desc(inventoryMovements.id))
+      .limit(input.limit + 1);
+
+    const pageRows = rows.slice(0, input.limit);
+    const items = pageRows.map(mapMovement);
+    const last = pageRows.at(-1);
+    const nextCursor =
+      rows.length > input.limit && last !== undefined
+        ? { createdAt: last.createdAt, id: last.id }
+        : null;
+
+    return { items, nextCursor };
   }
 
   async listAvailableForConfirmedSize(input: {
