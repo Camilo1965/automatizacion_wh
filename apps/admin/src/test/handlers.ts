@@ -15,6 +15,8 @@ type SessionState = {
   movements: (typeof movementFixture)[];
   forceUnauthorized: boolean;
   forceServerError: boolean;
+  photoCleanupWarning: boolean;
+  movementsPageSize: number;
 };
 
 export const state: SessionState = {
@@ -23,6 +25,8 @@ export const state: SessionState = {
   movements: [],
   forceUnauthorized: false,
   forceServerError: false,
+  photoCleanupWarning: false,
+  movementsPageSize: 25,
 };
 
 export function resetState(): void {
@@ -31,6 +35,8 @@ export function resetState(): void {
   state.movements = [];
   state.forceUnauthorized = false;
   state.forceServerError = false;
+  state.photoCleanupWarning = false;
+  state.movementsPageSize = 25;
 }
 
 function unauthorized() {
@@ -61,6 +67,20 @@ function requireAuth() {
     );
   }
   return null;
+}
+
+function toReferencePublic(item: typeof referenceDetail) {
+  return {
+    id: item.id,
+    code: item.code,
+    modelName: item.modelName,
+    color: item.color,
+    priceCop: item.priceCop,
+    active: item.active,
+    photo: item.photo,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
 }
 
 export const handlers = [
@@ -192,7 +212,10 @@ export const handlers = [
       updatedAt: new Date().toISOString(),
     };
     state.references.push(created);
-    return HttpResponse.json({ data: created }, { status: 201 });
+    return HttpResponse.json(
+      { data: toReferencePublic(created) },
+      { status: 201 },
+    );
   }),
 
   http.get(`${base}/references/:referenceId`, ({ params }) => {
@@ -245,7 +268,7 @@ export const handlers = [
       found.priceCop = body.priceCop;
     }
     found.updatedAt = new Date().toISOString();
-    return HttpResponse.json({ data: found });
+    return HttpResponse.json({ data: toReferencePublic(found) });
   }),
 
   http.post(`${base}/references/:referenceId/activate`, ({ params }) => {
@@ -266,7 +289,7 @@ export const handlers = [
     }
     found.active = true;
     found.updatedAt = new Date().toISOString();
-    return HttpResponse.json({ data: found });
+    return HttpResponse.json({ data: toReferencePublic(found) });
   }),
 
   http.post(`${base}/references/:referenceId/deactivate`, ({ params }) => {
@@ -287,7 +310,7 @@ export const handlers = [
     }
     found.active = false;
     found.updatedAt = new Date().toISOString();
-    return HttpResponse.json({ data: found });
+    return HttpResponse.json({ data: toReferencePublic(found) });
   }),
 
   http.put(`${base}/references/:referenceId/photo`, async ({ params }) => {
@@ -313,7 +336,12 @@ export const handlers = [
       etag: '"abc"',
     };
     found.updatedAt = new Date().toISOString();
-    return HttpResponse.json({ data: found });
+    return HttpResponse.json({
+      data: toReferencePublic(found),
+      ...(state.photoCleanupWarning
+        ? { warnings: ['old_photo_cleanup_failed'] as const }
+        : {}),
+    });
   }),
 
   http.put(
@@ -370,18 +398,38 @@ export const handlers = [
     },
   ),
 
-  http.get(`${base}/references/:referenceId/movements`, ({ params }) => {
-    const authError = requireAuth();
-    if (authError) {
-      return authError;
-    }
-    const items = state.movements.filter(
-      () => params.referenceId !== undefined,
-    );
-    return HttpResponse.json({
-      data: { items, nextCursor: null },
-    });
-  }),
+  http.get(
+    `${base}/references/:referenceId/movements`,
+    ({ params, request }) => {
+      const authError = requireAuth();
+      if (authError) {
+        return authError;
+      }
+      const url = new URL(request.url);
+      const cursor = url.searchParams.get('cursor');
+      const limit = Number.parseInt(
+        url.searchParams.get('limit') ?? String(state.movementsPageSize),
+        10,
+      );
+
+      let items = state.movements.filter(
+        () => params.referenceId !== undefined,
+      );
+
+      if (cursor !== null && cursor !== '') {
+        const index = items.findIndex((item) => item.id === cursor);
+        items = index >= 0 ? items.slice(index + 1) : [];
+      }
+
+      const page = items.slice(0, limit);
+      const nextCursor =
+        items.length > limit ? (page.at(-1)?.id ?? null) : null;
+
+      return HttpResponse.json({
+        data: { items: page, nextCursor },
+      });
+    },
+  ),
 ];
 
 export function seedDefaultCatalog(): void {

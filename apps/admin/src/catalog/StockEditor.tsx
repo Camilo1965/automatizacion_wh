@@ -1,29 +1,54 @@
 import { useState, type FormEvent } from 'react';
 
-import { setStock } from '../api/catalog-api';
+import { setStock, type StockAvailability } from '../api/catalog-api';
 import { getErrorMessage, getFieldError } from '../api/client';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { parseIntegerDigits } from '../lib/parse-integer-digits';
+
+const MAX_QUANTITY = 2_000_000_000;
 
 type StockEditorProps = {
   referenceId: string;
+  stock: StockAvailability[];
   onSaved: () => void;
 };
 
-export function StockEditor({ referenceId, onSaved }: StockEditorProps) {
+export function StockEditor({ referenceId, stock, onSaved }: StockEditorProps) {
   const [size, setSize] = useState('37');
   const [quantity, setQuantity] = useState('0');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
   const [fieldError, setFieldError] = useState<string | undefined>();
   const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingQuantity, setPendingQuantity] = useState<number | null>(null);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+  const found = stock.find((item) => item.size === size);
+  const current = found ?? {
+    physicalQuantity: 0,
+    reservedQuantity: 0,
+    availableQuantity: 0,
+  };
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
     setFieldError(undefined);
-    const physicalQuantity = Number.parseInt(quantity, 10);
-    if (!Number.isInteger(physicalQuantity) || physicalQuantity < 0) {
+
+    const physicalQuantity = parseIntegerDigits(quantity, {
+      min: 0,
+      max: MAX_QUANTITY,
+    });
+    if (physicalQuantity === null) {
       setError('La cantidad debe ser un entero mayor o igual a 0');
+      setFieldError('physicalQuantity');
+      return;
+    }
+    if (physicalQuantity < current.reservedQuantity) {
+      setError(
+        `La cantidad física no puede ser inferior a la reservada (${current.reservedQuantity})`,
+      );
       setFieldError('physicalQuantity');
       return;
     }
@@ -33,17 +58,30 @@ export function StockEditor({ referenceId, onSaved }: StockEditorProps) {
       return;
     }
 
+    setPendingQuantity(physicalQuantity);
+    setConfirmOpen(true);
+  }
+
+  async function confirmSave() {
+    if (pendingQuantity === null) {
+      return;
+    }
     setSubmitting(true);
+    setError('');
+    setFieldError(undefined);
     try {
       await setStock(referenceId, size, {
-        physicalQuantity,
+        physicalQuantity: pendingQuantity,
         note: note.trim(),
       });
       setNote('');
+      setConfirmOpen(false);
+      setPendingQuantity(null);
       onSaved();
     } catch (err) {
       setError(getErrorMessage(err, 'No se pudo ajustar el stock'));
       setFieldError(getFieldError(err));
+      setConfirmOpen(false);
     } finally {
       setSubmitting(false);
     }
@@ -60,8 +98,14 @@ export function StockEditor({ referenceId, onSaved }: StockEditorProps) {
           value={size}
           onChange={(event) => setSize(event.target.value)}
           required
+          disabled={submitting}
           aria-invalid={fieldError === 'size'}
         />
+
+        <p className="stock-balance" role="status">
+          Físico: {current.physicalQuantity} · Reservado:{' '}
+          {current.reservedQuantity} · Disponible: {current.availableQuantity}
+        </p>
 
         <label htmlFor="physicalQuantity">Cantidad física</label>
         <input
@@ -71,6 +115,7 @@ export function StockEditor({ referenceId, onSaved }: StockEditorProps) {
           value={quantity}
           onChange={(event) => setQuantity(event.target.value)}
           required
+          disabled={submitting}
           aria-invalid={fieldError === 'physicalQuantity'}
         />
 
@@ -82,6 +127,7 @@ export function StockEditor({ referenceId, onSaved }: StockEditorProps) {
           onChange={(event) => setNote(event.target.value)}
           required
           minLength={3}
+          disabled={submitting}
           aria-invalid={fieldError === 'note'}
         />
 
@@ -91,6 +137,21 @@ export function StockEditor({ referenceId, onSaved }: StockEditorProps) {
           {submitting ? 'Guardando…' : 'Guardar stock'}
         </button>
       </form>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Confirmar ajuste de stock"
+        message={`Talla ${size}: cantidad anterior ${current.physicalQuantity} → nueva ${pendingQuantity ?? quantity}. Motivo: ${note.trim()}`}
+        confirmLabel="Confirmar"
+        onConfirm={() => {
+          void confirmSave();
+        }}
+        onCancel={() => {
+          setConfirmOpen(false);
+          setPendingQuantity(null);
+        }}
+        busy={submitting}
+      />
     </section>
   );
 }

@@ -1,54 +1,33 @@
-import type {
-  CreateReferenceBody,
-  PatchReferenceBody,
-  PhotoPublic,
-  SetStockBody,
+import {
+  ListMovementsResponseSchema,
+  ListReferencesResponseSchema,
+  PhotoUploadResponseSchema,
+  ReferenceDetailResponseSchema,
+  ReferencePublicResponseSchema,
+  StockResponseSchema,
+  type CreateReferenceBody,
+  type InventoryMovementPublic,
+  type ListMovementsResult,
+  type ListReferencesResult,
+  type PatchReferenceBody,
+  type PhotoUploadResponse,
+  type ReferenceDetail,
+  type ReferencePublic,
+  type ReferenceSummary,
+  type SetStockBody,
+  type StockAvailability,
 } from '@camila/contracts';
 
 import { apiRequest } from './client';
 
-export type ReferenceSummary = {
-  id: string;
-  code: string;
-  modelName: string;
-  color: string;
-  priceCop: number;
-  active: boolean;
-  photo: PhotoPublic | null;
-  availableSizes: string[];
-  updatedAt: string;
-};
-
-export type StockAvailability = {
-  size: string;
-  physicalQuantity: number;
-  reservedQuantity: number;
-  availableQuantity: number;
-  updatedAt: string;
-};
-
-export type ReferenceDetail = {
-  id: string;
-  code: string;
-  modelName: string;
-  color: string;
-  priceCop: number;
-  active: boolean;
-  photo: PhotoPublic | null;
-  createdAt: string;
-  updatedAt: string;
-  stock: StockAvailability[];
-};
-
-export type InventoryMovementPublic = {
-  id: string;
-  size: string;
-  previousQuantity: number;
-  newQuantity: number;
-  delta: number;
-  reason: string;
-  note: string | null;
-  createdAt: string;
+export type {
+  InventoryMovementPublic,
+  ListMovementsResult,
+  ListReferencesResult,
+  ReferenceDetail,
+  ReferencePublic,
+  ReferenceSummary,
+  StockAvailability,
 };
 
 export type ListReferencesParams = {
@@ -58,20 +37,10 @@ export type ListReferencesParams = {
   limit?: number;
 };
 
-export type ListReferencesResult = {
-  items: ReferenceSummary[];
-  nextAfterCode: string | null;
-};
-
 export type ListMovementsParams = {
   size?: string;
   cursor?: string;
   limit?: number;
-};
-
-export type ListMovementsResult = {
-  items: InventoryMovementPublic[];
-  nextCursor: string | null;
 };
 
 function toQuery(params: Record<string, string | number | undefined>): string {
@@ -94,82 +63,75 @@ export async function listReferences(
     afterCode: params.afterCode,
     limit: params.limit,
   });
-  const response = await apiRequest<{ data: ListReferencesResult }>(
-    `/references${query}`,
-  );
+  const response = await apiRequest(`/references${query}`, {
+    schema: ListReferencesResponseSchema,
+  });
   return response.data;
 }
 
 export async function createReference(
   body: CreateReferenceBody,
 ): Promise<ReferenceDetail> {
-  const response = await apiRequest<{ data: Omit<ReferenceDetail, 'stock'> }>(
-    '/references',
-    {
-      method: 'POST',
-      body,
-    },
-  );
+  const response = await apiRequest('/references', {
+    method: 'POST',
+    body,
+    schema: ReferencePublicResponseSchema,
+  });
   return { ...response.data, stock: [] };
 }
 
 export async function getReference(
   referenceId: string,
 ): Promise<ReferenceDetail> {
-  const response = await apiRequest<{ data: ReferenceDetail }>(
-    `/references/${referenceId}`,
-  );
+  const response = await apiRequest(`/references/${referenceId}`, {
+    schema: ReferenceDetailResponseSchema,
+  });
   return response.data;
 }
 
 export async function updateReference(
   referenceId: string,
   body: PatchReferenceBody,
-): Promise<Omit<ReferenceDetail, 'stock'>> {
-  const response = await apiRequest<{ data: Omit<ReferenceDetail, 'stock'> }>(
-    `/references/${referenceId}`,
-    {
-      method: 'PATCH',
-      body,
-    },
-  );
+): Promise<ReferencePublic> {
+  const response = await apiRequest(`/references/${referenceId}`, {
+    method: 'PATCH',
+    body,
+    schema: ReferencePublicResponseSchema,
+  });
   return response.data;
 }
 
 export async function activateReference(
   referenceId: string,
-): Promise<Omit<ReferenceDetail, 'stock'>> {
-  const response = await apiRequest<{ data: Omit<ReferenceDetail, 'stock'> }>(
-    `/references/${referenceId}/activate`,
-    { method: 'POST' },
-  );
+): Promise<ReferencePublic> {
+  const response = await apiRequest(`/references/${referenceId}/activate`, {
+    method: 'POST',
+    schema: ReferencePublicResponseSchema,
+  });
   return response.data;
 }
 
 export async function deactivateReference(
   referenceId: string,
-): Promise<Omit<ReferenceDetail, 'stock'>> {
-  const response = await apiRequest<{ data: Omit<ReferenceDetail, 'stock'> }>(
-    `/references/${referenceId}/deactivate`,
-    { method: 'POST' },
-  );
+): Promise<ReferencePublic> {
+  const response = await apiRequest(`/references/${referenceId}/deactivate`, {
+    method: 'POST',
+    schema: ReferencePublicResponseSchema,
+  });
   return response.data;
 }
 
 export async function uploadReferencePhoto(
   referenceId: string,
   file: File,
-): Promise<Omit<ReferenceDetail, 'stock'>> {
+): Promise<PhotoUploadResponse> {
   const formData = new FormData();
   formData.append('photo', file);
-  const response = await apiRequest<{ data: Omit<ReferenceDetail, 'stock'> }>(
-    `/references/${referenceId}/photo`,
-    {
-      method: 'PUT',
-      formData,
-    },
-  );
-  return response.data;
+  return apiRequest(`/references/${referenceId}/photo`, {
+    method: 'PUT',
+    formData,
+    schema: PhotoUploadResponseSchema,
+  });
 }
 
 export async function setStock(
@@ -177,12 +139,14 @@ export async function setStock(
   size: string,
   body: SetStockBody,
 ): Promise<StockAvailability> {
-  const response = await apiRequest<{
-    data: StockAvailability & { referenceId: string };
-  }>(`/references/${referenceId}/stock/${encodeURIComponent(size)}`, {
-    method: 'PUT',
-    body,
-  });
+  const response = await apiRequest(
+    `/references/${referenceId}/stock/${encodeURIComponent(size)}`,
+    {
+      method: 'PUT',
+      body,
+      schema: StockResponseSchema,
+    },
+  );
   return {
     size: response.data.size,
     physicalQuantity: response.data.physicalQuantity,
@@ -201,8 +165,11 @@ export async function listMovements(
     cursor: params.cursor,
     limit: params.limit,
   });
-  const response = await apiRequest<{ data: ListMovementsResult }>(
+  const response = await apiRequest(
     `/references/${referenceId}/movements${query}`,
+    {
+      schema: ListMovementsResponseSchema,
+    },
   );
   return response.data;
 }

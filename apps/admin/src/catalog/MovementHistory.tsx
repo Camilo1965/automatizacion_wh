@@ -1,29 +1,62 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 
-import { listMovements } from '../api/catalog-api';
-import { LoadingState } from '../components/LoadingState';
-import { ErrorMessage } from '../components/ErrorMessage';
+import {
+  listMovements,
+  type InventoryMovementPublic,
+} from '../api/catalog-api';
 import { getErrorMessage } from '../api/client';
+import { ErrorMessage } from '../components/ErrorMessage';
+import { LoadingState } from '../components/LoadingState';
 
 type MovementHistoryProps = {
   referenceId: string;
   refreshKey: number;
 };
 
+function formatSignedDelta(delta: number): string {
+  if (delta > 0) {
+    return `+${delta}`;
+  }
+  return String(delta);
+}
+
+function flattenUnique(
+  pages: Array<{ items: InventoryMovementPublic[] }>,
+): InventoryMovementPublic[] {
+  const seen = new Set<string>();
+  const items: InventoryMovementPublic[] = [];
+  for (const page of pages) {
+    for (const item of page.items) {
+      if (seen.has(item.id)) {
+        continue;
+      }
+      seen.add(item.id);
+      items.push(item);
+    }
+  }
+  return items;
+}
+
 export function MovementHistory({
   referenceId,
   refreshKey,
 }: MovementHistoryProps) {
-  const query = useQuery({
+  const query = useInfiniteQuery({
     queryKey: ['movements', referenceId, refreshKey],
-    queryFn: () => listMovements(referenceId),
+    queryFn: ({ pageParam }) =>
+      listMovements(
+        referenceId,
+        pageParam === undefined ? {} : { cursor: pageParam },
+      ),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 
   if (query.isLoading) {
     return <LoadingState label="Cargando movimientos…" />;
   }
 
-  if (query.isError) {
+  if (query.isError && query.data === undefined) {
     return (
       <ErrorMessage
         message={getErrorMessage(
@@ -34,7 +67,8 @@ export function MovementHistory({
     );
   }
 
-  const items = query.data?.items ?? [];
+  const items = flattenUnique(query.data?.pages ?? []);
+  const hasNextPage = query.hasNextPage === true;
 
   return (
     <section className="panel-block" aria-labelledby="movements-title">
@@ -48,15 +82,37 @@ export function MovementHistory({
           {items.map((item) => (
             <li key={item.id}>
               <strong>
-                Talla {item.size}: {item.previousQuantity}→{item.newQuantity}
+                Talla {item.size}: {item.previousQuantity}→{item.newQuantity} (
+                {formatSignedDelta(item.delta)})
               </strong>
+              <span className="muted"> — {item.reason}</span>
               {item.note !== null && item.note !== '' ? (
                 <span className="muted"> — {item.note}</span>
               ) : null}
+              <div className="muted">
+                {new Date(item.createdAt).toLocaleString('es-ES')}
+              </div>
             </li>
           ))}
         </ul>
       )}
+      {query.isFetchNextPageError ? (
+        <ErrorMessage
+          message={getErrorMessage(query.error, 'No se pudo cargar más')}
+        />
+      ) : null}
+      {hasNextPage ? (
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => {
+            void query.fetchNextPage();
+          }}
+          disabled={query.isFetchingNextPage}
+        >
+          {query.isFetchingNextPage ? 'Cargando…' : 'Cargar más'}
+        </button>
+      ) : null}
     </section>
   );
 }

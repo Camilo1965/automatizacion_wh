@@ -34,7 +34,6 @@ Thumbs.db
 **/test-results/
 **/playwright-report/
 **/blob-report/
-apps/admin/e2e/.e2e-state.json
 
 # Local media and runtime data
 /var/

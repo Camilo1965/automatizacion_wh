@@ -1,10 +1,9 @@
-import type { AdminUserPublic } from '@camila/contracts';
-
 import type {
+  AdminUserPublic,
   InventoryMovementPublic,
   ReferenceDetail,
   ReferenceSummary,
-} from '../api/catalog-api';
+} from '@camila/contracts';
 
 export const adminUser: AdminUserPublic = {
   id: '11111111-1111-4111-8111-111111111111',

@@ -3,7 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import { createReference } from '../api/catalog-api';
 import { getErrorMessage, getFieldError } from '../api/client';
+import { parseIntegerDigits } from '../lib/parse-integer-digits';
 import { ReferenceForm, type ReferenceFormValues } from './ReferenceForm';
+
+const MAX_PRICE_COP = 2_000_000_000;
 
 export function ReferenceCreatePage() {
   const navigate = useNavigate();
@@ -15,8 +18,11 @@ export function ReferenceCreatePage() {
     setSubmitting(true);
     setErrorMessage('');
     setFieldError(undefined);
-    const priceCop = Number.parseInt(values.priceCop, 10);
-    if (!Number.isInteger(priceCop) || priceCop < 1) {
+    const priceCop = parseIntegerDigits(values.priceCop, {
+      min: 1,
+      max: MAX_PRICE_COP,
+    });
+    if (priceCop === null) {
       setErrorMessage('El precio debe ser un entero positivo');
       setFieldError('priceCop');
       setSubmitting(false);

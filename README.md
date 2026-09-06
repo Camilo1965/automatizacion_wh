@@ -166,13 +166,20 @@ Si `TEST_DATABASE_URL` no está definida, el comando falla con una explicación 
 
 Las E2E usan Playwright (Chromium), `postgres-test`, migraciones, un usuario de prueba creado por `AuthService` vía CLI de seed, `MEDIA_ROOT` temporal, API y Vite.
 
+Puertos por defecto (evitan chocar con `pnpm dev` en 3000/5173; `pnpm verify` puede correr con esos ocupados):
+
+| Servicio E2E | Puerto | Override                |
+| ------------ | ------ | ----------------------- |
+| API          | 3100   | `CAMILA_E2E_API_PORT`   |
+| Panel Vite   | 5174   | `CAMILA_E2E_ADMIN_PORT` |
+
 ```powershell
 docker compose --profile test up -d postgres-test
 $env:TEST_DATABASE_URL='postgresql://camila_test:camila_test@127.0.0.1:5433/camila_test'
 pnpm test:e2e
 ```
 
-`apps/admin/playwright.config.ts` arranca API + Vite (`webServer`) tras `globalSetup`. El usuario E2E se crea en cada corrida; no uses esas credenciales fuera de pruebas locales.
+`apps/admin/playwright.config.ts` arranca API + Vite (`webServer`) tras `globalSetup`. Credenciales E2E viven en `apps/admin/e2e/constants.ts`; no uses esas credenciales fuera de pruebas locales.
 
 Detener PostgreSQL de pruebas:
 

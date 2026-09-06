@@ -120,6 +120,156 @@ export const PhotoPublicSchema = z
 
 export type PhotoPublic = z.infer<typeof PhotoPublicSchema>;
 
+export function dataEnvelopeSchema<T extends z.ZodType>(schema: T) {
+  return z.object({ data: schema }).strict();
+}
+
+export const SessionDataSchema = z
+  .object({
+    user: AdminUserPublicSchema,
+  })
+  .strict();
+
+export type SessionData = z.infer<typeof SessionDataSchema>;
+
+export const SessionResponseSchema = dataEnvelopeSchema(SessionDataSchema);
+export type SessionResponse = z.infer<typeof SessionResponseSchema>;
+
+export const LoginResponseSchema = dataEnvelopeSchema(SessionDataSchema);
+export type LoginResponse = z.infer<typeof LoginResponseSchema>;
+
+export const ReferencePublicSchema = z
+  .object({
+    id: z.uuid(),
+    code: z.string().min(1),
+    modelName: z.string().min(1),
+    color: z.string().min(1),
+    priceCop: priceCopSchema,
+    active: z.boolean(),
+    photo: PhotoPublicSchema.nullable(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+
+export type ReferencePublic = z.infer<typeof ReferencePublicSchema>;
+
+export const ReferenceSummarySchema = z
+  .object({
+    id: z.uuid(),
+    code: z.string().min(1),
+    modelName: z.string().min(1),
+    color: z.string().min(1),
+    priceCop: priceCopSchema,
+    active: z.boolean(),
+    photo: PhotoPublicSchema.nullable(),
+    availableSizes: z.array(z.string()),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+
+export type ReferenceSummary = z.infer<typeof ReferenceSummarySchema>;
+
+export const StockAvailabilitySchema = z
+  .object({
+    size: z.string().min(1),
+    physicalQuantity: z.number().int().min(0),
+    reservedQuantity: z.number().int().min(0),
+    availableQuantity: z.number().int(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+
+export type StockAvailability = z.infer<typeof StockAvailabilitySchema>;
+
+export const ReferenceDetailSchema = ReferencePublicSchema.extend({
+  stock: z.array(StockAvailabilitySchema),
+}).strict();
+
+export type ReferenceDetail = z.infer<typeof ReferenceDetailSchema>;
+
+export const InventoryMovementPublicSchema = z
+  .object({
+    id: z.uuid(),
+    size: z.string().min(1),
+    previousQuantity: z.number().int(),
+    newQuantity: z.number().int(),
+    delta: z.number().int(),
+    reason: z.string().min(1),
+    note: z.string().nullable(),
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+
+export type InventoryMovementPublic = z.infer<
+  typeof InventoryMovementPublicSchema
+>;
+
+export const ListReferencesResultSchema = z
+  .object({
+    items: z.array(ReferenceSummarySchema),
+    nextAfterCode: z.string().nullable(),
+  })
+  .strict();
+
+export type ListReferencesResult = z.infer<typeof ListReferencesResultSchema>;
+
+export const ListMovementsResultSchema = z
+  .object({
+    items: z.array(InventoryMovementPublicSchema),
+    nextCursor: z.string().nullable(),
+  })
+  .strict();
+
+export type ListMovementsResult = z.infer<typeof ListMovementsResultSchema>;
+
+export const StockSetResultSchema = StockAvailabilitySchema.extend({
+  referenceId: z.uuid(),
+}).strict();
+
+export type StockSetResult = z.infer<typeof StockSetResultSchema>;
+
+export const PhotoUploadWarningSchema = z.literal('old_photo_cleanup_failed');
+export type PhotoUploadWarning = z.infer<typeof PhotoUploadWarningSchema>;
+
+export const PhotoUploadResponseSchema = z
+  .object({
+    data: ReferencePublicSchema,
+    warnings: z.array(PhotoUploadWarningSchema).optional(),
+  })
+  .strict();
+
+export type PhotoUploadResponse = z.infer<typeof PhotoUploadResponseSchema>;
+
+export const ReferenceDetailResponseSchema = dataEnvelopeSchema(
+  ReferenceDetailSchema,
+);
+export type ReferenceDetailResponse = z.infer<
+  typeof ReferenceDetailResponseSchema
+>;
+
+export const ReferencePublicResponseSchema = dataEnvelopeSchema(
+  ReferencePublicSchema,
+);
+export type ReferencePublicResponse = z.infer<
+  typeof ReferencePublicResponseSchema
+>;
+
+export const ListReferencesResponseSchema = dataEnvelopeSchema(
+  ListReferencesResultSchema,
+);
+export type ListReferencesResponse = z.infer<
+  typeof ListReferencesResponseSchema
+>;
+
+export const ListMovementsResponseSchema = dataEnvelopeSchema(
+  ListMovementsResultSchema,
+);
+export type ListMovementsResponse = z.infer<typeof ListMovementsResponseSchema>;
+
+export const StockResponseSchema = dataEnvelopeSchema(StockSetResultSchema);
+export type StockResponse = z.infer<typeof StockResponseSchema>;
+
 export type MovementCursor = {
   createdAt: Date;
   id: string;

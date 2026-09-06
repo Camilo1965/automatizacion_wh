@@ -4,15 +4,74 @@ import {
   AdminUserPublicSchema,
   ApiErrorSchema,
   CreateReferenceBodySchema,
+  dataEnvelopeSchema,
   decodeMovementCursor,
   encodeMovementCursor,
+  InventoryMovementPublicSchema,
   ListMovementsQuerySchema,
+  ListMovementsResponseSchema,
+  ListMovementsResultSchema,
   ListReferencesQuerySchema,
+  ListReferencesResponseSchema,
+  ListReferencesResultSchema,
   LoginBodySchema,
+  LoginResponseSchema,
   PatchReferenceBodySchema,
   PhotoPublicSchema,
+  PhotoUploadResponseSchema,
+  PhotoUploadWarningSchema,
+  ReferenceDetailResponseSchema,
+  ReferenceDetailSchema,
+  ReferencePublicResponseSchema,
+  ReferencePublicSchema,
+  ReferenceSummarySchema,
+  SessionResponseSchema,
   SetStockBodySchema,
+  StockAvailabilitySchema,
+  StockResponseSchema,
+  StockSetResultSchema,
 } from '../src/index.js';
+
+const SAMPLE_UUID = '22222222-2222-4222-8222-222222222222';
+const SAMPLE_ISO = '2026-09-06T12:00:00.000Z';
+
+const samplePhoto = {
+  url: '/api/admin/references/22222222-2222-4222-8222-222222222222/photo',
+  mimeType: 'image/jpeg' as const,
+  byteSize: 12345,
+  etag: '"sha256abc"',
+};
+
+const sampleReferencePublic = {
+  id: SAMPLE_UUID,
+  code: '01',
+  modelName: 'Ballerina',
+  color: 'Negro',
+  priceCop: 120_000,
+  active: true,
+  photo: null as null | typeof samplePhoto,
+  createdAt: '2026-09-01T12:00:00.000Z',
+  updatedAt: SAMPLE_ISO,
+};
+
+const sampleStock = {
+  size: '37',
+  physicalQuantity: 3,
+  reservedQuantity: 0,
+  availableQuantity: 3,
+  updatedAt: SAMPLE_ISO,
+};
+
+const sampleMovement = {
+  id: '33333333-3333-4333-8333-333333333333',
+  size: '37',
+  previousQuantity: 3,
+  newQuantity: 5,
+  delta: 2,
+  reason: 'manual_adjustment',
+  note: 'Ajuste de conteo',
+  createdAt: '2026-09-06T13:00:00.000Z',
+};
 
 describe('ApiErrorSchema', () => {
   it('accepts code, message, and optional field', () => {
@@ -361,6 +420,388 @@ describe('PhotoPublicSchema', () => {
         byteSize: 1,
         etag: '"x"',
         storageKey: 'secret',
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('dataEnvelopeSchema', () => {
+  it('wraps an inner schema as { data } and rejects unknown fields', () => {
+    const schema = dataEnvelopeSchema(AdminUserPublicSchema);
+    const user = {
+      id: '11111111-1111-4111-8111-111111111111',
+      username: 'camila',
+    };
+    expect(schema.parse({ data: user })).toEqual({ data: user });
+    expect(schema.safeParse({ data: user, extra: true }).success).toBe(false);
+  });
+});
+
+describe('SessionResponseSchema and LoginResponseSchema', () => {
+  const user = {
+    id: '11111111-1111-4111-8111-111111111111',
+    username: 'camila',
+  };
+  const valid = { data: { user } };
+
+  it('accepts session and login envelopes', () => {
+    expect(SessionResponseSchema.parse(valid)).toEqual(valid);
+    expect(LoginResponseSchema.parse(valid)).toEqual(valid);
+  });
+
+  it('rejects unknown fields and invalid nested uuid', () => {
+    expect(
+      SessionResponseSchema.safeParse({
+        data: { user },
+        meta: true,
+      }).success,
+    ).toBe(false);
+    expect(
+      LoginResponseSchema.safeParse({
+        data: { user: { id: 'nope', username: 'camila' } },
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('ReferencePublicSchema', () => {
+  it('accepts a public reference with null or photo', () => {
+    expect(ReferencePublicSchema.parse(sampleReferencePublic)).toEqual(
+      sampleReferencePublic,
+    );
+    expect(
+      ReferencePublicSchema.parse({
+        ...sampleReferencePublic,
+        photo: samplePhoto,
+      }),
+    ).toMatchObject({ photo: samplePhoto });
+  });
+
+  it('rejects unknown fields, invalid uuid, and invalid ISO dates', () => {
+    expect(
+      ReferencePublicSchema.safeParse({
+        ...sampleReferencePublic,
+        stock: [],
+      }).success,
+    ).toBe(false);
+    expect(
+      ReferencePublicSchema.safeParse({
+        ...sampleReferencePublic,
+        id: 'not-a-uuid',
+      }).success,
+    ).toBe(false);
+    expect(
+      ReferencePublicSchema.safeParse({
+        ...sampleReferencePublic,
+        createdAt: '2026-09-01',
+      }).success,
+    ).toBe(false);
+    expect(
+      ReferencePublicSchema.safeParse({
+        ...sampleReferencePublic,
+        updatedAt: 'yesterday',
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('ReferenceSummarySchema', () => {
+  const summary = {
+    id: SAMPLE_UUID,
+    code: '01',
+    modelName: 'Ballerina',
+    color: 'Negro',
+    priceCop: 120_000,
+    active: true,
+    photo: null,
+    availableSizes: ['37', '38'],
+    updatedAt: SAMPLE_ISO,
+  };
+
+  it('accepts a list summary row', () => {
+    expect(ReferenceSummarySchema.parse(summary)).toEqual(summary);
+    expect(
+      ReferenceSummarySchema.parse({ ...summary, photo: samplePhoto }),
+    ).toMatchObject({ photo: samplePhoto });
+  });
+
+  it('rejects unknown fields and invalid dates', () => {
+    expect(
+      ReferenceSummarySchema.safeParse({
+        ...summary,
+        createdAt: SAMPLE_ISO,
+      }).success,
+    ).toBe(false);
+    expect(
+      ReferenceSummarySchema.safeParse({
+        ...summary,
+        updatedAt: 'not-iso',
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('StockAvailabilitySchema and StockSetResultSchema', () => {
+  it('accepts stock rows and set-stock results', () => {
+    expect(StockAvailabilitySchema.parse(sampleStock)).toEqual(sampleStock);
+    expect(
+      StockSetResultSchema.parse({
+        ...sampleStock,
+        referenceId: SAMPLE_UUID,
+      }),
+    ).toEqual({ ...sampleStock, referenceId: SAMPLE_UUID });
+  });
+
+  it('rejects unknown fields, NaN/infinity quantities, and invalid dates', () => {
+    expect(
+      StockAvailabilitySchema.safeParse({
+        ...sampleStock,
+        extra: 1,
+      }).success,
+    ).toBe(false);
+    expect(
+      StockAvailabilitySchema.safeParse({
+        ...sampleStock,
+        physicalQuantity: Number.NaN,
+      }).success,
+    ).toBe(false);
+    expect(
+      StockAvailabilitySchema.safeParse({
+        ...sampleStock,
+        reservedQuantity: Number.POSITIVE_INFINITY,
+      }).success,
+    ).toBe(false);
+    expect(
+      StockAvailabilitySchema.safeParse({
+        ...sampleStock,
+        availableQuantity: Number.NaN,
+      }).success,
+    ).toBe(false);
+    expect(
+      StockAvailabilitySchema.safeParse({
+        ...sampleStock,
+        updatedAt: '2026-09-06',
+      }).success,
+    ).toBe(false);
+    expect(
+      StockSetResultSchema.safeParse({
+        ...sampleStock,
+        referenceId: 'bad',
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('ReferenceDetailSchema', () => {
+  const detail = {
+    ...sampleReferencePublic,
+    stock: [sampleStock],
+  };
+
+  it('accepts reference public fields plus stock array', () => {
+    expect(ReferenceDetailSchema.parse(detail)).toEqual(detail);
+  });
+
+  it('rejects unknown fields on detail and nested stock', () => {
+    expect(
+      ReferenceDetailSchema.safeParse({
+        ...detail,
+        availableSizes: ['37'],
+      }).success,
+    ).toBe(false);
+    expect(
+      ReferenceDetailSchema.safeParse({
+        ...detail,
+        stock: [{ ...sampleStock, ghost: true }],
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('InventoryMovementPublicSchema', () => {
+  it('accepts a public movement', () => {
+    expect(InventoryMovementPublicSchema.parse(sampleMovement)).toEqual(
+      sampleMovement,
+    );
+    expect(
+      InventoryMovementPublicSchema.parse({
+        ...sampleMovement,
+        note: null,
+      }).note,
+    ).toBeNull();
+  });
+
+  it('rejects unknown fields, invalid uuid/date, and NaN quantities', () => {
+    expect(
+      InventoryMovementPublicSchema.safeParse({
+        ...sampleMovement,
+        actor: 'admin',
+      }).success,
+    ).toBe(false);
+    expect(
+      InventoryMovementPublicSchema.safeParse({
+        ...sampleMovement,
+        id: 'bad-id',
+      }).success,
+    ).toBe(false);
+    expect(
+      InventoryMovementPublicSchema.safeParse({
+        ...sampleMovement,
+        createdAt: '06/09/2026',
+      }).success,
+    ).toBe(false);
+    expect(
+      InventoryMovementPublicSchema.safeParse({
+        ...sampleMovement,
+        delta: Number.NaN,
+      }).success,
+    ).toBe(false);
+    expect(
+      InventoryMovementPublicSchema.safeParse({
+        ...sampleMovement,
+        previousQuantity: Number.POSITIVE_INFINITY,
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('list result schemas', () => {
+  it('accepts list references and movements results', () => {
+    const refs = {
+      items: [
+        {
+          id: SAMPLE_UUID,
+          code: '01',
+          modelName: 'Ballerina',
+          color: 'Negro',
+          priceCop: 120_000,
+          active: true,
+          photo: null,
+          availableSizes: ['37'],
+          updatedAt: SAMPLE_ISO,
+        },
+      ],
+      nextAfterCode: '01',
+    };
+    expect(ListReferencesResultSchema.parse(refs)).toEqual(refs);
+    expect(
+      ListReferencesResultSchema.parse({ ...refs, nextAfterCode: null }),
+    ).toEqual({ ...refs, nextAfterCode: null });
+
+    const movements = {
+      items: [sampleMovement],
+      nextCursor: 'cursor-token',
+    };
+    expect(ListMovementsResultSchema.parse(movements)).toEqual(movements);
+    expect(
+      ListMovementsResultSchema.parse({ ...movements, nextCursor: null }),
+    ).toEqual({ ...movements, nextCursor: null });
+  });
+
+  it('rejects unknown fields on list results', () => {
+    expect(
+      ListReferencesResultSchema.safeParse({
+        items: [],
+        nextAfterCode: null,
+        total: 0,
+      }).success,
+    ).toBe(false);
+    expect(
+      ListMovementsResultSchema.safeParse({
+        items: [],
+        nextCursor: null,
+        hasMore: false,
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('PhotoUploadWarningSchema and PhotoUploadResponseSchema', () => {
+  it('accepts photo upload response with optional cleanup warning', () => {
+    expect(PhotoUploadWarningSchema.parse('old_photo_cleanup_failed')).toBe(
+      'old_photo_cleanup_failed',
+    );
+    expect(
+      PhotoUploadResponseSchema.parse({ data: sampleReferencePublic }),
+    ).toEqual({ data: sampleReferencePublic });
+    expect(
+      PhotoUploadResponseSchema.parse({
+        data: sampleReferencePublic,
+        warnings: ['old_photo_cleanup_failed'],
+      }),
+    ).toEqual({
+      data: sampleReferencePublic,
+      warnings: ['old_photo_cleanup_failed'],
+    });
+  });
+
+  it('rejects invalid warnings, invalid mime in photo, and unknown fields', () => {
+    expect(PhotoUploadWarningSchema.safeParse('other_warning').success).toBe(
+      false,
+    );
+    expect(
+      PhotoUploadResponseSchema.safeParse({
+        data: sampleReferencePublic,
+        warnings: ['other_warning'],
+      }).success,
+    ).toBe(false);
+    expect(
+      PhotoUploadResponseSchema.safeParse({
+        data: {
+          ...sampleReferencePublic,
+          photo: { ...samplePhoto, mimeType: 'image/gif' },
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      PhotoUploadResponseSchema.safeParse({
+        data: sampleReferencePublic,
+        ok: true,
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('response envelope schemas', () => {
+  it('accepts typed data envelopes', () => {
+    expect(
+      ReferencePublicResponseSchema.parse({ data: sampleReferencePublic }),
+    ).toEqual({ data: sampleReferencePublic });
+    expect(
+      ReferenceDetailResponseSchema.parse({
+        data: { ...sampleReferencePublic, stock: [sampleStock] },
+      }),
+    ).toMatchObject({ data: { stock: [sampleStock] } });
+    expect(
+      ListReferencesResponseSchema.parse({
+        data: { items: [], nextAfterCode: null },
+      }),
+    ).toEqual({ data: { items: [], nextAfterCode: null } });
+    expect(
+      ListMovementsResponseSchema.parse({
+        data: { items: [], nextCursor: null },
+      }),
+    ).toEqual({ data: { items: [], nextCursor: null } });
+    expect(
+      StockResponseSchema.parse({
+        data: { ...sampleStock, referenceId: SAMPLE_UUID },
+      }),
+    ).toEqual({
+      data: { ...sampleStock, referenceId: SAMPLE_UUID },
+    });
+  });
+
+  it('rejects unknown top-level fields on envelopes', () => {
+    expect(
+      ReferencePublicResponseSchema.safeParse({
+        data: sampleReferencePublic,
+        warnings: [],
+      }).success,
+    ).toBe(false);
+    expect(
+      ListReferencesResponseSchema.safeParse({
+        data: { items: [], nextAfterCode: null },
+        page: 1,
       }).success,
     ).toBe(false);
   });

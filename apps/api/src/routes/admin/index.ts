@@ -115,6 +115,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
   });
 
   app.post('/auth/logout', async (request, reply) => {
+    await requireAdminSession(request, authService);
     const token = request.cookies[ADMIN_SESSION_COOKIE];
     await authService.logout(token);
     clearSessionCookie(reply, config);

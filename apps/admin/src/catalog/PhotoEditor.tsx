@@ -2,6 +2,7 @@ import { useEffect, useState, type ChangeEvent } from 'react';
 
 import { uploadReferencePhoto } from '../api/catalog-api';
 import { getErrorMessage } from '../api/client';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ErrorMessage } from '../components/ErrorMessage';
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -18,8 +19,13 @@ export function PhotoEditor({
   onUploaded,
 }: PhotoEditorProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [error, setError] = useState('');
+  const [warning, setWarning] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const hasExistingPhoto = currentPhotoUrl !== null;
 
   useEffect(() => {
     return () => {
@@ -29,38 +35,68 @@ export function PhotoEditor({
     };
   }, [previewUrl]);
 
-  async function onFileChange(event: ChangeEvent<HTMLInputElement>) {
+  function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setError('');
+    setWarning('');
     if (file === undefined) {
       return;
     }
 
     if (file.type !== 'image/jpeg' && file.type !== 'image/png') {
       setError('Solo se admiten JPEG o PNG');
+      setPendingFile(null);
       return;
     }
 
     if (file.size > MAX_BYTES) {
       setError('La foto no puede superar 5 MiB');
+      setPendingFile(null);
       return;
     }
 
     if (previewUrl !== null) {
       URL.revokeObjectURL(previewUrl);
     }
-    const nextPreview = URL.createObjectURL(file);
-    setPreviewUrl(nextPreview);
+    setPreviewUrl(URL.createObjectURL(file));
+    setPendingFile(file);
+  }
 
+  async function performUpload(file: File) {
     setUploading(true);
+    setError('');
+    setWarning('');
     try {
-      await uploadReferencePhoto(referenceId, file);
+      const response = await uploadReferencePhoto(referenceId, file);
+      if (response.warnings?.includes('old_photo_cleanup_failed') === true) {
+        setWarning(
+          'La foto nueva sí fue guardada, pero no se pudo limpiar la foto anterior.',
+        );
+      }
+      if (previewUrl !== null) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      setPreviewUrl(null);
+      setPendingFile(null);
+      setConfirmOpen(false);
       onUploaded();
     } catch (err) {
       setError(getErrorMessage(err, 'No se pudo subir la foto'));
+      setConfirmOpen(false);
     } finally {
       setUploading(false);
     }
+  }
+
+  function onSaveClick() {
+    if (pendingFile === null || uploading) {
+      return;
+    }
+    if (hasExistingPhoto) {
+      setConfirmOpen(true);
+      return;
+    }
+    void performUpload(pendingFile);
   }
 
   const shownUrl = previewUrl ?? currentPhotoUrl;
@@ -86,12 +122,39 @@ export function PhotoEditor({
         onChange={onFileChange}
         disabled={uploading}
       />
+      <button
+        type="button"
+        className="button-primary"
+        onClick={onSaveClick}
+        disabled={pendingFile === null || uploading}
+      >
+        {uploading ? 'Subiendo…' : 'Guardar fotografía'}
+      </button>
       <ErrorMessage message={error} id="photo-error" />
+      {warning !== '' ? (
+        <p className="warning-message" role="status" aria-live="polite">
+          {warning}
+        </p>
+      ) : null}
       {uploading ? (
         <p className="loading-state" role="status" aria-live="polite">
           Subiendo foto…
         </p>
       ) : null}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Reemplazar fotografía"
+        message="¿Reemplazar la fotografía actual de esta referencia?"
+        confirmLabel="Reemplazar"
+        onConfirm={() => {
+          if (pendingFile !== null) {
+            void performUpload(pendingFile);
+          }
+        }}
+        onCancel={() => setConfirmOpen(false)}
+        busy={uploading}
+      />
     </section>
   );
 }

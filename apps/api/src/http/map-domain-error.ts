@@ -116,15 +116,33 @@ export function mapDomainError(
       );
     }
 
-    if (
-      fastifyError.statusCode === 413 ||
-      fastifyError.code === 'FST_REQ_FILE_TOO_LARGE'
-    ) {
+    if (fastifyError.code === 'FST_REQ_FILE_TOO_LARGE') {
       return sendApiError(
         reply,
         413,
         'too_large',
         'Photo exceeds the maximum allowed size',
+      );
+    }
+
+    if (fastifyError.code === 'FST_FILES_LIMIT') {
+      return sendApiError(
+        reply,
+        400,
+        'too_many_files',
+        'Exactly one photo file is required',
+      );
+    }
+
+    if (
+      fastifyError.code === 'FST_FIELDS_LIMIT' ||
+      fastifyError.code === 'FST_PARTS_LIMIT'
+    ) {
+      return sendApiError(
+        reply,
+        400,
+        'unexpected_fields',
+        'Photo upload must not include extra fields',
       );
     }
 

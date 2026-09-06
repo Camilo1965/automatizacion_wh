@@ -6,12 +6,18 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
-const migrationsFolder = path.resolve(moduleDirectory, '../../drizzle');
+const defaultMigrationsFolder = path.resolve(moduleDirectory, '../../drizzle');
 
-export async function runMigrations(databaseUrl: string): Promise<void> {
+export async function runMigrations(
+  databaseUrl: string,
+  migrationsFolder: string = defaultMigrationsFolder,
+): Promise<void> {
   const sql = postgres(databaseUrl, {
     max: 1,
     prepare: false,
+    onnotice: () => {
+      // Expected migrator / PostgreSQL notices (e.g. extension/exists) are fine.
+    },
   });
 
   try {

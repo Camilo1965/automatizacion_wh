@@ -1,6 +1,3 @@
-import { writeFileSync } from 'node:fs';
-import path from 'node:path';
-
 import postgres from 'postgres';
 
 import { createAdminUser } from './admin-create.js';
@@ -9,15 +6,10 @@ import { runMigrations } from '../database/migrate.js';
 const username = process.env.CAMILA_E2E_USERNAME ?? 'e2e_admin';
 const password = process.env.CAMILA_E2E_PASSWORD ?? 'e2e-password-12';
 const databaseUrl = process.env.DATABASE_URL;
-const statePath = process.env.CAMILA_E2E_STATE_PATH;
 const mediaRoot = process.env.MEDIA_ROOT;
 
 if (databaseUrl === undefined || databaseUrl.trim() === '') {
   throw new Error('DATABASE_URL is required for E2E seed');
-}
-
-if (statePath === undefined || statePath.trim() === '') {
-  throw new Error('CAMILA_E2E_STATE_PATH is required for E2E seed');
 }
 
 if (mediaRoot === undefined || mediaRoot.trim() === '') {
@@ -53,17 +45,4 @@ await createAdminUser({
   passwordConfirmation: password,
 });
 
-writeFileSync(
-  statePath,
-  JSON.stringify({
-    databaseUrl,
-    mediaRoot,
-    adminOrigin: process.env.ADMIN_ORIGIN ?? 'http://127.0.0.1:5173',
-    apiBaseUrl: process.env.CAMILA_API_BASE_URL ?? 'http://127.0.0.1:3000',
-    username,
-    password,
-  }),
-  'utf8',
-);
-
-console.log(`E2E admin ready at ${path.relative(process.cwd(), statePath)}`);
+console.log(`E2E admin ready (${username})`);

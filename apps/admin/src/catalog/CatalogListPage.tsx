@@ -143,13 +143,31 @@ function CatalogPagedList({
         {items.map((item) => (
           <li key={item.id}>
             <Link to={`/references/${item.id}`}>
+              {item.photo !== null ? (
+                <img
+                  className="reference-thumb"
+                  src={item.photo.url}
+                  alt={`Fotografía de ${item.code} ${item.modelName}`}
+                />
+              ) : (
+                <span className="muted">Sin fotografía</span>
+              )}
               <span className="reference-code">{item.code}</span>
-              <span>
-                {item.modelName} · {item.color}
+              <span>{item.modelName}</span>
+              <span>{item.color}</span>
+              <span className="muted">
+                {item.priceCop.toLocaleString('es-CO')} COP
               </span>
               <span className="muted">
-                {item.active ? 'Activa' : 'Inactiva'} ·{' '}
-                {item.priceCop.toLocaleString('es-CO')} COP
+                {item.active ? 'Activa' : 'Inactiva'}
+              </span>
+              <span className="muted">
+                {item.availableSizes.length > 0
+                  ? `Tallas: ${item.availableSizes.join(', ')}`
+                  : 'Sin tallas disponibles'}
+              </span>
+              <span className="muted">
+                {new Date(item.updatedAt).toLocaleString('es-CO')}
               </span>
             </Link>
           </li>

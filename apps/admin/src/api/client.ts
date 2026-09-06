@@ -1,4 +1,5 @@
 import { ApiErrorSchema } from '@camila/contracts';
+import type { z } from 'zod';
 
 const API_BASE = '/api/admin';
 
@@ -65,10 +66,7 @@ async function parseErrorPayload(response: Response): Promise<ApiErrorPayload> {
   };
 }
 
-export async function apiRequest<T>(
-  path: string,
-  options: ApiRequestOptions = {},
-): Promise<T> {
+function buildRequestInit(options: ApiRequestOptions): RequestInit {
   const headers = new Headers();
   const init: RequestInit = {
     method: options.method ?? 'GET',
@@ -97,14 +95,24 @@ export async function apiRequest<T>(
     init.method = options.method;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, init);
+  return init;
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions & { schema: z.ZodType<T> },
+): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, buildRequestInit(options));
 
   if (response.status === 401 && options.skipUnauthorizedHandler !== true) {
     unauthorizedHandler?.();
   }
 
   if (response.status === 204) {
-    return undefined as T;
+    throw new ApiClientError(response.status, {
+      code: 'invalid_response',
+      message: 'La respuesta del servidor no es válida',
+    });
   }
 
   if (!response.ok) {
@@ -112,11 +120,50 @@ export async function apiRequest<T>(
     throw new ApiClientError(response.status, payload);
   }
 
-  if (response.status === 304) {
-    return undefined as T;
+  let json: unknown;
+  try {
+    json = await response.json();
+  } catch {
+    throw new ApiClientError(response.status, {
+      code: 'invalid_response',
+      message: 'La respuesta del servidor no es válida',
+    });
   }
 
-  return (await response.json()) as T;
+  const parsed = options.schema.safeParse(json);
+  if (!parsed.success) {
+    throw new ApiClientError(response.status, {
+      code: 'invalid_response',
+      message: 'La respuesta del servidor no es válida',
+    });
+  }
+
+  return parsed.data;
+}
+
+export async function apiRequestNoContent(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  const response = await fetch(`${API_BASE}${path}`, buildRequestInit(options));
+
+  if (response.status === 401 && options.skipUnauthorizedHandler !== true) {
+    unauthorizedHandler?.();
+  }
+
+  if (response.status === 204) {
+    return;
+  }
+
+  if (!response.ok) {
+    const payload = await parseErrorPayload(response);
+    throw new ApiClientError(response.status, payload);
+  }
+
+  throw new ApiClientError(response.status, {
+    code: 'invalid_response',
+    message: 'La respuesta del servidor no es válida',
+  });
 }
 
 export function getErrorMessage(error: unknown, fallback: string): string {

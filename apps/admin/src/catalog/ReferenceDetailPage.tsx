@@ -12,10 +12,13 @@ import { getErrorMessage, getFieldError } from '../api/client';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
+import { parseIntegerDigits } from '../lib/parse-integer-digits';
 import { MovementHistory } from './MovementHistory';
 import { PhotoEditor } from './PhotoEditor';
 import { ReferenceForm, type ReferenceFormValues } from './ReferenceForm';
 import { StockEditor } from './StockEditor';
+
+const MAX_PRICE_COP = 2_000_000_000;
 
 export function ReferenceDetailPage() {
   const { referenceId = '' } = useParams();
@@ -46,8 +49,11 @@ export function ReferenceDetailPage() {
     setSubmitting(true);
     setErrorMessage('');
     setFieldError(undefined);
-    const priceCop = Number.parseInt(values.priceCop, 10);
-    if (!Number.isInteger(priceCop) || priceCop < 1) {
+    const priceCop = parseIntegerDigits(values.priceCop, {
+      min: 1,
+      max: MAX_PRICE_COP,
+    });
+    if (priceCop === null) {
       setErrorMessage('El precio debe ser un entero positivo');
       setFieldError('priceCop');
       setSubmitting(false);
@@ -178,18 +184,23 @@ export function ReferenceDetailPage() {
         {detail.stock.length === 0 ? (
           <p className="muted">Sin tallas registradas</p>
         ) : (
-          <ul className="stock-list">
+          <ul className="stock-list" aria-label="Existencias">
             {detail.stock.map((item) => (
               <li key={item.size}>
                 Talla {item.size}: {item.physicalQuantity} físicas ·{' '}
-                {item.availableQuantity} disponibles
+                {item.reservedQuantity} reservadas · {item.availableQuantity}{' '}
+                disponibles · {new Date(item.updatedAt).toLocaleString('es-CO')}
               </li>
             ))}
           </ul>
         )}
       </section>
 
-      <StockEditor referenceId={detail.id} onSaved={refreshAll} />
+      <StockEditor
+        referenceId={detail.id}
+        stock={detail.stock}
+        onSaved={refreshAll}
+      />
       <MovementHistory referenceId={detail.id} refreshKey={refreshKey} />
 
       <ConfirmDialog

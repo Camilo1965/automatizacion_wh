@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
 
+import { ErrorMessage } from '../components/ErrorMessage';
+
 type ReferenceFormValues = {
   code: string;
   modelName: string;
@@ -18,6 +20,8 @@ type ReferenceFormProps = {
 
 export type { ReferenceFormValues };
 
+const FORM_ERROR_ID = 'reference-form-error';
+
 export function ReferenceForm({
   mode,
   initialValues,
@@ -27,6 +31,8 @@ export function ReferenceForm({
   onSubmit,
 }: ReferenceFormProps) {
   const [values, setValues] = useState(initialValues);
+  const describedBy =
+    errorMessage !== '' && fieldError !== undefined ? FORM_ERROR_ID : undefined;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,6 +52,7 @@ export function ReferenceForm({
         disabled={mode === 'edit'}
         required
         aria-invalid={fieldError === 'code'}
+        aria-describedby={fieldError === 'code' ? describedBy : undefined}
       />
 
       <label htmlFor="modelName">Modelo</label>
@@ -61,6 +68,7 @@ export function ReferenceForm({
         }
         required
         aria-invalid={fieldError === 'modelName'}
+        aria-describedby={fieldError === 'modelName' ? describedBy : undefined}
       />
 
       <label htmlFor="color">Color</label>
@@ -73,6 +81,7 @@ export function ReferenceForm({
         }
         required
         aria-invalid={fieldError === 'color'}
+        aria-describedby={fieldError === 'color' ? describedBy : undefined}
       />
 
       <label htmlFor="priceCop">Precio (COP)</label>
@@ -89,13 +98,10 @@ export function ReferenceForm({
         }
         required
         aria-invalid={fieldError === 'priceCop'}
+        aria-describedby={fieldError === 'priceCop' ? describedBy : undefined}
       />
 
-      {errorMessage !== '' ? (
-        <p className="error-message" role="alert" aria-live="assertive">
-          {errorMessage}
-        </p>
-      ) : null}
+      <ErrorMessage message={errorMessage} id={FORM_ERROR_ID} />
 
       <button type="submit" className="button-primary" disabled={submitting}>
         {submitting

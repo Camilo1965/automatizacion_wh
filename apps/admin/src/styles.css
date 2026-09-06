@@ -217,6 +217,25 @@ a:focus-visible {
   color: inherit;
 }
 
+.reference-thumb {
+  width: min(100%, 5.5rem);
+  height: 5.5rem;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+
+@media (min-width: 720px) {
+  .reference-list a {
+    grid-template-columns: 5.5rem 1fr;
+    column-gap: 1rem;
+    align-items: start;
+  }
+
+  .reference-thumb {
+    grid-row: span 6;
+  }
+}
+
 .reference-code {
   font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
   font-weight: 700;
