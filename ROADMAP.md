@@ -2,7 +2,7 @@
 
 Fecha de preparación: 4 de septiembre de 2026.
 
-Estado: planificación para revisión. No se ha implementado la aplicación ni contratado infraestructura.
+Estado: implementación local en curso. Actualizado el 6 de septiembre de 2026.
 
 ## 1 Objetivo y alcance acordado
 
@@ -27,7 +27,15 @@ No incluye en esta versión: conexión automática con Treinta, campañas masiva
 
 ## 2 Estado real del proyecto
 
-La carpeta contiene una propuesta en `entregables/`, materiales de investigación en `proposal_work/` y un repositorio Git. No se encontró una aplicación existente que reutilizar. Estos materiales se conservarán; no son módulos del producto.
+La carpeta contiene una propuesta en `entregables/`, materiales de investigación en `proposal_work/` y un repositorio Git. No se encontró una aplicación existente que reutilizar; estos materiales se conservarán y no son módulos del producto.
+
+Ya existe una aplicación local versionada. El núcleo actual incluye un monorepo TypeScript, API Fastify, panel React, PostgreSQL, migraciones Drizzle, almacenamiento local de fotografías y pruebas automatizadas. El panel está protegido para una sola propietaria mediante usuario, contraseña hasheada y sesión segura.
+
+El catálogo permite crear, editar, activar o desactivar referencias, asociar una fotografía real por referencia y ajustar existencias por talla. Las tallas aceptan enteros y medias tallas para crecimiento futuro. La consulta de disponibilidad por talla excluye referencias inactivas, sin foto o sin unidades disponibles; devuelve referencias paginadas sin repetir. Los movimientos de inventario se registran y las escrituras concurrentes de stock están serializadas.
+
+Los commits que sustentan este estado son: `4d497e6` (base local), `b715aff` y `be7a55c` (catálogo, inventario y concurrencia), `725e560` (administración protegida), `d536db0` y `bbc86cc` (contratos, panel y entorno E2E), y `e325c7e` (entorno de integración reproducible). La verificación actual reúne 46 pruebas de contratos, 64 unitarias de API, 29 unitarias del panel, 57 de integración y 7 E2E.
+
+Todavía no existen pedidos, reservas, WhatsApp, Chatwoot, 99envíos, sincronización con Treinta, worker, Redis, despliegue VPS ni copias externas. La siguiente fase de producto es pedidos y reservas sin WhatsApp.
 
 La documentación de 99envíos permite fundamentar cotización, creación de preenvío con guía y PDF. También se dispone del catálogo de localidades compartido por el usuario. Aún no se han ejecutado operaciones autenticadas con la cuenta del negocio.
 
@@ -217,14 +225,14 @@ Criterio de avance: ruta viable de WhatsApp y cotización documentada; no anunci
 
 Dependencia: aprobación del diseño técnico. Estimación: 8–14 horas.
 
-- [ ] Preparar workspace de TypeScript con API, worker y panel.
-- [ ] Fijar Node LTS, paquetes e imágenes compatibles.
-- [ ] Configurar Docker Compose local con PostgreSQL, Chatwoot y Redis.
-- [ ] Separar bases, usuarios y volúmenes del negocio y de Chatwoot.
-- [ ] Incorporar `.env.example` sin credenciales, validación de configuración y exclusiones Git.
-- [ ] Crear migraciones, comandos de inicio, pruebas, lint y comprobación de tipos.
-- [ ] Añadir endpoints de salud y logs con identificadores de operación, sin datos sensibles innecesarios.
-- [ ] Preparar login del panel con contraseñas hasheadas, sesiones seguras y roles propietario/operador.
+- [x] Preparar workspace de TypeScript con API y panel; el worker queda para las fases de conversaciones y guías.
+- [x] Fijar Node, paquetes e imágenes de PostgreSQL compatibles mediante lockfile e imagen por digest.
+- [ ] Configurar Docker Compose local con Chatwoot y Redis. PostgreSQL de negocio y de pruebas ya está configurado.
+- [ ] Separar bases, usuarios y volúmenes del negocio y de Chatwoot; depende de incorporar Chatwoot.
+- [x] Incorporar `.env.example`, validación de configuración y exclusiones Git.
+- [x] Crear migraciones, comandos de inicio, pruebas, lint, comprobación de tipos y build verificable.
+- [x] Añadir endpoints de salud y logs con redacción de datos sensibles.
+- [x] Preparar acceso del panel para una sola propietaria: contraseña hasheada, sesión segura, CORS y CSRF. El rol de operador no forma parte de esta versión.
 - [ ] Configurar integración continua para validar tipos, pruebas y build.
 
 Entregable: entorno reproducible y panel protegido vacío.
@@ -235,15 +243,15 @@ Criterio de avance: desde una copia limpia se levantan los servicios y se ejecut
 
 Dependencia: fase 1. Estimación: 18–28 horas.
 
-- [ ] Crear tablas de modelos, variantes, imágenes, movimientos y reservas.
-- [ ] Imponer unicidad de referencia y SKU, validación de precios y cantidades enteras.
-- [ ] Implementar altas, edición, desactivación y carga de fotografías.
-- [ ] Limitar formatos y tamaños de archivo; comprobar contenido y evitar rutas elegidas por el usuario.
+- [x] Crear tablas de referencias, existencias por talla y movimientos. Reservas dependen de la fase 3.
+- [x] Imponer unicidad de referencia, precio positivo y cantidades no negativas. Las tallas admiten enteros y medias tallas; la referencia actual incluye modelo, color y precio. Un SKU separado por variante se revisará si el catálogo real lo exige.
+- [x] Implementar altas, edición, activación, desactivación y carga de una fotografía por referencia.
+- [x] Limitar formatos y tamaños de archivo, comprobar el contenido real y evitar rutas elegidas por el usuario.
 - [ ] Crear plantilla CSV de variantes y vista previa con errores por fila.
 - [ ] Aplicar importaciones válidas de forma transaccional y conservar historial.
 - [ ] Cargar 10 modelos del piloto; mantener fixtures ficticios separados.
-- [ ] Implementar consulta por talla, categoría y color con paginación.
-- [ ] Crear panel de stock y ajustes con motivo obligatorio.
+- [x] Implementar consulta paginada por talla; el panel permite buscar por color. El filtro público por categoría o color se incorporará cuando las referencias reales lo requieran.
+- [x] Crear panel de stock y ajustes con motivo obligatorio e historial paginado.
 - [ ] Importar el catálogo de localidades como datos, sin ejecutar el PHP del documento.
 - [ ] Detectar duplicados, códigos no colombianos y longitudes inválidas en localidades; conservar códigos como texto.
 
@@ -254,6 +262,8 @@ Criterio de avance: una búsqueda de talla 37 muestra únicamente variantes acti
 ### Fase 3 Pedidos y reservas sin WhatsApp
 
 Dependencia: fase 2. Estimación: 16–26 horas.
+
+Estado actual: siguiente bloque de implementación. Antes de integrar cualquier canal externo se debe completar y auditar esta fase.
 
 - [ ] Crear borrador de pedido de una variante y cantidades válidas.
 - [ ] Implementar validación de datos y destino con localidad y departamento.
