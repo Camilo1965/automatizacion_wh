@@ -32,6 +32,9 @@ Thumbs.db
 # Test artifacts
 *.lcov
 
+# Local media and runtime data
+/var/
+
 # Existing non-product materials
 entregables/
 proposal_work/

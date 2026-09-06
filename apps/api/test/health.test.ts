@@ -11,6 +11,7 @@ const config: AppConfig = {
   databaseUrl: 'postgresql://camila:secret@127.0.0.1:5432/camila',
   adminOrigin: 'http://127.0.0.1:5173',
   logLevel: 'silent',
+  mediaRoot: './var/media',
 };
 
 function createDatabaseMock(

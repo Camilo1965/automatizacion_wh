@@ -1,10 +1,10 @@
 import { loadConfig } from './config.js';
 import { buildApp } from './app.js';
-import { createPostgresHealth } from './infrastructure/postgres-health.js';
+import { createPostgresDatabase } from './database/client.js';
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
-  const database = createPostgresHealth(config.databaseUrl);
+  const database = createPostgresDatabase(config.databaseUrl);
   const app = await buildApp({ config, database });
 
   const shutdown = async (signal: NodeJS.Signals): Promise<void> => {

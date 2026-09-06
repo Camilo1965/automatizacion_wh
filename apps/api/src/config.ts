@@ -7,6 +7,7 @@ export type AppConfig = Readonly<{
   databaseUrl: string;
   adminOrigin: string;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
+  mediaRoot: string;
 }>;
 
 export class ConfigurationError extends Error {
@@ -126,6 +127,15 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     issues.push('LOG_LEVEL');
   }
 
+  let mediaRoot = './var/media';
+  if (environment.MEDIA_ROOT !== undefined) {
+    if (environment.MEDIA_ROOT.trim() === '') {
+      issues.push('MEDIA_ROOT');
+    } else {
+      mediaRoot = environment.MEDIA_ROOT;
+    }
+  }
+
   if (
     issues.length > 0 ||
     !nodeEnvResult.success ||
@@ -143,5 +153,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     databaseUrl,
     adminOrigin,
     logLevel: logLevelResult.data,
+    mediaRoot,
   };
 }

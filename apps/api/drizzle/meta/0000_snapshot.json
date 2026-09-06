@@ -1,0 +1,315 @@
+{
+  "id": "45f44f4f-9c05-4619-ba6a-db4dfaede986",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.catalog_references": {
+      "name": "catalog_references",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model_name": {
+          "name": "model_name",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "color": {
+          "name": "color",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_cop": {
+          "name": "price_cop",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "photo_storage_key": {
+          "name": "photo_storage_key",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "photo_mime_type": {
+          "name": "photo_mime_type",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "photo_byte_size": {
+          "name": "photo_byte_size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "photo_sha256": {
+          "name": "photo_sha256",
+          "type": "char(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "catalog_references_code_unique": {
+          "name": "catalog_references_code_unique",
+          "nullsNotDistinct": false,
+          "columns": ["code"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "catalog_references_code_format": {
+          "name": "catalog_references_code_format",
+          "value": "\"catalog_references\".\"code\" ~ '^[A-Z0-9-]+$'"
+        },
+        "catalog_references_price_positive": {
+          "name": "catalog_references_price_positive",
+          "value": "\"catalog_references\".\"price_cop\" > 0"
+        },
+        "catalog_references_photo_all_or_none": {
+          "name": "catalog_references_photo_all_or_none",
+          "value": "(\n        (\"catalog_references\".\"photo_storage_key\" IS NULL AND \"catalog_references\".\"photo_mime_type\" IS NULL AND \"catalog_references\".\"photo_byte_size\" IS NULL AND \"catalog_references\".\"photo_sha256\" IS NULL)\n        OR\n        (\"catalog_references\".\"photo_storage_key\" IS NOT NULL AND \"catalog_references\".\"photo_mime_type\" IS NOT NULL AND \"catalog_references\".\"photo_byte_size\" IS NOT NULL AND \"catalog_references\".\"photo_sha256\" IS NOT NULL)\n      )"
+        },
+        "catalog_references_photo_byte_size_positive": {
+          "name": "catalog_references_photo_byte_size_positive",
+          "value": "\"catalog_references\".\"photo_byte_size\" IS NULL OR \"catalog_references\".\"photo_byte_size\" > 0"
+        },
+        "catalog_references_photo_mime_type": {
+          "name": "catalog_references_photo_mime_type",
+          "value": "\"catalog_references\".\"photo_mime_type\" IS NULL OR \"catalog_references\".\"photo_mime_type\" IN ('image/jpeg', 'image/png')"
+        },
+        "catalog_references_photo_sha256_format": {
+          "name": "catalog_references_photo_sha256_format",
+          "value": "\"catalog_references\".\"photo_sha256\" IS NULL OR \"catalog_references\".\"photo_sha256\" ~ '^[a-f0-9]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.catalog_stock": {
+      "name": "catalog_stock",
+      "schema": "",
+      "columns": {
+        "reference_id": {
+          "name": "reference_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size": {
+          "name": "size",
+          "type": "numeric(4, 1)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "physical_quantity": {
+          "name": "physical_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reserved_quantity": {
+          "name": "reserved_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "catalog_stock_reference_id_catalog_references_id_fk": {
+          "name": "catalog_stock_reference_id_catalog_references_id_fk",
+          "tableFrom": "catalog_stock",
+          "tableTo": "catalog_references",
+          "columnsFrom": ["reference_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "catalog_stock_pkey": {
+          "name": "catalog_stock_pkey",
+          "columns": ["reference_id", "size"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "catalog_stock_size_range": {
+          "name": "catalog_stock_size_range",
+          "value": "\"catalog_stock\".\"size\" >= 1 AND \"catalog_stock\".\"size\" <= 99.5"
+        },
+        "catalog_stock_size_half_steps": {
+          "name": "catalog_stock_size_half_steps",
+          "value": "(\"catalog_stock\".\"size\" * 2) = trunc(\"catalog_stock\".\"size\" * 2)"
+        },
+        "catalog_stock_quantities_non_negative": {
+          "name": "catalog_stock_quantities_non_negative",
+          "value": "\"catalog_stock\".\"physical_quantity\" >= 0 AND \"catalog_stock\".\"reserved_quantity\" >= 0"
+        },
+        "catalog_stock_reserved_lte_physical": {
+          "name": "catalog_stock_reserved_lte_physical",
+          "value": "\"catalog_stock\".\"reserved_quantity\" <= \"catalog_stock\".\"physical_quantity\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.inventory_movements": {
+      "name": "inventory_movements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "reference_id": {
+          "name": "reference_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size": {
+          "name": "size",
+          "type": "numeric(4, 1)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "previous_quantity": {
+          "name": "previous_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "new_quantity": {
+          "name": "new_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "delta": {
+          "name": "delta",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "varchar(250)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "inventory_movements_reference_id_catalog_references_id_fk": {
+          "name": "inventory_movements_reference_id_catalog_references_id_fk",
+          "tableFrom": "inventory_movements",
+          "tableTo": "catalog_references",
+          "columnsFrom": ["reference_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "inventory_movements_delta_consistent": {
+          "name": "inventory_movements_delta_consistent",
+          "value": "\"inventory_movements\".\"delta\" = \"inventory_movements\".\"new_quantity\" - \"inventory_movements\".\"previous_quantity\""
+        },
+        "inventory_movements_reason_allowed": {
+          "name": "inventory_movements_reason_allowed",
+          "value": "\"inventory_movements\".\"reason\" IN ('initial', 'manual_adjustment')"
+        },
+        "inventory_movements_quantities_non_negative": {
+          "name": "inventory_movements_quantities_non_negative",
+          "value": "\"inventory_movements\".\"previous_quantity\" >= 0 AND \"inventory_movements\".\"new_quantity\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

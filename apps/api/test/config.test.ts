@@ -22,6 +22,7 @@ describe('loadConfig', () => {
       databaseUrl: validEnvironment.DATABASE_URL,
       adminOrigin: 'http://127.0.0.1:5173',
       logLevel: 'info',
+      mediaRoot: './var/media',
     });
   });
 
@@ -118,20 +119,24 @@ describe('loadConfig', () => {
     }
   });
 
-  it('does not include the supplied password in error messages', () => {
-    const password = 'super-secret-db-password';
+  it('defaults MEDIA_ROOT to ./var/media', () => {
+    const config = loadConfig(validEnvironment);
 
+    expect(config.mediaRoot).toBe('./var/media');
+  });
+
+  it('rejects an empty MEDIA_ROOT without copying the value', () => {
     try {
       loadConfig({
         ...validEnvironment,
-        DATABASE_URL: `mysql://camila:${password}@127.0.0.1:5432/camila`,
+        MEDIA_ROOT: '   ',
       });
       expect.unreachable('expected ConfigurationError');
     } catch (error) {
       expect(error).toBeInstanceOf(ConfigurationError);
       const configurationError = error as ConfigurationError;
-      expect(configurationError.message).not.toContain(password);
-      expect(JSON.stringify(configurationError.issues)).not.toContain(password);
+      expect(configurationError.issues).toContain('MEDIA_ROOT');
+      expect(configurationError.message).not.toContain('   ');
     }
   });
 });

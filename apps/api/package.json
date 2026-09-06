@@ -7,18 +7,23 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "vitest run --project unit",
-    "test:integration": "vitest run --project integration"
+    "test:integration": "vitest run --project integration",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx --env-file=../../.env src/database/migrate.ts"
   },
   "dependencies": {
     "@fastify/cors": "11.3.0",
     "@fastify/helmet": "13.1.1",
+    "drizzle-orm": "0.45.2",
     "fastify": "5.12.3",
+    "file-type": "22.0.2",
     "postgres": "3.4.9",
     "zod": "4.5.4"
   },
   "devDependencies": {
     "@types/node": "26.4.1",
     "@vitest/coverage-v8": "5.0.0",
+    "drizzle-kit": "0.31.10",
     "tsx": "4.23.13",
     "typescript": "6.0.3",
     "vitest": "5.0.0"

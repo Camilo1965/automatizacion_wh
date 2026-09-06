@@ -16,7 +16,9 @@
     "typecheck": "pnpm --filter @camila/api --filter @camila/admin typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm build"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm build",
+    "db:generate": "pnpm --filter @camila/api db:generate",
+    "db:migrate": "pnpm --filter @camila/api db:migrate"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
