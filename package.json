@@ -1,0 +1,30 @@
+{
+  "name": "camila",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=24.14.1 <25"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @camila/api --filter @camila/admin dev",
+    "build": "pnpm --filter @camila/api --filter @camila/admin build",
+    "test": "pnpm test:unit",
+    "test:unit": "pnpm --filter @camila/api test:unit && pnpm --filter @camila/admin test:unit",
+    "test:integration": "pnpm --filter @camila/api test:integration",
+    "lint": "eslint .",
+    "typecheck": "pnpm --filter @camila/api --filter @camila/admin typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm build"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.10.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.6",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.69.0"
+  }
+}

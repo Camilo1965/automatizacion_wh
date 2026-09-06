@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Logs and caches
+logs/
+*.log
+.npm/
+.pnpm-store/
+.eslintcache
+.prettiercache
+.vite/
+.turbo/
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Test artifacts
+*.lcov
+
+# Existing non-product materials
+entregables/
+proposal_work/

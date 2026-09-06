@@ -1,0 +1,8 @@
+pnpm-lock.yaml
+dist
+coverage
+node_modules
+entregables
+proposal_work
+ROADMAP.md
+*.tsbuildinfo
