@@ -52,9 +52,20 @@ describe('validatePriceCop', () => {
     expect(validatePriceCop(150000)).toBe(150000);
   });
 
-  it('rejects zero and non-integers', () => {
+  it('accepts the maximum allowed price', () => {
+    expect(validatePriceCop(2_000_000_000)).toBe(2_000_000_000);
+  });
+
+  it('rejects zero, non-integers, NaN, infinity, and values above the maximum', () => {
     expect(() => validatePriceCop(0)).toThrow(CatalogValidationError);
     expect(() => validatePriceCop(10.5)).toThrow(CatalogValidationError);
+    expect(() => validatePriceCop(Number.NaN)).toThrow(CatalogValidationError);
+    expect(() => validatePriceCop(Number.POSITIVE_INFINITY)).toThrow(
+      CatalogValidationError,
+    );
+    expect(() => validatePriceCop(2_000_000_001)).toThrow(
+      CatalogValidationError,
+    );
   });
 });
 
@@ -64,7 +75,19 @@ describe('validateQuantity', () => {
     expect(validateQuantity(3)).toBe(3);
   });
 
-  it('rejects negatives', () => {
+  it('accepts the maximum allowed quantity', () => {
+    expect(validateQuantity(2_000_000_000)).toBe(2_000_000_000);
+  });
+
+  it('rejects negatives, decimals, NaN, infinity, and values above the maximum', () => {
     expect(() => validateQuantity(-1)).toThrow(CatalogValidationError);
+    expect(() => validateQuantity(1.5)).toThrow(CatalogValidationError);
+    expect(() => validateQuantity(Number.NaN)).toThrow(CatalogValidationError);
+    expect(() => validateQuantity(Number.POSITIVE_INFINITY)).toThrow(
+      CatalogValidationError,
+    );
+    expect(() => validateQuantity(2_000_000_001)).toThrow(
+      CatalogValidationError,
+    );
   });
 });

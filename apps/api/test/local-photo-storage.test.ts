@@ -92,9 +92,22 @@ describe('LocalPhotoStorage', () => {
     ).rejects.toBeInstanceOf(PhotoValidationError);
   });
 
-  it('rejects GIF and WebP signatures', async () => {
+  it('rejects GIF signatures', async () => {
     const gif = Uint8Array.from(Buffer.from('GIF89a'));
     await expect(storage.save(gif)).rejects.toBeInstanceOf(
+      PhotoValidationError,
+    );
+  });
+
+  it('rejects WebP signatures', async () => {
+    const webp = Uint8Array.from(
+      Buffer.from([
+        0x52, 0x49, 0x46, 0x46, 0x1a, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
+        0x56, 0x50, 0x38, 0x20, 0x0e, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      ]),
+    );
+    await expect(storage.save(webp)).rejects.toBeInstanceOf(
       PhotoValidationError,
     );
   });

@@ -226,6 +226,35 @@ export class PostgresCatalogRepository implements CatalogRepository {
     }
 
     return this.database.orm.transaction(async (tx) => {
+      const insertedRows = await tx
+        .insert(catalogStock)
+        .values({
+          referenceId: input.referenceId,
+          size,
+          physicalQuantity,
+          reservedQuantity: 0,
+        })
+        .onConflictDoNothing({
+          target: [catalogStock.referenceId, catalogStock.size],
+        })
+        .returning();
+
+      const inserted = insertedRows[0];
+      if (inserted !== undefined) {
+        await tx.insert(inventoryMovements).values({
+          referenceId: input.referenceId,
+          size,
+          previousQuantity: 0,
+          newQuantity: physicalQuantity,
+          delta: physicalQuantity,
+          reason: 'initial',
+          note: input.note ?? null,
+          createdAt: sql`clock_timestamp()`,
+        });
+
+        return mapStock(inserted);
+      }
+
       const [existing] = await tx
         .select()
         .from(catalogStock)
@@ -239,31 +268,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
         .for('update');
 
       if (existing === undefined) {
-        const [inserted] = await tx
-          .insert(catalogStock)
-          .values({
-            referenceId: input.referenceId,
-            size,
-            physicalQuantity,
-            reservedQuantity: 0,
-          })
-          .returning();
-
-        if (inserted === undefined) {
-          throw new Error('Failed to insert stock record');
-        }
-
-        await tx.insert(inventoryMovements).values({
-          referenceId: input.referenceId,
-          size,
-          previousQuantity: 0,
-          newQuantity: physicalQuantity,
-          delta: physicalQuantity,
-          reason: 'initial',
-          note: input.note ?? null,
-        });
-
-        return mapStock(inserted);
+        throw new Error('Stock row disappeared after conflict');
       }
 
       if (physicalQuantity < existing.reservedQuantity) {
@@ -304,6 +309,7 @@ export class PostgresCatalogRepository implements CatalogRepository {
         delta: physicalQuantity - existing.physicalQuantity,
         reason: 'manual_adjustment',
         note: input.note ?? null,
+        createdAt: sql`clock_timestamp()`,
       });
 
       return mapStock(updated);

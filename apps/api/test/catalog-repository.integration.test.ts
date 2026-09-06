@@ -340,7 +340,7 @@ describe('catalog repository and service integration', () => {
     }
   });
 
-  it('prevents concurrent duplicate stock rows for the same size', async () => {
+  it('serializes concurrent stock initialization across many sizes', async () => {
     const reference = await service.createReference({
       code: 'CON',
       modelName: 'Concurrente',
@@ -348,30 +348,62 @@ describe('catalog repository and service integration', () => {
       priceCop: 95000,
     });
 
-    const results = await Promise.allSettled([
-      service.setPhysicalStock({
-        referenceId: reference.id,
-        size: 38,
-        physicalQuantity: 1,
-      }),
-      service.setPhysicalStock({
-        referenceId: reference.id,
-        size: 38,
-        physicalQuantity: 2,
-      }),
-    ]);
+    const sizes = Array.from({ length: 20 }, (_, index) => {
+      const value = 20 + index * 0.5;
+      return Number.isInteger(value) ? String(value) : value.toFixed(1);
+    });
 
-    const fulfilled = results.filter((result) => result.status === 'fulfilled');
-    expect(fulfilled.length).toBeGreaterThanOrEqual(1);
+    await Promise.all(
+      sizes.map(async (size) => {
+        await Promise.all([
+          repository.setPhysicalStock({
+            referenceId: reference.id,
+            size,
+            physicalQuantity: 1,
+          }),
+          repository.setPhysicalStock({
+            referenceId: reference.id,
+            size,
+            physicalQuantity: 2,
+          }),
+        ]);
+
+        const movements = await repository.listInventoryMovements(
+          reference.id,
+          size,
+        );
+        expect(movements).toHaveLength(2);
+
+        const firstMovement = movements[0];
+        const secondMovement = movements[1];
+        expect(firstMovement?.previousQuantity).toBe(0);
+        expect(secondMovement?.previousQuantity).toBe(
+          firstMovement?.newQuantity,
+        );
+        expect(
+          [firstMovement?.newQuantity, secondMovement?.newQuantity]
+            .slice()
+            .sort((left, right) => (left ?? 0) - (right ?? 0)),
+        ).toEqual([1, 2]);
+      }),
+    );
 
     const sql = postgres(testDatabaseUrl, { max: 1, prepare: false });
     try {
-      const rows = await sql<{ count: string }[]>`
-        SELECT count(*)::text AS count
-        FROM catalog_stock
-        WHERE reference_id = ${reference.id} AND size = 38
-      `;
-      expect(rows[0]?.count).toBe('1');
+      for (const size of sizes) {
+        const rows = await sql<{ count: string; physical_quantity: number }[]>`
+          SELECT count(*)::text AS count, max(physical_quantity) AS physical_quantity
+          FROM catalog_stock
+          WHERE reference_id = ${reference.id} AND size = ${size}
+        `;
+        expect(rows[0]?.count).toBe('1');
+
+        const movements = await repository.listInventoryMovements(
+          reference.id,
+          size,
+        );
+        expect(rows[0]?.physical_quantity).toBe(movements[1]?.newQuantity);
+      }
     } finally {
       await sql.end({ timeout: 5 });
     }
@@ -408,18 +440,6 @@ describe('catalog repository and service integration', () => {
     expect(second.photo?.sha256).toBe(
       createHash('sha256').update(PNG_BYTES).digest('hex'),
     );
-
-    class FailingSaveStorage implements PhotoStorage {
-      async save(): Promise<StoredPhoto> {
-        throw new Error('should not save');
-      }
-      async read(): Promise<Uint8Array> {
-        return new Uint8Array();
-      }
-      async delete(): Promise<void> {
-        throw new Error('delete failed');
-      }
-    }
 
     const cleanupService = new DefaultCatalogService(
       repository,
@@ -465,8 +485,67 @@ describe('catalog repository and service integration', () => {
     ).rejects.toThrow('db write failed');
     const afterFail = await repository.findReferenceById(reference.id);
     expect(afterFail?.photo?.storageKey).toBe(beforeFail?.photo?.storageKey);
+  });
 
-    void new FailingSaveStorage();
+  it('advances updated_at when deactivating a reference', async () => {
+    const reference = await service.createReference({
+      code: 'UPD',
+      modelName: 'Updated',
+      color: 'Negro',
+      priceCop: 88000,
+    });
+
+    const sql = postgres(testDatabaseUrl, { max: 1, prepare: false });
+    try {
+      await sql`
+        UPDATE catalog_references
+        SET updated_at = TIMESTAMPTZ '2020-01-01 00:00:00+00'
+        WHERE id = ${reference.id}
+      `;
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+
+    const deactivated = await service.deactivateReference(reference.id);
+    expect(deactivated.updatedAt.getTime()).toBeGreaterThan(
+      Date.parse('2020-01-01T00:00:00.000Z'),
+    );
+  });
+
+  it('advances updated_at when changing physical stock', async () => {
+    const reference = await service.createReference({
+      code: 'STU',
+      modelName: 'Stock Updated',
+      color: 'Rojo',
+      priceCop: 77000,
+    });
+
+    await service.setPhysicalStock({
+      referenceId: reference.id,
+      size: 37,
+      physicalQuantity: 1,
+    });
+
+    const sql = postgres(testDatabaseUrl, { max: 1, prepare: false });
+    try {
+      await sql`
+        UPDATE catalog_stock
+        SET updated_at = TIMESTAMPTZ '2020-01-01 00:00:00+00'
+        WHERE reference_id = ${reference.id} AND size = 37
+      `;
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+
+    const updated = await service.setPhysicalStock({
+      referenceId: reference.id,
+      size: 37,
+      physicalQuantity: 4,
+    });
+
+    expect(updated.updatedAt.getTime()).toBeGreaterThan(
+      Date.parse('2020-01-01T00:00:00.000Z'),
+    );
   });
 
   it('returns not found for unknown references', async () => {
