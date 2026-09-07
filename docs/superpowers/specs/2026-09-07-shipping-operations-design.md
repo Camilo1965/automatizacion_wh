@@ -12,7 +12,8 @@ Este diseño extiende los pedidos existentes, el flujo guiado de WhatsApp y el p
 
 - Cada pedido usa un perfil inicial de empaque: `1 kg`, `30 × 20 × 12 cm`. El perfil se conserva en la cotización y podrá configurarse por referencia en una ampliación posterior.
 - Se solicitan las cotizaciones disponibles de 99envíos para el destino DANE del pedido.
-- Se recomienda **Envia** si la respuesta la incluye como exitosa. Si no hay cobertura de Envia, se recomienda la alternativa con menor `valor + valor_contrapago + sobreflete`.
+- La propietaria puede asignar una transportadora preferida a un municipio por su código DANE. Si esa transportadora tiene cobertura, se recomienda y selecciona aunque su tarifa sea mayor.
+- Sin una regla municipal aplicable, se recomienda **Envia** si la respuesta la incluye como exitosa. Si no hay cobertura de Envia, se recomienda la alternativa con menor `valor + valor_contrapago + sobreflete`.
 - La propietaria puede elegir otra alternativa disponible. Cambiar de opción invalida el resumen anterior y exige uno nuevo antes de confirmar.
 - El cliente recibe el total confirmado antes de reservar. El flete y el cargo de recaudo se guardan por separado; el total es `subtotal de producto + flete + recaudo + sobreflete`.
 - El pedido conserva una copia inmutable de la cotización elegida. Una cotización expira a los 30 minutos desde su creación; al expirar se debe consultar de nuevo y presentar otro resumen.
@@ -33,6 +34,10 @@ Restricciones: valores COP enteros no negativos; una sola alternativa selecciona
 Se amplía con `quote_id`, `guide_pdf_fetched_at`, `guide_pdf_sha256`, `guide_pdf_byte_size` y `guide_pdf_storage_key`. La guía almacena el número de preenvío, la transportadora y el flete ya existentes. El PDF se guarda en una ruta generada por servidor fuera de las fotos y solo se sirve por una ruta autenticada del panel.
 
 Estados permitidos: `pending`, `processing`, `created`, `failed`, `uncertain`. El PDF es un atributo independiente: su ausencia no cambia una guía creada.
+
+### `shipping_carrier_rules`
+
+Una regla activa por código DANE de ocho dígitos. Contiene `locality_carrier_code`, `carrier`, `active`, `created_at` y `updated_at`. La regla no inventa cobertura: solo decide entre las alternativas exitosas que devolvió 99envíos.
 
 ## Adaptador de 99envíos
 

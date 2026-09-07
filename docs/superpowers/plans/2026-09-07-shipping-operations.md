@@ -12,7 +12,7 @@
 
 - COP amounts are nonnegative integers; total equals product subtotal plus freight, COD charge and surcharge.
 - A quote expires 30 minutes after persistence; expired or changed quotes require a new summary and confirmation.
-- Envia is recommended when available; otherwise recommend lowest complete landed cost.
+- A carrier rule for the exact destination DANE code wins when that carrier is available; otherwise Envia is recommended, then the lowest complete landed cost.
 - Only a created guide can request a PDF. A PDF request never creates a guide.
 - Timeouts after pre-shipment submission are `uncertain` and never retried automatically.
 - No credentials, raw provider payloads, destination addresses or PDF files enter Git or application logs.
@@ -33,11 +33,11 @@
 
 **Files:** Modify `packages/contracts/src/index.ts`; create `apps/api/src/modules/shipping/shipping-quote-service.ts`, `apps/api/src/modules/shipping/postgres-shipping-quote-repository.ts`; tests under `packages/contracts/test/` and `apps/api/test/`.
 
-**Produces:** `createQuotes(orderId)`, `selectQuote(orderId, quoteId)`, `getShipping(orderId)` and public strict schemas.
+**Produces:** `createQuotes(orderId)`, `selectQuote(orderId, quoteId)`, `getShipping(orderId)`, carrier rules by DANE municipality and public strict schemas.
 
-- [ ] RED: successful partial carrier response; Envia wins; otherwise lowest `freight + COD + surcharge`; all failures; 429; expired quote; changing selected quote invalidates summaries.
+- [ ] RED: successful partial carrier response; an active exact DANE carrier rule wins even when dearer; without it Envia wins; otherwise lowest `freight + COD + surcharge`; all failures; 429; expired quote; changing selected quote invalidates summaries.
 - [ ] Implement provider normalization and a transactional repository. Obtain reference value and destination from the authoritative order; enforce the DANE eight-digit value before calling the provider.
-- [ ] Add a 30-minute `expiresAt`; selection is atomic and only allowed for the current draft version.
+- [ ] Add a 30-minute `expiresAt`; selection is atomic and only allowed for the current draft version. Persist at most one active carrier rule for each eight-digit DANE code.
 - [ ] Run focused unit/integration tests, lint and typecheck.
 - [ ] Commit `feat: quote shipping alternatives`.
 
