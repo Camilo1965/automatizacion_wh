@@ -1,6 +1,5 @@
 import type { CatalogReference } from '../catalog/catalog-types.js';
 import { CatalogNotFoundError } from '../catalog/catalog-errors.js';
-import type { LocalityRepository } from '../localities/locality-repository.js';
 import { assertTransition, type OrderAction } from './order-state.js';
 import { OrderConflictError, OrderValidationError } from './order-errors.js';
 import type {
@@ -35,7 +34,6 @@ export class OrderService {
     private readonly findReference: (
       referenceId: string,
     ) => Promise<CatalogReference | null>,
-    private readonly localities: LocalityRepository,
   ) {}
 
   async create(input: CreateOrderInput): Promise<OrderRecord> {
@@ -47,7 +45,6 @@ export class OrderService {
         'reference_inactive',
         'The catalog reference is inactive',
       );
-    await this.validateLocality(input.localityCarrierCode);
     return this.repository.create(input);
   }
 
@@ -65,7 +62,6 @@ export class OrderService {
         'order_not_editable',
         'Only draft orders can be edited',
       );
-    await this.validateLocality(input.localityCarrierCode);
     return this.repository.update(input);
   }
 
@@ -112,23 +108,6 @@ export class OrderService {
     if (order === null)
       throw new OrderConflictError('order_not_found', 'Order was not found');
     return order;
-  }
-
-  private async validateLocality(
-    carrierCode: string | null | undefined,
-  ): Promise<void> {
-    if (carrierCode === null || carrierCode === undefined) return;
-    const result = await this.localities.list({
-      afterCode: carrierCode,
-      limit: 1,
-    });
-    if (result.items[0]?.carrierCode !== carrierCode) {
-      throw new OrderValidationError(
-        'localityCarrierCode',
-        'unknown_locality',
-        'The locality is not available',
-      );
-    }
   }
 
   private assertComplete(order: OrderRecord): void {

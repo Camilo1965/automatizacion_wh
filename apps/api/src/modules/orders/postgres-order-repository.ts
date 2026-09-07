@@ -112,15 +112,13 @@ export class PostgresOrderRepository implements OrderRepository {
       })
       .returning();
     if (created === undefined) throw new Error('Failed to create order');
-    await this.database.orm
-      .insert(orderStatusEvents)
-      .values({
-        orderId: created.id,
-        previousStatus: null,
-        nextStatus: 'draft',
-        adminUserId: input.adminUserId,
-        createdAt: sql`clock_timestamp()`,
-      });
+    await this.database.orm.insert(orderStatusEvents).values({
+      orderId: created.id,
+      previousStatus: null,
+      nextStatus: 'draft',
+      adminUserId: input.adminUserId,
+      createdAt: sql`clock_timestamp()`,
+    });
     return this.requireMapped(created);
   }
 
@@ -345,14 +343,12 @@ export class PostgresOrderRepository implements OrderRepository {
             'The idempotency key belongs to another order',
           );
         if (confirmation === undefined)
-          await tx
-            .insert(orderConfirmations)
-            .values({
-              orderId: order.id,
-              summaryVersion: summary.version,
-              idempotencyKey: input.idempotencyKey!,
-              createdAt: sql`clock_timestamp()`,
-            });
+          await tx.insert(orderConfirmations).values({
+            orderId: order.id,
+            summaryVersion: summary.version,
+            idempotencyKey: input.idempotencyKey!,
+            createdAt: sql`clock_timestamp()`,
+          });
         await tx
           .update(catalogStock)
           .set({
@@ -365,18 +361,16 @@ export class PostgresOrderRepository implements OrderRepository {
               eq(catalogStock.size, order.size),
             ),
           );
-        await tx
-          .insert(reservationMovements)
-          .values({
-            orderId: order.id,
-            referenceId: order.referenceId,
-            size: order.size,
-            previousReservedQuantity: stock.reservedQuantity,
-            newReservedQuantity: stock.reservedQuantity + order.quantity,
-            delta: order.quantity,
-            reason: 'confirmed',
-            createdAt: sql`clock_timestamp()`,
-          });
+        await tx.insert(reservationMovements).values({
+          orderId: order.id,
+          referenceId: order.referenceId,
+          size: order.size,
+          previousReservedQuantity: stock.reservedQuantity,
+          newReservedQuantity: stock.reservedQuantity + order.quantity,
+          delta: order.quantity,
+          reason: 'confirmed',
+          createdAt: sql`clock_timestamp()`,
+        });
         await tx
           .update(salesOrders)
           .set({
@@ -425,30 +419,26 @@ export class PostgresOrderRepository implements OrderRepository {
               eq(catalogStock.size, order.size),
             ),
           );
-        await tx
-          .insert(reservationMovements)
-          .values({
-            orderId: order.id,
-            referenceId: order.referenceId,
-            size: order.size,
-            previousReservedQuantity: stock.reservedQuantity,
-            newReservedQuantity: stock.reservedQuantity - order.quantity,
-            delta: -order.quantity,
-            reason: 'dispatched',
-            createdAt: sql`clock_timestamp()`,
-          });
-        await tx
-          .insert(inventoryMovements)
-          .values({
-            referenceId: order.referenceId,
-            size: order.size,
-            previousQuantity: stock.physicalQuantity,
-            newQuantity: stock.physicalQuantity - order.quantity,
-            delta: -order.quantity,
-            reason: 'order_dispatched',
-            note: `Order ${order.orderNumber}`,
-            createdAt: sql`clock_timestamp()`,
-          });
+        await tx.insert(reservationMovements).values({
+          orderId: order.id,
+          referenceId: order.referenceId,
+          size: order.size,
+          previousReservedQuantity: stock.reservedQuantity,
+          newReservedQuantity: stock.reservedQuantity - order.quantity,
+          delta: -order.quantity,
+          reason: 'dispatched',
+          createdAt: sql`clock_timestamp()`,
+        });
+        await tx.insert(inventoryMovements).values({
+          referenceId: order.referenceId,
+          size: order.size,
+          previousQuantity: stock.physicalQuantity,
+          newQuantity: stock.physicalQuantity - order.quantity,
+          delta: -order.quantity,
+          reason: 'order_dispatched',
+          note: `Order ${order.orderNumber}`,
+          createdAt: sql`clock_timestamp()`,
+        });
         await tx
           .update(salesOrders)
           .set({ status: next, updatedAt: sql`clock_timestamp()` })
@@ -482,18 +472,16 @@ export class PostgresOrderRepository implements OrderRepository {
               eq(catalogStock.size, order.size),
             ),
           );
-        await tx
-          .insert(inventoryMovements)
-          .values({
-            referenceId: order.referenceId,
-            size: order.size,
-            previousQuantity: stock.physicalQuantity,
-            newQuantity: stock.physicalQuantity + order.quantity,
-            delta: order.quantity,
-            reason: 'order_returned',
-            note: `Order ${order.orderNumber}`,
-            createdAt: sql`clock_timestamp()`,
-          });
+        await tx.insert(inventoryMovements).values({
+          referenceId: order.referenceId,
+          size: order.size,
+          previousQuantity: stock.physicalQuantity,
+          newQuantity: stock.physicalQuantity + order.quantity,
+          delta: order.quantity,
+          reason: 'order_returned',
+          note: `Order ${order.orderNumber}`,
+          createdAt: sql`clock_timestamp()`,
+        });
         await tx
           .update(salesOrders)
           .set({ status: next, updatedAt: sql`clock_timestamp()` })
@@ -504,15 +492,13 @@ export class PostgresOrderRepository implements OrderRepository {
           .set({ status: next, updatedAt: sql`clock_timestamp()` })
           .where(eq(salesOrders.id, order.id));
       }
-      await tx
-        .insert(orderStatusEvents)
-        .values({
-          orderId: order.id,
-          previousStatus: order.status,
-          nextStatus: next,
-          adminUserId: input.adminUserId,
-          createdAt: sql`clock_timestamp()`,
-        });
+      await tx.insert(orderStatusEvents).values({
+        orderId: order.id,
+        previousStatus: order.status,
+        nextStatus: next,
+        adminUserId: input.adminUserId,
+        createdAt: sql`clock_timestamp()`,
+      });
       const updated = await this.lockOrder(tx, order.id);
       return this.requireMapped(updated, tx);
     });
@@ -551,18 +537,16 @@ export class PostgresOrderRepository implements OrderRepository {
           eq(catalogStock.size, order.size),
         ),
       );
-    await tx
-      .insert(reservationMovements)
-      .values({
-        orderId: order.id,
-        referenceId: order.referenceId,
-        size: order.size,
-        previousReservedQuantity: stock.reservedQuantity,
-        newReservedQuantity: stock.reservedQuantity - order.quantity,
-        delta: -order.quantity,
-        reason,
-        createdAt: sql`clock_timestamp()`,
-      });
+    await tx.insert(reservationMovements).values({
+      orderId: order.id,
+      referenceId: order.referenceId,
+      size: order.size,
+      previousReservedQuantity: stock.reservedQuantity,
+      newReservedQuantity: stock.reservedQuantity - order.quantity,
+      delta: -order.quantity,
+      reason,
+      createdAt: sql`clock_timestamp()`,
+    });
   }
   private async lockOrder(tx: any, orderId: string): Promise<Row> {
     const [order] = await tx

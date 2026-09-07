@@ -9,6 +9,10 @@ import type {
   StockAvailability,
   StockRecord,
 } from '../modules/catalog/catalog-types.js';
+import type {
+  OrderRecord,
+  OrderSummary,
+} from '../modules/orders/order-types.js';
 
 export function toPublicPhoto(
   referenceId: string,
@@ -92,5 +96,37 @@ export function toPublicMovement(movement: InventoryMovement) {
     reason: movement.reason,
     note: movement.note,
     createdAt: movement.createdAt.toISOString(),
+  };
+}
+
+export function toPublicOrder(order: OrderRecord) {
+  return {
+    id: order.id,
+    orderNumber: `PED-${String(order.orderNumber).padStart(6, '0')}`,
+    status: order.status,
+    reference: {
+      id: order.referenceId,
+      code: order.referenceCode,
+      modelName: order.referenceModelName,
+      color: order.referenceColor,
+    },
+    size: order.size,
+    quantity: order.quantity,
+    customer: order.customer,
+    destination: order.destination,
+    draftVersion: order.draftVersion,
+    latestSummaryVersion: order.latestSummaryVersion,
+    confirmedSummaryVersion: order.confirmedSummaryVersion,
+    createdAt: order.createdAt.toISOString(),
+    updatedAt: order.updatedAt.toISOString(),
+  };
+}
+
+export function toPublicOrderSummary(summary: OrderSummary) {
+  return {
+    version: summary.version,
+    draftVersion: summary.draftVersion,
+    snapshot: summary.snapshot,
+    createdAt: summary.createdAt.toISOString(),
   };
 }

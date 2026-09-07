@@ -10,6 +10,8 @@ import { CatalogImportService } from './modules/catalog/catalog-import-service.j
 import { PostgresCatalogRepository } from './modules/catalog/postgres-catalog-repository.js';
 import { LocalityService } from './modules/localities/locality-service.js';
 import { PostgresLocalityRepository } from './modules/localities/postgres-locality-repository.js';
+import { PostgresOrderRepository } from './modules/orders/postgres-order-repository.js';
+import { OrderService } from './modules/orders/order-service.js';
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
@@ -28,6 +30,10 @@ async function main(): Promise<void> {
   const localityService = new LocalityService(
     new PostgresLocalityRepository(database),
   );
+  const orderService = new OrderService(
+    new PostgresOrderRepository(database),
+    (referenceId) => catalogRepository.findReferenceById(referenceId),
+  );
 
   const app = await buildApp({
     config,
@@ -36,6 +42,7 @@ async function main(): Promise<void> {
     catalogService,
     catalogImportService,
     localityService,
+    orderService,
     photoStorage,
   });
 

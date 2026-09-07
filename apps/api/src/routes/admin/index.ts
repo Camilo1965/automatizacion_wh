@@ -9,6 +9,9 @@ import {
   LoginBodySchema,
   PatchReferenceBodySchema,
   SetStockBodySchema,
+  CreateOrderBodySchema,
+  PatchOrderBodySchema,
+  ConfirmOrderBodySchema,
 } from '@camila/contracts';
 
 import type { AppConfig } from '../../config.js';
@@ -18,6 +21,8 @@ import {
   toPublicReferenceDetail,
   toPublicReferenceSummary,
   toPublicStockRecord,
+  toPublicOrder,
+  toPublicOrderSummary,
 } from '../../http/admin-mappers.js';
 import {
   ADMIN_SESSION_COOKIE,
@@ -34,6 +39,7 @@ import type { CatalogImportService } from '../../modules/catalog/catalog-import-
 import { CatalogImportValidationError } from '../../modules/catalog/catalog-errors.js';
 import type { LocalityService } from '../../modules/localities/locality-service.js';
 import type { PhotoStorage } from '../../modules/catalog/photo-storage.js';
+import type { OrderService } from '../../modules/orders/order-service.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -53,6 +59,8 @@ const StockParamsSchema = z
     size: z.string().min(1),
   })
   .strict();
+
+const OrderIdParamsSchema = z.object({ orderId: z.uuid() }).strict();
 
 async function requireAdminSession(
   request: FastifyRequest,
@@ -78,6 +86,7 @@ export type AdminRoutesDependencies = Readonly<{
   catalogImportService?: CatalogImportService;
   localityService?: LocalityService;
   photoStorage: PhotoStorage;
+  orderService?: OrderService;
 }>;
 
 export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
@@ -91,6 +100,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     photoStorage,
     catalogImportService,
     localityService,
+    orderService,
   } = dependencies;
 
   if (localityService !== undefined) {
@@ -446,4 +456,127 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
       },
     });
   });
+
+  if (orderService !== undefined) {
+    app.post('/orders', async (request, reply) => {
+      const user = await requireAdminSession(request, authService);
+      const body = CreateOrderBodySchema.parse(request.body);
+      const order = await orderService.create({
+        referenceId: body.referenceId,
+        size: body.size,
+        quantity: body.quantity,
+        adminUserId: user.id,
+        ...(body.customerName === undefined
+          ? {}
+          : { customerName: body.customerName }),
+        ...(body.customerPhone === undefined
+          ? {}
+          : { customerPhone: body.customerPhone }),
+        ...(body.address === undefined ? {} : { address: body.address }),
+        ...(body.localityCarrierCode === undefined
+          ? {}
+          : { localityCarrierCode: body.localityCarrierCode }),
+        ...(body.deliveryNotes === undefined
+          ? {}
+          : { deliveryNotes: body.deliveryNotes }),
+      });
+      return reply.status(201).send({ data: toPublicOrder(order) });
+    });
+
+    app.get('/orders', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const query = z
+        .object({
+          status: z
+            .enum([
+              'draft',
+              'confirmed',
+              'cancelled',
+              'dispatched',
+              'delivered',
+              'returned',
+            ])
+            .optional(),
+          limit: z.coerce.number().int().min(1).max(100).default(25),
+        })
+        .strict()
+        .parse(request.query);
+      const page = await orderService.list({
+        limit: query.limit,
+        ...(query.status === undefined ? {} : { status: query.status }),
+      });
+      return reply.status(200).send({
+        data: {
+          items: page.items.map(toPublicOrder),
+          nextCursor: page.nextCursor,
+        },
+      });
+    });
+
+    app.get('/orders/:orderId', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const { orderId } = OrderIdParamsSchema.parse(request.params);
+      const order = await orderService.get(orderId);
+      if (order === null) throw new CatalogNotFoundError('Order was not found');
+      return reply.status(200).send({ data: toPublicOrder(order) });
+    });
+
+    app.patch('/orders/:orderId', async (request, reply) => {
+      const user = await requireAdminSession(request, authService);
+      const { orderId } = OrderIdParamsSchema.parse(request.params);
+      const body = PatchOrderBodySchema.parse(request.body);
+      const order = await orderService.update({
+        orderId,
+        adminUserId: user.id,
+        ...(body.customerName === undefined
+          ? {}
+          : { customerName: body.customerName }),
+        ...(body.customerPhone === undefined
+          ? {}
+          : { customerPhone: body.customerPhone }),
+        ...(body.address === undefined ? {} : { address: body.address }),
+        ...(body.localityCarrierCode === undefined
+          ? {}
+          : { localityCarrierCode: body.localityCarrierCode }),
+        ...(body.deliveryNotes === undefined
+          ? {}
+          : { deliveryNotes: body.deliveryNotes }),
+      });
+      return reply.status(200).send({ data: toPublicOrder(order) });
+    });
+
+    app.post('/orders/:orderId/summaries', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const { orderId } = OrderIdParamsSchema.parse(request.params);
+      return reply.status(201).send({
+        data: toPublicOrderSummary(await orderService.createSummary(orderId)),
+      });
+    });
+
+    for (const action of ['cancel', 'dispatch', 'deliver', 'return'] as const) {
+      app.post(`/orders/:orderId/${action}`, async (request, reply) => {
+        const user = await requireAdminSession(request, authService);
+        const { orderId } = OrderIdParamsSchema.parse(request.params);
+        const order = await orderService.transition({
+          orderId,
+          action,
+          adminUserId: user.id,
+        });
+        return reply.status(200).send({ data: toPublicOrder(order) });
+      });
+    }
+
+    app.post('/orders/:orderId/confirm', async (request, reply) => {
+      const user = await requireAdminSession(request, authService);
+      const { orderId } = OrderIdParamsSchema.parse(request.params);
+      const body = ConfirmOrderBodySchema.parse(request.body);
+      const order = await orderService.transition({
+        orderId,
+        action: 'confirm',
+        adminUserId: user.id,
+        ...body,
+      });
+      return reply.status(200).send({ data: toPublicOrder(order) });
+    });
+  }
 };
