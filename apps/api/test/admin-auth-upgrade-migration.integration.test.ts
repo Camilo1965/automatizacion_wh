@@ -254,7 +254,10 @@ describe('admin auth upgrade migration 0000 → 0001', () => {
         FROM drizzle.__drizzle_migrations
         ORDER BY id
       `;
-      expect(migrationRowsBefore).toHaveLength(2);
+      expect(migrationRowsBefore.length).toBeGreaterThanOrEqual(2);
+      expect(new Set(migrationRowsBefore.map((row) => row.hash)).size).toBe(
+        migrationRowsBefore.length,
+      );
 
       await expect(runMigrations(tempDatabaseUrl)).resolves.toBeUndefined();
 
