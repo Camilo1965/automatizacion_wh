@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 
 import {
@@ -24,6 +24,13 @@ export function OrderDetailPage() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [locality, setLocality] = useState('');
+  useEffect(() => {
+    if (query.data === undefined) return;
+    setName(query.data.customer.name ?? '');
+    setPhone(query.data.customer.phone ?? '');
+    setAddress(query.data.destination.address ?? '');
+    setLocality(query.data.destination.localityCarrierCode ?? '');
+  }, [query.data]);
   const refresh = () =>
     client.invalidateQueries({ queryKey: ['order', orderId] });
   const save = useMutation({
@@ -80,7 +87,7 @@ export function OrderDetailPage() {
             Nombre
             <input
               required
-              defaultValue={order.customer.name ?? ''}
+              value={name}
               onChange={(event) => setName(event.target.value)}
             />
           </label>
@@ -89,7 +96,7 @@ export function OrderDetailPage() {
             <input
               required
               placeholder="3001234567"
-              defaultValue={order.customer.phone ?? ''}
+              value={phone}
               onChange={(event) => setPhone(event.target.value)}
             />
           </label>
@@ -97,7 +104,7 @@ export function OrderDetailPage() {
             Dirección
             <input
               required
-              defaultValue={order.destination.address ?? ''}
+              value={address}
               onChange={(event) => setAddress(event.target.value)}
             />
           </label>
@@ -105,7 +112,7 @@ export function OrderDetailPage() {
             Código de localidad
             <input
               required
-              defaultValue={order.destination.localityCarrierCode ?? ''}
+              value={locality}
               onChange={(event) => setLocality(event.target.value)}
             />
           </label>

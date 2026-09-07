@@ -140,6 +140,10 @@ const orderQuantitySchema = z.number().int().min(1).max(10);
 const colombianPhoneSchema = z
   .string()
   .regex(/^\+57\d{10}$/, 'Phone must use +57 followed by ten digits');
+const colombianPhoneInputSchema = z
+  .string()
+  .trim()
+  .regex(/^(?:\+?57)?3\d{9}$/, 'Phone must be a Colombian mobile number');
 const customerNameSchema = z.string().trim().min(2).max(120);
 const addressSchema = z.string().trim().min(5).max(180);
 const localityCarrierCodeSchema = z.string().trim().min(1).max(32);
@@ -161,7 +165,7 @@ export const CreateOrderBodySchema = z
     size: ShoeSizeStringSchema,
     quantity: orderQuantitySchema,
     customerName: customerNameSchema.optional(),
-    customerPhone: colombianPhoneSchema.optional(),
+    customerPhone: colombianPhoneInputSchema.optional(),
     address: addressSchema.optional(),
     localityCarrierCode: localityCarrierCodeSchema.optional(),
     deliveryNotes: deliveryNotesSchema.nullable().optional(),
@@ -171,11 +175,8 @@ export type CreateOrderBody = z.infer<typeof CreateOrderBodySchema>;
 
 export const PatchOrderBodySchema = z
   .object({
-    referenceId: z.uuid().optional(),
-    size: ShoeSizeStringSchema.optional(),
-    quantity: orderQuantitySchema.optional(),
     customerName: customerNameSchema.optional(),
-    customerPhone: colombianPhoneSchema.optional(),
+    customerPhone: colombianPhoneInputSchema.optional(),
     address: addressSchema.optional(),
     localityCarrierCode: localityCarrierCodeSchema.optional(),
     deliveryNotes: deliveryNotesSchema.nullable().optional(),

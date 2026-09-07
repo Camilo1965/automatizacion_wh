@@ -184,9 +184,9 @@ describe('order contracts', () => {
 
   it('allows partial draft edits but rejects an empty patch', () => {
     expect(
-      PatchOrderBodySchema.safeParse({ customerPhone: '+573001234567' })
-        .success,
+      PatchOrderBodySchema.safeParse({ customerPhone: '3001234567' }).success,
     ).toBe(true);
+    expect(PatchOrderBodySchema.safeParse({ quantity: 2 }).success).toBe(false);
     expect(PatchOrderBodySchema.safeParse({}).success).toBe(false);
   });
 
