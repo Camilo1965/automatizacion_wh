@@ -1,7 +1,11 @@
 import type { CatalogReference } from '../catalog/catalog-types.js';
 import { CatalogNotFoundError } from '../catalog/catalog-errors.js';
 import { assertTransition, type OrderAction } from './order-state.js';
-import { OrderConflictError, OrderValidationError } from './order-errors.js';
+import {
+  OrderConflictError,
+  OrderNotFoundError,
+  OrderValidationError,
+} from './order-errors.js';
 import type {
   CreateOrderInput,
   OrderListInput,
@@ -115,8 +119,7 @@ export class OrderService {
 
   private async requireOrder(orderId: string): Promise<OrderRecord> {
     const order = await this.repository.find(orderId);
-    if (order === null)
-      throw new OrderConflictError('order_not_found', 'Order was not found');
+    if (order === null) throw new OrderNotFoundError('Order was not found');
     return order;
   }
 
