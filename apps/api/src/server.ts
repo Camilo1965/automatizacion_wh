@@ -20,6 +20,9 @@ import { PostgresOutboundRepository } from './modules/whatsapp/postgres-outbound
 import { MetaWhatsAppClient } from './modules/whatsapp/meta-whatsapp-client.js';
 import { OutboxWorker } from './modules/whatsapp/outbox-worker.js';
 import { PostgresConversationAdminRepository } from './modules/conversations/postgres-conversation-admin-repository.js';
+import { PostgresShippingGuideJobRepository } from './modules/shipping/postgres-shipping-guide-job-repository.js';
+import { NinetyNineEnviosClient } from './modules/shipping/99envios-client.js';
+import { ShippingGuideWorker } from './modules/shipping/shipping-guide-worker.js';
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
@@ -43,6 +46,7 @@ async function main(): Promise<void> {
     (referenceId) => catalogRepository.findReferenceById(referenceId),
   );
   const outboundRepository = new PostgresOutboundRepository(database);
+  const shippingGuideJobs = new PostgresShippingGuideJobRepository(database);
   const inboundProcessor = new WhatsAppSalesService(
     new PostgresConversationRepository(database),
     catalogService,
@@ -50,6 +54,7 @@ async function main(): Promise<void> {
     outboundRepository,
     orderService,
     localityService,
+    shippingGuideJobs,
   );
 
   const app = await buildApp({
@@ -89,6 +94,38 @@ async function main(): Promise<void> {
         running = false;
       });
     }, 250);
+    timer.unref();
+    app.addHook('onClose', async () => {
+      clearInterval(timer);
+    });
+  }
+
+  if (
+    config.ninetyNineEnviosEmail !== undefined &&
+    config.ninetyNineEnviosPassword !== undefined
+  ) {
+    const worker = new ShippingGuideWorker(
+      shippingGuideJobs,
+      orderService,
+      new NinetyNineEnviosClient({
+        email: config.ninetyNineEnviosEmail,
+        password: config.ninetyNineEnviosPassword,
+        ...(config.ninetyNineEnviosIntegrationToken === undefined
+          ? {}
+          : { integrationToken: config.ninetyNineEnviosIntegrationToken }),
+        ...(config.ninetyNineEnviosIntegrationId === undefined
+          ? {}
+          : { integrationId: config.ninetyNineEnviosIntegrationId }),
+      }),
+    );
+    let running = false;
+    const timer = setInterval(() => {
+      if (running) return;
+      running = true;
+      void worker.runOnce().finally(() => {
+        running = false;
+      });
+    }, 1000);
     timer.unref();
     app.addHook('onClose', async () => {
       clearInterval(timer);

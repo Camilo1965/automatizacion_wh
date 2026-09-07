@@ -22,26 +22,22 @@ describe('admin conversation HTTP API', () => {
   it('requires the owner session and allows taking control', async () => {
     const takeControl = vi.fn().mockResolvedValue(undefined);
     const repository = {
-      list: vi
-        .fn()
-        .mockResolvedValue([
-          {
-            id: '11111111-1111-4111-8111-111111111111',
-            customerPhone: '+573001234567',
-            mode: 'bot',
-            state: 'awaiting_size',
-            pendingOutbound: 1,
-          },
-        ]),
-      get: vi
-        .fn()
-        .mockResolvedValue({
+      list: vi.fn().mockResolvedValue([
+        {
           id: '11111111-1111-4111-8111-111111111111',
           customerPhone: '+573001234567',
-          mode: 'human',
+          mode: 'bot',
           state: 'awaiting_size',
-          pendingOutbound: 0,
-        }),
+          pendingOutbound: 1,
+        },
+      ]),
+      get: vi.fn().mockResolvedValue({
+        id: '11111111-1111-4111-8111-111111111111',
+        customerPhone: '+573001234567',
+        mode: 'human',
+        state: 'awaiting_size',
+        pendingOutbound: 0,
+      }),
       takeControl,
       releaseControl: vi.fn(),
     };

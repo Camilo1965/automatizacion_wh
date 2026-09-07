@@ -13,6 +13,7 @@ import { PostgresLocalityRepository } from '../src/modules/localities/postgres-l
 import { OrderService } from '../src/modules/orders/order-service.js';
 import { PostgresOrderRepository } from '../src/modules/orders/postgres-order-repository.js';
 import { PostgresOutboundRepository } from '../src/modules/whatsapp/postgres-outbound-repository.js';
+import { PostgresShippingGuideJobRepository } from '../src/modules/shipping/postgres-shipping-guide-job-repository.js';
 import { requireTestDatabaseUrl } from './helpers/test-database.js';
 
 const databaseUrl = requireTestDatabaseUrl();
@@ -69,6 +70,7 @@ describe('complete WhatsApp sale', () => {
       new PostgresOutboundRepository(database),
       orderService,
       new LocalityService(new PostgresLocalityRepository(database)),
+      new PostgresShippingGuideJobRepository(database),
     );
     const phone = '+573158191776';
     const messages = [
@@ -102,12 +104,16 @@ describe('complete WhatsApp sale', () => {
         const [confirmation] = await sql<{ count: number }[]>`
           SELECT count(*)::int AS count FROM order_confirmations
         `;
+        const [guideJob] = await sql<{ count: number; status: string }[]>`
+          SELECT count(*)::int AS count, min(status) AS status FROM shipping_guide_jobs
+        `;
         expect(order).toMatchObject({
           status: 'confirmed',
           customer_name: 'Camila Pérez',
         });
         expect(stock?.reserved_quantity).toBe(1);
         expect(confirmation?.count).toBe(1);
+        expect(guideJob).toMatchObject({ count: 1, status: 'pending' });
       } finally {
         await sql.end({ timeout: 5 });
       }

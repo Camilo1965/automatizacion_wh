@@ -13,7 +13,7 @@ describe('conversation catalog menus', () => {
   beforeEach(async () => {
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
     try {
-      await sql`TRUNCATE TABLE whatsapp_catalog_menu_options, whatsapp_catalog_menus, whatsapp_conversation_events, whatsapp_conversations CASCADE`;
+      await sql`TRUNCATE TABLE whatsapp_catalog_menu_options, whatsapp_catalog_menus, whatsapp_conversation_events, whatsapp_conversations, catalog_references CASCADE`;
     } finally {
       await sql.end({ timeout: 5 });
     }

@@ -664,6 +664,38 @@ export const whatsappOutboundMessages = pgTable(
   ],
 );
 
+export const shippingGuideJobs = pgTable(
+  'shipping_guide_jobs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => salesOrders.id, { onDelete: 'restrict' }),
+    status: varchar('status', { length: 16 }).notNull().default('pending'),
+    carrier: varchar('carrier', { length: 32 }).notNull().default('envia'),
+    preShipmentNumber: varchar('pre_shipment_number', { length: 64 }),
+    freightCop: integer('freight_cop'),
+    errorCode: varchar('error_code', { length: 64 }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('shipping_guide_jobs_order_unique').on(table.orderId),
+    check(
+      'shipping_guide_jobs_status_allowed',
+      sql`${table.status} IN ('pending', 'processing', 'created', 'uncertain', 'failed')`,
+    ),
+    index('shipping_guide_jobs_status_created_idx').on(
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const schema = {
   adminUsers,
   adminSessions,
@@ -683,4 +715,5 @@ export const schema = {
   whatsappCatalogMenus,
   whatsappCatalogMenuOptions,
   whatsappOutboundMessages,
+  shippingGuideJobs,
 };

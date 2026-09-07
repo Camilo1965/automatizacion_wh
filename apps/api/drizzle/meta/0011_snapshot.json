@@ -1,6 +1,6 @@
 {
-  "id": "c8ec800c-7f97-40ff-b9b5-d3d1b4ba0a2a",
-  "prevId": "ce45847f-b4d4-4efc-a58d-0f964e54b817",
+  "id": "ca9dbc3c-277a-43c5-a5d5-7b93290bfe4d",
+  "prevId": "cc81d77d-6a8a-4a81-984b-aeb6cf9ee29c",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1162,6 +1162,121 @@
       },
       "isRLSEnabled": false
     },
+    "public.shipping_guide_jobs": {
+      "name": "shipping_guide_jobs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "carrier": {
+          "name": "carrier",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'envia'"
+        },
+        "pre_shipment_number": {
+          "name": "pre_shipment_number",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "freight_cop": {
+          "name": "freight_cop",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "shipping_guide_jobs_status_created_idx": {
+          "name": "shipping_guide_jobs_status_created_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "shipping_guide_jobs_order_id_sales_orders_id_fk": {
+          "name": "shipping_guide_jobs_order_id_sales_orders_id_fk",
+          "tableFrom": "shipping_guide_jobs",
+          "tableTo": "sales_orders",
+          "columnsFrom": ["order_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "shipping_guide_jobs_order_unique": {
+          "name": "shipping_guide_jobs_order_unique",
+          "nullsNotDistinct": false,
+          "columns": ["order_id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "shipping_guide_jobs_status_allowed": {
+          "name": "shipping_guide_jobs_status_allowed",
+          "value": "\"shipping_guide_jobs\".\"status\" IN ('pending', 'processing', 'created', 'uncertain', 'failed')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.shipping_localities": {
       "name": "shipping_localities",
       "schema": "",
@@ -1614,6 +1729,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "pending_department": {
+          "name": "pending_department",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active_summary_version": {
+          "name": "active_summary_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "last_inbound_message_at": {
           "name": "last_inbound_message_at",

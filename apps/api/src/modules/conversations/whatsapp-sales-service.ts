@@ -78,6 +78,10 @@ type LocalityPort = Readonly<{
   }>;
 }>;
 
+type ShippingGuideJobPort = Readonly<{
+  enqueue(orderId: string): Promise<unknown>;
+}>;
+
 function displaySize(size: string): string {
   return size.endsWith('.0') ? size.slice(0, -2) : size;
 }
@@ -115,6 +119,7 @@ export class WhatsAppSalesService {
     private readonly outbound: OutboundPort,
     private readonly orders?: OrderPort,
     private readonly localities?: LocalityPort,
+    private readonly shippingGuideJobs?: ShippingGuideJobPort,
   ) {}
 
   async process(input: ReceiveConversationInput): Promise<void> {
@@ -275,6 +280,7 @@ export class WhatsAppSalesService {
         summaryVersion: result.activeSummaryVersion,
         idempotencyKey: `whatsapp:${input.whatsappMessageId}`,
       });
+      await this.shippingGuideJobs?.enqueue(result.activeOrderId);
       await this.queueText(
         result.conversationId,
         input,

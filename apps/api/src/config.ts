@@ -13,6 +13,10 @@ export type AppConfig = Readonly<{
   whatsappAccessToken?: string;
   whatsappPhoneNumberId?: string;
   whatsappGraphApiVersion?: string;
+  ninetyNineEnviosEmail?: string;
+  ninetyNineEnviosPassword?: string;
+  ninetyNineEnviosIntegrationToken?: string;
+  ninetyNineEnviosIntegrationId?: string;
 }>;
 
 export class ConfigurationError extends Error {
@@ -160,6 +164,20 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
   if (!/^v\d+\.\d+$/.test(whatsappGraphApiVersion)) {
     issues.push('WHATSAPP_GRAPH_API_VERSION');
   }
+  const ninetyNineEnviosEmail =
+    environment.NINETYNINE_ENVIOS_EMAIL?.trim() || undefined;
+  const ninetyNineEnviosPassword =
+    environment.NINETYNINE_ENVIOS_PASSWORD?.trim() || undefined;
+  const ninetyNineEnviosIntegrationToken =
+    environment.NINETYNINE_ENVIOS_INTEGRATION_TOKEN?.trim() || undefined;
+  const ninetyNineEnviosIntegrationId =
+    environment.NINETYNINE_ENVIOS_INTEGRATION_ID?.trim() || undefined;
+  if (
+    (ninetyNineEnviosEmail === undefined) !==
+    (ninetyNineEnviosPassword === undefined)
+  ) {
+    issues.push('NINETYNINE_ENVIOS_CREDENTIALS');
+  }
 
   if (
     issues.length > 0 ||
@@ -186,5 +204,15 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     ...(whatsappAppSecret === undefined ? {} : { whatsappAppSecret }),
     ...(whatsappAccessToken === undefined ? {} : { whatsappAccessToken }),
     ...(whatsappPhoneNumberId === undefined ? {} : { whatsappPhoneNumberId }),
+    ...(ninetyNineEnviosEmail === undefined ? {} : { ninetyNineEnviosEmail }),
+    ...(ninetyNineEnviosPassword === undefined
+      ? {}
+      : { ninetyNineEnviosPassword }),
+    ...(ninetyNineEnviosIntegrationToken === undefined
+      ? {}
+      : { ninetyNineEnviosIntegrationToken }),
+    ...(ninetyNineEnviosIntegrationId === undefined
+      ? {}
+      : { ninetyNineEnviosIntegrationId }),
   };
 }

@@ -21,6 +21,7 @@ export type OrderRecord = Readonly<{
   referenceCode: string;
   referenceModelName: string;
   referenceColor: string;
+  unitPriceCop: number;
   size: string;
   quantity: number;
   customer: OrderCustomer;

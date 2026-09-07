@@ -54,6 +54,7 @@ function mapOrder(row: Row, reference: ReferenceRow): OrderRecord {
     referenceCode: reference.code,
     referenceModelName: reference.modelName,
     referenceColor: reference.color,
+    unitPriceCop: reference.priceCop,
     size: parseShoeSize(row.size),
     quantity: row.quantity,
     customer: { name: row.customerName, phone: row.customerPhone },

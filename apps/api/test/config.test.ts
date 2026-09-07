@@ -162,4 +162,13 @@ describe('loadConfig', () => {
       }),
     ).toThrow(ConfigurationError);
   });
+
+  it('rejects incomplete 99envios credentials', () => {
+    expect(() =>
+      loadConfig({
+        ...validEnvironment,
+        NINETYNINE_ENVIOS_EMAIL: 'owner@example.test',
+      }),
+    ).toThrow(ConfigurationError);
+  });
 });
