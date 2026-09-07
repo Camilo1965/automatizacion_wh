@@ -12,6 +12,7 @@ import { LoadingState } from './components/LoadingState';
 import { OrdersListPage } from './orders/OrdersListPage';
 import { OrderCreatePage } from './orders/OrderCreatePage';
 import { OrderDetailPage } from './orders/OrderDetailPage';
+import { ConversationsListPage } from './conversations/ConversationsListPage';
 
 function AuthenticatedShell() {
   const { user, logout } = useAuth();
@@ -52,6 +53,7 @@ export function App() {
           <Route path="orders" element={<OrdersListPage />} />
           <Route path="orders/new" element={<OrderCreatePage />} />
           <Route path="orders/:orderId" element={<OrderDetailPage />} />
+          <Route path="conversations" element={<ConversationsListPage />} />
           <Route path="catalog-import" element={<CatalogImportPage />} />
           <Route path="references/new" element={<ReferenceCreatePage />} />
           <Route

@@ -41,7 +41,7 @@ export type CreateOrderInput = Readonly<{
   address?: string | null;
   localityCarrierCode?: string | null;
   deliveryNotes?: string | null;
-  adminUserId: string;
+  adminUserId?: string;
 }>;
 
 export type PatchOrderInput = Readonly<{
@@ -51,7 +51,7 @@ export type PatchOrderInput = Readonly<{
   address?: string | null;
   localityCarrierCode?: string | null;
   deliveryNotes?: string | null;
-  adminUserId: string;
+  adminUserId?: string;
 }>;
 
 export type OrderSummary = Readonly<{

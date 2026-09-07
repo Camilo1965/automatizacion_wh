@@ -19,6 +19,7 @@ import { WhatsAppSalesService } from './modules/conversations/whatsapp-sales-ser
 import { PostgresOutboundRepository } from './modules/whatsapp/postgres-outbound-repository.js';
 import { MetaWhatsAppClient } from './modules/whatsapp/meta-whatsapp-client.js';
 import { OutboxWorker } from './modules/whatsapp/outbox-worker.js';
+import { PostgresConversationAdminRepository } from './modules/conversations/postgres-conversation-admin-repository.js';
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
@@ -47,6 +48,8 @@ async function main(): Promise<void> {
     catalogService,
     new PostgresConversationMenuRepository(database),
     outboundRepository,
+    orderService,
+    localityService,
   );
 
   const app = await buildApp({
@@ -59,6 +62,9 @@ async function main(): Promise<void> {
     orderService,
     inboundRepository: new PostgresWhatsAppInboundRepository(database),
     inboundProcessor,
+    conversationAdminRepository: new PostgresConversationAdminRepository(
+      database,
+    ),
     photoStorage,
   });
 

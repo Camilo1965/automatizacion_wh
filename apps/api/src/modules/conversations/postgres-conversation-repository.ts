@@ -22,6 +22,9 @@ export type ReceiveConversationResult = Readonly<{
   state: string;
   reply: string | null;
   selectedSize?: string | null;
+  activeOrderId?: string | null;
+  pendingDepartment?: string | null;
+  activeSummaryVersion?: number | null;
   action?: ConversationTransition['action'];
   input?: string;
 }>;
@@ -61,11 +64,9 @@ export class PostgresConversationRepository {
 
       const now = new Date();
       const transition = advanceConversation(
-        existing?.state === 'showing_models'
-          ? 'showing_models'
-          : existing === undefined
-            ? null
-            : 'awaiting_size',
+        existing === undefined
+          ? null
+          : (existing.state as import('./conversation-state.js').ConversationState),
         input.text,
         existing?.invalidAttempts ?? 0,
       );
@@ -111,6 +112,9 @@ export class PostgresConversationRepository {
               : { invalidAttempts: 0 }
             : { invalidAttempts: transition.invalidAttempts }),
           ...(transition.action === 'human_takeover' ? { mode: 'human' } : {}),
+          ...(transition.action === 'collect_department'
+            ? { pendingDepartment: transition.input ?? null }
+            : {}),
           lastInboundMessageAt: now,
           updatedAt: now,
         })
@@ -129,6 +133,12 @@ export class PostgresConversationRepository {
           transition.selectedSize === undefined
             ? (existing?.selectedSize ?? null)
             : transition.selectedSize,
+        activeOrderId: existing?.activeOrderId ?? null,
+        pendingDepartment:
+          transition.action === 'collect_department'
+            ? (transition.input ?? null)
+            : (existing?.pendingDepartment ?? null),
+        activeSummaryVersion: existing?.activeSummaryVersion ?? null,
         ...(transition.action === undefined
           ? {}
           : { action: transition.action }),
@@ -145,8 +155,43 @@ export class PostgresConversationRepository {
         selectedSize: null,
         selectedReferenceId: null,
         invalidAttempts: 0,
+        pendingDepartment: null,
+        activeSummaryVersion: null,
         updatedAt: new Date(),
       })
+      .where(eq(whatsappConversations.id, conversationId));
+  }
+
+  async attachOrder(
+    conversationId: string,
+    referenceId: string,
+    orderId: string,
+  ): Promise<void> {
+    await this.database.orm
+      .update(whatsappConversations)
+      .set({
+        state: 'awaiting_name',
+        selectedReferenceId: referenceId,
+        activeOrderId: orderId,
+        updatedAt: new Date(),
+      })
+      .where(eq(whatsappConversations.id, conversationId));
+  }
+
+  async setSummaryVersion(
+    conversationId: string,
+    version: number,
+  ): Promise<void> {
+    await this.database.orm
+      .update(whatsappConversations)
+      .set({ activeSummaryVersion: version, updatedAt: new Date() })
+      .where(eq(whatsappConversations.id, conversationId));
+  }
+
+  async setState(conversationId: string, state: string): Promise<void> {
+    await this.database.orm
+      .update(whatsappConversations)
+      .set({ state, updatedAt: new Date() })
       .where(eq(whatsappConversations.id, conversationId));
   }
 }

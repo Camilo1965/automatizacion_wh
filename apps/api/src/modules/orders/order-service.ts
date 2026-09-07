@@ -25,7 +25,7 @@ export interface OrderRepository {
     input: Readonly<{
       orderId: string;
       action: OrderAction;
-      adminUserId: string;
+      adminUserId?: string;
       summaryVersion?: number;
       idempotencyKey?: string;
     }>,
@@ -84,7 +84,7 @@ export class OrderService {
     input: Readonly<{
       orderId: string;
       action: OrderAction;
-      adminUserId: string;
+      adminUserId?: string;
       summaryVersion?: number;
       idempotencyKey?: string;
     }>,

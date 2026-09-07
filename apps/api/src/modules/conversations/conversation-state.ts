@@ -1,4 +1,14 @@
-export type ConversationState = 'awaiting_size' | 'showing_models';
+export type ConversationState =
+  | 'awaiting_size'
+  | 'showing_models'
+  | 'awaiting_name'
+  | 'awaiting_phone'
+  | 'awaiting_department'
+  | 'awaiting_locality'
+  | 'awaiting_address'
+  | 'awaiting_notes'
+  | 'awaiting_confirmation'
+  | 'completed';
 
 export type ConversationTransition = Readonly<{
   state: ConversationState;
@@ -10,7 +20,15 @@ export type ConversationTransition = Readonly<{
     | 'reset'
     | 'human_takeover'
     | 'more_models'
-    | 'select_reference';
+    | 'select_reference'
+    | 'collect_name'
+    | 'collect_phone'
+    | 'collect_department'
+    | 'collect_locality'
+    | 'collect_address'
+    | 'collect_notes'
+    | 'confirm_order'
+    | 'cancel_order';
   input?: string;
 }>;
 
@@ -52,7 +70,7 @@ export function advanceConversation(
   if (
     normalized === 'volver' ||
     normalized === 'cambiar talla' ||
-    normalized === 'cancelar'
+    (normalized === 'cancelar' && state !== 'awaiting_confirmation')
   ) {
     return {
       state: 'awaiting_size',
@@ -80,6 +98,91 @@ export function advanceConversation(
           ? 'No pude reconocer la talla. Escribe una talla como 37 o escribe “asesora”.'
           : 'Escribe la talla en números, por ejemplo 37 o 37.5.',
       invalidAttempts: nextAttempts,
+    };
+  }
+  const value = message.trim();
+  if (state === 'awaiting_name') {
+    return value.length >= 2 && value.length <= 120
+      ? {
+          state: 'awaiting_phone',
+          reply: '¿Cuál es tu número de celular?',
+          action: 'collect_name',
+          input: value,
+        }
+      : { state, reply: 'Escribe tu nombre completo.' };
+  }
+  if (state === 'awaiting_phone') {
+    const digits = value.replace(/\D/g, '');
+    return /^(?:57)?3\d{9}$/.test(digits)
+      ? {
+          state: 'awaiting_department',
+          reply: '¿En qué departamento recibes el pedido?',
+          action: 'collect_phone',
+          input: value,
+        }
+      : { state, reply: 'Escribe un celular colombiano válido.' };
+  }
+  if (state === 'awaiting_department') {
+    return value.length >= 3
+      ? {
+          state: 'awaiting_locality',
+          reply: '¿En qué ciudad o municipio?',
+          action: 'collect_department',
+          input: value,
+        }
+      : { state, reply: 'Escribe el nombre del departamento.' };
+  }
+  if (state === 'awaiting_locality') {
+    return value.length >= 2
+      ? {
+          state: 'awaiting_address',
+          reply: null,
+          action: 'collect_locality',
+          input: value,
+        }
+      : { state, reply: 'Escribe la ciudad o municipio.' };
+  }
+  if (state === 'awaiting_address') {
+    return value.length >= 5
+      ? {
+          state: 'awaiting_notes',
+          reply:
+            '¿Alguna indicación de entrega? Escribe “ninguna” si no aplica.',
+          action: 'collect_address',
+          input: value,
+        }
+      : { state, reply: 'Escribe una dirección más completa.' };
+  }
+  if (state === 'awaiting_notes') {
+    return {
+      state: 'awaiting_confirmation',
+      reply: null,
+      action: 'collect_notes',
+      input: /^(ninguna|no|omitir)$/.test(normalized) ? '' : value,
+    };
+  }
+  if (state === 'awaiting_confirmation') {
+    if (normalized === 'confirmar') {
+      return { state: 'completed', reply: null, action: 'confirm_order' };
+    }
+    if (normalized === 'cancelar') {
+      return {
+        state: 'awaiting_size',
+        reply: null,
+        selectedSize: null,
+        action: 'cancel_order',
+      };
+    }
+    return {
+      state,
+      reply: 'Responde “confirmar” para reservar o “cancelar”.',
+    };
+  }
+  if (state === 'completed') {
+    return {
+      state,
+      reply:
+        'Tu pedido ya fue confirmado. Escribe “asesora” si necesitas ayuda.',
     };
   }
   if (normalized === 'mas modelos' || normalized === 'mas') {

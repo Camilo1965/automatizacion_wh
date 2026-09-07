@@ -40,6 +40,7 @@ import { CatalogImportValidationError } from '../../modules/catalog/catalog-erro
 import type { LocalityService } from '../../modules/localities/locality-service.js';
 import type { PhotoStorage } from '../../modules/catalog/photo-storage.js';
 import type { OrderService } from '../../modules/orders/order-service.js';
+import type { ConversationAdminRepository } from '../../modules/conversations/postgres-conversation-admin-repository.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -87,6 +88,7 @@ export type AdminRoutesDependencies = Readonly<{
   localityService?: LocalityService;
   photoStorage: PhotoStorage;
   orderService?: OrderService;
+  conversationAdminRepository?: ConversationAdminRepository;
 }>;
 
 export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
@@ -101,7 +103,67 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     catalogImportService,
     localityService,
     orderService,
+    conversationAdminRepository,
   } = dependencies;
+
+  if (conversationAdminRepository !== undefined) {
+    const ConversationIdParamsSchema = z
+      .object({ conversationId: z.uuid() })
+      .strict();
+    app.get('/conversations', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const query = z
+        .object({ limit: z.coerce.number().int().min(1).max(100).default(50) })
+        .strict()
+        .parse(request.query);
+      return reply.status(200).send({
+        data: { items: await conversationAdminRepository.list(query.limit) },
+      });
+    });
+    app.get('/conversations/:conversationId', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const { conversationId } = ConversationIdParamsSchema.parse(
+        request.params,
+      );
+      const conversation =
+        await conversationAdminRepository.get(conversationId);
+      if (conversation === null) {
+        return reply.status(404).send({
+          error: {
+            code: 'conversation_not_found',
+            message: 'Conversation was not found',
+          },
+        });
+      }
+      return reply.status(200).send({ data: conversation });
+    });
+    app.post(
+      '/conversations/:conversationId/take-control',
+      async (request, reply) => {
+        await requireAdminSession(request, authService);
+        const { conversationId } = ConversationIdParamsSchema.parse(
+          request.params,
+        );
+        await conversationAdminRepository.takeControl(conversationId);
+        const conversation =
+          await conversationAdminRepository.get(conversationId);
+        return reply.status(200).send({ data: conversation });
+      },
+    );
+    app.post(
+      '/conversations/:conversationId/release-control',
+      async (request, reply) => {
+        await requireAdminSession(request, authService);
+        const { conversationId } = ConversationIdParamsSchema.parse(
+          request.params,
+        );
+        await conversationAdminRepository.releaseControl(conversationId);
+        const conversation =
+          await conversationAdminRepository.get(conversationId);
+        return reply.status(200).send({ data: conversation });
+      },
+    );
+  }
 
   if (localityService !== undefined) {
     app.get('/localities', async (request, reply) => {

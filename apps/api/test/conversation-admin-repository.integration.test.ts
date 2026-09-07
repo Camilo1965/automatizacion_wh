@@ -1,0 +1,79 @@
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import postgres from 'postgres';
+
+import { createPostgresDatabase } from '../src/database/client.js';
+import { runMigrations } from '../src/database/migrate.js';
+import { PostgresConversationAdminRepository } from '../src/modules/conversations/postgres-conversation-admin-repository.js';
+import { requireTestDatabaseUrl } from './helpers/test-database.js';
+
+const databaseUrl = requireTestDatabaseUrl();
+
+describe('conversation owner control', () => {
+  beforeAll(() => runMigrations(databaseUrl));
+  beforeEach(async () => {
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      await sql`TRUNCATE TABLE whatsapp_outbound_messages, whatsapp_conversation_events, whatsapp_conversations CASCADE`;
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+  });
+
+  it('takes control atomically and cancels pending bot sends', async () => {
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const [conversation] = await sql<{ id: string }[]>`
+      INSERT INTO whatsapp_conversations
+        (customer_phone, state, mode, last_inbound_message_at)
+      VALUES ('+573001234567', 'awaiting_size', 'bot', now())
+      RETURNING id
+    `;
+    await sql`
+      INSERT INTO whatsapp_outbound_messages
+        (conversation_id, idempotency_key, customer_phone, message_type, text_body)
+      VALUES (${conversation!.id}, 'pending:one', '+573001234567', 'text', 'Hola')
+    `;
+    await sql.end({ timeout: 5 });
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresConversationAdminRepository(database);
+    try {
+      await repository.takeControl(conversation!.id);
+      await expect(repository.get(conversation!.id)).resolves.toMatchObject({
+        mode: 'human',
+        pendingOutbound: 0,
+      });
+      const check = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        const [job] = await check<{ status: string }[]>`
+          SELECT status FROM whatsapp_outbound_messages
+        `;
+        expect(job?.status).toBe('cancelled');
+      } finally {
+        await check.end({ timeout: 5 });
+      }
+    } finally {
+      await database.close();
+    }
+  });
+
+  it('releases control without creating a new bot message', async () => {
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const [conversation] = await sql<{ id: string }[]>`
+      INSERT INTO whatsapp_conversations
+        (customer_phone, state, mode, last_inbound_message_at)
+      VALUES ('+573008888888', 'awaiting_size', 'human', now())
+      RETURNING id
+    `;
+    await sql.end({ timeout: 5 });
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresConversationAdminRepository(database);
+    try {
+      await repository.releaseControl(conversation!.id);
+      await expect(repository.get(conversation!.id)).resolves.toMatchObject({
+        mode: 'bot',
+        pendingOutbound: 0,
+      });
+    } finally {
+      await database.close();
+    }
+  });
+});

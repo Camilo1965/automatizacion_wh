@@ -66,4 +66,25 @@ describe('advanceConversation', () => {
       reply: null,
     });
   });
+
+  it('collects delivery fields and requires explicit confirmation', () => {
+    expect(advanceConversation('awaiting_name', 'Camila Pérez')).toMatchObject({
+      state: 'awaiting_phone',
+      action: 'collect_name',
+      input: 'Camila Pérez',
+    });
+    expect(advanceConversation('awaiting_phone', '315 819 1776')).toMatchObject(
+      {
+        state: 'awaiting_department',
+        action: 'collect_phone',
+        input: '315 819 1776',
+      },
+    );
+    expect(
+      advanceConversation('awaiting_confirmation', 'confirmar'),
+    ).toMatchObject({
+      state: 'completed',
+      action: 'confirm_order',
+    });
+  });
 });

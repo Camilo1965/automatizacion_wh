@@ -489,6 +489,8 @@ export const whatsappConversations = pgTable(
     }),
     activeMenuVersion: integer('active_menu_version').notNull().default(0),
     invalidAttempts: integer('invalid_attempts').notNull().default(0),
+    pendingDepartment: varchar('pending_department', { length: 100 }),
+    activeSummaryVersion: integer('active_summary_version'),
     lastInboundMessageAt: timestamp('last_inbound_message_at', {
       withTimezone: true,
     }).notNull(),

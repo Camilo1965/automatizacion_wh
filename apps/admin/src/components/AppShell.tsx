@@ -30,6 +30,7 @@ export function AppShell({ children, username, onLogout }: AppShellProps) {
         {username !== undefined ? (
           <nav aria-label="Principal">
             <Link to="/">Catálogo</Link> <Link to="/orders">Pedidos</Link>{' '}
+            <Link to="/conversations">Conversaciones</Link>{' '}
             <Link to="/catalog-import">Importar catálogo</Link>
           </nav>
         ) : null}

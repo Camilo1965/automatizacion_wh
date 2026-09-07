@@ -64,6 +64,20 @@
       "when": 1788814656747,
       "tag": "0008_open_blink",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788815174893,
+      "tag": "0009_curly_rocket_racer",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788815395991,
+      "tag": "0010_brown_vin_gonzales",
+      "breakpoints": true
     }
   ]
 }

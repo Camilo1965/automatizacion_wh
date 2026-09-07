@@ -119,7 +119,9 @@ export class PostgresOrderRepository implements OrderRepository {
       orderId: created.id,
       previousStatus: null,
       nextStatus: 'draft',
-      adminUserId: input.adminUserId,
+      ...(input.adminUserId === undefined
+        ? {}
+        : { adminUserId: input.adminUserId }),
       createdAt: sql`clock_timestamp()`,
     });
     return this.requireMapped(created);
@@ -283,7 +285,7 @@ export class PostgresOrderRepository implements OrderRepository {
     input: Readonly<{
       orderId: string;
       action: OrderAction;
-      adminUserId: string;
+      adminUserId?: string;
       summaryVersion?: number;
       idempotencyKey?: string;
     }>,
@@ -514,7 +516,9 @@ export class PostgresOrderRepository implements OrderRepository {
         orderId: order.id,
         previousStatus: order.status,
         nextStatus: next,
-        adminUserId: input.adminUserId,
+        ...(input.adminUserId === undefined
+          ? {}
+          : { adminUserId: input.adminUserId }),
         createdAt: sql`clock_timestamp()`,
       });
       const updated = await this.lockOrder(tx, order.id);
