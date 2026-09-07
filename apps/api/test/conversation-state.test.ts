@@ -9,4 +9,61 @@ describe('advanceConversation', () => {
       reply: '¡Hola! 😊 ¿Qué talla buscas?',
     });
   });
+
+  it.each([
+    ['37', '37.0'],
+    ['37.5', '37.5'],
+    ['37,5', '37.5'],
+  ])('accepts supported whole and half sizes: %s', (input, size) => {
+    expect(advanceConversation('awaiting_size', input)).toEqual({
+      state: 'showing_models',
+      reply: null,
+      selectedSize: size,
+      action: 'show_catalog',
+    });
+  });
+
+  it('rejects malformed sizes and offers an adviser after two failures', () => {
+    expect(advanceConversation('awaiting_size', 'treinta y siete', 0)).toEqual({
+      state: 'awaiting_size',
+      reply: 'Escribe la talla en números, por ejemplo 37 o 37.5.',
+      invalidAttempts: 1,
+    });
+    expect(advanceConversation('awaiting_size', '100', 1)).toEqual({
+      state: 'awaiting_size',
+      reply:
+        'No pude reconocer la talla. Escribe una talla como 37 o escribe “asesora”.',
+      invalidAttempts: 2,
+    });
+  });
+
+  it.each(['volver', 'cambiar talla', 'cancelar'])(
+    'returns to size selection for command %s',
+    (command) => {
+      expect(advanceConversation('showing_models', command)).toMatchObject({
+        state: 'awaiting_size',
+        selectedSize: null,
+        action: 'reset',
+      });
+    },
+  );
+
+  it('requests human control with the asesora command', () => {
+    expect(advanceConversation('awaiting_size', 'ASESORA')).toMatchObject({
+      state: 'awaiting_size',
+      action: 'human_takeover',
+    });
+  });
+
+  it('recognizes catalog paging and reference selection', () => {
+    expect(advanceConversation('showing_models', 'más modelos')).toMatchObject({
+      action: 'more_models',
+      reply: null,
+    });
+    expect(advanceConversation('showing_models', 'ref 01')).toMatchObject({
+      action: 'select_reference',
+      input: 'REF 01',
+      reply: null,
+    });
+  });
 });

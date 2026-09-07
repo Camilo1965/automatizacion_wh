@@ -546,6 +546,73 @@ export const whatsappConversationEvents = pgTable(
   ],
 );
 
+export const whatsappCatalogMenus = pgTable(
+  'whatsapp_catalog_menus',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => whatsappConversations.id, { onDelete: 'restrict' }),
+    version: integer('version').notNull(),
+    confirmedSize: numeric('confirmed_size', {
+      precision: 4,
+      scale: 1,
+    }).notNull(),
+    nextAfterCode: varchar('next_after_code', { length: 32 }),
+    active: boolean('active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('whatsapp_catalog_menus_version_unique').on(
+      table.conversationId,
+      table.version,
+    ),
+    index('whatsapp_catalog_menus_active_idx').on(
+      table.conversationId,
+      table.active,
+    ),
+  ],
+);
+
+export const whatsappCatalogMenuOptions = pgTable(
+  'whatsapp_catalog_menu_options',
+  {
+    menuId: uuid('menu_id')
+      .notNull()
+      .references(() => whatsappCatalogMenus.id, { onDelete: 'restrict' }),
+    referenceId: uuid('reference_id')
+      .notNull()
+      .references(() => catalogReferences.id, { onDelete: 'restrict' }),
+    position: integer('position').notNull(),
+    code: varchar('code', { length: 32 }).notNull(),
+    modelName: varchar('model_name', { length: 120 }).notNull(),
+    color: varchar('color', { length: 80 }).notNull(),
+    priceCop: integer('price_cop').notNull(),
+    photoStorageKey: varchar('photo_storage_key', { length: 255 }).notNull(),
+    photoMimeType: varchar('photo_mime_type', { length: 32 }).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: 'whatsapp_catalog_menu_options_pkey',
+      columns: [table.menuId, table.referenceId],
+    }),
+    unique('whatsapp_catalog_menu_options_position_unique').on(
+      table.menuId,
+      table.position,
+    ),
+    unique('whatsapp_catalog_menu_options_code_unique').on(
+      table.menuId,
+      table.code,
+    ),
+    check(
+      'whatsapp_catalog_menu_options_mime_allowed',
+      sql`${table.photoMimeType} IN ('image/jpeg', 'image/png')`,
+    ),
+  ],
+);
+
 export const whatsappOutboundMessages = pgTable(
   'whatsapp_outbound_messages',
   {
@@ -611,5 +678,7 @@ export const schema = {
   whatsappInboundMessages,
   whatsappConversations,
   whatsappConversationEvents,
+  whatsappCatalogMenus,
+  whatsappCatalogMenuOptions,
   whatsappOutboundMessages,
 };

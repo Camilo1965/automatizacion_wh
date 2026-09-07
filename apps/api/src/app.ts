@@ -35,6 +35,13 @@ export type AppDependencies = Readonly<{
   localityService?: LocalityService;
   orderService?: OrderService;
   inboundRepository?: WhatsAppInboundRepository;
+  inboundProcessor?: Readonly<{
+    process(input: {
+      whatsappMessageId: string;
+      customerPhone: string;
+      text: string;
+    }): Promise<void>;
+  }>;
 }>;
 
 declare module 'fastify' {
@@ -143,6 +150,9 @@ export async function buildApp(
     ...(dependencies.inboundRepository === undefined
       ? {}
       : { inboundRepository: dependencies.inboundRepository }),
+    ...(dependencies.inboundProcessor === undefined
+      ? {}
+      : { inboundProcessor: dependencies.inboundProcessor }),
   });
   await app.register(adminRoutes, {
     prefix: '/api/admin',

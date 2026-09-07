@@ -15,11 +15,18 @@ const verificationQuerySchema = z.object({
 export type WhatsAppRoutesDependencies = Readonly<{
   config: AppConfig;
   inboundRepository?: WhatsAppInboundRepository;
+  inboundProcessor?: Readonly<{
+    process(input: {
+      whatsappMessageId: string;
+      customerPhone: string;
+      text: string;
+    }): Promise<void>;
+  }>;
 }>;
 
 export const whatsappRoutes: FastifyPluginAsync<
   WhatsAppRoutesDependencies
-> = async (app, { config, inboundRepository }) => {
+> = async (app, { config, inboundRepository, inboundProcessor }) => {
   app.get('/webhooks/whatsapp', async (request, reply) => {
     if (config.whatsappWebhookVerifyToken === undefined) {
       return reply.status(404).send({ error: 'not_configured' });
@@ -52,6 +59,17 @@ export const whatsappRoutes: FastifyPluginAsync<
       if (parsed.messages.length > 0) {
         if (inboundRepository === undefined) return reply.status(503).send();
         await inboundRepository.storeMany(parsed.messages);
+        if (inboundProcessor !== undefined) {
+          for (const message of parsed.messages) {
+            if (message.messageType === 'text' && message.textBody !== null) {
+              await inboundProcessor.process({
+                whatsappMessageId: message.whatsappMessageId,
+                customerPhone: message.customerPhone,
+                text: message.textBody,
+              });
+            }
+          }
+        }
       }
       return reply.status(200).send();
     },

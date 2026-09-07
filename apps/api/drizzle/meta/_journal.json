@@ -57,6 +57,13 @@
       "when": 1788813554327,
       "tag": "0007_large_skullbuster",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788814656747,
+      "tag": "0008_open_blink",
+      "breakpoints": true
     }
   ]
 }

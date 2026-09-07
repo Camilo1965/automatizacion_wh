@@ -5,7 +5,10 @@ import {
   whatsappConversationEvents,
   whatsappConversations,
 } from '../../database/schema.js';
-import { advanceConversation } from './conversation-state.js';
+import {
+  advanceConversation,
+  type ConversationTransition,
+} from './conversation-state.js';
 
 export type ReceiveConversationInput = Readonly<{
   whatsappMessageId: string;
@@ -15,8 +18,12 @@ export type ReceiveConversationInput = Readonly<{
 
 export type ReceiveConversationResult = Readonly<{
   duplicate: boolean;
+  conversationId?: string;
   state: string;
   reply: string | null;
+  selectedSize?: string | null;
+  action?: ConversationTransition['action'];
+  input?: string;
 }>;
 
 export class PostgresConversationRepository {
@@ -60,6 +67,7 @@ export class PostgresConversationRepository {
             ? null
             : 'awaiting_size',
         input.text,
+        existing?.invalidAttempts ?? 0,
       );
       const conversation =
         existing ??
@@ -94,6 +102,15 @@ export class PostgresConversationRepository {
         .update(whatsappConversations)
         .set({
           state: transition.state,
+          ...(transition.selectedSize === undefined
+            ? {}
+            : { selectedSize: transition.selectedSize }),
+          ...(transition.invalidAttempts === undefined
+            ? transition.selectedSize === undefined
+              ? {}
+              : { invalidAttempts: 0 }
+            : { invalidAttempts: transition.invalidAttempts }),
+          ...(transition.action === 'human_takeover' ? { mode: 'human' } : {}),
           lastInboundMessageAt: now,
           updatedAt: now,
         })
@@ -103,7 +120,33 @@ export class PostgresConversationRepository {
             eq(whatsappConversations.customerPhone, input.customerPhone),
           ),
         );
-      return { duplicate: false, state: transition.state, reply };
+      return {
+        duplicate: false,
+        conversationId: conversation.id,
+        state: transition.state,
+        reply,
+        selectedSize:
+          transition.selectedSize === undefined
+            ? (existing?.selectedSize ?? null)
+            : transition.selectedSize,
+        ...(transition.action === undefined
+          ? {}
+          : { action: transition.action }),
+        ...(transition.input === undefined ? {} : { input: transition.input }),
+      };
     });
+  }
+
+  async returnToSize(conversationId: string): Promise<void> {
+    await this.database.orm
+      .update(whatsappConversations)
+      .set({
+        state: 'awaiting_size',
+        selectedSize: null,
+        selectedReferenceId: null,
+        invalidAttempts: 0,
+        updatedAt: new Date(),
+      })
+      .where(eq(whatsappConversations.id, conversationId));
   }
 }

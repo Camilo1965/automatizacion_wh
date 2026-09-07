@@ -22,7 +22,16 @@ const config: AppConfig = {
   whatsappAppSecret: 'test-meta-app-secret',
 };
 
-function app(inboundRepository?: WhatsAppInboundRepository) {
+function app(
+  inboundRepository?: WhatsAppInboundRepository,
+  inboundProcessor?: {
+    process(input: {
+      whatsappMessageId: string;
+      customerPhone: string;
+      text: string;
+    }): Promise<void>;
+  },
+) {
   return buildApp({
     config,
     database: {
@@ -34,6 +43,7 @@ function app(inboundRepository?: WhatsAppInboundRepository) {
     catalogService: {} as CatalogService,
     photoStorage: {} as PhotoStorage,
     ...(inboundRepository === undefined ? {} : { inboundRepository }),
+    ...(inboundProcessor === undefined ? {} : { inboundProcessor }),
   });
 }
 
@@ -116,6 +126,52 @@ describe('WhatsApp webhook verification', () => {
     });
     expect(response.statusCode).toBe(200);
     expect(storeMany).toHaveBeenCalledOnce();
+    await server.close();
+  });
+
+  it('passes a persisted text message to the sales processor', async () => {
+    const storeMany = vi.fn().mockResolvedValue(undefined);
+    const process = vi.fn().mockResolvedValue(undefined);
+    const server = await app({ storeMany }, { process });
+    const rawBody = JSON.stringify({
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: '123' },
+                messages: [
+                  {
+                    from: '573001234567',
+                    id: 'wamid.flow-1',
+                    timestamp: '1760000000',
+                    type: 'text',
+                    text: { body: 'hola' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const signature = `sha256=${createHmac('sha256', config.whatsappAppSecret!).update(rawBody).digest('hex')}`;
+    const response = await server.inject({
+      method: 'POST',
+      url: '/webhooks/whatsapp',
+      headers: {
+        'x-hub-signature-256': signature,
+        'content-type': 'application/json',
+      },
+      payload: rawBody,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(process).toHaveBeenCalledWith({
+      whatsappMessageId: 'wamid.flow-1',
+      customerPhone: '+573001234567',
+      text: 'hola',
+    });
     await server.close();
   });
 });
