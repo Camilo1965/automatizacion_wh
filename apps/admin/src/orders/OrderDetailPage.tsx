@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 
 import {
@@ -20,26 +20,20 @@ export function OrderDetailPage() {
     queryKey: ['order', orderId],
     queryFn: () => getOrder(orderId),
   });
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [locality, setLocality] = useState('');
-  useEffect(() => {
-    if (query.data === undefined) return;
-    setName(query.data.customer.name ?? '');
-    setPhone(query.data.customer.phone ?? '');
-    setAddress(query.data.destination.address ?? '');
-    setLocality(query.data.destination.localityCarrierCode ?? '');
-  }, [query.data]);
+  const [name, setName] = useState<string | null>(null);
+  const [phone, setPhone] = useState<string | null>(null);
+  const [address, setAddress] = useState<string | null>(null);
+  const [locality, setLocality] = useState<string | null>(null);
   const refresh = () =>
     client.invalidateQueries({ queryKey: ['order', orderId] });
   const save = useMutation({
     mutationFn: () =>
       updateOrder(orderId, {
-        customerName: name,
-        customerPhone: phone,
-        address,
-        localityCarrierCode: locality,
+        customerName: name ?? query.data?.customer.name ?? '',
+        customerPhone: phone ?? query.data?.customer.phone ?? '',
+        address: address ?? query.data?.destination.address ?? '',
+        localityCarrierCode:
+          locality ?? query.data?.destination.localityCarrierCode ?? '',
       }),
     onSuccess: refresh,
   });
@@ -87,7 +81,7 @@ export function OrderDetailPage() {
             Nombre
             <input
               required
-              value={name}
+              value={name ?? order.customer.name ?? ''}
               onChange={(event) => setName(event.target.value)}
             />
           </label>
@@ -96,7 +90,7 @@ export function OrderDetailPage() {
             <input
               required
               placeholder="3001234567"
-              value={phone}
+              value={phone ?? order.customer.phone ?? ''}
               onChange={(event) => setPhone(event.target.value)}
             />
           </label>
@@ -104,7 +98,7 @@ export function OrderDetailPage() {
             Dirección
             <input
               required
-              value={address}
+              value={address ?? order.destination.address ?? ''}
               onChange={(event) => setAddress(event.target.value)}
             />
           </label>
@@ -112,7 +106,7 @@ export function OrderDetailPage() {
             Código de localidad
             <input
               required
-              value={locality}
+              value={locality ?? order.destination.localityCarrierCode ?? ''}
               onChange={(event) => setLocality(event.target.value)}
             />
           </label>
