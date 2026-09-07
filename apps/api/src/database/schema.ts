@@ -13,6 +13,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
@@ -664,6 +665,49 @@ export const whatsappOutboundMessages = pgTable(
   ],
 );
 
+export const shippingQuotes = pgTable(
+  'shipping_quotes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => salesOrders.id, { onDelete: 'restrict' }),
+    draftVersion: integer('draft_version').notNull(),
+    carrier: varchar('carrier', { length: 32 }).notNull(),
+    serviceId: integer('service_id').notNull(),
+    freightCop: integer('freight_cop').notNull(),
+    cashOnDeliveryCop: integer('cash_on_delivery_cop').notNull(),
+    surchargeCop: integer('surcharge_cop').notNull(),
+    estimatedDays: varchar('estimated_days', { length: 32 }).notNull(),
+    quotedAt: timestamp('quoted_at', { withTimezone: true }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    recommended: boolean('recommended').notNull().default(false),
+    selected: boolean('selected').notNull().default(false),
+  },
+  (table) => [
+    check(
+      'shipping_quotes_draft_version_positive',
+      sql`${table.draftVersion} >= 1`,
+    ),
+    check(
+      'shipping_quotes_cop_non_negative',
+      sql`${table.freightCop} >= 0 AND ${table.cashOnDeliveryCop} >= 0 AND ${table.surchargeCop} >= 0`,
+    ),
+    check(
+      'shipping_quotes_expiry_after_quote',
+      sql`${table.expiresAt} > ${table.quotedAt}`,
+    ),
+    unique('shipping_quotes_order_carrier_version_unique').on(
+      table.orderId,
+      table.draftVersion,
+      table.carrier,
+    ),
+    uniqueIndex('shipping_quotes_one_selected_per_order')
+      .on(table.orderId)
+      .where(sql`${table.selected}`),
+  ],
+);
+
 export const shippingGuideJobs = pgTable(
   'shipping_guide_jobs',
   {
@@ -671,11 +715,20 @@ export const shippingGuideJobs = pgTable(
     orderId: uuid('order_id')
       .notNull()
       .references(() => salesOrders.id, { onDelete: 'restrict' }),
+    quoteId: uuid('quote_id').references(() => shippingQuotes.id, {
+      onDelete: 'restrict',
+    }),
     status: varchar('status', { length: 16 }).notNull().default('pending'),
     carrier: varchar('carrier', { length: 32 }).notNull().default('envia'),
     preShipmentNumber: varchar('pre_shipment_number', { length: 64 }),
     freightCop: integer('freight_cop'),
     errorCode: varchar('error_code', { length: 64 }),
+    guidePdfFetchedAt: timestamp('guide_pdf_fetched_at', {
+      withTimezone: true,
+    }),
+    guidePdfSha256: char('guide_pdf_sha256', { length: 64 }),
+    guidePdfByteSize: integer('guide_pdf_byte_size'),
+    guidePdfStorageKey: varchar('guide_pdf_storage_key', { length: 255 }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -716,4 +769,5 @@ export const schema = {
   whatsappCatalogMenuOptions,
   whatsappOutboundMessages,
   shippingGuideJobs,
+  shippingQuotes,
 };
