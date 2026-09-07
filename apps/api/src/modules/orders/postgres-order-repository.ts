@@ -35,6 +35,9 @@ import {
 
 type Row = typeof salesOrders.$inferSelect;
 type ReferenceRow = typeof catalogReferences.$inferSelect;
+type OrderTransaction = Parameters<
+  Parameters<PostgresDatabase['orm']['transaction']>[0]
+>[0];
 
 function nullable(value: string | null | undefined): string | null {
   if (value === null || value === undefined) return null;
@@ -520,7 +523,7 @@ export class PostgresOrderRepository implements OrderRepository {
   }
 
   private async releaseReservation(
-    tx: any,
+    tx: OrderTransaction,
     order: Row,
     reason: 'cancelled',
   ): Promise<void> {
@@ -563,7 +566,10 @@ export class PostgresOrderRepository implements OrderRepository {
       createdAt: sql`clock_timestamp()`,
     });
   }
-  private async lockOrder(tx: any, orderId: string): Promise<Row> {
+  private async lockOrder(
+    tx: OrderTransaction,
+    orderId: string,
+  ): Promise<Row> {
     const [order] = await tx
       .select()
       .from(salesOrders)
