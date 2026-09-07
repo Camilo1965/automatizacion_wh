@@ -233,6 +233,32 @@ export const catalogImports = pgTable(
   ],
 );
 
+export const shippingLocalities = pgTable(
+  'shipping_localities',
+  {
+    carrierCode: varchar('carrier_code', { length: 32 }).primaryKey(),
+    department: varchar('department', { length: 100 }).notNull(),
+    locality: varchar('locality', { length: 120 }).notNull(),
+    normalizedName: varchar('normalized_name', { length: 240 }).notNull(),
+    country: char('country', { length: 2 }).notNull().default('CO'),
+    sourceSha256: char('source_sha256', { length: 64 }).notNull(),
+    importedAt: timestamp('imported_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check('shipping_localities_country_co', sql`${table.country} = 'CO'`),
+    check(
+      'shipping_localities_sha256_format',
+      sql`${table.sourceSha256} ~ '^[a-f0-9]{64}$'`,
+    ),
+    index('shipping_localities_search_idx').on(
+      table.department,
+      table.normalizedName,
+    ),
+  ],
+);
+
 export const schema = {
   adminUsers,
   adminSessions,
@@ -240,4 +266,5 @@ export const schema = {
   catalogStock,
   inventoryMovements,
   catalogImports,
+  shippingLocalities,
 };
