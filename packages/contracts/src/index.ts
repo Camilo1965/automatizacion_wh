@@ -615,6 +615,68 @@ export const ListOrdersResponseSchema = dataEnvelopeSchema(
     .strict(),
 );
 
+const shippingCopSchema = z.number().int().min(0).max(QUANTITY_MAX);
+const carrierSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9_-]{2,32}$/);
+
+export const CarrierRuleBodySchema = z
+  .object({
+    localityCarrierCode: z.string().regex(/^\d{8}$/),
+    carrier: carrierSchema,
+  })
+  .strict();
+export type CarrierRuleBody = z.infer<typeof CarrierRuleBodySchema>;
+
+export const ShippingQuotePublicSchema = z
+  .object({
+    id: z.uuid(),
+    carrier: carrierSchema,
+    serviceId: z.number().int().positive(),
+    freightCop: shippingCopSchema,
+    cashOnDeliveryCop: shippingCopSchema,
+    surchargeCop: shippingCopSchema,
+    totalShippingCop: shippingCopSchema,
+    estimatedDays: z.string().max(32),
+    quotedAt: z.string().datetime(),
+    expiresAt: z.string().datetime(),
+    recommended: z.boolean(),
+    selected: z.boolean(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      value.totalShippingCop ===
+      value.freightCop + value.cashOnDeliveryCop + value.surchargeCop,
+    { message: 'totalShippingCop must equal all shipping charges' },
+  );
+export type ShippingQuotePublic = z.infer<typeof ShippingQuotePublicSchema>;
+
+export const ShippingGuidePublicSchema = z
+  .object({
+    status: z.enum(['pending', 'processing', 'created', 'uncertain', 'failed']),
+    carrier: carrierSchema,
+    preShipmentNumber: z.string().min(1).max(64).nullable(),
+    freightCop: shippingCopSchema.nullable(),
+    errorCode: z.string().min(1).max(64).nullable(),
+    pdfAvailable: z.boolean(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+export type ShippingGuidePublic = z.infer<typeof ShippingGuidePublicSchema>;
+
+export const ShippingResponseSchema = dataEnvelopeSchema(
+  z
+    .object({
+      quotes: z.array(ShippingQuotePublicSchema),
+      guide: ShippingGuidePublicSchema.nullable(),
+    })
+    .strict(),
+);
+export type ShippingResponse = z.infer<typeof ShippingResponseSchema>;
+
 export type MovementCursor = {
   createdAt: Date;
   id: string;

@@ -23,6 +23,8 @@ import { PostgresConversationAdminRepository } from './modules/conversations/pos
 import { PostgresShippingGuideJobRepository } from './modules/shipping/postgres-shipping-guide-job-repository.js';
 import { NinetyNineEnviosClient } from './modules/shipping/99envios-client.js';
 import { ShippingGuideWorker } from './modules/shipping/shipping-guide-worker.js';
+import { PostgresShippingQuoteRepository } from './modules/shipping/postgres-shipping-quote-repository.js';
+import { ShippingQuoteService } from './modules/shipping/shipping-quote-service.js';
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
@@ -47,6 +49,28 @@ async function main(): Promise<void> {
   );
   const outboundRepository = new PostgresOutboundRepository(database);
   const shippingGuideJobs = new PostgresShippingGuideJobRepository(database);
+  const shippingClient =
+    config.ninetyNineEnviosEmail !== undefined &&
+    config.ninetyNineEnviosPassword !== undefined
+      ? new NinetyNineEnviosClient({
+          email: config.ninetyNineEnviosEmail,
+          password: config.ninetyNineEnviosPassword,
+          ...(config.ninetyNineEnviosIntegrationToken === undefined
+            ? {}
+            : { integrationToken: config.ninetyNineEnviosIntegrationToken }),
+          ...(config.ninetyNineEnviosIntegrationId === undefined
+            ? {}
+            : { integrationId: config.ninetyNineEnviosIntegrationId }),
+        })
+      : undefined;
+  const shippingQuoteService =
+    shippingClient === undefined
+      ? undefined
+      : new ShippingQuoteService(
+          new PostgresShippingQuoteRepository(database),
+          orderService,
+          shippingClient,
+        );
   const inboundProcessor = new WhatsAppSalesService(
     new PostgresConversationRepository(database),
     catalogService,
@@ -71,6 +95,7 @@ async function main(): Promise<void> {
       database,
     ),
     photoStorage,
+    ...(shippingQuoteService === undefined ? {} : { shippingQuoteService }),
   });
 
   if (
@@ -100,23 +125,11 @@ async function main(): Promise<void> {
     });
   }
 
-  if (
-    config.ninetyNineEnviosEmail !== undefined &&
-    config.ninetyNineEnviosPassword !== undefined
-  ) {
+  if (shippingClient !== undefined) {
     const worker = new ShippingGuideWorker(
       shippingGuideJobs,
       orderService,
-      new NinetyNineEnviosClient({
-        email: config.ninetyNineEnviosEmail,
-        password: config.ninetyNineEnviosPassword,
-        ...(config.ninetyNineEnviosIntegrationToken === undefined
-          ? {}
-          : { integrationToken: config.ninetyNineEnviosIntegrationToken }),
-        ...(config.ninetyNineEnviosIntegrationId === undefined
-          ? {}
-          : { integrationId: config.ninetyNineEnviosIntegrationId }),
-      }),
+      shippingClient,
     );
     let running = false;
     const timer = setInterval(() => {

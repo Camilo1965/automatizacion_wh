@@ -23,6 +23,7 @@ import {
   OrderNotFoundError,
   OrderValidationError,
 } from '../modules/orders/order-errors.js';
+import { ShippingDomainError } from '../modules/shipping/shipping-quote-service.js';
 
 export type ApiErrorBody = {
   error: {
@@ -88,6 +89,15 @@ export function mapDomainError(
 
   if (error instanceof OrderConflictError) {
     return sendApiError(reply, 409, error.code, error.message);
+  }
+
+  if (error instanceof ShippingDomainError) {
+    const status =
+      error.code === 'order_not_found' ||
+      error.code === 'shipping_quote_not_found'
+        ? 404
+        : 409;
+    return sendApiError(reply, status, error.code, error.message);
   }
 
   if (error instanceof OrderNotFoundError) {

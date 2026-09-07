@@ -22,6 +22,7 @@ import type { LocalityService } from './modules/localities/locality-service.js';
 import type { OrderService } from './modules/orders/order-service.js';
 import type { WhatsAppInboundRepository } from './modules/whatsapp/whatsapp-inbound-repository.js';
 import type { ConversationAdminRepository } from './modules/conversations/postgres-conversation-admin-repository.js';
+import type { ShippingQuoteOperations } from './modules/shipping/shipping-quote-service.js';
 import { adminRoutes } from './routes/admin/index.js';
 import { healthRoutes } from './routes/health.js';
 import { whatsappRoutes } from './routes/whatsapp.js';
@@ -44,6 +45,7 @@ export type AppDependencies = Readonly<{
     }): Promise<void>;
   }>;
   conversationAdminRepository?: ConversationAdminRepository;
+  shippingQuoteService?: ShippingQuoteOperations;
 }>;
 
 declare module 'fastify' {
@@ -175,6 +177,9 @@ export async function buildApp(
       : {
           conversationAdminRepository: dependencies.conversationAdminRepository,
         }),
+    ...(dependencies.shippingQuoteService === undefined
+      ? {}
+      : { shippingQuoteService: dependencies.shippingQuoteService }),
     photoStorage: dependencies.photoStorage,
   });
 

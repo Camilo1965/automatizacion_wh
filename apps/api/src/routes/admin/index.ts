@@ -12,6 +12,7 @@ import {
   CreateOrderBodySchema,
   PatchOrderBodySchema,
   ConfirmOrderBodySchema,
+  CarrierRuleBodySchema,
 } from '@camila/contracts';
 
 import type { AppConfig } from '../../config.js';
@@ -41,6 +42,7 @@ import type { LocalityService } from '../../modules/localities/locality-service.
 import type { PhotoStorage } from '../../modules/catalog/photo-storage.js';
 import type { OrderService } from '../../modules/orders/order-service.js';
 import type { ConversationAdminRepository } from '../../modules/conversations/postgres-conversation-admin-repository.js';
+import type { ShippingQuoteOperations } from '../../modules/shipping/shipping-quote-service.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -89,6 +91,7 @@ export type AdminRoutesDependencies = Readonly<{
   photoStorage: PhotoStorage;
   orderService?: OrderService;
   conversationAdminRepository?: ConversationAdminRepository;
+  shippingQuoteService?: ShippingQuoteOperations;
 }>;
 
 export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
@@ -104,7 +107,83 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     localityService,
     orderService,
     conversationAdminRepository,
+    shippingQuoteService,
   } = dependencies;
+
+  const publicShipping = (
+    state: Awaited<ReturnType<ShippingQuoteOperations['getShipping']>>,
+  ) => ({
+    quotes: state.quotes.map((quote) => ({
+      id: quote.id,
+      carrier: quote.carrier,
+      serviceId: quote.serviceId,
+      freightCop: quote.freightCop,
+      cashOnDeliveryCop: quote.cashOnDeliveryCop,
+      surchargeCop: quote.surchargeCop,
+      totalShippingCop:
+        quote.freightCop + quote.cashOnDeliveryCop + quote.surchargeCop,
+      estimatedDays: quote.estimatedDays,
+      quotedAt: quote.quotedAt.toISOString(),
+      expiresAt: quote.expiresAt.toISOString(),
+      recommended: quote.recommended,
+      selected: quote.selected,
+    })),
+    guide:
+      state.guide === null
+        ? null
+        : { ...state.guide, updatedAt: state.guide.updatedAt.toISOString() },
+  });
+
+  if (shippingQuoteService !== undefined) {
+    const ShippingQuoteParamsSchema = z
+      .object({ orderId: z.uuid(), quoteId: z.uuid() })
+      .strict();
+    app.get('/orders/:orderId/shipping', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const { orderId } = OrderIdParamsSchema.parse(request.params);
+      return reply
+        .status(200)
+        .send({
+          data: publicShipping(await shippingQuoteService.getShipping(orderId)),
+        });
+    });
+    app.post('/orders/:orderId/shipping-quotes', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const { orderId } = OrderIdParamsSchema.parse(request.params);
+      await shippingQuoteService.createQuotes(orderId);
+      return reply
+        .status(201)
+        .send({
+          data: publicShipping(await shippingQuoteService.getShipping(orderId)),
+        });
+    });
+    app.post(
+      '/orders/:orderId/shipping-quotes/:quoteId/select',
+      async (request, reply) => {
+        await requireAdminSession(request, authService);
+        const { orderId, quoteId } = ShippingQuoteParamsSchema.parse(
+          request.params,
+        );
+        await shippingQuoteService.selectQuote(orderId, quoteId);
+        return reply
+          .status(200)
+          .send({
+            data: publicShipping(
+              await shippingQuoteService.getShipping(orderId),
+            ),
+          });
+      },
+    );
+    app.put('/shipping/carrier-rules', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const body = CarrierRuleBodySchema.parse(request.body);
+      await shippingQuoteService.setCarrierRule(
+        body.localityCarrierCode,
+        body.carrier,
+      );
+      return reply.status(204).send();
+    });
+  }
 
   if (conversationAdminRepository !== undefined) {
     const ConversationIdParamsSchema = z

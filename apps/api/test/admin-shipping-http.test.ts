@@ -1,0 +1,104 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import { ShippingResponseSchema } from '@camila/contracts';
+
+import { buildApp } from '../src/app.js';
+import type { AppConfig } from '../src/config.js';
+import type { PostgresDatabase } from '../src/database/client.js';
+import { AuthenticationRequiredError } from '../src/modules/auth/auth-errors.js';
+import type { AuthService } from '../src/modules/auth/auth-service.js';
+import type { CatalogService } from '../src/modules/catalog/catalog-service.js';
+import type { PhotoStorage } from '../src/modules/catalog/photo-storage.js';
+
+const config: AppConfig = {
+  nodeEnv: 'test',
+  host: '127.0.0.1',
+  port: 3000,
+  databaseUrl: 'postgresql://test',
+  adminOrigin: 'http://127.0.0.1:5173',
+  logLevel: 'silent',
+  mediaRoot: './var/media',
+};
+const state = {
+  quotes: [
+    {
+      id: '11111111-1111-4111-8111-111111111111',
+      carrier: 'envia',
+      serviceId: 12,
+      freightCop: 13368,
+      cashOnDeliveryCop: 3000,
+      surchargeCop: 600,
+      estimatedDays: '1',
+      quotedAt: new Date('2026-09-07T17:00:00Z'),
+      expiresAt: new Date('2026-09-07T17:30:00Z'),
+      recommended: true,
+      selected: true,
+    },
+  ],
+  guide: null,
+};
+
+describe('admin shipping HTTP API', () => {
+  it('protects shipping data and exposes quote and municipal-rule actions', async () => {
+    const service = {
+      createQuotes: vi.fn().mockResolvedValue(state.quotes),
+      selectQuote: vi.fn().mockResolvedValue(state.quotes),
+      getShipping: vi.fn().mockResolvedValue(state),
+      setCarrierRule: vi.fn(),
+    };
+    const authService = {
+      getSession: async (token?: string) => {
+        if (token !== 'good') throw new AuthenticationRequiredError();
+        return {
+          id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          username: 'camila',
+        };
+      },
+    } as unknown as AuthService;
+    const app = await buildApp({
+      config,
+      database: {
+        orm: {} as PostgresDatabase['orm'],
+        ping: vi.fn(),
+        close: vi.fn(),
+      },
+      authService,
+      catalogService: {} as CatalogService,
+      photoStorage: {} as PhotoStorage,
+      shippingQuoteService: service,
+    });
+    const orderId = '22222222-2222-4222-8222-222222222222';
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/api/admin/orders/${orderId}/shipping`,
+        })
+      ).statusCode,
+    ).toBe(401);
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/admin/orders/${orderId}/shipping-quotes`,
+      headers: {
+        cookie: 'camila_admin_session=good',
+        origin: config.adminOrigin,
+      },
+    });
+    expect(response.statusCode).toBe(201);
+    expect(
+      ShippingResponseSchema.parse(response.json()).data.quotes[0]?.carrier,
+    ).toBe('envia');
+    const rule = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/shipping/carrier-rules',
+      headers: {
+        cookie: 'camila_admin_session=good',
+        origin: config.adminOrigin,
+      },
+      payload: { localityCarrierCode: '05001000', carrier: 'TCC' },
+    });
+    expect(rule.statusCode).toBe(204);
+    expect(service.setCarrierRule).toHaveBeenCalledWith('05001000', 'tcc');
+    await app.close();
+  });
+});
