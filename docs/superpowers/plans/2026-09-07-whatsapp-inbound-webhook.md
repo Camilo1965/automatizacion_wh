@@ -46,7 +46,7 @@ export function verifyWhatsAppSignature(
 ```
 
 - [ ] **Step 1: Write RED tests** for a known HMAC-valid body, a modified body,
-  missing/invalid `sha256=` header, and absent app secret. Run:
+      missing/invalid `sha256=` header, and absent app secret. Run:
 
   ```powershell
   pnpm --filter @camila/api test:unit -- whatsapp-signature.test.ts
@@ -55,15 +55,15 @@ export function verifyWhatsAppSignature(
   Expected: fail because `whatsapp-signature.ts` does not exist.
 
 - [ ] **Step 2: Implement minimal verifier** with Node `createHmac` and
-  `timingSafeEqual`, returning false when byte lengths differ before comparing.
-  Do not parse JSON here.
+      `timingSafeEqual`, returning false when byte lengths differ before comparing.
+      Do not parse JSON here.
 
 - [ ] **Step 3: Add optional config**: trim `WHATSAPP_APP_SECRET`, add only a
-  commented placeholder to `.env.example`, and expose no secret in errors.
+      commented placeholder to `.env.example`, and expose no secret in errors.
 
 - [ ] **Step 4: Capture raw request bytes** only for `/webhooks/whatsapp` using
-  a Fastify `preParsing` hook that buffers the payload within the existing
-  1 MiB limit and exposes `request.rawBody`. Add a Fastify module declaration.
+      a Fastify `preParsing` hook that buffers the payload within the existing
+      1 MiB limit and exposes `request.rawBody`. Add a Fastify module declaration.
 
 - [ ] **Step 5: Run focused tests and static checks**:
 
@@ -102,19 +102,19 @@ export interface WhatsAppInboundRepository {
   storeMany(messages: readonly InboundWhatsAppMessage[]): Promise<void>;
 }
 
-export function extractInboundWhatsAppMessages(payload: unknown):
-  | { ok: true; messages: readonly InboundWhatsAppMessage[] }
-  | { ok: false };
+export function extractInboundWhatsAppMessages(
+  payload: unknown,
+): { ok: true; messages: readonly InboundWhatsAppMessage[] } | { ok: false };
 ```
 
 - [ ] **Step 1: Write parser RED tests** using a representative Meta payload:
-  one text message produces normalized `+` phone and text; multimedia produces
-  null text; status-only payload produces an empty valid list; malformed
-  `entry` payload returns `ok: false`.
+      one text message produces normalized `+` phone and text; multimedia produces
+      null text; status-only payload produces an empty valid list; malformed
+      `entry` payload returns `ok: false`.
 
 - [ ] **Step 2: Implement parser** using Zod with explicit structural checks.
-  Parse timestamps as Unix seconds; preserve the originating `value` as payload.
-  Do not accept missing message ID, phone number ID, sender, type, or timestamp.
+      Parse timestamps as Unix seconds; preserve the originating `value` as payload.
+      Do not accept missing message ID, phone number ID, sender, type, or timestamp.
 
 - [ ] **Step 3: Define Drizzle table and migration**:
 
@@ -135,14 +135,14 @@ export function extractInboundWhatsAppMessages(payload: unknown):
   ```
 
 - [ ] **Step 4: Write repository integration RED test** that stores the same
-  `whatsappMessageId` twice and verifies one row, then run it against
-  `postgres-test`.
+      `whatsappMessageId` twice and verifies one row, then run it against
+      `postgres-test`.
 
 - [ ] **Step 5: Implement `storeMany`** in a transaction using
-  `ON CONFLICT (whatsapp_message_id) DO NOTHING` and no read-then-write check.
+      `ON CONFLICT (whatsapp_message_id) DO NOTHING` and no read-then-write check.
 
 - [ ] **Step 6: Run focused unit/integration tests, migrate dev and test
-  databases, then typecheck/lint.**
+      databases, then typecheck/lint.**
 
 ### Task 3: Secure HTTP route and privacy logging
 
@@ -164,27 +164,27 @@ export type WhatsAppRoutesDependencies = Readonly<{
 ```
 
 - [ ] **Step 1: Write HTTP RED tests** proving: a signed text body gets `200`
-  and calls real parser/repository; bad/missing signature gets `401` and no
-  write; malformed but signed payload gets `400`; signed status-only payload
-  gets `200` with no write; duplicate signed deliveries leave one persisted
-  row.
+      and calls real parser/repository; bad/missing signature gets `401` and no
+      write; malformed but signed payload gets `400`; signed status-only payload
+      gets `200` with no write; duplicate signed deliveries leave one persisted
+      row.
 
 - [ ] **Step 2: Extend the route** so GET verification behavior remains
-  unchanged and POST verifies raw bytes before JSON parsing. Use the exact
-  `x-hub-signature-256` request header. Respond with an empty `200` body only
-  after storage completes.
+      unchanged and POST verifies raw bytes before JSON parsing. Use the exact
+      `x-hub-signature-256` request header. Respond with an empty `200` body only
+      after storage completes.
 
 - [ ] **Step 3: Wire the production repository** in `server.ts` and inject it
-  through `buildApp`. Preserve tests that create the app without an order
-  service or database ORM by supplying an explicit fake repository.
+      through `buildApp`. Preserve tests that create the app without an order
+      service or database ORM by supplying an explicit fake repository.
 
 - [ ] **Step 4: Redact logging** by removing `req.url`, `req.body`, and
-  `req.headers.x-hub-signature-256` from structured logs, in addition to the
-  existing credential paths. Add a capture-logger assertion that a signed
-  webhook never emits its query, signature, or body.
+      `req.headers.x-hub-signature-256` from structured logs, in addition to the
+      existing credential paths. Add a capture-logger assertion that a signed
+      webhook never emits its query, signature, or body.
 
 - [ ] **Step 5: Run focused webhook unit/integration tests, format, lint,
-  typecheck, and full API suite.**
+      typecheck, and full API suite.**
 
 ### Task 4: Local acceptance and documentation
 
@@ -195,11 +195,11 @@ export type WhatsAppRoutesDependencies = Readonly<{
 - Modify: `.env.example`
 
 - [ ] **Step 1: Write README instructions**: set `WHATSAPP_APP_SECRET` directly
-  in untracked `.env`; restart API; keep local tunnel open; use Meta `messages`
-  sample only while the app remains unpublished. Never print the secret.
+      in untracked `.env`; restart API; keep local tunnel open; use Meta `messages`
+      sample only while the app remains unpublished. Never print the secret.
 
 - [ ] **Step 2: Update roadmap**: mark only the secure receiver/deduplication
-  subitems completed; do not mark the full WhatsApp phase complete.
+      subitems completed; do not mark the full WhatsApp phase complete.
 
 - [ ] **Step 3: Run full verification**:
 

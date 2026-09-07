@@ -9,6 +9,7 @@ export type AppConfig = Readonly<{
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
   mediaRoot: string;
   whatsappWebhookVerifyToken?: string;
+  whatsappAppSecret?: string;
 }>;
 
 export class ConfigurationError extends Error {
@@ -139,6 +140,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
 
   const whatsappWebhookVerifyToken =
     environment.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim() || undefined;
+  const whatsappAppSecret =
+    environment.WHATSAPP_APP_SECRET?.trim() || undefined;
 
   if (
     issues.length > 0 ||
@@ -161,5 +164,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     ...(whatsappWebhookVerifyToken === undefined
       ? {}
       : { whatsappWebhookVerifyToken }),
+    ...(whatsappAppSecret === undefined ? {} : { whatsappAppSecret }),
   };
 }

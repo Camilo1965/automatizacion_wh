@@ -24,6 +24,7 @@
     "@inquirer/password": "4.0.23",
     "drizzle-orm": "0.45.2",
     "fastify": "5.12.3",
+    "fastify-raw-body": "6.0.1",
     "file-type": "22.0.2",
     "postgres": "3.4.9",
     "zod": "4.5.4"

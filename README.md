@@ -2,7 +2,7 @@
 
 Base técnica local para la automatización de ventas de calzado por WhatsApp.
 
-WhatsApp, Chatwoot y 99envíos todavía no están conectados. El panel React de operaciones ya cubre autenticación, catálogo e inventario básicos.
+El webhook local de WhatsApp ya verifica la firma de Meta y guarda mensajes entrantes de forma idempotente. Antes de probar eventos firmados, agrega `WHATSAPP_APP_SECRET` directamente al archivo local `.env`; nunca lo incluyas en Git ni lo pegues en un chat. La automatización de respuestas, Chatwoot y 99envíos todavía no están conectados. El panel React de operaciones ya cubre autenticación, catálogo e inventario básicos.
 
 ## Requisitos
 

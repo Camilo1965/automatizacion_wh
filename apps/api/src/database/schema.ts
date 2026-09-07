@@ -442,6 +442,36 @@ export const orderStatusEvents = pgTable(
   ],
 );
 
+export const whatsappInboundMessages = pgTable(
+  'whatsapp_inbound_messages',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    whatsappMessageId: varchar('whatsapp_message_id', {
+      length: 128,
+    }).notNull(),
+    businessPhoneNumberId: varchar('business_phone_number_id', {
+      length: 32,
+    }).notNull(),
+    customerPhone: varchar('customer_phone', { length: 20 }).notNull(),
+    messageType: varchar('message_type', { length: 32 }).notNull(),
+    textBody: text('text_body'),
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull(),
+    payload: jsonb('payload').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('whatsapp_inbound_messages_message_id_unique').on(
+      table.whatsappMessageId,
+    ),
+    index('whatsapp_inbound_messages_customer_received_idx').on(
+      table.customerPhone,
+      table.receivedAt,
+    ),
+  ],
+);
+
 export const schema = {
   adminUsers,
   adminSessions,
@@ -455,4 +485,5 @@ export const schema = {
   orderConfirmations,
   reservationMovements,
   orderStatusEvents,
+  whatsappInboundMessages,
 };

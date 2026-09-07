@@ -12,6 +12,7 @@ import { LocalityService } from './modules/localities/locality-service.js';
 import { PostgresLocalityRepository } from './modules/localities/postgres-locality-repository.js';
 import { PostgresOrderRepository } from './modules/orders/postgres-order-repository.js';
 import { OrderService } from './modules/orders/order-service.js';
+import { PostgresWhatsAppInboundRepository } from './modules/whatsapp/postgres-whatsapp-inbound-repository.js';
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
@@ -43,6 +44,7 @@ async function main(): Promise<void> {
     catalogImportService,
     localityService,
     orderService,
+    inboundRepository: new PostgresWhatsAppInboundRepository(database),
     photoStorage,
   });
 

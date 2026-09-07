@@ -1,3 +1,5 @@
+import { createHmac } from 'node:crypto';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildApp } from '../src/app.js';
@@ -6,6 +8,7 @@ import type { PostgresDatabase } from '../src/database/client.js';
 import type { AuthService } from '../src/modules/auth/auth-service.js';
 import type { CatalogService } from '../src/modules/catalog/catalog-service.js';
 import type { PhotoStorage } from '../src/modules/catalog/photo-storage.js';
+import type { WhatsAppInboundRepository } from '../src/modules/whatsapp/whatsapp-inbound-repository.js';
 
 const config: AppConfig = {
   nodeEnv: 'test',
@@ -16,9 +19,10 @@ const config: AppConfig = {
   logLevel: 'silent',
   mediaRoot: './var/media',
   whatsappWebhookVerifyToken: 'local-webhook-token',
+  whatsappAppSecret: 'test-meta-app-secret',
 };
 
-function app() {
+function app(inboundRepository?: WhatsAppInboundRepository) {
   return buildApp({
     config,
     database: {
@@ -29,6 +33,7 @@ function app() {
     authService: {} as AuthService,
     catalogService: {} as CatalogService,
     photoStorage: {} as PhotoStorage,
+    ...(inboundRepository === undefined ? {} : { inboundRepository }),
   });
 }
 
@@ -57,6 +62,60 @@ describe('WhatsApp webhook verification', () => {
     });
     expect(response.statusCode).toBe(200);
     expect(response.body).toBe('challenge-value');
+    await server.close();
+  });
+
+  it('rejects unsigned inbound posts before persistence', async () => {
+    const storeMany = vi.fn();
+    const server = await app({ storeMany });
+    const response = await server.inject({
+      method: 'POST',
+      url: '/webhooks/whatsapp',
+      payload: { object: 'whatsapp_business_account', entry: [] },
+    });
+    expect(response.statusCode).toBe(401);
+    expect(storeMany).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it('persists a signed inbound text message', async () => {
+    const storeMany = vi.fn().mockResolvedValue(undefined);
+    const server = await app({ storeMany });
+    const rawBody = JSON.stringify({
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: '123' },
+                messages: [
+                  {
+                    from: '573001234567',
+                    id: 'wamid.http-1',
+                    timestamp: '1760000000',
+                    type: 'text',
+                    text: { body: '37' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const signature = `sha256=${createHmac('sha256', config.whatsappAppSecret!).update(rawBody).digest('hex')}`;
+    const response = await server.inject({
+      method: 'POST',
+      url: '/webhooks/whatsapp',
+      headers: {
+        'x-hub-signature-256': signature,
+        'content-type': 'application/json',
+      },
+      payload: rawBody,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(storeMany).toHaveBeenCalledOnce();
     await server.close();
   });
 });

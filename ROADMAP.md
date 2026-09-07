@@ -285,6 +285,7 @@ Criterio de avance: ninguna prueba de concurrencia produce sobreventa; el mismo 
 
 Dependencia: fases 0 y 3. Estimación: 24–40 horas.
 
+- [x] Verificar firma de webhook Meta y persistir mensajes entrantes de forma idempotente.
 - [ ] Definir tipos compartidos de evento, sesión, menú y acción.
 - [ ] Implementar receptor de eventos de Chatwoot con autenticación compatible con su configuración verificada.
 - [ ] Deduplicar eventos y excluir mensajes salientes, privados y actualizaciones que no deban activar el bot.

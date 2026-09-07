@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
+import rawBody from 'fastify-raw-body';
 import Fastify, {
   type FastifyError,
   type FastifyInstance,
@@ -19,6 +20,7 @@ import type { CatalogImportService } from './modules/catalog/catalog-import-serv
 import type { PhotoStorage } from './modules/catalog/photo-storage.js';
 import type { LocalityService } from './modules/localities/locality-service.js';
 import type { OrderService } from './modules/orders/order-service.js';
+import type { WhatsAppInboundRepository } from './modules/whatsapp/whatsapp-inbound-repository.js';
 import { adminRoutes } from './routes/admin/index.js';
 import { healthRoutes } from './routes/health.js';
 import { whatsappRoutes } from './routes/whatsapp.js';
@@ -32,6 +34,7 @@ export type AppDependencies = Readonly<{
   photoStorage: PhotoStorage;
   localityService?: LocalityService;
   orderService?: OrderService;
+  inboundRepository?: WhatsAppInboundRepository;
 }>;
 
 declare module 'fastify' {
@@ -77,8 +80,11 @@ export async function buildApp(
       level: dependencies.config.logLevel,
       redact: {
         paths: [
+          'req.url',
+          'req.body',
           'req.headers.authorization',
           'req.headers.cookie',
+          'req.headers.x-hub-signature-256',
           'res.headers["set-cookie"]',
           'req.body.password',
           'req.body.passwordConfirmation',
@@ -110,6 +116,11 @@ export async function buildApp(
   await app.register(rateLimit, {
     global: false,
   });
+  await app.register(rawBody, {
+    global: false,
+    encoding: false,
+    runFirst: true,
+  });
 
   app.addHook('preHandler', async (request, reply) => {
     const rejected = requireAdminOrigin(
@@ -127,7 +138,12 @@ export async function buildApp(
   });
 
   await app.register(healthRoutes);
-  await app.register(whatsappRoutes, { config: dependencies.config });
+  await app.register(whatsappRoutes, {
+    config: dependencies.config,
+    ...(dependencies.inboundRepository === undefined
+      ? {}
+      : { inboundRepository: dependencies.inboundRepository }),
+  });
   await app.register(adminRoutes, {
     prefix: '/api/admin',
     config: dependencies.config,
