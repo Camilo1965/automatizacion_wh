@@ -12,6 +12,7 @@ import { UsernameValidationError } from '../modules/auth/username.js';
 import { PasswordValidationError } from '../modules/auth/password.js';
 import {
   CatalogConflictError,
+  CatalogImportValidationError,
   CatalogNotFoundError,
   CatalogValidationError,
   PhotoValidationError,
@@ -77,6 +78,10 @@ export function mapDomainError(
 
   if (error instanceof CatalogConflictError) {
     return sendApiError(reply, 409, error.code, error.message);
+  }
+
+  if (error instanceof CatalogImportValidationError) {
+    return sendApiError(reply, 400, error.code, error.message);
   }
 
   if (error instanceof CatalogNotFoundError) {

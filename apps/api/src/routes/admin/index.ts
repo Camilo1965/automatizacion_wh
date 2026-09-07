@@ -30,6 +30,8 @@ import {
   PhotoValidationError,
 } from '../../modules/catalog/catalog-errors.js';
 import type { CatalogService } from '../../modules/catalog/catalog-service.js';
+import type { CatalogImportService } from '../../modules/catalog/catalog-import-service.js';
+import { CatalogImportValidationError } from '../../modules/catalog/catalog-errors.js';
 import type { PhotoStorage } from '../../modules/catalog/photo-storage.js';
 
 declare module 'fastify' {
@@ -72,6 +74,7 @@ export type AdminRoutesDependencies = Readonly<{
   config: AppConfig;
   authService: AuthService;
   catalogService: CatalogService;
+  catalogImportService?: CatalogImportService;
   photoStorage: PhotoStorage;
 }>;
 
@@ -79,7 +82,13 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
   app,
   dependencies,
 ) => {
-  const { config, authService, catalogService, photoStorage } = dependencies;
+  const {
+    config,
+    authService,
+    catalogService,
+    photoStorage,
+    catalogImportService,
+  } = dependencies;
 
   app.post(
     '/auth/login',
@@ -139,6 +148,71 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
       },
     });
   });
+
+  if (catalogImportService !== undefined) {
+    app.get('/catalog-import-template', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const template = [
+        'reference_code,model_name,color,price_cop,size,physical_quantity',
+        '01,Tenis urbano,Negro,120000,37,2',
+        '01,Tenis urbano,Negro,120000,37.5,1',
+      ].join('\n');
+      return reply
+        .header('Content-Type', 'text/csv; charset=utf-8')
+        .header(
+          'Content-Disposition',
+          'attachment; filename="plantilla-catalogo.csv"',
+        )
+        .send(template);
+    });
+
+    app.post('/catalog-imports/preview', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      if (!request.isMultipart()) {
+        throw new CatalogImportValidationError(
+          'multipart_required',
+          'La importación requiere un archivo CSV multipart',
+        );
+      }
+      const part = await request.file();
+      if (part === undefined || part.fieldname !== 'file') {
+        throw new CatalogImportValidationError(
+          'missing_file',
+          'Debe enviar un único archivo en el campo file',
+        );
+      }
+      const preview = await catalogImportService.preview(
+        new Uint8Array(await part.toBuffer()),
+      );
+      return reply.status(201).send({
+        data: {
+          id: preview.id,
+          status: preview.status,
+          references: preview.references,
+          errors: preview.errors,
+          createdAt: preview.createdAt.toISOString(),
+        },
+      });
+    });
+
+    app.post('/catalog-imports/:importId/commit', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const params = z
+        .object({ importId: z.uuid() })
+        .strict()
+        .parse(request.params);
+      const committed = await catalogImportService.confirm(params.importId);
+      return reply.status(200).send({
+        data: {
+          id: committed.id,
+          status: committed.status,
+          references: committed.references,
+          errors: committed.errors,
+          createdAt: committed.createdAt.toISOString(),
+        },
+      });
+    });
+  }
 
   app.post('/references', async (request, reply) => {
     await requireAdminSession(request, authService);

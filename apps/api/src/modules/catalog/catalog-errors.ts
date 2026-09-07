@@ -20,6 +20,16 @@ export class CatalogConflictError extends Error {
   }
 }
 
+export class CatalogImportValidationError extends Error {
+  readonly code: string;
+
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = 'CatalogImportValidationError';
+    this.code = code;
+  }
+}
+
 export class CatalogNotFoundError extends Error {
   readonly entity: 'reference';
 

@@ -15,6 +15,7 @@ import type { PostgresDatabase } from './database/client.js';
 import { mapDomainError, sendApiError } from './http/map-domain-error.js';
 import type { AuthService } from './modules/auth/auth-service.js';
 import type { CatalogService } from './modules/catalog/catalog-service.js';
+import type { CatalogImportService } from './modules/catalog/catalog-import-service.js';
 import type { PhotoStorage } from './modules/catalog/photo-storage.js';
 import { adminRoutes } from './routes/admin/index.js';
 import { healthRoutes } from './routes/health.js';
@@ -24,6 +25,7 @@ export type AppDependencies = Readonly<{
   database: PostgresDatabase;
   authService: AuthService;
   catalogService: CatalogService;
+  catalogImportService?: CatalogImportService;
   photoStorage: PhotoStorage;
 }>;
 
@@ -125,6 +127,9 @@ export async function buildApp(
     config: dependencies.config,
     authService: dependencies.authService,
     catalogService: dependencies.catalogService,
+    ...(dependencies.catalogImportService === undefined
+      ? {}
+      : { catalogImportService: dependencies.catalogImportService }),
     photoStorage: dependencies.photoStorage,
   });
 

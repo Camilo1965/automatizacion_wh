@@ -5,6 +5,8 @@ import { AuthService } from './modules/auth/auth-service.js';
 import { PostgresAdminAuthRepository } from './modules/auth/postgres-admin-auth-repository.js';
 import { DefaultCatalogService } from './modules/catalog/catalog-service.js';
 import { LocalPhotoStorage } from './modules/catalog/local-photo-storage.js';
+import { PostgresCatalogImportRepository } from './modules/catalog/postgres-catalog-import-repository.js';
+import { CatalogImportService } from './modules/catalog/catalog-import-service.js';
 import { PostgresCatalogRepository } from './modules/catalog/postgres-catalog-repository.js';
 
 async function main(): Promise<void> {
@@ -18,12 +20,16 @@ async function main(): Promise<void> {
     catalogRepository,
     photoStorage,
   );
+  const catalogImportService = new CatalogImportService(
+    new PostgresCatalogImportRepository(database),
+  );
 
   const app = await buildApp({
     config,
     database,
     authService,
     catalogService,
+    catalogImportService,
     photoStorage,
   });
 

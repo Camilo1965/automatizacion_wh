@@ -5,6 +5,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   primaryKey,
@@ -14,6 +15,11 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
+
+import type {
+  CatalogImportRowError,
+  ParsedCatalogImportReference,
+} from '../modules/catalog/catalog-import-csv.js';
 
 export const adminUsers = pgTable(
   'admin_users',
@@ -190,10 +196,48 @@ export const inventoryMovements = pgTable(
   ],
 );
 
+export const catalogImports = pgTable(
+  'catalog_imports',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    sha256: char('sha256', { length: 64 }).notNull(),
+    status: varchar('status', { length: 16 }).notNull(),
+    referencesData: jsonb('references_data')
+      .$type<readonly ParsedCatalogImportReference[]>()
+      .notNull(),
+    errorsData: jsonb('errors_data')
+      .$type<readonly CatalogImportRowError[]>()
+      .notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    committedAt: timestamp('committed_at', { withTimezone: true }),
+  },
+  (table) => [
+    check(
+      'catalog_imports_sha256_format',
+      sql`${table.sha256} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      'catalog_imports_status_allowed',
+      sql`${table.status} IN ('previewed', 'invalid', 'committed')`,
+    ),
+    check(
+      'catalog_imports_commit_state',
+      sql`(${table.status} = 'committed') = (${table.committedAt} IS NOT NULL)`,
+    ),
+    index('catalog_imports_status_created_at_idx').on(
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const schema = {
   adminUsers,
   adminSessions,
   catalogReferences,
   catalogStock,
   inventoryMovements,
+  catalogImports,
 };
