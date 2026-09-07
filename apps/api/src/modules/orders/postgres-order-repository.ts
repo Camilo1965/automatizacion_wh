@@ -566,10 +566,7 @@ export class PostgresOrderRepository implements OrderRepository {
       createdAt: sql`clock_timestamp()`,
     });
   }
-  private async lockOrder(
-    tx: OrderTransaction,
-    orderId: string,
-  ): Promise<Row> {
+  private async lockOrder(tx: OrderTransaction, orderId: string): Promise<Row> {
     const [order] = await tx
       .select()
       .from(salesOrders)
