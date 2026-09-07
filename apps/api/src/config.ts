@@ -10,6 +10,9 @@ export type AppConfig = Readonly<{
   mediaRoot: string;
   whatsappWebhookVerifyToken?: string;
   whatsappAppSecret?: string;
+  whatsappAccessToken?: string;
+  whatsappPhoneNumberId?: string;
+  whatsappGraphApiVersion?: string;
 }>;
 
 export class ConfigurationError extends Error {
@@ -142,6 +145,21 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     environment.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim() || undefined;
   const whatsappAppSecret =
     environment.WHATSAPP_APP_SECRET?.trim() || undefined;
+  const whatsappAccessToken =
+    environment.WHATSAPP_ACCESS_TOKEN?.trim() || undefined;
+  const whatsappPhoneNumberId =
+    environment.WHATSAPP_PHONE_NUMBER_ID?.trim() || undefined;
+  const whatsappGraphApiVersion =
+    environment.WHATSAPP_GRAPH_API_VERSION?.trim() || 'v26.0';
+  if (
+    (whatsappAccessToken === undefined) !==
+    (whatsappPhoneNumberId === undefined)
+  ) {
+    issues.push('WHATSAPP_SENDING_CREDENTIALS');
+  }
+  if (!/^v\d+\.\d+$/.test(whatsappGraphApiVersion)) {
+    issues.push('WHATSAPP_GRAPH_API_VERSION');
+  }
 
   if (
     issues.length > 0 ||
@@ -161,9 +179,12 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     adminOrigin,
     logLevel: logLevelResult.data,
     mediaRoot,
+    whatsappGraphApiVersion,
     ...(whatsappWebhookVerifyToken === undefined
       ? {}
       : { whatsappWebhookVerifyToken }),
     ...(whatsappAppSecret === undefined ? {} : { whatsappAppSecret }),
+    ...(whatsappAccessToken === undefined ? {} : { whatsappAccessToken }),
+    ...(whatsappPhoneNumberId === undefined ? {} : { whatsappPhoneNumberId }),
   };
 }

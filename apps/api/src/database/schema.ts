@@ -546,6 +546,55 @@ export const whatsappConversationEvents = pgTable(
   ],
 );
 
+export const whatsappOutboundMessages = pgTable(
+  'whatsapp_outbound_messages',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    conversationId: uuid('conversation_id').references(
+      () => whatsappConversations.id,
+      { onDelete: 'restrict' },
+    ),
+    idempotencyKey: varchar('idempotency_key', { length: 160 }).notNull(),
+    customerPhone: varchar('customer_phone', { length: 20 }).notNull(),
+    messageType: varchar('message_type', { length: 16 }).notNull(),
+    textBody: text('text_body'),
+    mediaStorageKey: varchar('media_storage_key', { length: 255 }),
+    mediaMimeType: varchar('media_mime_type', { length: 32 }),
+    status: varchar('status', { length: 16 }).notNull().default('pending'),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    whatsappMessageId: varchar('whatsapp_message_id', { length: 128 }),
+    errorCode: varchar('error_code', { length: 64 }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('whatsapp_outbound_messages_idempotency_unique').on(
+      table.idempotencyKey,
+    ),
+    check(
+      'whatsapp_outbound_messages_type_allowed',
+      sql`${table.messageType} IN ('text', 'image')`,
+    ),
+    check(
+      'whatsapp_outbound_messages_status_allowed',
+      sql`${table.status} IN ('pending', 'processing', 'sent', 'failed', 'cancelled')`,
+    ),
+    check(
+      'whatsapp_outbound_messages_attempt_non_negative',
+      sql`${table.attemptCount} >= 0`,
+    ),
+    index('whatsapp_outbound_messages_status_created_idx').on(
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const schema = {
   adminUsers,
   adminSessions,
@@ -562,4 +611,5 @@ export const schema = {
   whatsappInboundMessages,
   whatsappConversations,
   whatsappConversationEvents,
+  whatsappOutboundMessages,
 };

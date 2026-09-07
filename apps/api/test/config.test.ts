@@ -23,6 +23,7 @@ describe('loadConfig', () => {
       adminOrigin: 'http://127.0.0.1:5173',
       logLevel: 'info',
       mediaRoot: './var/media',
+      whatsappGraphApiVersion: 'v26.0',
     });
   });
 
@@ -138,5 +139,27 @@ describe('loadConfig', () => {
       expect(configurationError.issues).toContain('MEDIA_ROOT');
       expect(configurationError.message).not.toContain('   ');
     }
+  });
+
+  it('loads complete WhatsApp sending credentials with a version default', () => {
+    const config = loadConfig({
+      ...validEnvironment,
+      WHATSAPP_ACCESS_TOKEN: 'local-test-token',
+      WHATSAPP_PHONE_NUMBER_ID: '123456789',
+    });
+    expect(config).toMatchObject({
+      whatsappAccessToken: 'local-test-token',
+      whatsappPhoneNumberId: '123456789',
+      whatsappGraphApiVersion: 'v26.0',
+    });
+  });
+
+  it('rejects incomplete WhatsApp sending credentials', () => {
+    expect(() =>
+      loadConfig({
+        ...validEnvironment,
+        WHATSAPP_ACCESS_TOKEN: 'local-test-token',
+      }),
+    ).toThrow(ConfigurationError);
   });
 });

@@ -50,6 +50,13 @@
       "when": 1788813103235,
       "tag": "0006_bumpy_gamora",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788813554327,
+      "tag": "0007_large_skullbuster",
+      "breakpoints": true
     }
   ]
 }
