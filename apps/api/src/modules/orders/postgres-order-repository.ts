@@ -235,16 +235,16 @@ export class PostgresOrderRepository implements OrderRepository {
         size: parseShoeSize(order.size),
         quantity: order.quantity,
         unitPriceCop: reference.priceCop,
-        subtotalCop: reference.priceCop * order.quantity,
-        shippingCop: null,
+        productSubtotalCop: reference.priceCop * order.quantity,
+        shippingCostCop: null,
         shippingPending: true,
         totalCop: reference.priceCop * order.quantity,
         customer: { name: order.customerName, phone: order.customerPhone },
         destination: {
           address: order.address,
           localityCarrierCode: order.localityCarrierCode,
-          localityDepartment: order.localityDepartment,
-          localityName: order.localityName,
+          department: order.localityDepartment,
+          locality: order.localityName,
           deliveryNotes: order.deliveryNotes,
         },
       };
@@ -287,6 +287,21 @@ export class PostgresOrderRepository implements OrderRepository {
   ): Promise<OrderRecord> {
     return this.database.orm.transaction(async (tx) => {
       const order = await this.lockOrder(tx, input.orderId);
+      if (input.action === 'confirm' && order.status === 'confirmed') {
+        const [confirmation] = await tx
+          .select()
+          .from(orderConfirmations)
+          .where(
+            eq(orderConfirmations.idempotencyKey, input.idempotencyKey ?? ''),
+          )
+          .limit(1);
+        if (confirmation?.orderId === order.id)
+          return this.requireMapped(order, tx);
+        throw new OrderConflictError(
+          'invalid_order_transition',
+          'This order was already confirmed',
+        );
+      }
       const next = assertTransition(
         order.status as OrderRecord['status'],
         input.action,

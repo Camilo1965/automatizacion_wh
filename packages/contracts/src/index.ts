@@ -549,6 +549,71 @@ export const LocalitiesResponseSchema = dataEnvelopeSchema(
 );
 export type LocalityPublic = z.infer<typeof LocalityPublicSchema>;
 
+export const OrderPublicSchema = z
+  .object({
+    id: z.uuid(),
+    orderNumber: z.string().regex(/^PED-\d{6,}$/),
+    status: OrderStatusSchema,
+    reference: z
+      .object({
+        id: z.uuid(),
+        code: publicReferenceCodeSchema,
+        modelName: trimmedModelName,
+        color: trimmedColor,
+      })
+      .strict(),
+    size: ShoeSizeStringSchema,
+    quantity: orderQuantitySchema,
+    customer: z
+      .object({
+        name: customerNameSchema.nullable(),
+        phone: colombianPhoneSchema.nullable(),
+      })
+      .strict(),
+    destination: z
+      .object({
+        address: addressSchema.nullable(),
+        localityCarrierCode: localityCarrierCodeSchema.nullable(),
+        localityDepartment: z.string().min(1).max(100).nullable(),
+        localityName: z.string().min(1).max(120).nullable(),
+        deliveryNotes: deliveryNotesSchema.nullable(),
+      })
+      .strict(),
+    draftVersion: z.number().int().min(1),
+    latestSummaryVersion: z.number().int().min(0),
+    confirmedSummaryVersion: z.number().int().min(1).nullable(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+export type OrderPublic = z.infer<typeof OrderPublicSchema>;
+
+export const OrderSummaryPublicSchema = z
+  .object({
+    version: z.number().int().min(1),
+    draftVersion: z.number().int().min(1),
+    snapshot: OrderSummarySnapshotSchema,
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+export type OrderSummaryPublic = z.infer<typeof OrderSummaryPublicSchema>;
+
+export const OrderResponseSchema = dataEnvelopeSchema(OrderPublicSchema);
+export const OrderSummaryResponseSchema = dataEnvelopeSchema(
+  OrderSummaryPublicSchema,
+);
+export const ListOrdersResponseSchema = dataEnvelopeSchema(
+  z
+    .object({
+      items: z.array(OrderPublicSchema),
+      nextCursor: z
+        .object({ createdAt: z.string().datetime(), id: z.uuid() })
+        .strict()
+        .nullable(),
+    })
+    .strict(),
+);
+
 export type MovementCursor = {
   createdAt: Date;
   id: string;

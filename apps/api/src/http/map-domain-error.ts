@@ -18,6 +18,11 @@ import {
   PhotoValidationError,
 } from '../modules/catalog/catalog-errors.js';
 import { LocalityImportError } from '../modules/localities/locality-service.js';
+import {
+  OrderConflictError,
+  OrderNotFoundError,
+  OrderValidationError,
+} from '../modules/orders/order-errors.js';
 
 export type ApiErrorBody = {
   error: {
@@ -75,6 +80,18 @@ export function mapDomainError(
 
   if (error instanceof CatalogValidationError) {
     return sendApiError(reply, 400, error.code, error.message, error.field);
+  }
+
+  if (error instanceof OrderValidationError) {
+    return sendApiError(reply, 400, error.code, error.message, error.field);
+  }
+
+  if (error instanceof OrderConflictError) {
+    return sendApiError(reply, 409, error.code, error.message);
+  }
+
+  if (error instanceof OrderNotFoundError) {
+    return sendApiError(reply, 404, 'not_found', error.message);
   }
 
   if (error instanceof CatalogConflictError) {

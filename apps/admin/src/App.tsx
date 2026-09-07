@@ -9,6 +9,9 @@ import { ReferenceDetailPage } from './catalog/ReferenceDetailPage';
 import { CatalogImportPage } from './catalog/CatalogImportPage';
 import { AppShell } from './components/AppShell';
 import { LoadingState } from './components/LoadingState';
+import { OrdersListPage } from './orders/OrdersListPage';
+import { OrderCreatePage } from './orders/OrderCreatePage';
+import { OrderDetailPage } from './orders/OrderDetailPage';
 
 function AuthenticatedShell() {
   const { user, logout } = useAuth();
@@ -46,6 +49,9 @@ export function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AuthenticatedShell />}>
           <Route index element={<CatalogListPage />} />
+          <Route path="orders" element={<OrdersListPage />} />
+          <Route path="orders/new" element={<OrderCreatePage />} />
+          <Route path="orders/:orderId" element={<OrderDetailPage />} />
           <Route path="catalog-import" element={<CatalogImportPage />} />
           <Route path="references/new" element={<ReferenceCreatePage />} />
           <Route

@@ -38,12 +38,42 @@ import {
   PatchOrderBodySchema,
   OrderSummarySnapshotSchema,
   ConfirmOrderBodySchema,
+  OrderPublicSchema,
+  OrderSummaryPublicSchema,
 } from '../src/index.js';
 
 const SAMPLE_UUID = '22222222-2222-4222-8222-222222222222';
 const SAMPLE_ISO = '2026-09-06T12:00:00.000Z';
 
 const SAMPLE_ETAG = `"${'a'.repeat(64)}"`;
+
+const sampleOrderSnapshot = {
+  schemaVersion: 1,
+  version: 1,
+  draftVersion: 1,
+  orderNumber: 'PED-000001',
+  reference: {
+    id: SAMPLE_UUID,
+    code: '01',
+    modelName: 'Ballerina',
+    color: 'Negro',
+  },
+  size: '37',
+  quantity: 1,
+  unitPriceCop: 120_000,
+  productSubtotalCop: 120_000,
+  shippingCostCop: null,
+  shippingPending: true,
+  totalCop: 120_000,
+  customer: { name: 'Camila', phone: '+573001234567' },
+  destination: {
+    address: 'Calle 1 # 2-3',
+    localityCarrierCode: '11001',
+    department: 'Bogotá',
+    locality: 'Bogotá',
+    deliveryNotes: null,
+  },
+};
 
 const samplePhoto = {
   url: '/api/admin/references/22222222-2222-4222-8222-222222222222/photo',
@@ -1119,5 +1149,49 @@ describe('strict public response contracts', () => {
         },
       }).success,
     ).toBe(false);
+  });
+
+  it('accepts a public draft order and rejects extra response fields', () => {
+    const order = {
+      id: SAMPLE_UUID,
+      orderNumber: 'PED-000001',
+      status: 'draft',
+      reference: {
+        id: SAMPLE_UUID,
+        code: '01',
+        modelName: 'Ballerina',
+        color: 'Negro',
+      },
+      size: '37',
+      quantity: 1,
+      customer: { name: null, phone: null },
+      destination: {
+        address: null,
+        localityCarrierCode: null,
+        localityDepartment: null,
+        localityName: null,
+        deliveryNotes: null,
+      },
+      draftVersion: 1,
+      latestSummaryVersion: 0,
+      confirmedSummaryVersion: null,
+      createdAt: SAMPLE_ISO,
+      updatedAt: SAMPLE_ISO,
+    };
+    expect(OrderPublicSchema.safeParse(order).success).toBe(true);
+    expect(
+      OrderPublicSchema.safeParse({ ...order, unsafe: true }).success,
+    ).toBe(false);
+  });
+
+  it('requires a consistent, immutable public order summary snapshot', () => {
+    expect(
+      OrderSummaryPublicSchema.safeParse({
+        version: 1,
+        draftVersion: 1,
+        createdAt: SAMPLE_ISO,
+        snapshot: sampleOrderSnapshot,
+      }).success,
+    ).toBe(true);
   });
 });

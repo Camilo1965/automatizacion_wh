@@ -86,6 +86,16 @@ export class OrderService {
     }>,
   ): Promise<OrderRecord> {
     const order = await this.requireOrder(input.orderId);
+    if (input.action === 'confirm' && order.status === 'confirmed') {
+      if (input.idempotencyKey === undefined) {
+        throw new OrderValidationError(
+          'body',
+          'confirmation_required',
+          'A summary version and idempotency key are required',
+        );
+      }
+      return this.repository.transition(input);
+    }
     assertTransition(order.status, input.action);
     if (input.action === 'confirm') {
       if (
