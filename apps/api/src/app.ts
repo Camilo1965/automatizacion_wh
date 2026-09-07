@@ -21,6 +21,7 @@ import type { LocalityService } from './modules/localities/locality-service.js';
 import type { OrderService } from './modules/orders/order-service.js';
 import { adminRoutes } from './routes/admin/index.js';
 import { healthRoutes } from './routes/health.js';
+import { whatsappRoutes } from './routes/whatsapp.js';
 
 export type AppDependencies = Readonly<{
   config: AppConfig;
@@ -126,6 +127,7 @@ export async function buildApp(
   });
 
   await app.register(healthRoutes);
+  await app.register(whatsappRoutes, { config: dependencies.config });
   await app.register(adminRoutes, {
     prefix: '/api/admin',
     config: dependencies.config,
