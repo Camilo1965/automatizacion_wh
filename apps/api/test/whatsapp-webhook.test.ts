@@ -48,4 +48,15 @@ describe('WhatsApp webhook verification', () => {
     expect(rejected.statusCode).toBe(403);
     await server.close();
   });
+
+  it('accepts Meta verification requests with normalized duplicate query keys', async () => {
+    const server = await app();
+    const response = await server.inject({
+      method: 'GET',
+      url: '/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=local-webhook-token&hub.challenge=challenge-value&hub_mode=subscribe&hub_verify_token=local-webhook-token&hub_challenge=challenge-value',
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toBe('challenge-value');
+    await server.close();
+  });
 });

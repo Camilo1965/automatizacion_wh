@@ -3,13 +3,11 @@ import { z } from 'zod';
 
 import type { AppConfig } from '../config.js';
 
-const verificationQuerySchema = z
-  .object({
-    'hub.mode': z.literal('subscribe'),
-    'hub.verify_token': z.string(),
-    'hub.challenge': z.string().min(1),
-  })
-  .strict();
+const verificationQuerySchema = z.object({
+  'hub.mode': z.literal('subscribe'),
+  'hub.verify_token': z.string(),
+  'hub.challenge': z.string().min(1),
+});
 
 export type WhatsAppRoutesDependencies = Readonly<{ config: AppConfig }>;
 
