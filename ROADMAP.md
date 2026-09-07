@@ -265,7 +265,7 @@ Criterio de avance técnico: verificado con PostgreSQL real de pruebas y Chromiu
 
 Dependencia: fase 2. Estimación: 16–26 horas.
 
-Estado actual: siguiente bloque de implementación. Antes de integrar cualquier canal externo se debe completar y auditar esta fase.
+Estado actual: diseño y plan ejecutable preparados en `docs/superpowers/specs/2026-09-07-phase-3-orders-design.md` y `docs/superpowers/plans/2026-09-07-phase-3-orders.md`. Antes de integrar cualquier canal externo se debe completar y auditar esta fase.
 
 - [ ] Crear borrador de pedido de una variante y cantidades válidas.
 - [ ] Implementar validación de datos y destino con localidad y departamento.
