@@ -6,6 +6,7 @@ import { ProtectedRoute } from './auth/ProtectedRoute';
 import { CatalogListPage } from './catalog/CatalogListPage';
 import { ReferenceCreatePage } from './catalog/ReferenceCreatePage';
 import { ReferenceDetailPage } from './catalog/ReferenceDetailPage';
+import { CatalogImportPage } from './catalog/CatalogImportPage';
 import { AppShell } from './components/AppShell';
 import { LoadingState } from './components/LoadingState';
 
@@ -45,6 +46,7 @@ export function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AuthenticatedShell />}>
           <Route index element={<CatalogListPage />} />
+          <Route path="catalog-import" element={<CatalogImportPage />} />
           <Route path="references/new" element={<ReferenceCreatePage />} />
           <Route
             path="references/:referenceId"

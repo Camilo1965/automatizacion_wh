@@ -84,6 +84,25 @@ function toReferencePublic(item: typeof referenceDetail) {
 }
 
 export const handlers = [
+  http.get(`${base}/catalog-readiness`, () => {
+    const total = state.references.length;
+    const active = state.references.filter((item) => item.active).length;
+    const withoutPhoto = state.references.filter(
+      (item) => item.photo === null,
+    ).length;
+    const withoutAvailableStock = state.references.filter(
+      (item) => !item.stock.some((stock) => stock.availableQuantity > 0),
+    ).length;
+    const ready = state.references.filter(
+      (item) =>
+        item.active &&
+        item.photo !== null &&
+        item.stock.some((stock) => stock.availableQuantity > 0),
+    ).length;
+    return HttpResponse.json({
+      data: { total, active, withoutPhoto, withoutAvailableStock, ready },
+    });
+  }),
   http.post(`${base}/auth/login`, async ({ request }) => {
     const body = (await request.json()) as {
       username?: string;

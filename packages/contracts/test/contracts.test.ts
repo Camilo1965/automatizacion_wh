@@ -31,6 +31,9 @@ import {
   StockAvailabilitySchema,
   StockResponseSchema,
   StockSetResultSchema,
+  CatalogImportResponseSchema,
+  CatalogReadinessResponseSchema,
+  LocalitiesResponseSchema,
 } from '../src/index.js';
 
 const SAMPLE_UUID = '22222222-2222-4222-8222-222222222222';
@@ -108,6 +111,22 @@ describe('ApiErrorSchema', () => {
 
   it('rejects missing error payload', () => {
     expect(ApiErrorSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe('phase two completion contracts', () => {
+  it('validates import, readiness, and locality envelopes', () => {
+    expect(CatalogImportResponseSchema.safeParse({ data: {} }).success).toBe(
+      false,
+    );
+    expect(CatalogReadinessResponseSchema.safeParse({ data: {} }).success).toBe(
+      false,
+    );
+    expect(
+      LocalitiesResponseSchema.safeParse({
+        data: { items: [], nextAfterCode: null },
+      }).success,
+    ).toBe(true);
   });
 });
 

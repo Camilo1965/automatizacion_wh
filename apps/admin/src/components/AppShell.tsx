@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 
 type AppShellProps = {
   children: ReactNode;
@@ -26,6 +27,12 @@ export function AppShell({ children, username, onLogout }: AppShellProps) {
           ) : null}
         </div>
         <h1>Camila Operaciones</h1>
+        {username !== undefined ? (
+          <nav aria-label="Principal">
+            <Link to="/">Catálogo</Link>{' '}
+            <Link to="/catalog-import">Importar catálogo</Link>
+          </nav>
+        ) : null}
       </header>
       <main>{children}</main>
     </div>

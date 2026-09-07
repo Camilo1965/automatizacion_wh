@@ -6,6 +6,7 @@ import { listReferences, type ReferenceSummary } from '../api/catalog-api';
 import { getErrorMessage } from '../api/client';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
+import { getCatalogReadiness } from '../api/catalog-import-api';
 
 type StatusFilter = 'active' | 'inactive' | 'all';
 
@@ -22,6 +23,10 @@ export function CatalogListPage() {
         status,
         limit: 25,
       }),
+  });
+  const readinessQuery = useQuery({
+    queryKey: ['catalog-readiness'],
+    queryFn: getCatalogReadiness,
   });
 
   function onSearch(event: FormEvent<HTMLFormElement>) {
@@ -41,6 +46,18 @@ export function CatalogListPage() {
           Nueva referencia
         </Link>
       </div>
+      {readinessQuery.data ? (
+        <section aria-label="Preparación del piloto" className="card">
+          <h3>Preparación del piloto</h3>
+          <p>
+            Total: {readinessQuery.data.total} · Activas:{' '}
+            {readinessQuery.data.active} · Sin foto:{' '}
+            {readinessQuery.data.withoutPhoto} · Sin stock:{' '}
+            {readinessQuery.data.withoutAvailableStock} · Listas:{' '}
+            {readinessQuery.data.ready}
+          </p>
+        </section>
+      ) : null}
 
       <form className="filters" onSubmit={onSearch}>
         <label htmlFor="search">Buscar</label>

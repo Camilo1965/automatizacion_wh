@@ -6,6 +6,7 @@ import type {
   AdminReferencesPage,
   AvailableCatalogPage,
   CatalogReference,
+  CatalogReadiness,
   CreateReferenceInput,
   ListAdminMovementsInput,
   ListAdminReferencesInput,
@@ -22,6 +23,7 @@ import type { PhotoStorage } from './photo-storage.js';
 const PAGE_SIZE = 4;
 
 export interface CatalogService {
+  getReadiness(): Promise<CatalogReadiness>;
   createReference(input: CreateReferenceInput): Promise<CatalogReference>;
   getAdminReference(referenceId: string): Promise<AdminReferenceDetail>;
   listAdminReferences(
@@ -48,6 +50,10 @@ export class DefaultCatalogService implements CatalogService {
     private readonly repository: CatalogRepository,
     private readonly photoStorage: PhotoStorage,
   ) {}
+
+  getReadiness(): Promise<CatalogReadiness> {
+    return this.repository.getReadiness();
+  }
 
   async createReference(
     input: CreateReferenceInput,

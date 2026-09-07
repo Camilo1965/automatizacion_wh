@@ -18,9 +18,13 @@ import { ADMIN_SESSION_COOKIE } from '../src/http/session-cookie.js';
 import { AuthService } from '../src/modules/auth/auth-service.js';
 import { PostgresAdminAuthRepository } from '../src/modules/auth/postgres-admin-auth-repository.js';
 import { DefaultCatalogService } from '../src/modules/catalog/catalog-service.js';
+import { CatalogImportService } from '../src/modules/catalog/catalog-import-service.js';
 import { LocalPhotoStorage } from '../src/modules/catalog/local-photo-storage.js';
+import { PostgresCatalogImportRepository } from '../src/modules/catalog/postgres-catalog-import-repository.js';
 import { PostgresCatalogRepository } from '../src/modules/catalog/postgres-catalog-repository.js';
 import type { PhotoStorage } from '../src/modules/catalog/photo-storage.js';
+import { LocalityService } from '../src/modules/localities/locality-service.js';
+import { PostgresLocalityRepository } from '../src/modules/localities/postgres-locality-repository.js';
 import { requireTestDatabaseUrl } from './helpers/test-database.js';
 import { WEBP_BYTES } from './helpers/image-fixtures.js';
 import { fileTypeFromBuffer } from 'file-type';
@@ -109,6 +113,8 @@ describe('admin HTTP API', () => {
   let photoStorage: LocalPhotoStorage;
   let authService: AuthService;
   let catalogService: DefaultCatalogService;
+  let catalogImportService: CatalogImportService;
+  let localityService: LocalityService;
   let app: FastifyInstance;
   let config: AppConfig;
 
@@ -135,7 +141,9 @@ describe('admin HTTP API', () => {
           admin_users,
           inventory_movements,
           catalog_stock,
-          catalog_references
+          catalog_references,
+          catalog_imports,
+          shipping_localities
         RESTART IDENTITY CASCADE
       `;
     } finally {
@@ -168,12 +176,20 @@ describe('admin HTTP API', () => {
       new PostgresCatalogRepository(database),
       storage,
     );
+    catalogImportService = new CatalogImportService(
+      new PostgresCatalogImportRepository(database),
+    );
+    localityService = new LocalityService(
+      new PostgresLocalityRepository(database),
+    );
 
     app = await buildApp({
       config,
       database,
       authService,
       catalogService,
+      catalogImportService,
+      localityService,
       photoStorage: storage,
     });
     return app;
@@ -815,5 +831,139 @@ describe('admin HTTP API', () => {
       database,
     ).findReferenceById(referenceId);
     expect(after?.photo?.storageKey).not.toBe(previousKey);
+  });
+
+  it('previews and commits a CSV import through authenticated HTTP routes', async () => {
+    const cookie = await login();
+    const upload = buildMultipart([
+      {
+        name: 'file',
+        filename: 'catalogo.csv',
+        contentType: 'text/csv',
+        body: [
+          'reference_code,model_name,color,price_cop,size,physical_quantity',
+          'PILOT-01,Tenis piloto,Negro,120000,37,2',
+          'PILOT-01,Tenis piloto,Negro,120000,37.5,1',
+        ].join('\n'),
+      },
+    ]);
+    const preview = await app.inject({
+      method: 'POST',
+      url: '/api/admin/catalog-imports/preview',
+      headers: { origin: adminOrigin, cookie, ...upload.headers },
+      payload: upload.payload,
+    });
+    expect(preview.statusCode).toBe(201);
+    expect(preview.json().data).toMatchObject({
+      status: 'previewed',
+      errors: [],
+      references: [{ code: 'PILOT-01' }],
+    });
+
+    const committed = await app.inject({
+      method: 'POST',
+      url: `/api/admin/catalog-imports/${preview.json().data.id}/commit`,
+      headers: { origin: adminOrigin, cookie },
+    });
+    expect(committed.statusCode).toBe(200);
+    expect(committed.json().data.status).toBe('committed');
+
+    const readiness = await app.inject({
+      method: 'GET',
+      url: '/api/admin/catalog-readiness',
+      headers: { cookie },
+    });
+    expect(readiness.statusCode).toBe(200);
+    expect(readiness.json()).toEqual({
+      data: {
+        total: 1,
+        active: 0,
+        withoutPhoto: 1,
+        withoutAvailableStock: 0,
+        ready: 0,
+      },
+    });
+  });
+
+  it('keeps an invalid CSV from changing stock and reports existing references in preview', async () => {
+    const cookie = await login();
+    await catalogService.createReference({
+      code: '01',
+      modelName: 'Existente',
+      color: 'Negro',
+      priceCop: 100000,
+    });
+    const upload = buildMultipart([
+      {
+        name: 'file',
+        filename: 'catalogo.csv',
+        contentType: 'text/csv',
+        body: [
+          'reference_code,model_name,color,price_cop,size,physical_quantity',
+          '01,Duplicado,Azul,120000,37,2',
+        ].join('\n'),
+      },
+    ]);
+    const preview = await app.inject({
+      method: 'POST',
+      url: '/api/admin/catalog-imports/preview',
+      headers: { origin: adminOrigin, cookie, ...upload.headers },
+      payload: upload.payload,
+    });
+    expect(preview.statusCode).toBe(201);
+    expect(preview.json().data).toMatchObject({
+      status: 'invalid',
+      errors: [{ row: 2, field: 'reference_code', code: 'reference_exists' }],
+    });
+    const denied = await app.inject({
+      method: 'POST',
+      url: `/api/admin/catalog-imports/${preview.json().data.id}/commit`,
+      headers: { origin: adminOrigin, cookie },
+    });
+    expect(denied.statusCode).toBe(409);
+  });
+
+  it('serves the CSV template and searchable Colombian localities only to the owner', async () => {
+    const anonymous = await app.inject({
+      method: 'GET',
+      url: '/api/admin/catalog-import-template',
+    });
+    expect(anonymous.statusCode).toBe(401);
+
+    const cookie = await login();
+    const template = await app.inject({
+      method: 'GET',
+      url: '/api/admin/catalog-import-template',
+      headers: { cookie },
+    });
+    expect(template.statusCode).toBe(200);
+    expect(template.headers['content-type']).toContain('text/csv');
+    expect(template.body).toContain('reference_code,model_name,color');
+
+    await localityService.importCsv(
+      new TextEncoder().encode(
+        'carrier_code,department,locality,country\n05001,Antioquia,Medellín,CO',
+      ),
+    );
+    const localities = await app.inject({
+      method: 'GET',
+      url: '/api/admin/localities?query=medellin',
+      headers: { cookie },
+    });
+    expect(localities.statusCode).toBe(200);
+    expect(localities.json()).toEqual({
+      data: {
+        items: [
+          {
+            carrierCode: '05001',
+            department: 'Antioquia',
+            locality: 'Medellín',
+            normalizedName: 'medellin',
+            country: 'CO',
+          },
+        ],
+        nextAfterCode: null,
+      },
+    });
   });
 });

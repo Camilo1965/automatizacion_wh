@@ -62,7 +62,7 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       env: webServerEnv({
-        NODE_ENV: 'development',
+        NODE_ENV: 'test',
         HOST: '127.0.0.1',
         PORT: E2E_API_PORT,
         DATABASE_URL: E2E_DATABASE_URL,

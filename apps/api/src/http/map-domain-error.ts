@@ -17,6 +17,7 @@ import {
   CatalogValidationError,
   PhotoValidationError,
 } from '../modules/catalog/catalog-errors.js';
+import { LocalityImportError } from '../modules/localities/locality-service.js';
 
 export type ApiErrorBody = {
   error: {
@@ -82,6 +83,10 @@ export function mapDomainError(
 
   if (error instanceof CatalogImportValidationError) {
     return sendApiError(reply, 400, error.code, error.message);
+  }
+
+  if (error instanceof LocalityImportError) {
+    return sendApiError(reply, 400, 'invalid_localities', error.message);
   }
 
   if (error instanceof CatalogNotFoundError) {

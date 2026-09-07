@@ -243,21 +243,23 @@ Criterio de avance: desde una copia limpia se levantan los servicios y se ejecut
 
 Dependencia: fase 1. Estimación: 18–28 horas.
 
+Estado de ingeniería: cerrado y verificado. La carga de los 10 modelos reales queda como actividad operativa bloqueada únicamente por la entrega de referencias, fotos, precios y existencias de la propietaria; no se sustituyen esos datos con ejemplos ficticios.
+
 - [x] Crear tablas de referencias, existencias por talla y movimientos. Reservas dependen de la fase 3.
 - [x] Imponer unicidad de referencia, precio positivo y cantidades no negativas. Las tallas admiten enteros y medias tallas; la referencia actual incluye modelo, color y precio. Un SKU separado por variante se revisará si el catálogo real lo exige.
 - [x] Implementar altas, edición, activación, desactivación y carga de una fotografía por referencia.
 - [x] Limitar formatos y tamaños de archivo, comprobar el contenido real y evitar rutas elegidas por el usuario.
-- [ ] Crear plantilla CSV de variantes y vista previa con errores por fila.
-- [ ] Aplicar importaciones válidas de forma transaccional y conservar historial.
+- [x] Crear plantilla CSV de variantes y vista previa con errores por fila.
+- [x] Aplicar importaciones válidas de forma transaccional y conservar historial.
 - [ ] Cargar 10 modelos del piloto; mantener fixtures ficticios separados.
 - [x] Implementar consulta paginada por talla; el panel permite buscar por color. El filtro público por categoría o color se incorporará cuando las referencias reales lo requieran.
 - [x] Crear panel de stock y ajustes con motivo obligatorio e historial paginado.
-- [ ] Importar el catálogo de localidades como datos, sin ejecutar el PHP del documento.
-- [ ] Detectar duplicados, códigos no colombianos y longitudes inválidas en localidades; conservar códigos como texto.
+- [x] Implementar la importación del catálogo de localidades como datos, sin ejecutar el PHP del documento. La carga real requiere el CSV autorizado de la propietaria o de 99envíos.
+- [x] Detectar duplicados, códigos no colombianos y longitudes inválidas en localidades; conservar códigos como texto.
 
 Entregable: catálogo operativo con fotos y disponibilidad verificable.
 
-Criterio de avance: una búsqueda de talla 37 muestra únicamente variantes activas con unidades disponibles; una importación inválida no altera el stock.
+Criterio de avance técnico: verificado con PostgreSQL real de pruebas y Chromium. Una búsqueda de talla 37 muestra únicamente variantes activas con unidades disponibles; una importación inválida no altera el stock. El piloto real se acepta cuando la propietaria entregue y revise sus 10 modelos y fotografías.
 
 ### Fase 3 Pedidos y reservas sin WhatsApp
 

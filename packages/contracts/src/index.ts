@@ -363,6 +363,78 @@ export type ListMovementsResponse = z.infer<typeof ListMovementsResponseSchema>;
 export const StockResponseSchema = dataEnvelopeSchema(StockSetResultSchema);
 export type StockResponse = z.infer<typeof StockResponseSchema>;
 
+export const CatalogImportErrorSchema = z
+  .object({
+    row: z.number().int().min(1),
+    field: z.string().min(1),
+    code: z.string().min(1),
+    message: z.string().min(1),
+  })
+  .strict();
+export const CatalogImportReferenceSchema = z
+  .object({
+    code: publicReferenceCodeSchema,
+    modelName: trimmedModelName,
+    color: trimmedColor,
+    priceCop: priceCopSchema,
+    stock: z
+      .array(
+        z
+          .object({
+            size: ShoeSizeStringSchema,
+            physicalQuantity: quantitySchema,
+          })
+          .strict(),
+      )
+      .min(1),
+  })
+  .strict();
+export const CatalogImportSchema = z
+  .object({
+    id: z.uuid(),
+    status: z.enum(['previewed', 'invalid', 'committed']),
+    references: z.array(CatalogImportReferenceSchema),
+    errors: z.array(CatalogImportErrorSchema),
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+export const CatalogImportResponseSchema =
+  dataEnvelopeSchema(CatalogImportSchema);
+export type CatalogImportResult = z.infer<typeof CatalogImportSchema>;
+
+export const CatalogReadinessSchema = z
+  .object({
+    total: quantitySchema,
+    active: quantitySchema,
+    withoutPhoto: quantitySchema,
+    withoutAvailableStock: quantitySchema,
+    ready: quantitySchema,
+  })
+  .strict();
+export const CatalogReadinessResponseSchema = dataEnvelopeSchema(
+  CatalogReadinessSchema,
+);
+export type CatalogReadiness = z.infer<typeof CatalogReadinessSchema>;
+
+export const LocalityPublicSchema = z
+  .object({
+    carrierCode: z.string().min(1).max(32),
+    department: z.string().min(1).max(100),
+    locality: z.string().min(1).max(120),
+    country: z.literal('CO'),
+    normalizedName: z.string().min(1).max(240),
+  })
+  .strict();
+export const LocalitiesResponseSchema = dataEnvelopeSchema(
+  z
+    .object({
+      items: z.array(LocalityPublicSchema),
+      nextAfterCode: z.string().min(1).max(32).nullable(),
+    })
+    .strict(),
+);
+export type LocalityPublic = z.infer<typeof LocalityPublicSchema>;
+
 export type MovementCursor = {
   createdAt: Date;
   id: string;

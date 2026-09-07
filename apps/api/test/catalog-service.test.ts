@@ -25,6 +25,13 @@ function createRepository(
   overrides: Partial<CatalogRepository> = {},
 ): CatalogRepository {
   return {
+    getReadiness: vi.fn(async () => ({
+      total: 0,
+      active: 0,
+      withoutPhoto: 0,
+      withoutAvailableStock: 0,
+      ready: 0,
+    })),
     createReference: vi.fn(),
     findReferenceById: vi.fn(async () => reference),
     updateReference: vi.fn(),

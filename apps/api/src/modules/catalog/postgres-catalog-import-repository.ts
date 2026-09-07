@@ -34,6 +34,15 @@ function mapImport(row: ImportRow): CatalogImport {
 export class PostgresCatalogImportRepository implements CatalogImportRepository {
   constructor(private readonly database: PostgresDatabase) {}
 
+  async findExistingCodes(codes: readonly string[]): Promise<string[]> {
+    if (codes.length === 0) return [];
+    const rows = await this.database.orm
+      .select({ code: catalogReferences.code })
+      .from(catalogReferences)
+      .where(inArray(catalogReferences.code, [...codes]));
+    return rows.map((row) => row.code);
+  }
+
   async createPreview(
     input: CatalogImportPreviewInput,
   ): Promise<CatalogImport> {

@@ -26,4 +26,38 @@ describe('parseCatalogImportCsv', () => {
       },
     ]);
   });
+
+  it('rejects imports with more than 500 data rows', () => {
+    const header =
+      'reference_code,model_name,color,price_cop,size,physical_quantity';
+    const rows = Array.from(
+      { length: 501 },
+      (_, index) =>
+        `REF-${String(index + 1).padStart(3, '0')},Tenis,Negro,120000,37,1`,
+    );
+
+    const result = parseCatalogImportCsv([header, ...rows].join('\n'));
+
+    expect(result.references).toEqual([]);
+    expect(result.errors).toContainEqual({
+      row: 502,
+      field: 'file',
+      code: 'too_many_rows',
+      message: 'El archivo CSV admite máximo 500 filas de datos',
+    });
+  });
+
+  it('returns a file error for an unclosed quoted field', () => {
+    const result = parseCatalogImportCsv(
+      'reference_code,model_name,color,price_cop,size,physical_quantity\n01,"Tenis,Negro,120000,37,1',
+    );
+
+    expect(result.references).toEqual([]);
+    expect(result.errors).toContainEqual({
+      row: 2,
+      field: 'file',
+      code: 'malformed_csv',
+      message: 'El archivo CSV contiene comillas sin cerrar',
+    });
+  });
 });

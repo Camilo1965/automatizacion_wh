@@ -136,3 +136,11 @@ export type ReplacePhotoResult = Readonly<{
   reference: CatalogReference;
   warnings: readonly 'old_photo_cleanup_failed'[];
 }>;
+
+export type CatalogReadiness = Readonly<{
+  total: number;
+  active: number;
+  withoutPhoto: number;
+  withoutAvailableStock: number;
+  ready: number;
+}>;

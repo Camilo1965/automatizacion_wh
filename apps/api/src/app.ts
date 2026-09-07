@@ -17,6 +17,7 @@ import type { AuthService } from './modules/auth/auth-service.js';
 import type { CatalogService } from './modules/catalog/catalog-service.js';
 import type { CatalogImportService } from './modules/catalog/catalog-import-service.js';
 import type { PhotoStorage } from './modules/catalog/photo-storage.js';
+import type { LocalityService } from './modules/localities/locality-service.js';
 import { adminRoutes } from './routes/admin/index.js';
 import { healthRoutes } from './routes/health.js';
 
@@ -27,6 +28,7 @@ export type AppDependencies = Readonly<{
   catalogService: CatalogService;
   catalogImportService?: CatalogImportService;
   photoStorage: PhotoStorage;
+  localityService?: LocalityService;
 }>;
 
 declare module 'fastify' {
@@ -130,6 +132,9 @@ export async function buildApp(
     ...(dependencies.catalogImportService === undefined
       ? {}
       : { catalogImportService: dependencies.catalogImportService }),
+    ...(dependencies.localityService === undefined
+      ? {}
+      : { localityService: dependencies.localityService }),
     photoStorage: dependencies.photoStorage,
   });
 

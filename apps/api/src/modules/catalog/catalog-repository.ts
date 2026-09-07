@@ -4,6 +4,7 @@ import type {
   AdminReferencesPage,
   AvailableCatalogItem,
   CatalogReference,
+  CatalogReadiness,
   CreateReferenceInput,
   InventoryMovement,
   ListAdminMovementsInput,
@@ -15,6 +16,7 @@ import type {
 } from './catalog-types.js';
 
 export interface CatalogRepository {
+  getReadiness(): Promise<CatalogReadiness>;
   createReference(input: CreateReferenceInput): Promise<CatalogReference>;
   findReferenceById(referenceId: string): Promise<CatalogReference | null>;
   updateReference(input: UpdateReferenceInput): Promise<CatalogReference>;

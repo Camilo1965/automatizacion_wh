@@ -13,8 +13,14 @@ import {
 const e2eDir = path.dirname(fileURLToPath(import.meta.url));
 const pngPath = path.join(e2eDir, 'fixtures', 'sample.png');
 const pngAltPath = path.join(e2eDir, 'fixtures', 'sample-alt.jpg');
+const catalogImportPath = path.join(e2eDir, 'fixtures', 'catalog-import.csv');
+let loginSequence = 0;
 
 async function login(page: Page): Promise<void> {
+  loginSequence += 1;
+  await page.setExtraHTTPHeaders({
+    'x-camila-test-client': `playwright-${loginSequence}`,
+  });
   await page.goto('/login');
   await page.getByLabel('Usuario').fill(E2E_USERNAME);
   await page.getByLabel('Contraseña').fill(E2E_PASSWORD);
@@ -270,4 +276,31 @@ test('loads more movements when seeded beyond page size', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Cargar más' })).toBeVisible();
   await page.getByRole('button', { name: 'Cargar más' }).click();
   await expect(page.getByText(/Seed movimiento 6/)).toBeVisible();
+});
+
+test('previews and confirms a catalog CSV import', async ({ page }) => {
+  await login(page);
+  await page.getByRole('link', { name: 'Importar catálogo' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Importar catálogo' }),
+  ).toBeVisible();
+
+  await page.getByLabel('Archivo CSV').setInputFiles(catalogImportPath);
+  await page.getByRole('button', { name: 'Previsualizar' }).click();
+  await expect(page.getByText('Referencias: 1. Errores: 0.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Confirmar importación' }).click();
+  const dialog = page.getByRole('alertdialog', {
+    name: 'Confirmar importación',
+  });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Importar catálogo' }).click();
+  await expect(
+    page.getByText('Catálogo importado correctamente.'),
+  ).toBeVisible();
+
+  await page.getByRole('link', { name: 'Catálogo', exact: true }).click();
+  await page.getByLabel('Estado').selectOption('inactive');
+  await expect(page.getByText('E2E-IMPORT')).toBeVisible();
+  await expect(page.getByText(/Tallas:\s*37, 37.5/)).toBeVisible();
 });

@@ -8,6 +8,8 @@ import { LocalPhotoStorage } from './modules/catalog/local-photo-storage.js';
 import { PostgresCatalogImportRepository } from './modules/catalog/postgres-catalog-import-repository.js';
 import { CatalogImportService } from './modules/catalog/catalog-import-service.js';
 import { PostgresCatalogRepository } from './modules/catalog/postgres-catalog-repository.js';
+import { LocalityService } from './modules/localities/locality-service.js';
+import { PostgresLocalityRepository } from './modules/localities/postgres-locality-repository.js';
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
@@ -23,6 +25,9 @@ async function main(): Promise<void> {
   const catalogImportService = new CatalogImportService(
     new PostgresCatalogImportRepository(database),
   );
+  const localityService = new LocalityService(
+    new PostgresLocalityRepository(database),
+  );
 
   const app = await buildApp({
     config,
@@ -30,6 +35,7 @@ async function main(): Promise<void> {
     authService,
     catalogService,
     catalogImportService,
+    localityService,
     photoStorage,
   });
 

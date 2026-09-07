@@ -23,6 +23,7 @@ export type ParsedCatalogImportReference = Readonly<{
 export type ParsedCatalogImport = Readonly<{
   references: readonly ParsedCatalogImportReference[];
   errors: readonly CatalogImportRowError[];
+  referenceRows: ReadonlyMap<string, number>;
 }>;
 
 const HEADER = [
@@ -92,16 +93,48 @@ function parseStrictInteger(value: string): number | null {
 }
 
 export function parseCatalogImportCsv(input: string): ParsedCatalogImport {
-  const rows = parseRows(input);
+  let rows: string[][];
+  try {
+    rows = parseRows(input);
+  } catch {
+    return {
+      references: [],
+      referenceRows: new Map(),
+      errors: [
+        {
+          row: input.split('\n').length,
+          field: 'file',
+          code: 'malformed_csv',
+          message: 'El archivo CSV contiene comillas sin cerrar',
+        },
+      ],
+    };
+  }
   if (rows.length === 0 || rows[0] === undefined) {
     return {
       references: [],
+      referenceRows: new Map(),
       errors: [
         {
           row: 1,
           field: 'file',
           code: 'empty_file',
           message: 'El archivo CSV está vacío',
+        },
+      ],
+    };
+  }
+
+  if (rows.length - 1 > 500) {
+    return {
+      references: [],
+      referenceRows: new Map(),
+      errors: [
+        {
+          row: 502,
+          field: 'file',
+          code: 'too_many_rows',
+          message: 'El archivo CSV admite máximo 500 filas de datos',
         },
       ],
     };
@@ -114,6 +147,7 @@ export function parseCatalogImportCsv(input: string): ParsedCatalogImport {
   ) {
     return {
       references: [],
+      referenceRows: new Map(),
       errors: [
         {
           row: 1,
@@ -137,6 +171,7 @@ export function parseCatalogImportCsv(input: string): ParsedCatalogImport {
       sizes: Set<string>;
     }
   >();
+  const referenceRows = new Map<string, number>();
 
   for (const [index, row] of rows.slice(1).entries()) {
     const rowNumber = index + 2;
@@ -188,6 +223,7 @@ export function parseCatalogImportCsv(input: string): ParsedCatalogImport {
         existing.sizes.add(size);
         existing.stock.push({ size, physicalQuantity });
       } else {
+        referenceRows.set(code, rowNumber);
         grouped.set(code, {
           code,
           modelName,
@@ -209,9 +245,16 @@ export function parseCatalogImportCsv(input: string): ParsedCatalogImport {
   }
 
   return {
-    references: [...grouped.values()].map(({ sizes: _sizes, ...reference }) =>
-      Object.freeze(reference),
+    references: [...grouped.values()].map((reference) =>
+      Object.freeze({
+        code: reference.code,
+        modelName: reference.modelName,
+        color: reference.color,
+        priceCop: reference.priceCop,
+        stock: reference.stock,
+      }),
     ),
     errors,
+    referenceRows,
   };
 }

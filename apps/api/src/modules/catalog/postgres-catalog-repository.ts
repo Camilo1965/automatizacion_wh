@@ -17,6 +17,7 @@ import type {
   AdminReferenceListItem,
   AvailableCatalogItem,
   CatalogReference,
+  CatalogReadiness,
   CreateReferenceInput,
   InventoryMovement,
   ListAdminMovementsInput,
@@ -152,6 +153,42 @@ function validateColor(value: string): string {
 
 export class PostgresCatalogRepository implements CatalogRepository {
   constructor(private readonly database: PostgresDatabase) {}
+
+  async getReadiness(): Promise<CatalogReadiness> {
+    const rows = await this.database.orm.execute(sql<{
+      total: number;
+      active: number;
+      without_photo: number;
+      without_stock: number;
+      ready: number;
+    }>`
+      SELECT
+        count(*)::int AS total,
+        count(*) FILTER (WHERE active)::int AS active,
+        count(*) FILTER (WHERE photo_storage_key IS NULL)::int AS without_photo,
+        count(*) FILTER (WHERE NOT EXISTS (
+          SELECT 1 FROM catalog_stock s
+          WHERE s.reference_id = catalog_references.id
+            AND s.physical_quantity - s.reserved_quantity > 0
+        ))::int AS without_stock,
+        count(*) FILTER (WHERE active AND photo_storage_key IS NOT NULL AND EXISTS (
+          SELECT 1 FROM catalog_stock s
+          WHERE s.reference_id = catalog_references.id
+            AND s.physical_quantity - s.reserved_quantity > 0
+        ))::int AS ready
+      FROM catalog_references
+    `);
+    const row = rows[0];
+    if (row === undefined)
+      throw new Error('Failed to calculate catalog readiness');
+    return {
+      total: Number(row.total),
+      active: Number(row.active),
+      withoutPhoto: Number(row.without_photo),
+      withoutAvailableStock: Number(row.without_stock),
+      ready: Number(row.ready),
+    };
+  }
 
   async createReference(
     input: CreateReferenceInput,

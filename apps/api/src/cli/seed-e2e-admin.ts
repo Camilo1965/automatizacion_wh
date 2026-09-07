@@ -31,7 +31,9 @@ try {
       admin_users,
       inventory_movements,
       catalog_stock,
-      catalog_references
+      catalog_references,
+      catalog_imports,
+      shipping_localities
     RESTART IDENTITY CASCADE
   `;
 } finally {

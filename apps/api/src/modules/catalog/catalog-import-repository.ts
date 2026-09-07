@@ -20,6 +20,7 @@ export type CatalogImport = Readonly<
 >;
 
 export interface CatalogImportRepository {
+  findExistingCodes(codes: readonly string[]): Promise<readonly string[]>;
   createPreview(input: CatalogImportPreviewInput): Promise<CatalogImport>;
   confirm(importId: string): Promise<CatalogImport>;
 }

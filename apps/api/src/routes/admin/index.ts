@@ -32,6 +32,7 @@ import {
 import type { CatalogService } from '../../modules/catalog/catalog-service.js';
 import type { CatalogImportService } from '../../modules/catalog/catalog-import-service.js';
 import { CatalogImportValidationError } from '../../modules/catalog/catalog-errors.js';
+import type { LocalityService } from '../../modules/localities/locality-service.js';
 import type { PhotoStorage } from '../../modules/catalog/photo-storage.js';
 
 declare module 'fastify' {
@@ -75,6 +76,7 @@ export type AdminRoutesDependencies = Readonly<{
   authService: AuthService;
   catalogService: CatalogService;
   catalogImportService?: CatalogImportService;
+  localityService?: LocalityService;
   photoStorage: PhotoStorage;
 }>;
 
@@ -88,7 +90,34 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     catalogService,
     photoStorage,
     catalogImportService,
+    localityService,
   } = dependencies;
+
+  if (localityService !== undefined) {
+    app.get('/localities', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const query = z
+        .object({
+          query: z.string().trim().min(1).max(120).optional(),
+          department: z.string().trim().min(1).max(100).optional(),
+          afterCode: z.string().min(1).max(32).optional(),
+          limit: z.coerce.number().int().min(1).max(100).default(25),
+        })
+        .strict()
+        .parse(request.query);
+      const page = await localityService.list({
+        limit: query.limit,
+        ...(query.query === undefined ? {} : { query: query.query }),
+        ...(query.department === undefined
+          ? {}
+          : { department: query.department }),
+        ...(query.afterCode === undefined
+          ? {}
+          : { afterCode: query.afterCode }),
+      });
+      return reply.status(200).send({ data: page });
+    });
+  }
 
   app.post(
     '/auth/login',
@@ -97,6 +126,12 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
         rateLimit: {
           max: 5,
           timeWindow: '15 minutes',
+          keyGenerator(request) {
+            const testClient = request.headers['x-camila-test-client'];
+            return config.nodeEnv === 'test' && typeof testClient === 'string'
+              ? testClient
+              : request.ip;
+          },
         },
       },
     },
@@ -147,6 +182,13 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
         nextAfterCode: page.nextAfterCode,
       },
     });
+  });
+
+  app.get('/catalog-readiness', async (request, reply) => {
+    await requireAdminSession(request, authService);
+    return reply
+      .status(200)
+      .send({ data: await catalogService.getReadiness() });
   });
 
   if (catalogImportService !== undefined) {
