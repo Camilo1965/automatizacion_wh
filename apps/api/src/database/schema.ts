@@ -472,6 +472,80 @@ export const whatsappInboundMessages = pgTable(
   ],
 );
 
+export const whatsappConversations = pgTable(
+  'whatsapp_conversations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    customerPhone: varchar('customer_phone', { length: 20 }).notNull(),
+    state: varchar('state', { length: 32 }).notNull(),
+    mode: varchar('mode', { length: 8 }).notNull().default('bot'),
+    selectedSize: numeric('selected_size', { precision: 4, scale: 1 }),
+    selectedReferenceId: uuid('selected_reference_id').references(
+      () => catalogReferences.id,
+      { onDelete: 'restrict' },
+    ),
+    activeOrderId: uuid('active_order_id').references(() => salesOrders.id, {
+      onDelete: 'restrict',
+    }),
+    activeMenuVersion: integer('active_menu_version').notNull().default(0),
+    invalidAttempts: integer('invalid_attempts').notNull().default(0),
+    lastInboundMessageAt: timestamp('last_inbound_message_at', {
+      withTimezone: true,
+    }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('whatsapp_conversations_customer_phone_unique').on(
+      table.customerPhone,
+    ),
+    check(
+      'whatsapp_conversations_mode_allowed',
+      sql`${table.mode} IN ('bot', 'human')`,
+    ),
+    check(
+      'whatsapp_conversations_invalid_attempts_non_negative',
+      sql`${table.invalidAttempts} >= 0`,
+    ),
+  ],
+);
+
+export const whatsappConversationEvents = pgTable(
+  'whatsapp_conversation_events',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => whatsappConversations.id, { onDelete: 'restrict' }),
+    whatsappMessageId: varchar('whatsapp_message_id', {
+      length: 128,
+    }).notNull(),
+    sequence: integer('sequence').notNull(),
+    stateBefore: varchar('state_before', { length: 32 }),
+    stateAfter: varchar('state_after', { length: 32 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('whatsapp_conversation_events_message_unique').on(
+      table.whatsappMessageId,
+    ),
+    unique('whatsapp_conversation_events_sequence_unique').on(
+      table.conversationId,
+      table.sequence,
+    ),
+    index('whatsapp_conversation_events_conversation_created_idx').on(
+      table.conversationId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const schema = {
   adminUsers,
   adminSessions,
@@ -486,4 +560,6 @@ export const schema = {
   reservationMovements,
   orderStatusEvents,
   whatsappInboundMessages,
+  whatsappConversations,
+  whatsappConversationEvents,
 };

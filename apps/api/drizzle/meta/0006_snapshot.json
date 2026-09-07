@@ -1,0 +1,1587 @@
+{
+  "id": "a2615474-8268-47c9-913b-10f7938c0a31",
+  "prevId": "90f87533-b86c-4561-a6a8-44eaa367fc6c",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.admin_sessions": {
+      "name": "admin_sessions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "char(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "admin_sessions_valid_lookup_idx": {
+          "name": "admin_sessions_valid_lookup_idx",
+          "columns": [
+            {
+              "expression": "token_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "revoked_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "admin_sessions_user_id_idx": {
+          "name": "admin_sessions_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "admin_sessions_user_id_admin_users_id_fk": {
+          "name": "admin_sessions_user_id_admin_users_id_fk",
+          "tableFrom": "admin_sessions",
+          "tableTo": "admin_users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "admin_sessions_token_hash_unique": {
+          "name": "admin_sessions_token_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": ["token_hash"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "admin_sessions_token_hash_format": {
+          "name": "admin_sessions_token_hash_format",
+          "value": "\"admin_sessions\".\"token_hash\" ~ '^[a-f0-9]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.admin_users": {
+      "name": "admin_users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "username": {
+          "name": "username",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "admin_users_username_unique": {
+          "name": "admin_users_username_unique",
+          "nullsNotDistinct": false,
+          "columns": ["username"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "admin_users_username_format": {
+          "name": "admin_users_username_format",
+          "value": "\"admin_users\".\"username\" ~ '^[a-z0-9._-]{3,64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.catalog_imports": {
+      "name": "catalog_imports",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "char(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "references_data": {
+          "name": "references_data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "errors_data": {
+          "name": "errors_data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "committed_at": {
+          "name": "committed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "catalog_imports_status_created_at_idx": {
+          "name": "catalog_imports_status_created_at_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "catalog_imports_sha256_format": {
+          "name": "catalog_imports_sha256_format",
+          "value": "\"catalog_imports\".\"sha256\" ~ '^[a-f0-9]{64}$'"
+        },
+        "catalog_imports_status_allowed": {
+          "name": "catalog_imports_status_allowed",
+          "value": "\"catalog_imports\".\"status\" IN ('previewed', 'invalid', 'committed')"
+        },
+        "catalog_imports_commit_state": {
+          "name": "catalog_imports_commit_state",
+          "value": "(\"catalog_imports\".\"status\" = 'committed') = (\"catalog_imports\".\"committed_at\" IS NOT NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.catalog_references": {
+      "name": "catalog_references",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model_name": {
+          "name": "model_name",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "color": {
+          "name": "color",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_cop": {
+          "name": "price_cop",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "photo_storage_key": {
+          "name": "photo_storage_key",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "photo_mime_type": {
+          "name": "photo_mime_type",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "photo_byte_size": {
+          "name": "photo_byte_size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "photo_sha256": {
+          "name": "photo_sha256",
+          "type": "char(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "catalog_references_code_unique": {
+          "name": "catalog_references_code_unique",
+          "nullsNotDistinct": false,
+          "columns": ["code"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "catalog_references_code_format": {
+          "name": "catalog_references_code_format",
+          "value": "\"catalog_references\".\"code\" ~ '^[A-Z0-9-]+$'"
+        },
+        "catalog_references_price_positive": {
+          "name": "catalog_references_price_positive",
+          "value": "\"catalog_references\".\"price_cop\" > 0"
+        },
+        "catalog_references_photo_all_or_none": {
+          "name": "catalog_references_photo_all_or_none",
+          "value": "(\n        (\"catalog_references\".\"photo_storage_key\" IS NULL AND \"catalog_references\".\"photo_mime_type\" IS NULL AND \"catalog_references\".\"photo_byte_size\" IS NULL AND \"catalog_references\".\"photo_sha256\" IS NULL)\n        OR\n        (\"catalog_references\".\"photo_storage_key\" IS NOT NULL AND \"catalog_references\".\"photo_mime_type\" IS NOT NULL AND \"catalog_references\".\"photo_byte_size\" IS NOT NULL AND \"catalog_references\".\"photo_sha256\" IS NOT NULL)\n      )"
+        },
+        "catalog_references_photo_byte_size_positive": {
+          "name": "catalog_references_photo_byte_size_positive",
+          "value": "\"catalog_references\".\"photo_byte_size\" IS NULL OR \"catalog_references\".\"photo_byte_size\" > 0"
+        },
+        "catalog_references_photo_mime_type": {
+          "name": "catalog_references_photo_mime_type",
+          "value": "\"catalog_references\".\"photo_mime_type\" IS NULL OR \"catalog_references\".\"photo_mime_type\" IN ('image/jpeg', 'image/png')"
+        },
+        "catalog_references_photo_sha256_format": {
+          "name": "catalog_references_photo_sha256_format",
+          "value": "\"catalog_references\".\"photo_sha256\" IS NULL OR \"catalog_references\".\"photo_sha256\" ~ '^[a-f0-9]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.catalog_stock": {
+      "name": "catalog_stock",
+      "schema": "",
+      "columns": {
+        "reference_id": {
+          "name": "reference_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size": {
+          "name": "size",
+          "type": "numeric(4, 1)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "physical_quantity": {
+          "name": "physical_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reserved_quantity": {
+          "name": "reserved_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "catalog_stock_reference_id_catalog_references_id_fk": {
+          "name": "catalog_stock_reference_id_catalog_references_id_fk",
+          "tableFrom": "catalog_stock",
+          "tableTo": "catalog_references",
+          "columnsFrom": ["reference_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "catalog_stock_pkey": {
+          "name": "catalog_stock_pkey",
+          "columns": ["reference_id", "size"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "catalog_stock_size_range": {
+          "name": "catalog_stock_size_range",
+          "value": "\"catalog_stock\".\"size\" >= 1 AND \"catalog_stock\".\"size\" <= 99.5"
+        },
+        "catalog_stock_size_half_steps": {
+          "name": "catalog_stock_size_half_steps",
+          "value": "(\"catalog_stock\".\"size\" * 2) = trunc(\"catalog_stock\".\"size\" * 2)"
+        },
+        "catalog_stock_quantities_non_negative": {
+          "name": "catalog_stock_quantities_non_negative",
+          "value": "\"catalog_stock\".\"physical_quantity\" >= 0 AND \"catalog_stock\".\"reserved_quantity\" >= 0"
+        },
+        "catalog_stock_reserved_lte_physical": {
+          "name": "catalog_stock_reserved_lte_physical",
+          "value": "\"catalog_stock\".\"reserved_quantity\" <= \"catalog_stock\".\"physical_quantity\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.inventory_movements": {
+      "name": "inventory_movements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "reference_id": {
+          "name": "reference_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size": {
+          "name": "size",
+          "type": "numeric(4, 1)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "previous_quantity": {
+          "name": "previous_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "new_quantity": {
+          "name": "new_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "delta": {
+          "name": "delta",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "varchar(250)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "inventory_movements_reference_id_catalog_references_id_fk": {
+          "name": "inventory_movements_reference_id_catalog_references_id_fk",
+          "tableFrom": "inventory_movements",
+          "tableTo": "catalog_references",
+          "columnsFrom": ["reference_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "inventory_movements_delta_consistent": {
+          "name": "inventory_movements_delta_consistent",
+          "value": "\"inventory_movements\".\"delta\" = \"inventory_movements\".\"new_quantity\" - \"inventory_movements\".\"previous_quantity\""
+        },
+        "inventory_movements_reason_allowed": {
+          "name": "inventory_movements_reason_allowed",
+          "value": "\"inventory_movements\".\"reason\" IN ('initial', 'manual_adjustment', 'order_dispatched', 'order_returned')"
+        },
+        "inventory_movements_quantities_non_negative": {
+          "name": "inventory_movements_quantities_non_negative",
+          "value": "\"inventory_movements\".\"previous_quantity\" >= 0 AND \"inventory_movements\".\"new_quantity\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.order_confirmations": {
+      "name": "order_confirmations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "summary_version": {
+          "name": "summary_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "order_confirmations_order_id_sales_orders_id_fk": {
+          "name": "order_confirmations_order_id_sales_orders_id_fk",
+          "tableFrom": "order_confirmations",
+          "tableTo": "sales_orders",
+          "columnsFrom": ["order_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "order_confirmations_order_unique": {
+          "name": "order_confirmations_order_unique",
+          "nullsNotDistinct": false,
+          "columns": ["order_id"]
+        },
+        "order_confirmations_idempotency_key_unique": {
+          "name": "order_confirmations_idempotency_key_unique",
+          "nullsNotDistinct": false,
+          "columns": ["idempotency_key"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "order_confirmations_summary_version_positive": {
+          "name": "order_confirmations_summary_version_positive",
+          "value": "\"order_confirmations\".\"summary_version\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.order_status_events": {
+      "name": "order_status_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "previous_status": {
+          "name": "previous_status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "next_status": {
+          "name": "next_status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "varchar(250)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "admin_user_id": {
+          "name": "admin_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "order_status_events_order_created_at_idx": {
+          "name": "order_status_events_order_created_at_idx",
+          "columns": [
+            {
+              "expression": "order_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "order_status_events_order_id_sales_orders_id_fk": {
+          "name": "order_status_events_order_id_sales_orders_id_fk",
+          "tableFrom": "order_status_events",
+          "tableTo": "sales_orders",
+          "columnsFrom": ["order_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "order_status_events_admin_user_id_admin_users_id_fk": {
+          "name": "order_status_events_admin_user_id_admin_users_id_fk",
+          "tableFrom": "order_status_events",
+          "tableTo": "admin_users",
+          "columnsFrom": ["admin_user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "order_status_events_next_status_allowed": {
+          "name": "order_status_events_next_status_allowed",
+          "value": "\"order_status_events\".\"next_status\" IN ('draft', 'confirmed', 'cancelled', 'dispatched', 'delivered', 'returned')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.order_summaries": {
+      "name": "order_summaries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "draft_version": {
+          "name": "draft_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "snapshot": {
+          "name": "snapshot",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "order_summaries_order_id_sales_orders_id_fk": {
+          "name": "order_summaries_order_id_sales_orders_id_fk",
+          "tableFrom": "order_summaries",
+          "tableTo": "sales_orders",
+          "columnsFrom": ["order_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "order_summaries_order_version_unique": {
+          "name": "order_summaries_order_version_unique",
+          "nullsNotDistinct": false,
+          "columns": ["order_id", "version"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "order_summaries_version_positive": {
+          "name": "order_summaries_version_positive",
+          "value": "\"order_summaries\".\"version\" >= 1"
+        },
+        "order_summaries_draft_version_positive": {
+          "name": "order_summaries_draft_version_positive",
+          "value": "\"order_summaries\".\"draft_version\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.reservation_movements": {
+      "name": "reservation_movements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference_id": {
+          "name": "reference_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size": {
+          "name": "size",
+          "type": "numeric(4, 1)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "previous_reserved_quantity": {
+          "name": "previous_reserved_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "new_reserved_quantity": {
+          "name": "new_reserved_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "delta": {
+          "name": "delta",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "reservation_movements_order_created_at_idx": {
+          "name": "reservation_movements_order_created_at_idx",
+          "columns": [
+            {
+              "expression": "order_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "reservation_movements_order_id_sales_orders_id_fk": {
+          "name": "reservation_movements_order_id_sales_orders_id_fk",
+          "tableFrom": "reservation_movements",
+          "tableTo": "sales_orders",
+          "columnsFrom": ["order_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "reservation_movements_reference_id_catalog_references_id_fk": {
+          "name": "reservation_movements_reference_id_catalog_references_id_fk",
+          "tableFrom": "reservation_movements",
+          "tableTo": "catalog_references",
+          "columnsFrom": ["reference_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "reservation_movements_delta_consistent": {
+          "name": "reservation_movements_delta_consistent",
+          "value": "\"reservation_movements\".\"delta\" = \"reservation_movements\".\"new_reserved_quantity\" - \"reservation_movements\".\"previous_reserved_quantity\""
+        },
+        "reservation_movements_quantities_non_negative": {
+          "name": "reservation_movements_quantities_non_negative",
+          "value": "\"reservation_movements\".\"previous_reserved_quantity\" >= 0 AND \"reservation_movements\".\"new_reserved_quantity\" >= 0"
+        },
+        "reservation_movements_reason_allowed": {
+          "name": "reservation_movements_reason_allowed",
+          "value": "\"reservation_movements\".\"reason\" IN ('confirmed', 'cancelled', 'dispatched')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.sales_orders": {
+      "name": "sales_orders",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "order_number": {
+          "name": "order_number",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "sales_orders_order_number_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "9223372036854775807",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "reference_id": {
+          "name": "reference_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size": {
+          "name": "size",
+          "type": "numeric(4, 1)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "customer_name": {
+          "name": "customer_name",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "customer_phone": {
+          "name": "customer_phone",
+          "type": "varchar(13)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "varchar(180)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "locality_carrier_code": {
+          "name": "locality_carrier_code",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "locality_department": {
+          "name": "locality_department",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "locality_name": {
+          "name": "locality_name",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "delivery_notes": {
+          "name": "delivery_notes",
+          "type": "varchar(250)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "draft_version": {
+          "name": "draft_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "latest_summary_version": {
+          "name": "latest_summary_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "confirmed_summary_version": {
+          "name": "confirmed_summary_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "sales_orders_status_created_at_idx": {
+          "name": "sales_orders_status_created_at_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sales_orders_reference_size_idx": {
+          "name": "sales_orders_reference_size_idx",
+          "columns": [
+            {
+              "expression": "reference_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "size",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "sales_orders_reference_id_catalog_references_id_fk": {
+          "name": "sales_orders_reference_id_catalog_references_id_fk",
+          "tableFrom": "sales_orders",
+          "tableTo": "catalog_references",
+          "columnsFrom": ["reference_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sales_orders_order_number_unique": {
+          "name": "sales_orders_order_number_unique",
+          "nullsNotDistinct": false,
+          "columns": ["order_number"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "sales_orders_status_allowed": {
+          "name": "sales_orders_status_allowed",
+          "value": "\"sales_orders\".\"status\" IN ('draft', 'confirmed', 'cancelled', 'dispatched', 'delivered', 'returned')"
+        },
+        "sales_orders_quantity_range": {
+          "name": "sales_orders_quantity_range",
+          "value": "\"sales_orders\".\"quantity\" BETWEEN 1 AND 10"
+        },
+        "sales_orders_size_half_steps": {
+          "name": "sales_orders_size_half_steps",
+          "value": "(\"sales_orders\".\"size\" * 2) = trunc(\"sales_orders\".\"size\" * 2)"
+        },
+        "sales_orders_draft_version_positive": {
+          "name": "sales_orders_draft_version_positive",
+          "value": "\"sales_orders\".\"draft_version\" >= 1"
+        },
+        "sales_orders_summary_versions_valid": {
+          "name": "sales_orders_summary_versions_valid",
+          "value": "\"sales_orders\".\"latest_summary_version\" >= 0 AND (\"sales_orders\".\"confirmed_summary_version\" IS NULL OR \"sales_orders\".\"confirmed_summary_version\" >= 1)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.shipping_localities": {
+      "name": "shipping_localities",
+      "schema": "",
+      "columns": {
+        "carrier_code": {
+          "name": "carrier_code",
+          "type": "varchar(32)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "department": {
+          "name": "department",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "locality": {
+          "name": "locality",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "normalized_name": {
+          "name": "normalized_name",
+          "type": "varchar(240)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "country": {
+          "name": "country",
+          "type": "char(2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'CO'"
+        },
+        "source_sha256": {
+          "name": "source_sha256",
+          "type": "char(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "imported_at": {
+          "name": "imported_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "shipping_localities_search_idx": {
+          "name": "shipping_localities_search_idx",
+          "columns": [
+            {
+              "expression": "department",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "normalized_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "shipping_localities_country_co": {
+          "name": "shipping_localities_country_co",
+          "value": "\"shipping_localities\".\"country\" = 'CO'"
+        },
+        "shipping_localities_sha256_format": {
+          "name": "shipping_localities_sha256_format",
+          "value": "\"shipping_localities\".\"source_sha256\" ~ '^[a-f0-9]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.whatsapp_conversation_events": {
+      "name": "whatsapp_conversation_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "whatsapp_message_id": {
+          "name": "whatsapp_message_id",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sequence": {
+          "name": "sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state_before": {
+          "name": "state_before",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "state_after": {
+          "name": "state_after",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "whatsapp_conversation_events_conversation_created_idx": {
+          "name": "whatsapp_conversation_events_conversation_created_idx",
+          "columns": [
+            {
+              "expression": "conversation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "whatsapp_conversation_events_conversation_id_whatsapp_conversations_id_fk": {
+          "name": "whatsapp_conversation_events_conversation_id_whatsapp_conversations_id_fk",
+          "tableFrom": "whatsapp_conversation_events",
+          "tableTo": "whatsapp_conversations",
+          "columnsFrom": ["conversation_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "whatsapp_conversation_events_message_unique": {
+          "name": "whatsapp_conversation_events_message_unique",
+          "nullsNotDistinct": false,
+          "columns": ["whatsapp_message_id"]
+        },
+        "whatsapp_conversation_events_sequence_unique": {
+          "name": "whatsapp_conversation_events_sequence_unique",
+          "nullsNotDistinct": false,
+          "columns": ["conversation_id", "sequence"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.whatsapp_conversations": {
+      "name": "whatsapp_conversations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "customer_phone": {
+          "name": "customer_phone",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mode": {
+          "name": "mode",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'bot'"
+        },
+        "selected_size": {
+          "name": "selected_size",
+          "type": "numeric(4, 1)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "selected_reference_id": {
+          "name": "selected_reference_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active_order_id": {
+          "name": "active_order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active_menu_version": {
+          "name": "active_menu_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "invalid_attempts": {
+          "name": "invalid_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "last_inbound_message_at": {
+          "name": "last_inbound_message_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "whatsapp_conversations_selected_reference_id_catalog_references_id_fk": {
+          "name": "whatsapp_conversations_selected_reference_id_catalog_references_id_fk",
+          "tableFrom": "whatsapp_conversations",
+          "tableTo": "catalog_references",
+          "columnsFrom": ["selected_reference_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "whatsapp_conversations_active_order_id_sales_orders_id_fk": {
+          "name": "whatsapp_conversations_active_order_id_sales_orders_id_fk",
+          "tableFrom": "whatsapp_conversations",
+          "tableTo": "sales_orders",
+          "columnsFrom": ["active_order_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "whatsapp_conversations_customer_phone_unique": {
+          "name": "whatsapp_conversations_customer_phone_unique",
+          "nullsNotDistinct": false,
+          "columns": ["customer_phone"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "whatsapp_conversations_mode_allowed": {
+          "name": "whatsapp_conversations_mode_allowed",
+          "value": "\"whatsapp_conversations\".\"mode\" IN ('bot', 'human')"
+        },
+        "whatsapp_conversations_invalid_attempts_non_negative": {
+          "name": "whatsapp_conversations_invalid_attempts_non_negative",
+          "value": "\"whatsapp_conversations\".\"invalid_attempts\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.whatsapp_inbound_messages": {
+      "name": "whatsapp_inbound_messages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "whatsapp_message_id": {
+          "name": "whatsapp_message_id",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "business_phone_number_id": {
+          "name": "business_phone_number_id",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "customer_phone": {
+          "name": "customer_phone",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "message_type": {
+          "name": "message_type",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "text_body": {
+          "name": "text_body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "whatsapp_inbound_messages_customer_received_idx": {
+          "name": "whatsapp_inbound_messages_customer_received_idx",
+          "columns": [
+            {
+              "expression": "customer_phone",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "received_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "whatsapp_inbound_messages_message_id_unique": {
+          "name": "whatsapp_inbound_messages_message_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["whatsapp_message_id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

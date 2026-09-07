@@ -43,6 +43,13 @@
       "when": 1788811607153,
       "tag": "0005_thin_jack_power",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788813103235,
+      "tag": "0006_bumpy_gamora",
+      "breakpoints": true
     }
   ]
 }

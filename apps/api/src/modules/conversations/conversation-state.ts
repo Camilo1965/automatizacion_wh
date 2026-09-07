@@ -7,8 +7,9 @@ export type ConversationTransition = Readonly<{
 
 export function advanceConversation(
   state: ConversationState | null,
-  _message: string,
+  message: string,
 ): ConversationTransition {
+  void message;
   if (state === null) {
     return {
       state: 'awaiting_size',
