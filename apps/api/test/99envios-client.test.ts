@@ -103,4 +103,103 @@ describe('NinetyNineEnviosClient', () => {
       }),
     ).rejects.toBeInstanceOf(ShippingUncertainError);
   });
+
+  it('downloads an existing guide PDF without creating another pre-shipment', async () => {
+    const pdf = new Uint8Array([37, 80, 68, 70, 45]);
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(pdf, {
+          status: 200,
+          headers: { 'Content-Type': 'application/pdf' },
+        }),
+      );
+    const client = new NinetyNineEnviosClient({
+      email: 'owner@example.test',
+      password: 'secret',
+      fetch: request,
+    });
+
+    await expect(client.getGuidePdf('954101306101', 'envia')).resolves.toEqual(
+      pdf,
+    );
+    expect(request.mock.calls[1]?.[0]).toBe(
+      'https://integration.99envios.app/api/integration/v1/pdf/2',
+    );
+    expect(JSON.parse(request.mock.calls[1]?.[1]?.body as string)).toEqual({
+      guia: '954101306101',
+      transportadora: { pais: 'colombia', nombre: 'envia' },
+      AplicaContrapago: true,
+    });
+  });
+
+  it('normalizes successful carrier quotes and keeps the documented COD values separate', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            envia: {
+              exito: true,
+              valor: 13368,
+              valor_contrapago: 3000,
+              sobreflete: 600,
+              IdServicio: 12,
+              dias: 1,
+            },
+            tcc: { exito: false, mensaje: 'Sin cobertura' },
+          }),
+          { status: 200 },
+        ),
+      );
+    const client = new NinetyNineEnviosClient({
+      email: 'owner@example.test',
+      password: 'secret',
+      fetch: request,
+    });
+
+    await expect(
+      client.quote({
+        localityCode: '05001000',
+        declaredValueCop: 120000,
+        weightKg: 1,
+        lengthCm: 30,
+        widthCm: 20,
+        heightCm: 12,
+        shippingDate: '07-09-2026',
+      }),
+    ).resolves.toEqual([
+      {
+        carrier: 'envia',
+        freightCop: 13368,
+        cashOnDeliveryCop: 3000,
+        surchargeCop: 600,
+        serviceId: 12,
+        estimatedDays: '1',
+      },
+    ]);
+    expect(request.mock.calls[1]?.[0]).toBe(
+      'https://integration.99envios.app/api/integration/v1/cotizar',
+    );
+    expect(JSON.parse(request.mock.calls[1]?.[1]?.body as string)).toEqual({
+      destino: { nombre: null, codigo: '05001000' },
+      IdTipoEntrega: 1,
+      IdServicio: 1,
+      valorDeclarado: 120000,
+      peso: 1,
+      largo: 30,
+      ancho: 20,
+      alto: 12,
+      fecha: '07-09-2026',
+      AplicaContrapago: true,
+      seguro99: false,
+      seguro99plus: false,
+    });
+  });
 });

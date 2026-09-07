@@ -2,7 +2,7 @@
 
 Fecha de preparación: 4 de septiembre de 2026.
 
-Estado: implementación local en curso. Actualizado el 6 de septiembre de 2026.
+Estado: implementación local en curso. Actualizado el 7 de septiembre de 2026.
 
 ## 1 Objetivo y alcance acordado
 
@@ -35,9 +35,9 @@ El catálogo permite crear, editar, activar o desactivar referencias, asociar un
 
 Los commits que sustentan este estado son: `4d497e6` (base local), `b715aff` y `be7a55c` (catálogo, inventario y concurrencia), `725e560` (administración protegida), `d536db0` y `bbc86cc` (contratos, panel y entorno E2E), y `e325c7e` (entorno de integración reproducible). La verificación actual reúne 46 pruebas de contratos, 64 unitarias de API, 29 unitarias del panel, 57 de integración y 7 E2E.
 
-Todavía no existen pedidos, reservas, WhatsApp, Chatwoot, 99envíos, sincronización con Treinta, worker, Redis, despliegue VPS ni copias externas. La siguiente fase de producto es pedidos y reservas sin WhatsApp.
+Ya existen pedidos, resúmenes versionados, reservas concurrentes y su ciclo manual, además de un flujo guiado local conectado al webhook oficial de Meta. El bot recibe talla, envía solo las fotos disponibles para esa talla, recopila datos, confirma una única reserva y deja una tarea persistente de guía. La propietaria puede ver conversaciones y tomar o devolver el control, cancelando las respuestas pendientes del bot.
 
-La documentación de 99envíos permite fundamentar cotización, creación de preenvío con guía y PDF. También se dispone del catálogo de localidades compartido por el usuario. Aún no se han ejecutado operaciones autenticadas con la cuenta del negocio.
+La integración de 99envíos está aislada en un cliente de servidor y una cola persistente: autentica, crea el preenvío contraentrega y clasifica resultados creados, fallidos o inciertos sin reintentar estos últimos. Aún faltan cotización, descarga de PDF, pantalla operativa de guías y una prueba autenticada controlada con la cuenta del negocio. Chatwoot, Redis, despliegue VPS, copias externas y sincronización con Treinta aún no se han incorporado.
 
 La propuesta comercial enviada describía atención más amplia. Antes del piloto se explicará a la propietaria que esta versión utiliza opciones guiadas y deriva a una persona lo que no puede resolver.
 
@@ -265,17 +265,17 @@ Criterio de avance técnico: verificado con PostgreSQL real de pruebas y Chromiu
 
 Dependencia: fase 2. Estimación: 16–26 horas.
 
-Estado actual: diseño y plan ejecutable preparados en `docs/superpowers/specs/2026-09-07-phase-3-orders-design.md` y `docs/superpowers/plans/2026-09-07-phase-3-orders.md`. Antes de integrar cualquier canal externo se debe completar y auditar esta fase.
+Estado de ingeniería: cerrado localmente con contratos, panel, concurrencia, ciclo manual y pruebas automatizadas. El cierre documental conserva el diseño y plan en `docs/superpowers/specs/2026-09-07-phase-3-orders-design.md` y `docs/superpowers/plans/2026-09-07-phase-3-orders.md`.
 
-- [ ] Crear borrador de pedido de una variante y cantidades válidas.
-- [ ] Implementar validación de datos y destino con localidad y departamento.
-- [ ] Generar resumen versionado y exigir confirmación de esa versión.
-- [ ] Crear reserva y pedido confirmado dentro de la misma transacción.
-- [ ] Añadir clave única para confirmación e intentos repetidos.
-- [ ] Implementar cancelación sin guía, despacho manual y recepción de devolución.
-- [ ] Construir panel de detalle de pedido y movimientos asociados.
-- [ ] Probar dos confirmaciones simultáneas por el último par.
-- [ ] Probar cambios de precio, cantidad insuficiente y confirmación repetida.
+- [x] Crear borrador de pedido de una variante y cantidades válidas.
+- [x] Implementar validación de datos y destino con localidad y departamento.
+- [x] Generar resumen versionado y exigir confirmación de esa versión.
+- [x] Crear reserva y pedido confirmado dentro de la misma transacción.
+- [x] Añadir clave única para confirmación e intentos repetidos.
+- [x] Implementar cancelación sin guía, despacho manual y recepción de devolución.
+- [x] Construir panel de detalle de pedido y movimientos asociados.
+- [x] Probar dos confirmaciones simultáneas por el último par.
+- [x] Probar cambios de precio, cantidad insuficiente y confirmación repetida.
 
 Entregable: compra completa desde el panel o simulador, con inventario consistente.
 
@@ -309,17 +309,17 @@ Criterio de avance: talla → fotos → selección → datos → resumen funcion
 
 Dependencia: fases 0 y 3; integración final con fase 4. Estimación: 18–30 horas.
 
-- [ ] Crear un adaptador aislado de autenticación, cotización, creación y PDF.
-- [ ] Gestionar token de cuenta únicamente en servidor y renovar según el comportamiento verificado.
+- [x] Crear un adaptador aislado de autenticación y creación de preenvío; cotización y PDF siguen pendientes.
+- [x] Gestionar token de cuenta únicamente en servidor para cada operación autenticada.
 - [ ] Aplicar límites de cotización documentados y tolerar respuestas parciales entre transportadoras.
 - [ ] Definir perfiles de peso y dimensiones por cantidad; fuera de perfiles, pasar a revisión.
 - [ ] Configurar transportadoras admitidas y regla de selección explícita de la propietaria.
 - [ ] Guardar cotización con vigencia y concepto de recaudo correctamente calculado.
-- [ ] Encolar la creación después de confirmar y reservar, mediante registro transaccional de trabajo pendiente.
-- [ ] Implementar exclusión de intentos activos por pedido.
-- [ ] Separar rechazo definitivo, fallo anterior al envío y resultado incierto posterior al envío.
-- [ ] Evitar reintentos automáticos de creación incierta mientras no exista recuperación segura documentada.
-- [ ] Guardar número de guía, transportadora y datos mínimos de respuesta.
+- [x] Encolar la creación después de confirmar y reservar mediante registro persistente de trabajo pendiente.
+- [x] Implementar exclusión de intentos activos por pedido.
+- [x] Separar rechazo definitivo, fallo anterior al envío y resultado incierto posterior al envío.
+- [x] Evitar reintentos automáticos de creación incierta mientras no exista recuperación segura documentada.
+- [x] Guardar número de preenvío, transportadora y flete de la respuesta.
 - [ ] Descargar PDF y permitir reintentar su obtención sin crear otra guía.
 - [ ] Mostrar errores y acciones de revisión en el panel.
 - [ ] Ejecutar una prueba controlada de guía y PDF con el procedimiento autorizado.
