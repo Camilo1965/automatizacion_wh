@@ -708,6 +708,33 @@ export const shippingQuotes = pgTable(
   ],
 );
 
+export const shippingCarrierRules = pgTable(
+  'shipping_carrier_rules',
+  {
+    localityCarrierCode: varchar('locality_carrier_code', {
+      length: 32,
+    }).primaryKey(),
+    carrier: varchar('carrier', { length: 32 }).notNull(),
+    active: boolean('active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'shipping_carrier_rules_dane_format',
+      sql`${table.localityCarrierCode} ~ '^[0-9]{8}$'`,
+    ),
+    check(
+      'shipping_carrier_rules_carrier_format',
+      sql`${table.carrier} ~ '^[a-z0-9_-]{2,32}$'`,
+    ),
+  ],
+);
+
 export const shippingGuideJobs = pgTable(
   'shipping_guide_jobs',
   {
@@ -770,4 +797,5 @@ export const schema = {
   whatsappOutboundMessages,
   shippingGuideJobs,
   shippingQuotes,
+  shippingCarrierRules,
 };

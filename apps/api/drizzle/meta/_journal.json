@@ -92,6 +92,13 @@
       "when": 1788821668262,
       "tag": "0012_shipping_quotes",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788821953466,
+      "tag": "0013_shipping_carrier_rules",
+      "breakpoints": true
     }
   ]
 }

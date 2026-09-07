@@ -19,6 +19,13 @@ describe('shipping quote migration', () => {
       `;
       expect(tables).toHaveLength(1);
 
+      const carrierRuleTables = await sql<{ table_name: string }[]>`
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'shipping_carrier_rules'
+      `;
+      expect(carrierRuleTables).toHaveLength(1);
+
       const columns = await sql<{ column_name: string }[]>`
         SELECT column_name
         FROM information_schema.columns
