@@ -136,6 +136,120 @@ export const PatchReferenceBodySchema = z
 
 export type PatchReferenceBody = z.infer<typeof PatchReferenceBodySchema>;
 
+const orderQuantitySchema = z.number().int().min(1).max(10);
+const colombianPhoneSchema = z
+  .string()
+  .regex(/^\+57\d{10}$/, 'Phone must use +57 followed by ten digits');
+const customerNameSchema = z.string().trim().min(2).max(120);
+const addressSchema = z.string().trim().min(5).max(180);
+const localityCarrierCodeSchema = z.string().trim().min(1).max(32);
+const deliveryNotesSchema = z.string().trim().min(1).max(250);
+
+export const OrderStatusSchema = z.enum([
+  'draft',
+  'confirmed',
+  'cancelled',
+  'dispatched',
+  'delivered',
+  'returned',
+]);
+export type OrderStatus = z.infer<typeof OrderStatusSchema>;
+
+export const CreateOrderBodySchema = z
+  .object({
+    referenceId: z.uuid(),
+    size: ShoeSizeStringSchema,
+    quantity: orderQuantitySchema,
+    customerName: customerNameSchema.optional(),
+    customerPhone: colombianPhoneSchema.optional(),
+    address: addressSchema.optional(),
+    localityCarrierCode: localityCarrierCodeSchema.optional(),
+    deliveryNotes: deliveryNotesSchema.nullable().optional(),
+  })
+  .strict();
+export type CreateOrderBody = z.infer<typeof CreateOrderBodySchema>;
+
+export const PatchOrderBodySchema = z
+  .object({
+    referenceId: z.uuid().optional(),
+    size: ShoeSizeStringSchema.optional(),
+    quantity: orderQuantitySchema.optional(),
+    customerName: customerNameSchema.optional(),
+    customerPhone: colombianPhoneSchema.optional(),
+    address: addressSchema.optional(),
+    localityCarrierCode: localityCarrierCodeSchema.optional(),
+    deliveryNotes: deliveryNotesSchema.nullable().optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'At least one field is required',
+  });
+export type PatchOrderBody = z.infer<typeof PatchOrderBodySchema>;
+
+export const ConfirmOrderBodySchema = z
+  .object({
+    summaryVersion: z.number().int().min(1),
+    idempotencyKey: z.string().trim().min(8).max(128),
+  })
+  .strict();
+export type ConfirmOrderBody = z.infer<typeof ConfirmOrderBodySchema>;
+
+const OrderSummaryReferenceSchema = z
+  .object({
+    id: z.uuid(),
+    code: publicReferenceCodeSchema,
+    modelName: trimmedModelName,
+    color: trimmedColor,
+  })
+  .strict();
+
+export const OrderSummarySnapshotSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    version: z.number().int().min(1),
+    draftVersion: z.number().int().min(1),
+    orderNumber: z.string().regex(/^PED-\d{6,}$/),
+    reference: OrderSummaryReferenceSchema,
+    size: ShoeSizeStringSchema,
+    quantity: orderQuantitySchema,
+    unitPriceCop: priceCopSchema,
+    productSubtotalCop: priceCopSchema,
+    shippingCostCop: z.null(),
+    shippingPending: z.literal(true),
+    totalCop: priceCopSchema,
+    customer: z
+      .object({ name: customerNameSchema, phone: colombianPhoneSchema })
+      .strict(),
+    destination: z
+      .object({
+        address: addressSchema,
+        localityCarrierCode: localityCarrierCodeSchema,
+        department: z.string().trim().min(1).max(100),
+        locality: z.string().trim().min(1).max(120),
+        deliveryNotes: deliveryNotesSchema.nullable(),
+      })
+      .strict(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.productSubtotalCop !== value.unitPriceCop * value.quantity) {
+      context.addIssue({
+        code: 'custom',
+        message: 'productSubtotalCop must equal unitPriceCop * quantity',
+        path: ['productSubtotalCop'],
+      });
+    }
+    if (value.totalCop !== value.productSubtotalCop) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'totalCop must equal productSubtotalCop while shipping is pending',
+        path: ['totalCop'],
+      });
+    }
+  });
+export type OrderSummarySnapshot = z.infer<typeof OrderSummarySnapshotSchema>;
+
 export const SetStockBodySchema = z
   .object({
     physicalQuantity: quantitySchema,

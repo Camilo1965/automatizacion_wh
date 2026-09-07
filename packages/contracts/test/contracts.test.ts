@@ -34,6 +34,10 @@ import {
   CatalogImportResponseSchema,
   CatalogReadinessResponseSchema,
   LocalitiesResponseSchema,
+  CreateOrderBodySchema,
+  PatchOrderBodySchema,
+  OrderSummarySnapshotSchema,
+  ConfirmOrderBodySchema,
 } from '../src/index.js';
 
 const SAMPLE_UUID = '22222222-2222-4222-8222-222222222222';
@@ -125,6 +129,77 @@ describe('phase two completion contracts', () => {
     expect(
       LocalitiesResponseSchema.safeParse({
         data: { items: [], nextAfterCode: null },
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe('order contracts', () => {
+  const orderDraft = {
+    referenceId: SAMPLE_UUID,
+    size: '37.5',
+    quantity: 2,
+  };
+
+  it('accepts a one-variant draft and rejects invalid quantities', () => {
+    expect(CreateOrderBodySchema.safeParse(orderDraft).success).toBe(true);
+    expect(
+      CreateOrderBodySchema.safeParse({ ...orderDraft, quantity: 0 }).success,
+    ).toBe(false);
+    expect(
+      CreateOrderBodySchema.safeParse({ ...orderDraft, quantity: 10.5 })
+        .success,
+    ).toBe(false);
+  });
+
+  it('allows partial draft edits but rejects an empty patch', () => {
+    expect(
+      PatchOrderBodySchema.safeParse({ customerPhone: '+573001234567' })
+        .success,
+    ).toBe(true);
+    expect(PatchOrderBodySchema.safeParse({}).success).toBe(false);
+  });
+
+  it('requires a stable confirmation key and consistent summary totals', () => {
+    expect(
+      ConfirmOrderBodySchema.safeParse({
+        summaryVersion: 1,
+        idempotencyKey: 'confirm-0001',
+      }).success,
+    ).toBe(true);
+    expect(
+      ConfirmOrderBodySchema.safeParse({
+        summaryVersion: 1,
+        idempotencyKey: 'short',
+      }).success,
+    ).toBe(false);
+    expect(
+      OrderSummarySnapshotSchema.safeParse({
+        schemaVersion: 1,
+        version: 1,
+        draftVersion: 1,
+        orderNumber: 'PED-000001',
+        reference: {
+          id: SAMPLE_UUID,
+          code: '01',
+          modelName: 'Roma',
+          color: 'Negro',
+        },
+        size: '37',
+        quantity: 2,
+        unitPriceCop: 120000,
+        productSubtotalCop: 240000,
+        shippingCostCop: null,
+        shippingPending: true,
+        totalCop: 240000,
+        customer: { name: 'Cliente Prueba', phone: '+573001234567' },
+        destination: {
+          address: 'Calle 10 # 20-30',
+          localityCarrierCode: '05001',
+          department: 'Antioquia',
+          locality: 'Medellín',
+          deliveryNotes: null,
+        },
       }).success,
     ).toBe(true);
   });
