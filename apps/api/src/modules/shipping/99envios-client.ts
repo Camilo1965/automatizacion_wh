@@ -167,6 +167,7 @@ export class NinetyNineEnviosClient {
         },
         body: JSON.stringify({
           destino: { nombre: null, codigo: input.localityCode },
+          origen: { nombre: null, codigo: null },
           IdTipoEntrega: 1,
           IdServicio: 1,
           valorDeclarado: input.declaredValueCop,
@@ -273,7 +274,9 @@ export class NinetyNineEnviosClient {
         }),
       });
     } catch {
-      throw new ShippingUncertainError();
+      throw new ShippingRequestError(
+        '99envios login could not reach the provider',
+      );
     }
     if (!response.ok) {
       throw new ShippingRequestError(

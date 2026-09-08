@@ -200,7 +200,9 @@ test('main catalog operations flow', async ({ page }) => {
 
   await page.getByRole('link', { name: 'Volver al catálogo' }).click();
   await page.getByLabel('Estado').selectOption('inactive');
-  await expect(page.getByText('01')).toBeVisible();
+  await expect(
+    page.locator('.reference-code', { hasText: /^01$/ }),
+  ).toBeVisible();
   await expect(page.getByText(/Tallas:\s*37/)).toBeVisible();
   await expect(
     page.getByAltText('Fotografía de 01 Ballerina Plus'),

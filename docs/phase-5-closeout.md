@@ -8,4 +8,4 @@ La confirmación vuelve a validar la cotización bajo bloqueo de base de datos. 
 
 El worker distingue fallos anteriores al envío de resultados inciertos posteriores al envío. Los inciertos no se reintentan automáticamente. La propietaria puede registrar el número que verificó directamente en 99envíos. El PDF se solicita únicamente para una guía creada, se valida, se escribe de forma atómica con un nombre generado y se sirve desde una ruta autenticada con caché privada y ETag.
 
-La aceptación externa sigue pendiente. Requiere credenciales autorizadas de 99envíos y permiso para ejecutar una sola cotización, preenvío y descarga de PDF con datos controlados. Esa prueba no debe ejecutarse con clientes reales ni repetirse automáticamente.
+La autenticación y cotización externas se validaron el 2026-09-07 con una cuenta autorizada y datos ficticios: login HTTP 200 y cotización HTTP 200. La cuenta devolvió cuatro transportadoras utilizables y rechazó Interrapidísimo porque no tiene código asociado. La creación de preenvío y descarga de PDF siguen pendientes de una prueba controlada que pueda producir una guía real.

@@ -6,6 +6,34 @@ import {
 } from '../src/modules/shipping/99envios-client.js';
 
 describe('NinetyNineEnviosClient', () => {
+  it('treats a login network failure as pre-submission failure', async () => {
+    const client = new NinetyNineEnviosClient({
+      email: 'owner@example.test',
+      password: 'secret',
+      fetch: vi.fn().mockRejectedValue(new TypeError('network down')),
+    });
+
+    await expect(
+      client.createPreShipment({
+        weightKg: 1,
+        lengthCm: 30,
+        widthCm: 20,
+        heightCm: 12,
+        contents: 'Calzado',
+        declaredValueCop: 120000,
+        recipient: {
+          firstName: 'Camila',
+          firstSurname: 'Pérez',
+          phone: '+573158191776',
+          address: 'Calle 1 # 2-3',
+          localityCode: '05001000',
+        },
+        carrier: 'envia',
+        notes: null,
+      }),
+    ).rejects.toMatchObject({ name: 'ShippingRequestError' });
+  });
+
   it('logs in and creates a COD pre-shipment using the documented payload', async () => {
     const request = vi
       .fn()
@@ -189,6 +217,7 @@ describe('NinetyNineEnviosClient', () => {
     );
     expect(JSON.parse(request.mock.calls[1]?.[1]?.body as string)).toEqual({
       destino: { nombre: null, codigo: '05001000' },
+      origen: { nombre: null, codigo: null },
       IdTipoEntrega: 1,
       IdServicio: 1,
       valorDeclarado: 120000,

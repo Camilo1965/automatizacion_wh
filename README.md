@@ -6,6 +6,8 @@ El flujo local recibe WhatsApp con firma verificada, guía al cliente por talla 
 
 Antes de probar eventos firmados, agrega los secretos directamente al archivo local `.env`; nunca los incluyas en Git ni los pegues en chats. Si faltan las credenciales completas de 99envíos, las rutas protegidas de envío responden `shipping_not_configured` y no intentan operaciones externas.
 
+La autenticación de 99envíos sigue su OpenAPI: el servidor hace `POST /api/integration/v1/login` con `NINETYNINE_ENVIOS_EMAIL` y `NINETYNINE_ENVIOS_PASSWORD`, recibe un JWT y lo utiliza como `Authorization: Bearer <token>`. `NINETYNINE_ENVIOS_INTEGRATION_TOKEN` y `NINETYNINE_ENVIOS_INTEGRATION_ID` son encabezados opcionales del preenvío; no reemplazan el JWT obtenido por login.
+
 ## Requisitos
 
 - Node.js `24.14.1` (ver `.nvmrc`)
