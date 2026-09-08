@@ -5,8 +5,10 @@ const baseUrl = 'https://integration.99envios.app/api/integration/v1';
 const loginSchema = z.object({ token: z.string().min(1) }).passthrough();
 const preShipmentSchema = z
   .object({
-    numeroPreenvio: z.string().min(1),
-    valorFlete: z.number().nonnegative(),
+    numeroPreenvio: z
+      .union([z.string().min(1), z.number().int().nonnegative()])
+      .transform(String),
+    valorFlete: z.number().nonnegative().transform(Math.round),
   })
   .passthrough();
 const quoteResponseSchema = z.record(
@@ -226,6 +228,13 @@ export class NinetyNineEnviosClient {
     preShipmentNumber: string,
     carrier: string,
   ): Promise<Uint8Array> {
+    if (!/^\d+$/.test(preShipmentNumber)) {
+      throw new ShippingRequestError('99envios guide number is invalid');
+    }
+    const numericGuide = Number(preShipmentNumber);
+    if (!Number.isSafeInteger(numericGuide)) {
+      throw new ShippingRequestError('99envios guide number is invalid');
+    }
     const token = await this.login();
     let response: Response;
     try {
@@ -242,7 +251,7 @@ export class NinetyNineEnviosClient {
             : { 'X-Integration-Id': this.options.integrationId }),
         },
         body: JSON.stringify({
-          guia: preShipmentNumber,
+          guia: numericGuide,
           transportadora: { pais: 'colombia', nombre: carrier },
           AplicaContrapago: true,
         }),
@@ -256,12 +265,39 @@ export class NinetyNineEnviosClient {
       );
     }
     if (!response.headers.get('content-type')?.startsWith('application/pdf')) {
-      throw new ShippingRequestError(
-        '99envios PDF download returned invalid data',
-      );
+      const rawUrl = (await response.text()).trim();
+      let pdfUrl: URL;
+      try {
+        pdfUrl = new URL(rawUrl);
+      } catch {
+        throw new ShippingRequestError(
+          '99envios PDF download returned invalid data',
+        );
+      }
+      if (
+        pdfUrl.origin !== 'https://api.99envios.app' ||
+        !pdfUrl.pathname.startsWith('/storage/')
+      ) {
+        throw new ShippingRequestError(
+          '99envios PDF download returned invalid data',
+        );
+      }
+      try {
+        response = await this.request(pdfUrl.href);
+      } catch {
+        throw new ShippingRequestError('99envios PDF file request failed');
+      }
+      if (!response.ok) {
+        throw new ShippingRequestError(
+          `99envios PDF file failed with status ${response.status}`,
+        );
+      }
     }
     const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength === 0) {
+    if (
+      bytes.byteLength < 5 ||
+      new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-'
+    ) {
       throw new ShippingRequestError(
         '99envios PDF download returned empty data',
       );

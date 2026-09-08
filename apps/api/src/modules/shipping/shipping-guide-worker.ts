@@ -8,6 +8,7 @@ type JobPort = Readonly<{
     id: string;
     orderId: string;
     carrier: string;
+    collectionValueCop: number;
   }> | null>;
   markCreated(
     id: string,
@@ -83,7 +84,7 @@ export class ShippingGuideWorker {
         widthCm: 20,
         heightCm: 12,
         contents: `Calzado REF ${order.referenceCode} · ${order.referenceModelName} · Talla ${order.size}`,
-        declaredValueCop: order.unitPriceCop * order.quantity,
+        declaredValueCop: job.collectionValueCop,
         recipient: {
           firstName: name.firstName,
           firstSurname: name.firstSurname,

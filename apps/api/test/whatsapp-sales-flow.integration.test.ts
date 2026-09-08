@@ -14,9 +14,11 @@ import { OrderService } from '../src/modules/orders/order-service.js';
 import { PostgresOrderRepository } from '../src/modules/orders/postgres-order-repository.js';
 import { PostgresOutboundRepository } from '../src/modules/whatsapp/postgres-outbound-repository.js';
 import { PostgresShippingGuideJobRepository } from '../src/modules/shipping/postgres-shipping-guide-job-repository.js';
+import { PostgresShippingQuoteRepository } from '../src/modules/shipping/postgres-shipping-quote-repository.js';
 import { LocalGuidePdfStorage } from '../src/modules/shipping/local-guide-pdf-storage.js';
 import { ShippingGuideService } from '../src/modules/shipping/shipping-guide-service.js';
 import { ShippingGuideWorker } from '../src/modules/shipping/shipping-guide-worker.js';
+import { ShippingQuoteService } from '../src/modules/shipping/shipping-quote-service.js';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -142,6 +144,16 @@ describe('complete WhatsApp sale', () => {
       freightCop: 11_596,
     }));
     const getGuidePdf = vi.fn(async () => providerPdf);
+    const quote = vi.fn(async () => [
+      {
+        carrier: 'envia',
+        freightCop: 13_368,
+        cashOnDeliveryCop: 3_000,
+        surchargeCop: 600,
+        serviceId: 12,
+        estimatedDays: '1',
+      },
+    ]);
     const provider = {
       createPreShipment,
       getGuidePdf,
@@ -160,6 +172,11 @@ describe('complete WhatsApp sale', () => {
       orderService,
       new LocalityService(new PostgresLocalityRepository(database)),
       jobs,
+      new ShippingQuoteService(
+        new PostgresShippingQuoteRepository(database),
+        orderService,
+        { quote },
+      ),
     );
     const root = await mkdtemp(path.join(tmpdir(), 'camila-guide-e2e-'));
     try {
@@ -203,6 +220,10 @@ describe('complete WhatsApp sale', () => {
       expect(first.bytes).toEqual(providerPdf);
       expect(second.bytes).toEqual(providerPdf);
       expect(createPreShipment).toHaveBeenCalledTimes(1);
+      expect(createPreShipment).toHaveBeenCalledWith(
+        expect.objectContaining({ declaredValueCop: 136_968 }),
+      );
+      expect(quote).toHaveBeenCalledTimes(1);
       expect(getGuidePdf).toHaveBeenCalledTimes(1);
       const job = await jobs.findByOrderId(order!.id);
       expect(job).toMatchObject({

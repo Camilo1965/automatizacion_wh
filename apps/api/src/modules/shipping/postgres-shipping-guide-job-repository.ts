@@ -7,6 +7,7 @@ export type ClaimedShippingGuideJob = Readonly<{
   id: string;
   orderId: string;
   carrier: string;
+  collectionValueCop: number;
   status: 'processing';
 }>;
 
@@ -33,22 +34,31 @@ export class PostgresShippingGuideJobRepository {
   async claimNext(): Promise<ClaimedShippingGuideJob | null> {
     const result = await this.database.orm.execute(sql`
       WITH candidate AS (
-        SELECT id FROM shipping_guide_jobs
-        WHERE status = 'pending'
-        ORDER BY created_at, id
-        FOR UPDATE SKIP LOCKED
+        SELECT job.id,
+          reference.price_cop * orders.quantity
+            + COALESCE(quote.freight_cop, 0)
+            + COALESCE(quote.cash_on_delivery_cop, 0)
+            + COALESCE(quote.surcharge_cop, 0) AS collection_value_cop
+        FROM shipping_guide_jobs AS job
+        JOIN sales_orders AS orders ON orders.id = job.order_id
+        JOIN catalog_references AS reference ON reference.id = orders.reference_id
+        LEFT JOIN shipping_quotes AS quote ON quote.id = job.quote_id
+        WHERE job.status = 'pending'
+        ORDER BY job.created_at, job.id
+        FOR UPDATE OF job SKIP LOCKED
         LIMIT 1
       )
       UPDATE shipping_guide_jobs AS job
       SET status = 'processing', updated_at = clock_timestamp()
       FROM candidate
       WHERE job.id = candidate.id
-      RETURNING job.id, job.order_id, job.carrier
+      RETURNING job.id, job.order_id, job.carrier, candidate.collection_value_cop
     `);
     const rows = result as unknown as Array<{
       id: string;
       order_id: string;
       carrier: string;
+      collection_value_cop: number;
     }>;
     const row = rows[0];
     return row === undefined
@@ -57,6 +67,7 @@ export class PostgresShippingGuideJobRepository {
           id: row.id,
           orderId: row.order_id,
           carrier: row.carrier,
+          collectionValueCop: row.collection_value_cop,
           status: 'processing',
         };
   }

@@ -37,7 +37,7 @@ Los commits que sustentan este estado son: `4d497e6` (base local), `b715aff` y `
 
 Ya existen pedidos, resúmenes versionados, reservas concurrentes y su ciclo manual, además de un flujo guiado local conectado al webhook oficial de Meta. El bot recibe talla, envía solo las fotos disponibles para esa talla, recopila datos, confirma una única reserva y deja una tarea persistente de guía. La propietaria puede ver conversaciones y tomar o devolver el control, cancelando las respuestas pendientes del bot.
 
-La integración de 99envíos está aislada en un cliente de servidor y una cola persistente: autentica, cotiza, crea el preenvío contraentrega, clasifica resultados creados, fallidos o inciertos, descarga el PDF y expone la operación en el panel. La autenticación y cotización reales pasaron; la prueba real de preenvío recibió HTTP 503 del proveedor y el portal confirmó cero preenvíos, por lo que guía y PDF reales siguen bloqueados externamente. El recorrido completo está cubierto con PostgreSQL real y un proveedor controlado. Chatwoot, Redis, despliegue VPS, copias externas y sincronización con Treinta aún no se han incorporado.
+La integración de 99envíos está aislada en un cliente de servidor y una cola persistente: autentica, cotiza, crea el preenvío contraentrega, clasifica resultados creados, fallidos o inciertos, descarga el PDF y expone la operación en el panel. La prueba real completó cotización, guía TCC contraentrega y PDF. La auditoría corrigió el total enviado a la guía, identificadores numéricos no documentados y respuestas de PDF mediante URL. El recorrido completo también está cubierto con PostgreSQL real y un proveedor controlado. Chatwoot, Redis, despliegue VPS, copias externas y sincronización con Treinta aún no se han incorporado.
 
 La propuesta comercial enviada describía atención más amplia. Antes del piloto se explicará a la propietaria que esta versión utiliza opciones guiadas y deriva a una persona lo que no puede resolver.
 
@@ -309,7 +309,7 @@ Criterio de avance: talla → fotos → selección → datos → resumen funcion
 
 Dependencia: fases 0 y 3; integración final con fase 4. Estimación: 18–30 horas.
 
-Estado de ingeniería: flujo local implementado con cotizaciones versionadas, selección automática por municipio, total contra entrega, cola persistente de guía, PDF recuperable y revisión humana. La cuenta autorizada validó login y cotización. El endpoint real de preenvíos respondió HTTP 503 y no creó registros visibles en el portal; la guía y el PDF reales se repetirán cuando 99envíos restablezca ese endpoint.
+Estado de ingeniería: flujo local implementado con cotizaciones versionadas, selección automática por municipio, total contra entrega, cola persistente de guía, PDF recuperable y revisión humana. La cuenta autorizada validó login, cotización, creación de guía TCC y PDF. La prueba reveló que el resumen inicial del portal puede tardar en reflejar preenvíos; “Envíos completos” es la fuente de revisión antes de resolver estados inciertos.
 
 - [x] Crear un adaptador aislado de autenticación y creación de preenvío; cotización y PDF siguen pendientes.
 - [x] Gestionar token de cuenta únicamente en servidor para cada operación autenticada.
@@ -324,7 +324,7 @@ Estado de ingeniería: flujo local implementado con cotizaciones versionadas, se
 - [x] Guardar número de preenvío, transportadora y flete de la respuesta.
 - [x] Descargar PDF y permitir reintentar su obtención sin crear otra guía.
 - [x] Mostrar cotizaciones, errores, PDF y acciones de revisión en el panel.
-- [ ] Completar la prueba controlada de guía y PDF; el recorrido llegó a confirmación y reserva, pero 99envíos respondió HTTP 503 al crear el preenvío.
+- [x] Completar una prueba controlada de guía y PDF, verificando el total contraentrega y la lectura idempotente del archivo almacenado.
 
 Entregable: confirmación de pedido que produce guía y PDF válidos.
 

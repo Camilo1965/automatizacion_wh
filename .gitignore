@@ -37,6 +37,8 @@ Thumbs.db
 
 # Local media and runtime data
 /var/
+/apps/api/var/
+/tmp/
 
 # Existing non-product materials
 entregables/

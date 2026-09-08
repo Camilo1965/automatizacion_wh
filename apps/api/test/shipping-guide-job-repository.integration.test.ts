@@ -48,4 +48,35 @@ describe('shipping guide jobs', () => {
       await database.close();
     }
   });
+
+  it('claims the final COD value from the immutable selected quote', async () => {
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      await sql`
+        INSERT INTO shipping_quotes
+          (id, order_id, draft_version, carrier, service_id, freight_cop,
+           cash_on_delivery_cop, surcharge_cop, estimated_days, quoted_at,
+           expires_at, recommended, selected)
+        VALUES ('33333333-3333-4333-8333-333333333333',
+          '11111111-1111-4111-8111-111111111111', 1, 'envia', 12,
+          13368, 3000, 600, '1', clock_timestamp(),
+          clock_timestamp() + interval '30 minutes', true, true)
+      `;
+      await sql`
+        INSERT INTO shipping_guide_jobs (order_id, quote_id, carrier)
+        VALUES ('11111111-1111-4111-8111-111111111111',
+          '33333333-3333-4333-8333-333333333333', 'envia')
+      `;
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+    const database = createPostgresDatabase(databaseUrl);
+    try {
+      await expect(
+        new PostgresShippingGuideJobRepository(database).claimNext(),
+      ).resolves.toMatchObject({ collectionValueCop: 136968 });
+    } finally {
+      await database.close();
+    }
+  });
 });

@@ -99,6 +99,48 @@ describe('NinetyNineEnviosClient', () => {
     });
   });
 
+  it('normalizes numeric guide identifiers and decimal COP returned by the live API', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ numeroPreenvio: 616566749, valorFlete: 28325.96 }),
+          { status: 200 },
+        ),
+      );
+    const client = new NinetyNineEnviosClient({
+      email: 'owner@example.test',
+      password: 'secret',
+      fetch: request,
+    });
+
+    await expect(
+      client.createPreShipment({
+        weightKg: 1,
+        lengthCm: 30,
+        widthCm: 20,
+        heightCm: 12,
+        contents: 'Calzado',
+        declaredValueCop: 146093,
+        recipient: {
+          firstName: 'Camila',
+          firstSurname: 'Pérez',
+          phone: '3158191776',
+          address: 'Calle 1 # 2-3',
+          localityCode: '05001000',
+        },
+        carrier: 'tcc',
+        notes: null,
+      }),
+    ).resolves.toEqual({
+      preShipmentNumber: '616566749',
+      freightCop: 28326,
+    });
+  });
+
   it('marks an interrupted creation request as uncertain', async () => {
     const request = vi
       .fn()
@@ -263,10 +305,64 @@ describe('NinetyNineEnviosClient', () => {
       'https://integration.99envios.app/api/integration/v1/pdf/2',
     );
     expect(JSON.parse(request.mock.calls[1]?.[1]?.body as string)).toEqual({
-      guia: '954101306101',
+      guia: 954101306101,
       transportadora: { pais: 'colombia', nombre: 'envia' },
       AplicaContrapago: true,
     });
+  });
+
+  it('follows the whitelisted PDF URL returned by the live provider', async () => {
+    const pdf = new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55]);
+    const pdfUrl =
+      'https://api.99envios.app/storage/adjuntos/adjuntos/pdfs/test.pdf';
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(pdfUrl, {
+          status: 200,
+          headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(pdf, {
+          status: 200,
+          headers: { 'Content-Type': 'application/pdf' },
+        }),
+      );
+    const client = new NinetyNineEnviosClient({
+      email: 'owner@example.test',
+      password: 'secret',
+      fetch: request,
+    });
+
+    await expect(
+      client.getGuidePdf('2220959663', 'servientrega'),
+    ).resolves.toEqual(pdf);
+    expect(request.mock.calls[2]?.[0]).toBe(pdfUrl);
+  });
+
+  it('rejects a PDF URL outside the 99envios storage host', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response('https://example.test/private.pdf', { status: 200 }),
+      );
+    const client = new NinetyNineEnviosClient({
+      email: 'owner@example.test',
+      password: 'secret',
+      fetch: request,
+    });
+
+    await expect(
+      client.getGuidePdf('2220959663', 'servientrega'),
+    ).rejects.toMatchObject({ name: 'ShippingRequestError' });
+    expect(request).toHaveBeenCalledTimes(2);
   });
 
   it('normalizes successful carrier quotes and keeps the documented COD values separate', async () => {

@@ -9,6 +9,7 @@ describe('ShippingGuideWorker', () => {
         id: 'job-1',
         orderId: 'order-1',
         carrier: 'envia',
+        collectionValueCop: 136968,
       }),
       markCreated: vi.fn(),
       markUncertain: vi.fn(),
@@ -40,6 +41,7 @@ describe('ShippingGuideWorker', () => {
     expect(client.createPreShipment).toHaveBeenCalledWith(
       expect.objectContaining({
         contents: 'Calzado REF 01 · Tenis Camila · Talla 37',
+        declaredValueCop: 136968,
         recipient: expect.objectContaining({
           firstName: 'Camila',
           firstSurname: 'Pérez',

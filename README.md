@@ -2,7 +2,7 @@
 
 Base técnica local para la automatización de ventas de calzado por WhatsApp.
 
-El flujo local recibe WhatsApp con firma verificada, guía al cliente por talla y fotografías, crea pedidos con reserva de inventario y prepara cotizaciones y guías mediante el adaptador de 99envíos. El panel de la propietaria cubre autenticación, catálogo, inventario, pedidos, cotizaciones, estado de guía, descarga de PDF y revisión de resultados inciertos. La autenticación y cotización reales están validadas; la aceptación externa de guía y PDF está bloqueada por una respuesta HTTP 503 del endpoint oficial de preenvíos registrada el 7 de septiembre de 2026.
+El flujo local recibe WhatsApp con firma verificada, guía al cliente por talla y fotografías, crea pedidos con reserva de inventario y prepara cotizaciones y guías mediante el adaptador de 99envíos. El panel de la propietaria cubre autenticación, catálogo, inventario, pedidos, cotizaciones, estado de guía, descarga de PDF y revisión de resultados inciertos. La aceptación real completó login, cotización, guía TCC y PDF el 8 de septiembre de 2026. La API real devuelve identificadores numéricos y, para algunas transportadoras, una URL de almacenamiento con un tipo de contenido incorrecto; el adaptador normaliza y valida ambos casos.
 
 Antes de probar eventos firmados, agrega los secretos directamente al archivo local `.env`; nunca los incluyas en Git ni los pegues en chats. Si faltan las credenciales completas de 99envíos, las rutas protegidas de envío responden `shipping_not_configured` y no intentan operaciones externas.
 
