@@ -94,7 +94,8 @@ export function mapDomainError(
   if (error instanceof ShippingDomainError) {
     const status =
       error.code === 'order_not_found' ||
-      error.code === 'shipping_quote_not_found'
+      error.code === 'shipping_quote_not_found' ||
+      error.code === 'guide_not_found'
         ? 404
         : 409;
     return sendApiError(reply, status, error.code, error.message);

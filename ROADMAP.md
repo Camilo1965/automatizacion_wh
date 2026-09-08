@@ -309,19 +309,21 @@ Criterio de avance: talla → fotos → selección → datos → resumen funcion
 
 Dependencia: fases 0 y 3; integración final con fase 4. Estimación: 18–30 horas.
 
+Estado de ingeniería: flujo local implementado con cotizaciones versionadas, selección automática por municipio, total contra entrega, cola persistente de guía, PDF recuperable y revisión humana. Falta la prueba controlada contra 99envíos con credenciales autorizadas y datos reales aprobados.
+
 - [x] Crear un adaptador aislado de autenticación y creación de preenvío; cotización y PDF siguen pendientes.
 - [x] Gestionar token de cuenta únicamente en servidor para cada operación autenticada.
-- [ ] Aplicar límites de cotización documentados y tolerar respuestas parciales entre transportadoras.
+- [x] Aplicar límites de cotización documentados y tolerar respuestas parciales entre transportadoras.
 - [ ] Definir perfiles de peso y dimensiones por cantidad; fuera de perfiles, pasar a revisión.
-- [ ] Configurar transportadoras admitidas y regla de selección explícita de la propietaria.
-- [ ] Guardar cotización con vigencia y concepto de recaudo correctamente calculado.
+- [x] Configurar regla exacta por municipio: preferencia configurada, luego Envia y luego menor costo completo disponible.
+- [x] Guardar cotización con vigencia y concepto de recaudo correctamente calculado.
 - [x] Encolar la creación después de confirmar y reservar mediante registro persistente de trabajo pendiente.
 - [x] Implementar exclusión de intentos activos por pedido.
 - [x] Separar rechazo definitivo, fallo anterior al envío y resultado incierto posterior al envío.
 - [x] Evitar reintentos automáticos de creación incierta mientras no exista recuperación segura documentada.
 - [x] Guardar número de preenvío, transportadora y flete de la respuesta.
-- [ ] Descargar PDF y permitir reintentar su obtención sin crear otra guía.
-- [ ] Mostrar errores y acciones de revisión en el panel.
+- [x] Descargar PDF y permitir reintentar su obtención sin crear otra guía.
+- [x] Mostrar cotizaciones, errores, PDF y acciones de revisión en el panel.
 - [ ] Ejecutar una prueba controlada de guía y PDF con el procedimiento autorizado.
 
 Entregable: confirmación de pedido que produce guía y PDF válidos.
@@ -337,7 +339,7 @@ Dependencia: fases 3 y 5. Estimación: 12–20 horas.
 - [ ] Exportar pedidos y movimientos por fecha en zona America/Bogota.
 - [ ] Crear conciliación de stock con vista previa y validación de reservas.
 - [ ] Mantener auditoría de cambios de precio, cantidades y datos de entrega.
-- [ ] Proteger PDF y datos de clientes con autorización de servidor.
+- [x] Proteger PDF y datos de clientes con autorización de servidor.
 - [ ] Añadir búsquedas por pedido, referencia, teléfono y guía.
 - [ ] Preparar guía de uso para catálogo, intervención, despacho y cierre.
 

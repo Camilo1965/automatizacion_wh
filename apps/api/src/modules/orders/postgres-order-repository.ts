@@ -10,7 +10,9 @@ import {
   orderSummaries,
   reservationMovements,
   salesOrders,
+  shippingGuideJobs,
   shippingLocalities,
+  shippingQuotes,
 } from '../../database/schema.js';
 import { parseShoeSize } from '../catalog/catalog-validation.js';
 import {
@@ -226,7 +228,30 @@ export class PostgresOrderRepository implements OrderRepository {
         );
       completeOrder(order);
       const reference = await this.reference(order.referenceId, tx);
+      const [selectedQuote] = await tx
+        .select()
+        .from(shippingQuotes)
+        .where(
+          and(
+            eq(shippingQuotes.orderId, order.id),
+            eq(shippingQuotes.selected, true),
+            eq(shippingQuotes.draftVersion, order.draftVersion),
+          ),
+        )
+        .limit(1)
+        .for('update');
+      if (selectedQuote !== undefined && selectedQuote.expiresAt <= new Date())
+        throw new OrderConflictError(
+          'shipping_quote_expired',
+          'Generate a new shipping quote before continuing',
+        );
       const version = order.latestSummaryVersion + 1;
+      const shippingCostCop =
+        selectedQuote === undefined
+          ? null
+          : selectedQuote.freightCop +
+            selectedQuote.cashOnDeliveryCop +
+            selectedQuote.surchargeCop;
       const snapshot = {
         schemaVersion: 1,
         version,
@@ -242,9 +267,23 @@ export class PostgresOrderRepository implements OrderRepository {
         quantity: order.quantity,
         unitPriceCop: reference.priceCop,
         productSubtotalCop: reference.priceCop * order.quantity,
-        shippingCostCop: null,
-        shippingPending: true,
-        totalCop: reference.priceCop * order.quantity,
+        shippingCostCop,
+        shippingPending: selectedQuote === undefined,
+        totalCop: reference.priceCop * order.quantity + (shippingCostCop ?? 0),
+        ...(selectedQuote === undefined
+          ? {}
+          : {
+              shippingQuote: {
+                id: selectedQuote.id,
+                carrier: selectedQuote.carrier,
+                serviceId: selectedQuote.serviceId,
+                freightCop: selectedQuote.freightCop,
+                cashOnDeliveryCop: selectedQuote.cashOnDeliveryCop,
+                surchargeCop: selectedQuote.surchargeCop,
+                estimatedDays: selectedQuote.estimatedDays,
+                expiresAt: selectedQuote.expiresAt.toISOString(),
+              },
+            }),
         customer: { name: order.customerName, phone: order.customerPhone },
         destination: {
           address: order.address,
@@ -333,6 +372,36 @@ export class PostgresOrderRepository implements OrderRepository {
             'stale_summary',
             'Generate a new summary before confirming',
           );
+        const snapshot = summary.snapshot as {
+          shippingQuote?: { id: string; carrier: string };
+        };
+        let confirmedShippingQuote:
+          typeof shippingQuotes.$inferSelect | undefined;
+        if (snapshot.shippingQuote !== undefined) {
+          [confirmedShippingQuote] = await tx
+            .select()
+            .from(shippingQuotes)
+            .where(
+              and(
+                eq(shippingQuotes.id, snapshot.shippingQuote.id),
+                eq(shippingQuotes.orderId, order.id),
+                eq(shippingQuotes.draftVersion, order.draftVersion),
+                eq(shippingQuotes.selected, true),
+              ),
+            )
+            .limit(1)
+            .for('update');
+          if (confirmedShippingQuote === undefined)
+            throw new OrderConflictError(
+              'shipping_quote_stale',
+              'The selected shipping quote changed; generate a new summary',
+            );
+          if (confirmedShippingQuote.expiresAt <= new Date())
+            throw new OrderConflictError(
+              'shipping_quote_expired',
+              'Generate a new shipping quote before confirming',
+            );
+        }
         const [stock] = await tx
           .select()
           .from(catalogStock)
@@ -400,6 +469,16 @@ export class PostgresOrderRepository implements OrderRepository {
             updatedAt: sql`clock_timestamp()`,
           })
           .where(eq(salesOrders.id, order.id));
+        if (confirmedShippingQuote !== undefined) {
+          await tx
+            .insert(shippingGuideJobs)
+            .values({
+              orderId: order.id,
+              quoteId: confirmedShippingQuote.id,
+              carrier: confirmedShippingQuote.carrier,
+            })
+            .onConflictDoNothing({ target: shippingGuideJobs.orderId });
+        }
       } else if (input.action === 'cancel' && order.status === 'confirmed') {
         await this.releaseReservation(tx, order, 'cancelled');
         await tx

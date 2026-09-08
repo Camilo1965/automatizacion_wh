@@ -306,7 +306,19 @@ describe('WhatsAppSalesService', () => {
           reference: { code: '01', modelName: 'Tenis Camila', color: 'Negro' },
           size: '37.0',
           quantity: 1,
-          totalCop: 120000,
+          totalCop: 136968,
+          shippingCostCop: 16968,
+          shippingPending: false,
+          shippingQuote: {
+            id: '11111111-1111-4111-8111-111111111111',
+            carrier: 'envia',
+            serviceId: 12,
+            freightCop: 13368,
+            cashOnDeliveryCop: 3000,
+            surchargeCop: 600,
+            estimatedDays: '1',
+            expiresAt: '2026-09-07T23:00:00.000Z',
+          },
           customer: { name: 'Camila Pérez', phone: '+573158191776' },
           destination: {
             locality: 'Medellín',
@@ -320,12 +332,16 @@ describe('WhatsAppSalesService', () => {
         .mockResolvedValue({ id: 'order-1', status: 'confirmed' }),
     };
     const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const shipping = { createQuotes: vi.fn().mockResolvedValue([]) };
     const service = new WhatsAppSalesService(
       conversations,
       { listAvailableForConfirmedSize: vi.fn() },
       { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
       outbound,
       orders,
+      undefined,
+      undefined,
+      shipping,
     );
     await service.process({
       whatsappMessageId: 'wamid.notes',
@@ -336,8 +352,13 @@ describe('WhatsAppSalesService', () => {
       'conversation-1',
       3,
     );
+    expect(shipping.createQuotes).toHaveBeenCalledWith('order-1');
     expect(outbound.enqueueText).toHaveBeenCalledWith(
-      expect.objectContaining({ body: expect.stringContaining('PED-000123') }),
+      expect.objectContaining({
+        body: expect.stringMatching(
+          /PED-000123[\s\S]*Envío: envia · \$16\.968[\s\S]*Total \$136\.968/,
+        ),
+      }),
     );
     await service.process({
       whatsappMessageId: 'wamid.confirm',

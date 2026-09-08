@@ -166,6 +166,17 @@ export async function apiRequestNoContent(
   });
 }
 
+export async function apiDownload(path: string): Promise<Blob> {
+  const response = await fetch(`${API_BASE}${path}`, buildRequestInit({}));
+  if (response.status === 401) unauthorizedHandler?.();
+  if (!response.ok)
+    throw new ApiClientError(
+      response.status,
+      await parseErrorPayload(response),
+    );
+  return response.blob();
+}
+
 export function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiClientError) {
     return error.message;

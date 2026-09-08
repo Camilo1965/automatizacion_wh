@@ -99,4 +99,55 @@ export class PostgresShippingGuideJobRepository {
       })
       .where(eq(shippingGuideJobs.id, id));
   }
+
+  async findByOrderId(orderId: string) {
+    const [job] = await this.database.orm
+      .select()
+      .from(shippingGuideJobs)
+      .where(eq(shippingGuideJobs.orderId, orderId))
+      .limit(1);
+    return job ?? null;
+  }
+
+  async attachPdf(
+    id: string,
+    pdf: Readonly<{ storageKey: string; sha256: string; byteSize: number }>,
+  ): Promise<boolean> {
+    const [updated] = await this.database.orm
+      .update(shippingGuideJobs)
+      .set({
+        guidePdfStorageKey: pdf.storageKey,
+        guidePdfSha256: pdf.sha256,
+        guidePdfByteSize: pdf.byteSize,
+        guidePdfFetchedAt: new Date(),
+        errorCode: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        sql`${shippingGuideJobs.id} = ${id}
+          AND ${shippingGuideJobs.status} = 'created'
+          AND ${shippingGuideJobs.guidePdfStorageKey} IS NULL`,
+      )
+      .returning({ id: shippingGuideJobs.id });
+    return updated !== undefined;
+  }
+
+  async reviewUncertain(
+    id: string,
+    preShipmentNumber: string,
+  ): Promise<boolean> {
+    const [updated] = await this.database.orm
+      .update(shippingGuideJobs)
+      .set({
+        status: 'created',
+        preShipmentNumber,
+        errorCode: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        sql`${shippingGuideJobs.id} = ${id} AND ${shippingGuideJobs.status} = 'uncertain'`,
+      )
+      .returning({ id: shippingGuideJobs.id });
+    return updated !== undefined;
+  }
 }

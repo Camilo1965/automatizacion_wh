@@ -82,6 +82,10 @@ type ShippingGuideJobPort = Readonly<{
   enqueue(orderId: string): Promise<unknown>;
 }>;
 
+type ShippingQuotePort = Readonly<{
+  createQuotes(orderId: string): Promise<unknown>;
+}>;
+
 function displaySize(size: string): string {
   return size.endsWith('.0') ? size.slice(0, -2) : size;
 }
@@ -98,13 +102,21 @@ function summaryText(summary: OrderSummary): string {
     reference?: { code?: string; modelName?: string; color?: string };
     size?: string;
     totalCop?: number;
+    shippingCostCop?: number | null;
+    shippingQuote?: { carrier?: string };
     customer?: { name?: string };
     destination?: { locality?: string; department?: string; address?: string };
   };
+  const shippingLine =
+    snapshot.shippingCostCop == null
+      ? 'Envío pendiente de cotización'
+      : `Envío: ${snapshot.shippingQuote?.carrier ?? 'transportadora'} · ${formatCop(snapshot.shippingCostCop)}`;
   return [
     `Resumen ${snapshot.orderNumber ?? ''}`.trim(),
     `REF ${snapshot.reference?.code ?? ''} · ${snapshot.reference?.modelName ?? ''} · ${snapshot.reference?.color ?? ''}`,
-    `Talla ${displaySize(snapshot.size ?? '')} · Total ${formatCop(snapshot.totalCop ?? 0)}`,
+    `Talla ${displaySize(snapshot.size ?? '')}`,
+    shippingLine,
+    `Total ${formatCop(snapshot.totalCop ?? 0)}`,
     `Cliente: ${snapshot.customer?.name ?? ''}`,
     `Entrega: ${snapshot.destination?.address ?? ''}, ${snapshot.destination?.locality ?? ''}, ${snapshot.destination?.department ?? ''}`,
     'Pago contra entrega. Responde “confirmar” para reservar o “cancelar”.',
@@ -120,6 +132,7 @@ export class WhatsAppSalesService {
     private readonly orders?: OrderPort,
     private readonly localities?: LocalityPort,
     private readonly shippingGuideJobs?: ShippingGuideJobPort,
+    private readonly shippingQuotes?: ShippingQuotePort,
   ) {}
 
   async process(input: ReceiveConversationInput): Promise<void> {
@@ -256,6 +269,7 @@ export class WhatsAppSalesService {
       this.orders?.createSummary !== undefined &&
       this.conversations.setSummaryVersion !== undefined
     ) {
+      await this.shippingQuotes?.createQuotes(result.activeOrderId);
       const summary = await this.orders.createSummary(result.activeOrderId);
       await this.conversations.setSummaryVersion(
         result.conversationId,

@@ -23,11 +23,11 @@
 
 **Produces:** `shipping_quotes` with `order_id`, `draft_version`, carrier/service, COP components, estimate, timestamps, `recommended` and `selected`; PDF metadata columns on `shipping_guide_jobs`.
 
-- [ ] Write migration RED test that upgrades a database containing `0011`, preserves orders/jobs, verifies COP checks, one selected quote per order and PDF columns.
-- [ ] Run `pnpm --filter @camila/api test:integration -- shipping-quotes-migration.integration.test.ts`; expect missing table.
-- [ ] Define schema and generate migration. Use a partial unique index for `selected = true`; ensure quote expiry is after creation.
-- [ ] Re-run migration test, `pnpm db:migrate`, and `pnpm db:generate`; expect green and no subsequent schema changes.
-- [ ] Commit `feat: persist shipping quotes`.
+- [x] Write migration RED test that upgrades a database containing `0011`, preserves orders/jobs, verifies COP checks, one selected quote per order and PDF columns.
+- [x] Run `pnpm --filter @camila/api test:integration -- shipping-quotes-migration.integration.test.ts`; expect missing table.
+- [x] Define schema and generate migration. Use a partial unique index for `selected = true`; ensure quote expiry is after creation.
+- [x] Re-run migration test, `pnpm db:migrate`, and `pnpm db:generate`; expect green and no subsequent schema changes.
+- [x] Commit `feat: persist shipping quotes`.
 
 ### Task 2: Quote domain and strict contracts
 
@@ -35,11 +35,11 @@
 
 **Produces:** `createQuotes(orderId)`, `selectQuote(orderId, quoteId)`, `getShipping(orderId)`, carrier rules by DANE municipality and public strict schemas.
 
-- [ ] RED: successful partial carrier response; an active exact DANE carrier rule wins even when dearer; without it Envia wins; otherwise lowest `freight + COD + surcharge`; all failures; 429; expired quote; changing selected quote invalidates summaries.
-- [ ] Implement provider normalization and a transactional repository. Obtain reference value and destination from the authoritative order; enforce the DANE eight-digit value before calling the provider.
-- [ ] Add a 30-minute `expiresAt`; selection is atomic and only allowed for the current draft version. Persist at most one active carrier rule for each eight-digit DANE code.
-- [ ] Run focused unit/integration tests, lint and typecheck.
-- [ ] Commit `feat: quote shipping alternatives`.
+- [x] RED: successful partial carrier response; an active exact DANE carrier rule wins even when dearer; without it Envia wins; otherwise lowest `freight + COD + surcharge`; all failures; 429; expired quote; changing selected quote invalidates summaries.
+- [x] Implement provider normalization and a transactional repository. Obtain reference value and destination from the authoritative order; enforce the DANE eight-digit value before calling the provider.
+- [x] Add a 30-minute `expiresAt`; selection is atomic and only allowed for the current draft version. Persist at most one active carrier rule for each eight-digit DANE code.
+- [x] Run focused unit/integration tests, lint and typecheck.
+- [x] Commit `feat: quote shipping alternatives`.
 
 ### Task 3: Include a selected quote in immutable summaries
 
@@ -48,9 +48,9 @@
 **Produces:** summaries with immutable shipping breakdown, chosen carrier and final COD total.
 
 - [ ] RED: summary without selected valid quote fails `shipping_quote_required`; expired quote fails `shipping_quote_expired`; a changed selection makes old summary stale.
-- [ ] Update summary generation and confirmation transaction to lock the order and selected quote, validate its current draft version/expiry, and enqueue exactly one guide job with `quote_id`.
-- [ ] Keep the existing no-shipping draft summary only for incomplete checkout; WhatsApp and owner confirmation require the shipping-inclusive summary.
-- [ ] Repeat last-pair confirmation concurrency test three times; run all order integrations.
+- [x] Update summary generation and confirmation transaction to lock the order and selected quote, validate its current draft version/expiry, and enqueue exactly one guide job with `quote_id`.
+- [x] Keep the existing no-shipping draft summary only for incomplete checkout; WhatsApp and owner confirmation require the shipping-inclusive summary.
+- [x] Repeat last-pair confirmation concurrency test three times; run all order integrations.
 - [ ] Commit `feat: confirm orders with shipping quotes`.
 
 ### Task 4: Secure owner shipping API
@@ -60,8 +60,8 @@
 **Produces:** quote, selection, shipping detail, PDF generation/download and uncertain-review routes from the approved design.
 
 - [ ] RED each route for anonymous `401`, absent Origin `403`, malformed body `400`, missing order/quote `404`, stale data `409`, and strict response schemas.
-- [ ] Inject the shipping service only when configuration is present. Disabled configuration returns a stable `shipping_not_configured` response without exposing settings.
-- [ ] Stream PDFs with `Content-Type: application/pdf`, private cache policy, ETag from SHA-256, and no filesystem path in response.
+- [x] Inject the shipping service only when configuration is present. Disabled configuration returns a stable `shipping_not_configured` response without exposing settings.
+- [x] Stream PDFs with `Content-Type: application/pdf`, private cache policy, ETag from SHA-256, and no filesystem path in response.
 - [ ] Add logger-capture test proving customer data, headers and PDF bytes are redacted.
 - [ ] Commit `feat: expose secured shipping operations`.
 
@@ -71,10 +71,10 @@
 
 **Produces:** idempotent `fetchGuidePdf(jobId)` that validates PDF, atomically stores it under a generated key and records digest/size/time.
 
-- [ ] RED: PDF retry uses stored valid file; missing/invalid PDF leaves guide created with error; uncertain guide cannot fetch; guide creation is never called by PDF path.
-- [ ] Implement generated server-side key validation, temporary write/rename and rollback on metadata failure.
-- [ ] Add `reviewUncertain` that only records the owner-verified external number/status; it cannot return a job to pending.
-- [ ] Run worker/repository tests plus integration suite.
+- [x] RED: PDF retry uses stored valid file; missing/invalid PDF leaves guide created with error; uncertain guide cannot fetch; guide creation is never called by PDF path.
+- [x] Implement generated server-side key validation, temporary write/rename and rollback on metadata failure.
+- [x] Add `reviewUncertain` that only records the owner-verified external number/status; it cannot return a job to pending.
+- [x] Run worker/repository tests plus integration suite.
 - [ ] Commit `feat: recover guide PDFs safely`.
 
 ### Task 6: Owner interface and WhatsApp total
@@ -84,8 +84,8 @@
 **Produces:** quote button, recommendation, choice control, expiry/error state, guide status, PDF action and human-review form; WhatsApp total with carrier and shipping amount.
 
 - [ ] RED React tests for recommendation, manual selection, expiry, disabled confirmation, PDF error/retry and uncertain review; add sales-flow integration test for a shipping-inclusive summary.
-- [ ] Implement typed API client with Zod parsing; invalidate order/quote queries after each mutation. Keep PDF download as a browser blob without persisting browser state.
-- [ ] Render values using `Intl.NumberFormat('es-CO', { currency: 'COP' })`; use accessible error and busy states.
+- [x] Implement typed API client with Zod parsing; invalidate order/quote queries after each mutation. Keep PDF download as a browser blob without persisting browser state.
+- [x] Render values using `Intl.NumberFormat('es-CO', { currency: 'COP' })`; use accessible error and busy states.
 - [ ] Run admin unit, API integration, E2E and build.
 - [ ] Commit `feat: operate shipping from owner panel`.
 

@@ -46,6 +46,13 @@ describe('admin shipping HTTP API', () => {
       getShipping: vi.fn().mockResolvedValue(state),
       setCarrierRule: vi.fn(),
     };
+    const guideService = {
+      fetchPdf: vi.fn().mockResolvedValue({
+        bytes: new TextEncoder().encode('%PDF-test'),
+        sha256: 'a'.repeat(64),
+      }),
+      reviewUncertain: vi.fn(),
+    };
     const authService = {
       getSession: async (token?: string) => {
         if (token !== 'good') throw new AuthenticationRequiredError();
@@ -66,6 +73,7 @@ describe('admin shipping HTTP API', () => {
       catalogService: {} as CatalogService,
       photoStorage: {} as PhotoStorage,
       shippingQuoteService: service,
+      shippingGuideService: guideService,
     });
     const orderId = '22222222-2222-4222-8222-222222222222';
     expect(
@@ -99,6 +107,52 @@ describe('admin shipping HTTP API', () => {
     });
     expect(rule.statusCode).toBe(204);
     expect(service.setCarrierRule).toHaveBeenCalledWith('05001000', 'tcc');
+    const pdf = await app.inject({
+      method: 'GET',
+      url: `/api/admin/orders/${orderId}/shipping-guide/pdf`,
+      headers: { cookie: 'camila_admin_session=good' },
+    });
+    expect(pdf.statusCode).toBe(200);
+    expect(pdf.headers['content-type']).toBe('application/pdf');
+    expect(pdf.headers['cache-control']).toBe('private, no-store');
+    expect(pdf.headers.etag).toBe(`"${'a'.repeat(64)}"`);
+    const review = await app.inject({
+      method: 'POST',
+      url: `/api/admin/orders/${orderId}/shipping-guide/review`,
+      headers: {
+        cookie: 'camila_admin_session=good',
+        origin: config.adminOrigin,
+      },
+      payload: { preShipmentNumber: '954101306101' },
+    });
+    expect(review.statusCode).toBe(204);
+    expect(guideService.reviewUncertain).toHaveBeenCalledWith(
+      orderId,
+      '954101306101',
+    );
     await app.close();
+
+    const unconfigured = await buildApp({
+      config,
+      database: {
+        orm: {} as PostgresDatabase['orm'],
+        ping: vi.fn(),
+        close: vi.fn(),
+      },
+      authService,
+      catalogService: {} as CatalogService,
+      photoStorage: {} as PhotoStorage,
+    });
+    const unavailable = await unconfigured.inject({
+      method: 'POST',
+      url: `/api/admin/orders/${orderId}/shipping-quotes`,
+      headers: {
+        cookie: 'camila_admin_session=good',
+        origin: config.adminOrigin,
+      },
+    });
+    expect(unavailable.statusCode).toBe(503);
+    expect(unavailable.json().error.code).toBe('shipping_not_configured');
+    await unconfigured.close();
   });
 });

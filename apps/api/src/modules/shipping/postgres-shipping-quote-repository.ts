@@ -153,9 +153,7 @@ export class PostgresShippingQuoteRepository {
     });
   }
 
-  async getShipping(
-    orderId: string,
-  ): Promise<
+  async getShipping(orderId: string): Promise<
     Readonly<{
       quotes: readonly ShippingQuoteRecord[];
       guide: ShippingGuideRecord | null;

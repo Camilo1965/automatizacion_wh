@@ -14,11 +14,14 @@
 2. Inicia el panel con `pnpm dev:admin`.
 3. Expón la API mediante un túnel HTTPS temporal y configura `/webhooks/whatsapp` en Meta.
 4. Desde el número de prueba escribe: `hola`, una talla, una referencia, los datos de destino, `ninguna` y `confirmar`.
-5. Comprueba en el panel que el pedido está confirmado, que el stock reservado subió una unidad y que hay una tarea de guía pendiente o creada.
+5. Comprueba que WhatsApp muestra transportadora, valor del envío y total contra entrega antes de confirmar.
+6. Comprueba en el panel que el pedido está confirmado, que el stock reservado subió una unidad y que hay una sola tarea de guía pendiente o creada.
+7. Cuando el estado sea `created`, descarga el PDF desde el panel y verifica visualmente destinatario, recaudo y transportadora.
 
 ## Reglas operativas
 
 - La propietaria puede tomar una conversación; los mensajes pendientes del bot se cancelan de inmediato.
 - Una confirmación repetida reserva solo una vez y crea una sola tarea de guía.
 - Si 99envíos no responde después de recibir la solicitud, la tarea queda como `uncertain`. No se reintenta automáticamente: la propietaria debe comprobar en 99envíos si ya existe la guía antes de intervenir.
+- Si la guía incierta sí existe en 99envíos, registra en el panel el número verificado. Esta acción permite recuperar su PDF y nunca vuelve la tarea a la cola de creación.
 - Antes de pasar al número real, instala HTTPS, copias de seguridad diarias de PostgreSQL y alertas para tareas de guía `failed` o `uncertain`.

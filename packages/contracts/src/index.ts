@@ -82,6 +82,12 @@ const publicReferenceCodeSchema = z
 const trimmedModelName = z.string().trim().min(1).max(120);
 const trimmedColor = z.string().trim().min(1).max(80);
 const priceCopSchema = z.number().int().min(1).max(QUANTITY_MAX);
+const shippingCopSchema = z.number().int().min(0).max(QUANTITY_MAX);
+const carrierSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9_-]{2,32}$/);
 
 const photoEtagSchema = z
   .string()
@@ -215,8 +221,21 @@ export const OrderSummarySnapshotSchema = z
     quantity: orderQuantitySchema,
     unitPriceCop: priceCopSchema,
     productSubtotalCop: priceCopSchema,
-    shippingCostCop: z.null(),
-    shippingPending: z.literal(true),
+    shippingCostCop: shippingCopSchema.nullable(),
+    shippingPending: z.boolean(),
+    shippingQuote: z
+      .object({
+        id: z.uuid(),
+        carrier: carrierSchema,
+        serviceId: z.number().int().positive(),
+        freightCop: shippingCopSchema,
+        cashOnDeliveryCop: shippingCopSchema,
+        surchargeCop: shippingCopSchema,
+        estimatedDays: z.string().max(32),
+        expiresAt: z.string().datetime(),
+      })
+      .strict()
+      .optional(),
     totalCop: priceCopSchema,
     customer: z
       .object({ name: customerNameSchema, phone: colombianPhoneSchema })
@@ -240,11 +259,26 @@ export const OrderSummarySnapshotSchema = z
         path: ['productSubtotalCop'],
       });
     }
-    if (value.totalCop !== value.productSubtotalCop) {
+    const shippingTotal = value.shippingQuote
+      ? value.shippingQuote.freightCop +
+        value.shippingQuote.cashOnDeliveryCop +
+        value.shippingQuote.surchargeCop
+      : 0;
+    if (
+      value.shippingPending !== (value.shippingQuote === undefined) ||
+      value.shippingCostCop !==
+        (value.shippingQuote === undefined ? null : shippingTotal)
+    ) {
       context.addIssue({
         code: 'custom',
-        message:
-          'totalCop must equal productSubtotalCop while shipping is pending',
+        message: 'Shipping state must match the selected quote',
+        path: ['shippingPending'],
+      });
+    }
+    if (value.totalCop !== value.productSubtotalCop + shippingTotal) {
+      context.addIssue({
+        code: 'custom',
+        message: 'totalCop must equal product subtotal plus shipping charges',
         path: ['totalCop'],
       });
     }
@@ -614,13 +648,6 @@ export const ListOrdersResponseSchema = dataEnvelopeSchema(
     })
     .strict(),
 );
-
-const shippingCopSchema = z.number().int().min(0).max(QUANTITY_MAX);
-const carrierSchema = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .regex(/^[a-z0-9_-]{2,32}$/);
 
 export const CarrierRuleBodySchema = z
   .object({

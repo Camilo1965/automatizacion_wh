@@ -8,6 +8,11 @@ import {
   getOrder,
   orderAction,
   updateOrder,
+  createShippingQuotes,
+  downloadGuidePdf,
+  getShipping,
+  reviewUncertainGuide,
+  selectShippingQuote,
 } from '../api/orders-api';
 import { getErrorMessage } from '../api/client';
 import { ErrorMessage } from '../components/ErrorMessage';
@@ -20,12 +25,19 @@ export function OrderDetailPage() {
     queryKey: ['order', orderId],
     queryFn: () => getOrder(orderId),
   });
+  const shipping = useQuery({
+    queryKey: ['shipping', orderId],
+    queryFn: () => getShipping(orderId),
+  });
   const [name, setName] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [locality, setLocality] = useState<string | null>(null);
   const refresh = () =>
-    client.invalidateQueries({ queryKey: ['order', orderId] });
+    Promise.all([
+      client.invalidateQueries({ queryKey: ['order', orderId] }),
+      client.invalidateQueries({ queryKey: ['shipping', orderId] }),
+    ]);
   const save = useMutation({
     mutationFn: () =>
       updateOrder(orderId, {
@@ -39,6 +51,23 @@ export function OrderDetailPage() {
   });
   const summary = useMutation({
     mutationFn: () => createOrderSummary(orderId),
+  });
+  const quote = useMutation({
+    mutationFn: () => createShippingQuotes(orderId),
+    onSuccess: refresh,
+  });
+  const chooseQuote = useMutation({
+    mutationFn: (quoteId: string) => selectShippingQuote(orderId, quoteId),
+    onSuccess: refresh,
+  });
+  const pdf = useMutation({
+    mutationFn: () => downloadGuidePdf(orderId),
+    onSuccess: refresh,
+  });
+  const [reviewNumber, setReviewNumber] = useState('');
+  const review = useMutation({
+    mutationFn: () => reviewUncertainGuide(orderId, reviewNumber),
+    onSuccess: refresh,
   });
   const action = useMutation({
     mutationFn: (value: 'cancel' | 'dispatch' | 'deliver' | 'return') =>
@@ -65,6 +94,13 @@ export function OrderDetailPage() {
       />
     );
   const order = query.data;
+  const money = (value: number) =>
+    new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      maximumFractionDigits: 0,
+    }).format(value);
+  const selectedQuote = shipping.data?.quotes.find((item) => item.selected);
   return (
     <section aria-labelledby="order-title">
       <h2 id="order-title">
@@ -128,18 +164,47 @@ export function OrderDetailPage() {
       )}
       {order.status === 'draft' ? (
         <div className="card">
+          <h3>Envío</h3>
+          <button
+            className="button-secondary"
+            onClick={() => quote.mutate()}
+            disabled={quote.isPending}
+          >
+            Cotizar envío
+          </button>
+          {shipping.data?.quotes.map((item) => (
+            <label key={item.id} className="shipping-option">
+              <input
+                type="radio"
+                name="shipping-quote"
+                checked={item.selected}
+                onChange={() => chooseQuote.mutate(item.id)}
+              />
+              <strong>{item.carrier}</strong> · {money(item.totalShippingCop)}
+              {item.estimatedDays ? ` · ${item.estimatedDays} día(s)` : ''}
+              {item.recommended ? ' · Recomendada' : ''}
+            </label>
+          ))}
+          {selectedQuote ? (
+            <p>
+              Envío seleccionado: {selectedQuote.carrier} ·{' '}
+              {money(selectedQuote.totalShippingCop)}
+            </p>
+          ) : (
+            <p>Selecciona una cotización antes de confirmar.</p>
+          )}
           <button
             className="button-secondary"
             onClick={() => summary.mutate()}
-            disabled={summary.isPending}
+            disabled={summary.isPending || selectedQuote === undefined}
           >
             Generar resumen
           </button>
           {summary.data ? (
             <>
               <p>
-                Total: ${summary.data.snapshot.totalCop as number} COP · envío
-                pendiente
+                Total contra entrega:{' '}
+                {money(summary.data.snapshot.totalCop as number)}
               </p>
               <button
                 className="button-primary"
@@ -149,6 +214,41 @@ export function OrderDetailPage() {
                 Confirmar y reservar
               </button>
             </>
+          ) : null}
+        </div>
+      ) : null}
+      {shipping.data?.guide ? (
+        <div className="card">
+          <h3>Guía de envío</h3>
+          <p>
+            Estado: {shipping.data.guide.status} · {shipping.data.guide.carrier}
+          </p>
+          {shipping.data.guide.preShipmentNumber ? (
+            <p>Número: {shipping.data.guide.preShipmentNumber}</p>
+          ) : null}
+          {shipping.data.guide.status === 'created' ? (
+            <button onClick={() => pdf.mutate()} disabled={pdf.isPending}>
+              Descargar PDF
+            </button>
+          ) : null}
+          {shipping.data.guide.status === 'uncertain' ? (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                review.mutate();
+              }}
+            >
+              <label>
+                Número verificado en 99envíos
+                <input
+                  required
+                  maxLength={64}
+                  value={reviewNumber}
+                  onChange={(event) => setReviewNumber(event.target.value)}
+                />
+              </label>
+              <button disabled={review.isPending}>Registrar revisión</button>
+            </form>
           ) : null}
         </div>
       ) : null}
@@ -168,10 +268,24 @@ export function OrderDetailPage() {
           </button>
         ) : null}
       </div>
-      {save.isError || summary.isError || action.isError || confirm.isError ? (
+      {save.isError ||
+      summary.isError ||
+      action.isError ||
+      confirm.isError ||
+      quote.isError ||
+      chooseQuote.isError ||
+      pdf.isError ||
+      review.isError ? (
         <ErrorMessage
           message={getErrorMessage(
-            save.error ?? summary.error ?? action.error ?? confirm.error,
+            save.error ??
+              summary.error ??
+              action.error ??
+              confirm.error ??
+              quote.error ??
+              chooseQuote.error ??
+              pdf.error ??
+              review.error,
             'No se pudo actualizar el pedido',
           )}
         />

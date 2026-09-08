@@ -72,16 +72,14 @@ describe('ShippingQuoteService', () => {
         upsertCarrierRule: vi.fn(),
       },
       {
-        get: vi
-          .fn()
-          .mockResolvedValue({
-            id: 'o',
-            status: 'draft',
-            draftVersion: 1,
-            unitPriceCop: 1,
-            quantity: 1,
-            destination: { localityCarrierCode: '5001' },
-          }),
+        get: vi.fn().mockResolvedValue({
+          id: 'o',
+          status: 'draft',
+          draftVersion: 1,
+          unitPriceCop: 1,
+          quantity: 1,
+          destination: { localityCarrierCode: '5001' },
+        }),
       },
       { quote: vi.fn() },
     );

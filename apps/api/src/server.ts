@@ -25,6 +25,9 @@ import { NinetyNineEnviosClient } from './modules/shipping/99envios-client.js';
 import { ShippingGuideWorker } from './modules/shipping/shipping-guide-worker.js';
 import { PostgresShippingQuoteRepository } from './modules/shipping/postgres-shipping-quote-repository.js';
 import { ShippingQuoteService } from './modules/shipping/shipping-quote-service.js';
+import { ShippingGuideService } from './modules/shipping/shipping-guide-service.js';
+import { LocalGuidePdfStorage } from './modules/shipping/local-guide-pdf-storage.js';
+import path from 'node:path';
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
@@ -71,6 +74,14 @@ async function main(): Promise<void> {
           orderService,
           shippingClient,
         );
+  const shippingGuideService =
+    shippingClient === undefined
+      ? undefined
+      : new ShippingGuideService(
+          shippingGuideJobs,
+          shippingClient,
+          new LocalGuidePdfStorage(path.join(config.mediaRoot, 'guides')),
+        );
   const inboundProcessor = new WhatsAppSalesService(
     new PostgresConversationRepository(database),
     catalogService,
@@ -79,6 +90,7 @@ async function main(): Promise<void> {
     orderService,
     localityService,
     shippingGuideJobs,
+    shippingQuoteService,
   );
 
   const app = await buildApp({
@@ -96,6 +108,7 @@ async function main(): Promise<void> {
     ),
     photoStorage,
     ...(shippingQuoteService === undefined ? {} : { shippingQuoteService }),
+    ...(shippingGuideService === undefined ? {} : { shippingGuideService }),
   });
 
   if (

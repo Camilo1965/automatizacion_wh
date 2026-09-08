@@ -43,6 +43,7 @@ import type { PhotoStorage } from '../../modules/catalog/photo-storage.js';
 import type { OrderService } from '../../modules/orders/order-service.js';
 import type { ConversationAdminRepository } from '../../modules/conversations/postgres-conversation-admin-repository.js';
 import type { ShippingQuoteOperations } from '../../modules/shipping/shipping-quote-service.js';
+import type { ShippingGuideOperations } from '../../modules/shipping/shipping-guide-service.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -92,6 +93,7 @@ export type AdminRoutesDependencies = Readonly<{
   orderService?: OrderService;
   conversationAdminRepository?: ConversationAdminRepository;
   shippingQuoteService?: ShippingQuoteOperations;
+  shippingGuideService?: ShippingGuideOperations;
 }>;
 
 export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
@@ -108,7 +110,51 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     orderService,
     conversationAdminRepository,
     shippingQuoteService,
+    shippingGuideService,
   } = dependencies;
+
+  if (shippingGuideService !== undefined) {
+    const ReviewGuideBodySchema = z
+      .object({ preShipmentNumber: z.string().trim().min(1).max(64) })
+      .strict();
+    app.get('/orders/:orderId/shipping-guide/pdf', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const { orderId } = OrderIdParamsSchema.parse(request.params);
+      const pdf = await shippingGuideService.fetchPdf(orderId);
+      reply.header('Content-Type', 'application/pdf');
+      reply.header('Cache-Control', 'private, no-store');
+      if (pdf.sha256 !== null) reply.header('ETag', `"${pdf.sha256}"`);
+      return reply.status(200).send(Buffer.from(pdf.bytes));
+    });
+    app.post(
+      '/orders/:orderId/shipping-guide/review',
+      async (request, reply) => {
+        await requireAdminSession(request, authService);
+        const { orderId } = OrderIdParamsSchema.parse(request.params);
+        const body = ReviewGuideBodySchema.parse(request.body);
+        await shippingGuideService.reviewUncertain(
+          orderId,
+          body.preShipmentNumber,
+        );
+        return reply.status(204).send();
+      },
+    );
+  } else {
+    const unavailable = async (
+      request: FastifyRequest,
+      reply: FastifyReply,
+    ) => {
+      await requireAdminSession(request, authService);
+      return reply.status(503).send({
+        error: {
+          code: 'shipping_not_configured',
+          message: 'Shipping provider credentials are not configured',
+        },
+      });
+    };
+    app.get('/orders/:orderId/shipping-guide/pdf', unavailable);
+    app.post('/orders/:orderId/shipping-guide/review', unavailable);
+  }
 
   const publicShipping = (
     state: Awaited<ReturnType<ShippingQuoteOperations['getShipping']>>,
@@ -141,21 +187,17 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     app.get('/orders/:orderId/shipping', async (request, reply) => {
       await requireAdminSession(request, authService);
       const { orderId } = OrderIdParamsSchema.parse(request.params);
-      return reply
-        .status(200)
-        .send({
-          data: publicShipping(await shippingQuoteService.getShipping(orderId)),
-        });
+      return reply.status(200).send({
+        data: publicShipping(await shippingQuoteService.getShipping(orderId)),
+      });
     });
     app.post('/orders/:orderId/shipping-quotes', async (request, reply) => {
       await requireAdminSession(request, authService);
       const { orderId } = OrderIdParamsSchema.parse(request.params);
       await shippingQuoteService.createQuotes(orderId);
-      return reply
-        .status(201)
-        .send({
-          data: publicShipping(await shippingQuoteService.getShipping(orderId)),
-        });
+      return reply.status(201).send({
+        data: publicShipping(await shippingQuoteService.getShipping(orderId)),
+      });
     });
     app.post(
       '/orders/:orderId/shipping-quotes/:quoteId/select',
@@ -165,13 +207,9 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
           request.params,
         );
         await shippingQuoteService.selectQuote(orderId, quoteId);
-        return reply
-          .status(200)
-          .send({
-            data: publicShipping(
-              await shippingQuoteService.getShipping(orderId),
-            ),
-          });
+        return reply.status(200).send({
+          data: publicShipping(await shippingQuoteService.getShipping(orderId)),
+        });
       },
     );
     app.put('/shipping/carrier-rules', async (request, reply) => {
@@ -183,6 +221,23 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
       );
       return reply.status(204).send();
     });
+  } else {
+    const unavailable = async (
+      request: FastifyRequest,
+      reply: FastifyReply,
+    ) => {
+      await requireAdminSession(request, authService);
+      return reply.status(503).send({
+        error: {
+          code: 'shipping_not_configured',
+          message: 'Shipping provider credentials are not configured',
+        },
+      });
+    };
+    app.get('/orders/:orderId/shipping', unavailable);
+    app.post('/orders/:orderId/shipping-quotes', unavailable);
+    app.post('/orders/:orderId/shipping-quotes/:quoteId/select', unavailable);
+    app.put('/shipping/carrier-rules', unavailable);
   }
 
   if (conversationAdminRepository !== undefined) {

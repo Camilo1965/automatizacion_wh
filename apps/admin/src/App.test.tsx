@@ -42,6 +42,87 @@ describe('App shell', () => {
   });
 });
 
+describe('Shipping operations', () => {
+  it('shows the recommended carrier and enables a shipping-inclusive summary', async () => {
+    const user = userEvent.setup();
+    state.authenticated = true;
+    const orderId = '11111111-1111-4111-8111-111111111111';
+    const order = {
+      id: orderId,
+      orderNumber: 'PED-000001',
+      status: 'draft',
+      reference: {
+        id: '22222222-2222-4222-8222-222222222222',
+        code: '01',
+        modelName: 'Tenis',
+        color: 'Negro',
+      },
+      size: '37',
+      quantity: 1,
+      customer: { name: 'Camila Pérez', phone: '+573158191776' },
+      destination: {
+        address: 'Calle 1 # 2-3',
+        localityCarrierCode: '05001000',
+        localityDepartment: 'Antioquia',
+        localityName: 'Medellín',
+        deliveryNotes: null,
+      },
+      draftVersion: 1,
+      latestSummaryVersion: 0,
+      confirmedSummaryVersion: null,
+      createdAt: '2026-09-07T17:00:00.000Z',
+      updatedAt: '2026-09-07T17:00:00.000Z',
+    };
+    const shipping = {
+      data: {
+        quotes: [
+          {
+            id: '33333333-3333-4333-8333-333333333333',
+            carrier: 'envia',
+            serviceId: 12,
+            freightCop: 13368,
+            cashOnDeliveryCop: 3000,
+            surchargeCop: 600,
+            totalShippingCop: 16968,
+            estimatedDays: '1',
+            quotedAt: '2026-09-07T17:00:00.000Z',
+            expiresAt: '2026-09-07T17:30:00.000Z',
+            recommended: true,
+            selected: true,
+          },
+        ],
+        guide: null,
+      },
+    };
+    server.use(
+      http.get(`/api/admin/orders/${orderId}`, () =>
+        HttpResponse.json({ data: order }),
+      ),
+      http.get(`/api/admin/orders/${orderId}/shipping`, () =>
+        HttpResponse.json(shipping),
+      ),
+      http.post(`/api/admin/orders/${orderId}/shipping-quotes`, () =>
+        HttpResponse.json(shipping, { status: 201 }),
+      ),
+    );
+    renderWithProviders(<App />, { initialEntries: [`/orders/${orderId}`] });
+
+    const option = await screen.findByRole('radio');
+    expect(option.closest('label')).toHaveTextContent(/envia/);
+    expect(option.closest('label')).toHaveTextContent(/16\.968/);
+    expect(option.closest('label')).toHaveTextContent(/Recomendada/);
+    expect(
+      screen.getByRole('button', { name: 'Generar resumen' }),
+    ).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Cotizar envío' }));
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Envío seleccionado: envia/i),
+      ).toBeInTheDocument(),
+    );
+  });
+});
+
 describe('Login and session', () => {
   it('shows generic invalid credentials message', async () => {
     const user = userEvent.setup();
