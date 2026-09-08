@@ -141,11 +141,18 @@ export class NinetyNineEnviosClient {
       throw new ShippingUncertainError();
     }
     if (!response.ok) {
+      if (response.status >= 500) throw new ShippingUncertainError();
       throw new ShippingRequestError(
         `99envios pre-shipment failed with status ${response.status}`,
       );
     }
-    const parsed = preShipmentSchema.safeParse(await response.json());
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new ShippingUncertainError();
+    }
+    const parsed = preShipmentSchema.safeParse(body);
     if (!parsed.success) {
       throw new ShippingUncertainError();
     }

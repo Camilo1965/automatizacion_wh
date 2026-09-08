@@ -132,6 +132,111 @@ describe('NinetyNineEnviosClient', () => {
     ).rejects.toBeInstanceOf(ShippingUncertainError);
   });
 
+  it('marks a provider 5xx after submission as uncertain', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(new Response('temporarily busy', { status: 503 }));
+    const client = new NinetyNineEnviosClient({
+      email: 'x@y.test',
+      password: 'secret',
+      fetch: request,
+    });
+
+    await expect(
+      client.createPreShipment({
+        weightKg: 1,
+        lengthCm: 30,
+        widthCm: 20,
+        heightCm: 12,
+        contents: 'Calzado',
+        declaredValueCop: 1,
+        recipient: {
+          firstName: 'A',
+          firstSurname: 'B',
+          phone: '3158191776',
+          address: 'Calle 1',
+          localityCode: '05001000',
+        },
+        carrier: 'envia',
+        notes: null,
+      }),
+    ).rejects.toBeInstanceOf(ShippingUncertainError);
+  });
+
+  it('treats a provider 4xx as a rejected request', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(new Response('invalid data', { status: 422 }));
+    const client = new NinetyNineEnviosClient({
+      email: 'x@y.test',
+      password: 'secret',
+      fetch: request,
+    });
+    const input = {
+      weightKg: 1,
+      lengthCm: 30,
+      widthCm: 20,
+      heightCm: 12,
+      contents: 'Calzado',
+      declaredValueCop: 1,
+      recipient: {
+        firstName: 'A',
+        firstSurname: 'B',
+        phone: '3158191776',
+        address: 'Calle 1',
+        localityCode: '05001000',
+      },
+      carrier: 'envia',
+      notes: null,
+    };
+
+    await expect(client.createPreShipment(input)).rejects.toMatchObject({
+      name: 'ShippingRequestError',
+    });
+  });
+
+  it('marks a successful but unreadable provider response as uncertain', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response('<html>broken</html>', { status: 200 }),
+      );
+    const client = new NinetyNineEnviosClient({
+      email: 'x@y.test',
+      password: 'secret',
+      fetch: request,
+    });
+
+    await expect(
+      client.createPreShipment({
+        weightKg: 1,
+        lengthCm: 30,
+        widthCm: 20,
+        heightCm: 12,
+        contents: 'Calzado',
+        declaredValueCop: 1,
+        recipient: {
+          firstName: 'A',
+          firstSurname: 'B',
+          phone: '3158191776',
+          address: 'Calle 1',
+          localityCode: '05001000',
+        },
+        carrier: 'envia',
+        notes: null,
+      }),
+    ).rejects.toBeInstanceOf(ShippingUncertainError);
+  });
+
   it('downloads an existing guide PDF without creating another pre-shipment', async () => {
     const pdf = new Uint8Array([37, 80, 68, 70, 45]);
     const request = vi

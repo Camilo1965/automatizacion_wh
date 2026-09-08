@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import postgres from 'postgres';
 
 import { createPostgresDatabase } from '../src/database/client.js';
@@ -14,6 +14,12 @@ import { OrderService } from '../src/modules/orders/order-service.js';
 import { PostgresOrderRepository } from '../src/modules/orders/postgres-order-repository.js';
 import { PostgresOutboundRepository } from '../src/modules/whatsapp/postgres-outbound-repository.js';
 import { PostgresShippingGuideJobRepository } from '../src/modules/shipping/postgres-shipping-guide-job-repository.js';
+import { LocalGuidePdfStorage } from '../src/modules/shipping/local-guide-pdf-storage.js';
+import { ShippingGuideService } from '../src/modules/shipping/shipping-guide-service.js';
+import { ShippingGuideWorker } from '../src/modules/shipping/shipping-guide-worker.js';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { requireTestDatabaseUrl } from './helpers/test-database.js';
 
 const databaseUrl = requireTestDatabaseUrl();
@@ -119,6 +125,98 @@ describe('complete WhatsApp sale', () => {
       }
     } finally {
       await database.close();
+    }
+  });
+
+  it('completes conversation, guide creation and idempotent PDF storage end to end', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const catalogRepository = new PostgresCatalogRepository(database);
+    const orderService = new OrderService(
+      new PostgresOrderRepository(database),
+      (id) => catalogRepository.findReferenceById(id),
+    );
+    const jobs = new PostgresShippingGuideJobRepository(database);
+    const providerPdf = new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55]);
+    const createPreShipment = vi.fn(async () => ({
+      preShipmentNumber: '954101306101',
+      freightCop: 11_596,
+    }));
+    const getGuidePdf = vi.fn(async () => providerPdf);
+    const provider = {
+      createPreShipment,
+      getGuidePdf,
+    };
+    const service = new WhatsAppSalesService(
+      new PostgresConversationRepository(database),
+      new DefaultCatalogService(catalogRepository, {
+        save: async () => {
+          throw new Error('unused');
+        },
+        read: async () => new Uint8Array(),
+        delete: async () => undefined,
+      }),
+      new PostgresConversationMenuRepository(database),
+      new PostgresOutboundRepository(database),
+      orderService,
+      new LocalityService(new PostgresLocalityRepository(database)),
+      jobs,
+    );
+    const root = await mkdtemp(path.join(tmpdir(), 'camila-guide-e2e-'));
+    try {
+      for (const [index, text] of [
+        'hola',
+        '37',
+        '01',
+        'Camila Pérez',
+        '3158191776',
+        'Antioquia',
+        'Medellín',
+        'Calle 1 # 2-3',
+        'ninguna',
+        'confirmar',
+      ].entries()) {
+        await service.process({
+          whatsappMessageId: `wamid.complete-${index}`,
+          customerPhone: '+573158191776',
+          text,
+        });
+      }
+      await service.process({
+        whatsappMessageId: 'wamid.complete-9',
+        customerPhone: '+573158191776',
+        text: 'confirmar',
+      });
+      expect(
+        await new ShippingGuideWorker(jobs, orderService, provider).runOnce(),
+      ).toBe(true);
+      const sql = postgres(databaseUrl, { max: 1, prepare: false });
+      const [order] = await sql<{ id: string }[]>`SELECT id FROM sales_orders`;
+      await sql.end({ timeout: 5 });
+      expect(order).toBeDefined();
+      const guides = new ShippingGuideService(
+        jobs,
+        provider,
+        new LocalGuidePdfStorage(root),
+      );
+      const first = await guides.fetchPdf(order!.id);
+      const second = await guides.fetchPdf(order!.id);
+      expect(first.bytes).toEqual(providerPdf);
+      expect(second.bytes).toEqual(providerPdf);
+      expect(createPreShipment).toHaveBeenCalledTimes(1);
+      expect(getGuidePdf).toHaveBeenCalledTimes(1);
+      const job = await jobs.findByOrderId(order!.id);
+      expect(job).toMatchObject({
+        status: 'created',
+        preShipmentNumber: '954101306101',
+        freightCop: 11_596,
+        guidePdfByteSize: providerPdf.byteLength,
+      });
+      expect(await readFile(path.join(root, job!.guidePdfStorageKey!))).toEqual(
+        Buffer.from(providerPdf),
+      );
+    } finally {
+      await database.close();
+      await rm(root, { recursive: true, force: true });
     }
   });
 });
