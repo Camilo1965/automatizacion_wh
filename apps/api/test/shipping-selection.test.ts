@@ -29,4 +29,13 @@ describe('selectRecommendedCarrier', () => {
   it('uses the lowest complete charge when Envia has no coverage', () => {
     expect(selectRecommendedCarrier([quotes[1]!], null)).toBe('tcc');
   });
+
+  it('does not silently replace an unavailable required carrier', () => {
+    expect(
+      selectRecommendedCarrier([quotes[0]!], {
+        preferredCarrier: 'tcc',
+        fallbackPolicy: 'block',
+      }),
+    ).toBeNull();
+  });
 });
