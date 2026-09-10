@@ -3,6 +3,7 @@ import { and, eq, max, sql } from 'drizzle-orm';
 import type { PostgresDatabase } from '../../database/client.js';
 import {
   whatsappConversationEvents,
+  whatsappConversationMessages,
   whatsappConversations,
 } from '../../database/schema.js';
 import {
@@ -14,6 +15,7 @@ export type ReceiveConversationInput = Readonly<{
   whatsappMessageId: string;
   customerPhone: string;
   text: string;
+  occurredAt?: Date;
 }>;
 
 export type ReceiveConversationResult = Readonly<{
@@ -62,7 +64,7 @@ export class PostgresConversationRepository {
         };
       }
 
-      const now = new Date();
+      const now = input.occurredAt ?? new Date();
       const transition = advanceConversation(
         existing === undefined
           ? null
@@ -99,6 +101,20 @@ export class PostgresConversationRepository {
         stateBefore: existing?.state ?? null,
         stateAfter: transition.state,
       });
+      await tx
+        .insert(whatsappConversationMessages)
+        .values({
+          conversationId: conversation.id,
+          providerMessageId: input.whatsappMessageId,
+          source: 'customer',
+          messageType: 'text',
+          textBody: input.text,
+          status: 'received',
+          occurredAt: now,
+        })
+        .onConflictDoNothing({
+          target: whatsappConversationMessages.providerMessageId,
+        });
       await tx
         .update(whatsappConversations)
         .set({

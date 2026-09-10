@@ -1,7 +1,10 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
-import { whatsappOutboundMessages } from '../../database/schema.js';
+import {
+  whatsappConversationMessages,
+  whatsappOutboundMessages,
+} from '../../database/schema.js';
 import type {
   ClaimedOutboundMessage,
   OutboxWorkerRepository,
@@ -29,71 +32,116 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
   async enqueueText(
     input: EnqueueTextInput,
   ): Promise<Readonly<{ id: string }>> {
-    const [inserted] = await this.database.orm
-      .insert(whatsappOutboundMessages)
-      .values({
-        ...(input.conversationId === undefined
-          ? {}
-          : { conversationId: input.conversationId }),
-        customerPhone: input.customerPhone,
-        idempotencyKey: input.idempotencyKey,
-        messageType: 'text',
-        textBody: input.body,
-      })
-      .onConflictDoNothing({
-        target: whatsappOutboundMessages.idempotencyKey,
-      })
-      .returning({ id: whatsappOutboundMessages.id });
-    if (inserted !== undefined) return inserted;
+    return this.database.orm.transaction(async (tx) => {
+      const now = new Date();
+      const [inserted] = await tx
+        .insert(whatsappOutboundMessages)
+        .values({
+          ...(input.conversationId === undefined
+            ? {}
+            : { conversationId: input.conversationId }),
+          customerPhone: input.customerPhone,
+          idempotencyKey: input.idempotencyKey,
+          messageType: 'text',
+          textBody: input.body,
+        })
+        .onConflictDoNothing({
+          target: whatsappOutboundMessages.idempotencyKey,
+        })
+        .returning({ id: whatsappOutboundMessages.id });
+      if (inserted !== undefined) {
+        if (input.conversationId !== undefined) {
+          await tx.insert(whatsappConversationMessages).values({
+            conversationId: input.conversationId,
+            outboundMessageId: inserted.id,
+            source: 'bot',
+            messageType: 'text',
+            textBody: input.body,
+            status: 'queued',
+            occurredAt: now,
+          });
+        }
+        return inserted;
+      }
 
-    const [existing] = await this.database.orm
-      .select({ id: whatsappOutboundMessages.id })
-      .from(whatsappOutboundMessages)
-      .where(eq(whatsappOutboundMessages.idempotencyKey, input.idempotencyKey))
-      .limit(1);
-    if (existing === undefined) throw new Error('Outbound enqueue failed');
-    return existing;
+      const [existing] = await tx
+        .select({ id: whatsappOutboundMessages.id })
+        .from(whatsappOutboundMessages)
+        .where(
+          eq(whatsappOutboundMessages.idempotencyKey, input.idempotencyKey),
+        )
+        .limit(1);
+      if (existing === undefined) throw new Error('Outbound enqueue failed');
+      return existing;
+    });
   }
 
   async enqueueImage(
     input: EnqueueImageInput,
   ): Promise<Readonly<{ id: string }>> {
-    const [inserted] = await this.database.orm
-      .insert(whatsappOutboundMessages)
-      .values({
-        ...(input.conversationId === undefined
-          ? {}
-          : { conversationId: input.conversationId }),
-        customerPhone: input.customerPhone,
-        idempotencyKey: input.idempotencyKey,
-        messageType: 'image',
-        textBody: input.caption,
-        mediaStorageKey: input.storageKey,
-        mediaMimeType: input.mimeType,
-      })
-      .onConflictDoNothing({
-        target: whatsappOutboundMessages.idempotencyKey,
-      })
-      .returning({ id: whatsappOutboundMessages.id });
-    if (inserted !== undefined) return inserted;
-    const [existing] = await this.database.orm
-      .select({ id: whatsappOutboundMessages.id })
-      .from(whatsappOutboundMessages)
-      .where(eq(whatsappOutboundMessages.idempotencyKey, input.idempotencyKey))
-      .limit(1);
-    if (existing === undefined) throw new Error('Outbound enqueue failed');
-    return existing;
+    return this.database.orm.transaction(async (tx) => {
+      const now = new Date();
+      const [inserted] = await tx
+        .insert(whatsappOutboundMessages)
+        .values({
+          ...(input.conversationId === undefined
+            ? {}
+            : { conversationId: input.conversationId }),
+          customerPhone: input.customerPhone,
+          idempotencyKey: input.idempotencyKey,
+          messageType: 'image',
+          textBody: input.caption,
+          mediaStorageKey: input.storageKey,
+          mediaMimeType: input.mimeType,
+        })
+        .onConflictDoNothing({
+          target: whatsappOutboundMessages.idempotencyKey,
+        })
+        .returning({ id: whatsappOutboundMessages.id });
+      if (inserted !== undefined) {
+        if (input.conversationId !== undefined) {
+          await tx.insert(whatsappConversationMessages).values({
+            conversationId: input.conversationId,
+            outboundMessageId: inserted.id,
+            source: 'bot',
+            messageType: 'image',
+            textBody: input.caption,
+            mediaStorageKey: input.storageKey,
+            mediaMimeType: input.mimeType,
+            status: 'queued',
+            occurredAt: now,
+          });
+        }
+        return inserted;
+      }
+      const [existing] = await tx
+        .select({ id: whatsappOutboundMessages.id })
+        .from(whatsappOutboundMessages)
+        .where(
+          eq(whatsappOutboundMessages.idempotencyKey, input.idempotencyKey),
+        )
+        .limit(1);
+      if (existing === undefined) throw new Error('Outbound enqueue failed');
+      return existing;
+    });
   }
 
   async claimNext(): Promise<ClaimedOutboundMessage | null> {
     return this.database.orm.transaction(async (tx) => {
       await tx.execute(sql`
-        UPDATE whatsapp_outbound_messages AS outbound
+        WITH cancelled AS (
+          UPDATE whatsapp_outbound_messages AS outbound
+          SET status = 'cancelled', updated_at = clock_timestamp()
+          FROM whatsapp_conversations AS conversation
+          WHERE outbound.conversation_id = conversation.id
+            AND outbound.status = 'pending'
+            AND conversation.mode = 'human'
+          RETURNING outbound.id
+        )
+        UPDATE whatsapp_conversation_messages AS transcript
         SET status = 'cancelled', updated_at = clock_timestamp()
-        FROM whatsapp_conversations AS conversation
-        WHERE outbound.conversation_id = conversation.id
-          AND outbound.status = 'pending'
-          AND conversation.mode = 'human'
+        FROM cancelled
+        WHERE transcript.outbound_message_id = cancelled.id
       `);
       const result = await tx.execute(sql<{
         id: string;
@@ -162,35 +210,35 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
   }
 
   async markSent(id: string, whatsappMessageId: string): Promise<void> {
-    await this.database.orm
-      .update(whatsappOutboundMessages)
-      .set({
-        status: 'sent',
-        whatsappMessageId,
-        errorCode: null,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(whatsappOutboundMessages.id, id),
-          eq(whatsappOutboundMessages.status, 'processing'),
-        ),
-      );
+    await this.database.orm.execute(sql`
+      WITH sent AS (
+        UPDATE whatsapp_outbound_messages
+        SET status = 'sent', whatsapp_message_id = ${whatsappMessageId},
+          error_code = NULL, updated_at = clock_timestamp()
+        WHERE id = ${id} AND status = 'processing'
+        RETURNING id
+      )
+      UPDATE whatsapp_conversation_messages AS transcript
+      SET status = 'sent', provider_message_id = ${whatsappMessageId},
+        updated_at = clock_timestamp()
+      FROM sent
+      WHERE transcript.outbound_message_id = sent.id
+    `);
   }
 
   async markFailed(id: string, errorCode: string): Promise<void> {
-    await this.database.orm
-      .update(whatsappOutboundMessages)
-      .set({
-        status: 'failed',
-        errorCode: errorCode.slice(0, 64),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(whatsappOutboundMessages.id, id),
-          eq(whatsappOutboundMessages.status, 'processing'),
-        ),
-      );
+    await this.database.orm.execute(sql`
+      WITH failed AS (
+        UPDATE whatsapp_outbound_messages
+        SET status = 'failed', error_code = ${errorCode.slice(0, 64)},
+          updated_at = clock_timestamp()
+        WHERE id = ${id} AND status = 'processing'
+        RETURNING id
+      )
+      UPDATE whatsapp_conversation_messages AS transcript
+      SET status = 'failed', updated_at = clock_timestamp()
+      FROM failed
+      WHERE transcript.outbound_message_id = failed.id
+    `);
   }
 }

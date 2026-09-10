@@ -20,6 +20,7 @@ export type WhatsAppRoutesDependencies = Readonly<{
       whatsappMessageId: string;
       customerPhone: string;
       text: string;
+      occurredAt?: Date;
     }): Promise<void>;
   }>;
 }>;
@@ -66,6 +67,7 @@ export const whatsappRoutes: FastifyPluginAsync<
                 whatsappMessageId: message.whatsappMessageId,
                 customerPhone: message.customerPhone,
                 text: message.textBody,
+                occurredAt: message.receivedAt,
               });
             }
           }

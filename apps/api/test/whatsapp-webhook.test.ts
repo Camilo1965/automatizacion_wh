@@ -171,6 +171,7 @@ describe('WhatsApp webhook verification', () => {
       whatsappMessageId: 'wamid.flow-1',
       customerPhone: '+573001234567',
       text: 'hola',
+      occurredAt: new Date('2025-10-09T08:53:20.000Z'),
     });
     await server.close();
   });

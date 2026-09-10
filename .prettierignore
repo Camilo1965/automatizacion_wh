@@ -5,4 +5,6 @@ node_modules
 entregables
 proposal_work
 ROADMAP.md
+docs/superpowers
+apps/api/drizzle/meta
 *.tsbuildinfo

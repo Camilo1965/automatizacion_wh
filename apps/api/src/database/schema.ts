@@ -495,6 +495,7 @@ export const whatsappConversations = pgTable(
     lastInboundMessageAt: timestamp('last_inbound_message_at', {
       withTimezone: true,
     }).notNull(),
+    lastReadAt: timestamp('last_read_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -513,6 +514,56 @@ export const whatsappConversations = pgTable(
     check(
       'whatsapp_conversations_invalid_attempts_non_negative',
       sql`${table.invalidAttempts} >= 0`,
+    ),
+  ],
+);
+
+export const whatsappConversationMessages = pgTable(
+  'whatsapp_conversation_messages',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => whatsappConversations.id, { onDelete: 'restrict' }),
+    outboundMessageId: uuid('outbound_message_id'),
+    providerMessageId: varchar('provider_message_id', { length: 128 }),
+    source: varchar('source', { length: 16 }).notNull(),
+    messageType: varchar('message_type', { length: 16 }).notNull(),
+    textBody: text('text_body'),
+    mediaStorageKey: varchar('media_storage_key', { length: 255 }),
+    mediaMimeType: varchar('media_mime_type', { length: 32 }),
+    status: varchar('status', { length: 16 }).notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('whatsapp_conversation_messages_provider_unique').on(
+      table.providerMessageId,
+    ),
+    unique('whatsapp_conversation_messages_outbound_unique').on(
+      table.outboundMessageId,
+    ),
+    check(
+      'whatsapp_conversation_messages_source_allowed',
+      sql`${table.source} IN ('customer', 'bot', 'owner_panel', 'owner_mobile')`,
+    ),
+    check(
+      'whatsapp_conversation_messages_type_allowed',
+      sql`${table.messageType} IN ('text', 'image', 'template', 'event')`,
+    ),
+    check(
+      'whatsapp_conversation_messages_status_allowed',
+      sql`${table.status} IN ('received', 'queued', 'sent', 'delivered', 'read', 'failed', 'cancelled')`,
+    ),
+    index('whatsapp_conversation_messages_conversation_time_idx').on(
+      table.conversationId,
+      table.occurredAt,
+      table.id,
     ),
   ],
 );
@@ -911,6 +962,7 @@ export const schema = {
   whatsappInboundMessages,
   whatsappConversations,
   whatsappConversationEvents,
+  whatsappConversationMessages,
   whatsappCatalogMenus,
   whatsappCatalogMenuOptions,
   whatsappOutboundMessages,

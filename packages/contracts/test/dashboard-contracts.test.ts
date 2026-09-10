@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DashboardSummarySchema } from '../src/index';
+import { DashboardSummarySchema } from '../src/index.js';
 
 describe('dashboard contracts', () => {
   it('accepts a strict operational dashboard summary', () => {
