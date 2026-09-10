@@ -15,6 +15,8 @@ export function CatalogImportPage() {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const step = preview ? (preview.status === 'committed' ? 3 : 2) : 1;
+
   async function loadPreview() {
     if (!file) return;
     setBusy(true);
@@ -45,18 +47,51 @@ export function CatalogImportPage() {
   return (
     <section aria-labelledby="catalog-import-title">
       <h2 id="catalog-import-title">Importar catálogo</h2>
+      <p className="page-intro">
+        Carga el archivo de inventario, revisa cada fila y confirma solo cuando
+        los datos sean correctos. La vista previa nunca modifica existencias.
+      </p>
+      <ol className="workflow-steps" aria-label="Progreso de importación">
+        <li data-active={step === 1}>1. Cargar archivo</li>
+        <li data-active={step === 2}>2. Revisar cambios</li>
+        <li data-active={step === 3}>3. Importación lista</li>
+      </ol>
       <p>
-        <a href="/api/admin/catalog-import-template" download>
-          Descargar plantilla
+        <a
+          aria-label="Descargar plantilla"
+          href="/api/admin/catalog-import-template"
+          download
+        >
+          Descargar plantilla CSV
         </a>
+        <span className="muted">
+          {' '}
+          · Columnas: referencia, modelo, color, precio y tallas
+        </span>
       </p>
       <label htmlFor="catalog-file">Archivo CSV</label>
       <input
         id="catalog-file"
         type="file"
         accept=".csv,text/csv"
-        onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+        onChange={(event) => {
+          const next = event.target.files?.[0] ?? null;
+          setPreview(null);
+          setError(
+            next && !next.name.toLowerCase().endsWith('.csv')
+              ? 'Selecciona un archivo CSV.'
+              : null,
+          );
+          setFile(
+            next && next.name.toLowerCase().endsWith('.csv') ? next : null,
+          );
+        }}
       />
+      {file ? (
+        <p className="muted">
+          Archivo seleccionado: {file.name} ({Math.ceil(file.size / 1024)} KB)
+        </p>
+      ) : null}
       <button
         type="button"
         disabled={!file || busy}
@@ -68,7 +103,8 @@ export function CatalogImportPage() {
       {preview ? (
         <div aria-live="polite">
           <p>
-            Referencias: {preview.references.length}. Errores:{' '}
+            {preview.status === 'invalid' ? 'Hay filas por corregir. ' : ''}
+            Referencias listas: {preview.references.length}. Errores:{' '}
             {preview.errors.length}.
           </p>
           {preview.references.length ? (
@@ -128,6 +164,12 @@ export function CatalogImportPage() {
                 ))}
               </tbody>
             </table>
+          ) : null}
+          {preview.errors.length ? (
+            <p className="form-hint">
+              Corrige el archivo en Treinta y vuelve a previsualizar. No se
+              puede confirmar mientras existan errores.
+            </p>
           ) : null}
           {preview.status === 'previewed' ? (
             <button type="button" onClick={() => setConfirming(true)}>

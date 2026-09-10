@@ -1163,6 +1163,32 @@ a:focus-visible {
   border-radius: var(--radius-md);
 }
 
+.workflow-steps {
+  display: flex;
+  gap: var(--space-3);
+  padding: 0;
+  margin: var(--space-4) 0;
+  list-style: none;
+}
+.workflow-steps li {
+  flex: 1;
+  padding: 0.65rem 0.8rem;
+  color: var(--color-text-muted);
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  text-align: center;
+}
+.workflow-steps li[data-active='true'] {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  font-weight: 700;
+}
+.page-intro {
+  max-width: 50rem;
+  color: var(--color-text-muted);
+}
+
 @media (min-width: 900px) {
   .inbox-layout {
     grid-template-columns: minmax(17rem, 0.36fr) minmax(0, 1fr);
