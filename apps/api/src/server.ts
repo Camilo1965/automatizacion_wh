@@ -36,6 +36,7 @@ import { AlertService } from './modules/alerts/alert-service.js';
 import { PostgresAlertRepository } from './modules/alerts/postgres-alert-repository.js';
 import { InventoryClosureService } from './modules/inventory/inventory-closure-service.js';
 import { PostgresInventoryClosureRepository } from './modules/inventory/postgres-inventory-closure-repository.js';
+import { DailyClosureScheduler } from './modules/inventory/daily-closure-scheduler.js';
 import { IntegrationHealthService } from './modules/integrations/integration-health-service.js';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
@@ -113,6 +114,9 @@ async function main(): Promise<void> {
     outboundRepository,
   );
 
+  const inventoryClosureService = new InventoryClosureService(
+    new PostgresInventoryClosureRepository(database),
+  );
   const app = await buildApp({
     config,
     database,
@@ -138,9 +142,7 @@ async function main(): Promise<void> {
         config.whatsappAppSecret !== undefined,
     }),
     alertService: new AlertService(new PostgresAlertRepository(database)),
-    inventoryClosureService: new InventoryClosureService(
-      new PostgresInventoryClosureRepository(database),
-    ),
+    inventoryClosureService,
     integrationHealthService: new IntegrationHealthService({
       database: () => database.ping(),
       mediaStorage: () => access(config.mediaRoot),
@@ -154,6 +156,15 @@ async function main(): Promise<void> {
     ...(shippingQuoteService === undefined ? {} : { shippingQuoteService }),
     ...(shippingGuideService === undefined ? {} : { shippingGuideService }),
   });
+
+  const closureScheduler = new DailyClosureScheduler(inventoryClosureService);
+  const closureTimer = setInterval(
+    () => void closureScheduler.tick(new Date()),
+    60_000,
+  );
+  closureTimer.unref();
+  void closureScheduler.tick(new Date());
+  app.addHook('onClose', async () => clearInterval(closureTimer));
 
   if (
     config.whatsappAccessToken !== undefined &&

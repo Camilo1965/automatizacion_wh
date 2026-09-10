@@ -22,4 +22,34 @@ describe('InventoryClosureService', () => {
       }),
     );
   });
+
+  it('acknowledges a generated closure and requires a reason to reopen it', async () => {
+    const acknowledge = vi.fn().mockResolvedValue({ status: 'acknowledged' });
+    const reopen = vi
+      .fn()
+      .mockResolvedValue({ status: 'reopened', version: 2 });
+    const repository = {
+      findByDate: vi.fn(),
+      movementsForDate: vi.fn(),
+      save: vi.fn(),
+      list: vi.fn(),
+      findById: vi.fn(),
+      acknowledge,
+      reopen,
+    };
+    const service = new InventoryClosureService(repository);
+    await service.acknowledge('11111111-1111-4111-8111-111111111111');
+    await expect(
+      service.reopen('11111111-1111-4111-8111-111111111111', ' '),
+    ).rejects.toThrow('reopen_reason_required');
+    await service.reopen(
+      '11111111-1111-4111-8111-111111111111',
+      'Corrección en Treinta',
+    );
+    expect(acknowledge).toHaveBeenCalledOnce();
+    expect(reopen).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      'Corrección en Treinta',
+    );
+  });
 });

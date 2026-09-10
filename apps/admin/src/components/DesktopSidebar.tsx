@@ -28,6 +28,7 @@ export function DesktopSidebar() {
         ))}
         <p className="nav-label">Inventario</p>
         <NavLink to="/catalog-import">Importar catálogo</NavLink>
+        <NavLink to="/inventory/closures">Cierres de Treinta</NavLink>
         <p className="nav-label">Configuración</p>
         <NavLink to="/settings/shipping">Preferencias</NavLink>
         <NavLink to="/settings/whatsapp">WhatsApp Business</NavLink>

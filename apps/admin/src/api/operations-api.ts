@@ -1,5 +1,7 @@
 import {
   IntegrationHealthResponseSchema,
+  InventoryClosureResponseSchema,
+  InventoryClosuresResponseSchema,
   OwnerAlertsResponseSchema,
 } from '@camila/contracts';
 import { apiRequest } from './client';
@@ -14,4 +16,19 @@ export async function getIntegrationHealth() {
 export async function getAlerts() {
   return (await apiRequest('/alerts', { schema: OwnerAlertsResponseSchema }))
     .data;
+}
+export async function getInventoryClosures() {
+  return (
+    await apiRequest('/inventory/closures', {
+      schema: InventoryClosuresResponseSchema,
+    })
+  ).data;
+}
+export async function acknowledgeInventoryClosure(id: string) {
+  return (
+    await apiRequest(`/inventory/closures/${id}/acknowledge`, {
+      method: 'POST',
+      schema: InventoryClosureResponseSchema,
+    })
+  ).data;
 }

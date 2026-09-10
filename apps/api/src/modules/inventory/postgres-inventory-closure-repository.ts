@@ -1,4 +1,4 @@
-import { asc, eq, sql } from 'drizzle-orm';
+import { asc, desc, eq, sql } from 'drizzle-orm';
 import type { PostgresDatabase } from '../../database/client.js';
 import {
   catalogReferences,
@@ -49,5 +49,59 @@ export class PostgresInventoryClosureRepository implements ClosureRepository {
       .onConflictDoNothing()
       .returning();
     return row ?? this.findByDate(input.businessDate);
+  }
+  list() {
+    return this.database.orm
+      .select()
+      .from(inventoryClosures)
+      .orderBy(
+        desc(inventoryClosures.businessDate),
+        desc(inventoryClosures.version),
+      )
+      .limit(100);
+  }
+  async findById(id: string) {
+    const [row] = await this.database.orm
+      .select()
+      .from(inventoryClosures)
+      .where(eq(inventoryClosures.id, id))
+      .limit(1);
+    return row ?? null;
+  }
+  async acknowledge(id: string) {
+    const [row] = await this.database.orm
+      .update(inventoryClosures)
+      .set({ status: 'acknowledged', acknowledgedAt: sql`clock_timestamp()` })
+      .where(eq(inventoryClosures.id, id))
+      .returning();
+    return row;
+  }
+  async reopen(id: string, reason: string) {
+    return this.database.orm.transaction(async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(inventoryClosures)
+        .where(eq(inventoryClosures.id, id))
+        .limit(1);
+      if (!current) return undefined;
+      await tx
+        .update(inventoryClosures)
+        .set({ status: 'reopened' })
+        .where(eq(inventoryClosures.id, id));
+      const [created] = await tx
+        .insert(inventoryClosures)
+        .values({
+          businessDate: current.businessDate,
+          version: current.version + 1,
+          profile: current.profile,
+          status: 'generated',
+          movementCount: 0,
+          totalUnits: 0,
+          checksum: current.checksum,
+          csvContent: `# Reapertura: ${reason}\r\nreferencia,talla,ajuste\r\n`,
+        })
+        .returning();
+      return created;
+    });
   }
 }
