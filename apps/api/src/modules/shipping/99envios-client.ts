@@ -63,6 +63,7 @@ export type CreatePreShipmentInput = Readonly<{
   }>;
   carrier: string;
   notes: string | null;
+  insurance?: 'none' | 'standard' | 'plus';
 }>;
 
 export type QuoteInput = Readonly<{
@@ -119,8 +120,8 @@ export class NinetyNineEnviosClient {
           alto: input.heightCm,
           diceContener: input.contents,
           valorDeclarado: input.declaredValueCop,
-          seguro99: false,
-          seguro99plus: false,
+          seguro99: input.insurance === 'standard',
+          seguro99plus: input.insurance === 'plus',
           Destinatario: {
             tipoDocumento: 'CC',
             numeroDocumento: null,
