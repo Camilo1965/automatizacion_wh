@@ -31,6 +31,7 @@ import { ShippingGuideService } from './modules/shipping/shipping-guide-service.
 import { LocalGuidePdfStorage } from './modules/shipping/local-guide-pdf-storage.js';
 import { DashboardService } from './modules/dashboard/dashboard-service.js';
 import { PostgresDashboardRepository } from './modules/dashboard/postgres-dashboard-repository.js';
+import { ConnectionCapabilityService } from './modules/whatsapp/connection-capability-service.js';
 import path from 'node:path';
 
 async function main(): Promise<void> {
@@ -122,6 +123,14 @@ async function main(): Promise<void> {
     dashboardService: new DashboardService(
       new PostgresDashboardRepository(database),
     ),
+    connectionCapabilityService: new ConnectionCapabilityService({
+      ...(config.whatsappPhoneNumberId === undefined
+        ? {}
+        : { phoneNumberId: config.whatsappPhoneNumberId }),
+      webhookConfigured:
+        config.whatsappWebhookVerifyToken !== undefined &&
+        config.whatsappAppSecret !== undefined,
+    }),
     photoStorage,
     ...(shippingQuoteService === undefined ? {} : { shippingQuoteService }),
     ...(shippingGuideService === undefined ? {} : { shippingGuideService }),

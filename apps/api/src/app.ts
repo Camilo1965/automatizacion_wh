@@ -27,6 +27,7 @@ import type { ManualMessageService } from './modules/conversations/manual-messag
 import type { DashboardService } from './modules/dashboard/dashboard-service.js';
 import type { ShippingQuoteOperations } from './modules/shipping/shipping-quote-service.js';
 import type { ShippingGuideOperations } from './modules/shipping/shipping-guide-service.js';
+import type { ConnectionCapabilityService } from './modules/whatsapp/connection-capability-service.js';
 import { adminRoutes } from './routes/admin/index.js';
 import { healthRoutes } from './routes/health.js';
 import { whatsappRoutes } from './routes/whatsapp.js';
@@ -54,6 +55,7 @@ export type AppDependencies = Readonly<{
   shippingQuoteService?: ShippingQuoteOperations;
   shippingGuideService?: ShippingGuideOperations;
   dashboardService?: DashboardService;
+  connectionCapabilityService?: ConnectionCapabilityService;
 }>;
 
 declare module 'fastify' {
@@ -203,6 +205,11 @@ export async function buildApp(
     ...(dependencies.dashboardService === undefined
       ? {}
       : { dashboardService: dependencies.dashboardService }),
+    ...(dependencies.connectionCapabilityService === undefined
+      ? {}
+      : {
+          connectionCapabilityService: dependencies.connectionCapabilityService,
+        }),
     photoStorage: dependencies.photoStorage,
   });
 

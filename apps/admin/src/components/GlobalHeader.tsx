@@ -23,7 +23,7 @@ export function GlobalHeader({
       </div>
       <div className="global-header-actions">
         <Link
-          to="/settings/shipping"
+          to="/settings/whatsapp"
           className="connection-link"
           aria-label="Abrir configuración de integraciones"
         >

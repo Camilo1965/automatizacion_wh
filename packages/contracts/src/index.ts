@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export * from './dashboard.js';
 export * from './conversations.js';
+export * from './whatsapp-connection.js';
 
 export const ApiErrorSchema = z
   .object({

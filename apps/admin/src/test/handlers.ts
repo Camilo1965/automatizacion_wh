@@ -84,6 +84,20 @@ function toReferencePublic(item: typeof referenceDetail) {
 }
 
 export const handlers = [
+  http.get(`${base}/whatsapp/connection`, () =>
+    HttpResponse.json({
+      data: {
+        mode: 'cloud_api_only',
+        mobileAppAvailable: false,
+        phoneNumberId: '1339849665872310',
+        wabaId: '1099315002467423',
+        webhookConfigured: true,
+        serviceWindowHours: 24,
+        evidenceSource: null,
+        checkedAt: '2026-09-10T12:00:00.000Z',
+      },
+    }),
+  ),
   http.get(`${base}/dashboard`, () =>
     HttpResponse.json({
       data: {

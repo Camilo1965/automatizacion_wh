@@ -55,6 +55,7 @@ import type { ShippingGuideOperations } from '../../modules/shipping/shipping-gu
 import type { DashboardService } from '../../modules/dashboard/dashboard-service.js';
 import { registerDashboardRoute } from './dashboard.js';
 import { CARRIER_CATALOG } from '../../modules/shipping/carrier-catalog.js';
+import type { ConnectionCapabilityService } from '../../modules/whatsapp/connection-capability-service.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -108,6 +109,7 @@ export type AdminRoutesDependencies = Readonly<{
   shippingQuoteService?: ShippingQuoteOperations;
   shippingGuideService?: ShippingGuideOperations;
   dashboardService?: DashboardService;
+  connectionCapabilityService?: ConnectionCapabilityService;
 }>;
 
 export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
@@ -129,6 +131,15 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     shippingGuideService,
     dashboardService,
   } = dependencies;
+
+  if (dependencies.connectionCapabilityService !== undefined) {
+    app.get('/whatsapp/connection', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      return reply.status(200).send({
+        data: dependencies.connectionCapabilityService!.getConnection(),
+      });
+    });
+  }
 
   if (dashboardService !== undefined) {
     await registerDashboardRoute(app, {

@@ -30,6 +30,7 @@ export function DesktopSidebar() {
         <NavLink to="/catalog-import">Importar catálogo</NavLink>
         <p className="nav-label">Configuración</p>
         <NavLink to="/settings/shipping">Preferencias</NavLink>
+        <NavLink to="/settings/whatsapp">WhatsApp Business</NavLink>
       </nav>
     </aside>
   );
