@@ -1,4 +1,17 @@
-# Camila
+# WhatsApp Commerce Automation
+
+Automatización operativa para negocios de comercio conversacional por WhatsApp: catálogo guiado por talla, pedidos contraentrega, cotización de envíos, selección de seguro, generación de guía y control de inventario.
+
+> Proyecto en evolución. La integración con Treinta funciona mediante importación inicial y archivo de cierre manual; WhatsApp Cloud API y 99envíos se conectan mediante adaptadores configurables.
+
+## Qué resuelve
+
+- Guía al cliente desde WhatsApp: talla → referencias disponibles → datos → envío → confirmación.
+- Muestra únicamente fotografías de referencias con stock real para la talla solicitada.
+- Permite reglas de envío globales o específicas por municipio: transportadora preferida, fallback permitido o bloqueado y seguro estándar o 99 Plus.
+- Conserva la opción de envío confirmada hasta la creación de la guía y su PDF.
+- Administra catálogo, fotografías, stock, pedidos, cotizaciones y operaciones desde un panel responsive.
+- Mantiene trazabilidad de reservas, movimientos de inventario y cambios de políticas.
 
 Base técnica local para la automatización de ventas de calzado por WhatsApp.
 
