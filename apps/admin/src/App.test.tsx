@@ -41,9 +41,9 @@ describe('App shell', () => {
       within(municipalityForm).getByLabelText('Código DANE'),
       '05001000',
     );
-    await user.type(
+    await user.selectOptions(
       within(municipalityForm).getByLabelText('Transportadora preferida'),
-      'TCC',
+      'tcc',
     );
     await user.selectOptions(
       within(municipalityForm).getByLabelText('Si no aparece la preferida'),

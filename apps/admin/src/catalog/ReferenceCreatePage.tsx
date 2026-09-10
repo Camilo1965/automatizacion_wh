@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { createReference } from '../api/catalog-api';
+import { createReference, uploadReferencePhoto } from '../api/catalog-api';
 import { getErrorMessage, getFieldError } from '../api/client';
 import { parseIntegerDigits } from '../lib/parse-integer-digits';
 import { ReferenceForm, type ReferenceFormValues } from './ReferenceForm';
+import { FileDropzone } from '../components/FileDropzone';
 
 const MAX_PRICE_COP = 2_000_000_000;
 
@@ -13,6 +14,7 @@ export function ReferenceCreatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [fieldError, setFieldError] = useState<string | undefined>();
+  const [photo, setPhoto] = useState<File | null>(null);
 
   async function onSubmit(values: ReferenceFormValues) {
     setSubmitting(true);
@@ -36,6 +38,9 @@ export function ReferenceCreatePage() {
         color: values.color,
         priceCop,
       });
+      if (photo !== null) {
+        await uploadReferencePhoto(created.id, photo);
+      }
       void navigate(`/references/${created.id}`);
     } catch (err) {
       setErrorMessage(getErrorMessage(err, 'No se pudo crear la referencia'));
@@ -65,7 +70,16 @@ export function ReferenceCreatePage() {
         errorMessage={errorMessage}
         {...(fieldError === undefined ? {} : { fieldError })}
         onSubmit={onSubmit}
-      />
+      >
+        <FileDropzone
+          accept={['image/jpeg', 'image/png']}
+          label="Fotografía principal (opcional, puedes cargarla ahora)"
+          maxBytes={5 * 1024 * 1024}
+          onFile={setPhoto}
+          disabled={submitting}
+        />
+        {photo ? <p className="muted">Seleccionada: {photo.name}</p> : null}
+      </ReferenceForm>
     </section>
   );
 }

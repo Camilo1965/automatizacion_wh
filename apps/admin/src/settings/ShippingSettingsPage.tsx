@@ -25,18 +25,19 @@ const DEFAULT_POLICY: ShippingPolicy = {
 function PolicyFields({
   prefix,
   policy,
+  carriers,
   onChange,
 }: {
   prefix: string;
   policy: ShippingPolicy;
+  carriers: readonly string[];
   onChange: (policy: ShippingPolicy) => void;
 }) {
   return (
     <div className="policy-grid">
       <label htmlFor={`${prefix}-carrier`}>Transportadora preferida</label>
-      <input
+      <select
         id={`${prefix}-carrier`}
-        list="observed-carriers"
         value={policy.preferredCarrier ?? ''}
         onChange={(event) =>
           onChange({
@@ -45,8 +46,14 @@ function PolicyFields({
               event.target.value.trim() === '' ? null : event.target.value,
           })
         }
-        placeholder="Automática (recomendado)"
-      />
+      >
+        <option value="">Automática (recomendado)</option>
+        {carriers.map((carrier) => (
+          <option key={carrier} value={carrier}>
+            {carrier}
+          </option>
+        ))}
+      </select>
       <label htmlFor={`${prefix}-fallback`}>Si no aparece la preferida</label>
       <select
         id={`${prefix}-fallback`}
@@ -229,12 +236,6 @@ export function ShippingSettingsPage() {
         Controla qué opciones recibe cada cliente y qué hacer cuando una
         transportadora no tiene cobertura.
       </p>
-      <datalist id="observed-carriers">
-        {carriers.map((carrier) => (
-          <option key={carrier} value={carrier} />
-        ))}
-      </datalist>
-
       <form
         className="card settings-card"
         onSubmit={(event) => void saveGlobal(event)}
@@ -246,6 +247,7 @@ export function ShippingSettingsPage() {
         <PolicyFields
           prefix="global"
           policy={globalPolicy}
+          carriers={carriers}
           onChange={setGlobalPolicy}
         />
         <p className="policy-explanation">{describePolicy(globalPolicy)}</p>
@@ -277,6 +279,7 @@ export function ShippingSettingsPage() {
         <PolicyFields
           prefix="municipal"
           policy={municipalPolicy}
+          carriers={carriers}
           onChange={setMunicipalPolicy}
         />
         <p className="policy-explanation">{describePolicy(municipalPolicy)}</p>

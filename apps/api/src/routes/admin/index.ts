@@ -54,6 +54,7 @@ import type { ShippingQuoteOperations } from '../../modules/shipping/shipping-qu
 import type { ShippingGuideOperations } from '../../modules/shipping/shipping-guide-service.js';
 import type { DashboardService } from '../../modules/dashboard/dashboard-service.js';
 import { registerDashboardRoute } from './dashboard.js';
+import { CARRIER_CATALOG } from '../../modules/shipping/carrier-catalog.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -276,7 +277,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     app.get('/shipping/carriers', async (request, reply) => {
       await requireAdminSession(request, authService);
       return reply.status(200).send({
-        data: { items: await shippingQuoteService.listObservedCarriers() },
+        data: { items: CARRIER_CATALOG.map((carrier) => carrier.id) },
       });
     });
     app.post('/shipping/rules', async (request, reply) => {

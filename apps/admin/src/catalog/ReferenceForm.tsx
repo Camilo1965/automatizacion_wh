@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 
 import { ErrorMessage } from '../components/ErrorMessage';
 
@@ -16,6 +16,7 @@ type ReferenceFormProps = {
   errorMessage?: string;
   fieldError?: string;
   onSubmit: (values: ReferenceFormValues) => Promise<void> | void;
+  children?: ReactNode;
 };
 
 export type { ReferenceFormValues };
@@ -29,6 +30,7 @@ export function ReferenceForm({
   errorMessage = '',
   fieldError,
   onSubmit,
+  children,
 }: ReferenceFormProps) {
   const [values, setValues] = useState(initialValues);
   const describedBy =
@@ -100,6 +102,8 @@ export function ReferenceForm({
         aria-invalid={fieldError === 'priceCop'}
         aria-describedby={fieldError === 'priceCop' ? describedBy : undefined}
       />
+
+      {children}
 
       <ErrorMessage message={errorMessage} id={FORM_ERROR_ID} />
 
