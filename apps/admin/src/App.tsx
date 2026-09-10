@@ -13,6 +13,7 @@ import { OrdersListPage } from './orders/OrdersListPage';
 import { OrderCreatePage } from './orders/OrderCreatePage';
 import { OrderDetailPage } from './orders/OrderDetailPage';
 import { ConversationsListPage } from './conversations/ConversationsListPage';
+import { DashboardPage } from './dashboard/DashboardPage';
 
 function AuthenticatedShell() {
   const { user, logout } = useAuth();
@@ -49,12 +50,14 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AuthenticatedShell />}>
-          <Route index element={<CatalogListPage />} />
+          <Route index element={<DashboardPage />} />
+          <Route path="catalog" element={<CatalogListPage />} />
           <Route path="orders" element={<OrdersListPage />} />
           <Route path="orders/new" element={<OrderCreatePage />} />
           <Route path="orders/:orderId" element={<OrderDetailPage />} />
           <Route path="conversations" element={<ConversationsListPage />} />
           <Route path="catalog-import" element={<CatalogImportPage />} />
+          <Route path="settings/shipping" element={<SettingsPlaceholderPage />} />
           <Route path="references/new" element={<ReferenceCreatePage />} />
           <Route
             path="references/:referenceId"
@@ -64,5 +67,15 @@ export function App() {
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+  );
+}
+
+function SettingsPlaceholderPage() {
+  return (
+    <section aria-labelledby="settings-title">
+      <p className="eyebrow">Configuración</p>
+      <h2 id="settings-title">Preferencias</h2>
+      <p className="muted">Configura cómo se cotizan y despachan los pedidos.</p>
+    </section>
   );
 }

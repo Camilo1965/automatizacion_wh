@@ -1,11 +1,13 @@
 :root {
   color-scheme: light;
-  --bg: #f3efe6;
-  --ink: #1c1914;
-  --muted: #5c5346;
-  --panel: #fffdf8;
-  --line: #d7cec0;
-  --accent: #0f5c4c;
+  --bg: #f7f4ef;
+  --ink: #27211e;
+  --muted: #675f57;
+  --panel: #ffffff;
+  --line: #e5ddd3;
+  --accent: #236052;
+  --accent-soft: #e6f0ed;
+  --terracotta: #b65c43;
   --danger: #8a1f1f;
   --focus: #0b6e4f;
   font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
@@ -31,10 +33,16 @@ a {
 }
 
 .app-shell {
-  width: min(100% - 2rem, 48rem);
-  margin: 0 auto;
-  padding: 2rem 0 3rem;
+  min-height: 100vh;
 }
+
+.app-content {
+  width: min(100% - 2rem, 82rem);
+  margin: 0 auto;
+  padding: 1.5rem 0 5.75rem;
+}
+
+.app-sidebar { display: none; }
 
 .app-header {
   margin-bottom: 1.5rem;
@@ -86,8 +94,45 @@ h3 {
 main {
   background: var(--panel);
   border: 1px solid var(--line);
-  padding: 1.25rem 1.25rem 1.5rem;
+  border-radius: 1rem;
+  padding: clamp(1rem, 3vw, 2rem);
+  box-shadow: 0 12px 32px rgb(39 33 30 / 4%);
 }
+
+.eyebrow {
+  margin: 0 0 .35rem;
+  color: var(--terracotta);
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.card { border: 1px solid var(--line); border-radius: .85rem; padding: 1rem; }
+
+.priority-grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+.priority-card { min-height: 10rem; padding: 1rem; border: 1px solid var(--line); border-radius: .85rem; color: var(--ink); text-decoration: none; transition: transform .15s ease, box-shadow .15s ease; }
+.priority-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgb(39 33 30 / 9%); }
+.priority-card h3 { margin-top: 1.5rem; }
+.priority-card p { margin: 0; color: var(--muted); }
+.priority-card-arrow { float: right; color: var(--accent); font-size: 1.35rem; }
+.dashboard-status { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; margin-top: 1.5rem; background: var(--accent-soft); border-color: #c6dbd5; }
+
+.mobile-nav {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: .4rem max(.5rem, env(safe-area-inset-right)) calc(.4rem + env(safe-area-inset-bottom)) max(.5rem, env(safe-area-inset-left));
+  border-top: 1px solid var(--line);
+  background: rgb(255 255 255 / 96%);
+  backdrop-filter: blur(12px);
+}
+.mobile-nav a { min-height: 44px; display: grid; place-items: center; color: var(--muted); font-size: .76rem; text-decoration: none; }
+.mobile-nav a.active { color: var(--accent); font-weight: 700; }
 
 .muted {
   color: var(--muted);
@@ -225,6 +270,17 @@ a:focus-visible {
 }
 
 @media (min-width: 720px) {
+  .app-shell { display: grid; grid-template-columns: 16rem minmax(0, 1fr); }
+  .app-sidebar { position: sticky; top: 0; display: block; height: 100vh; padding: 1.5rem 1rem; border-right: 1px solid var(--line); background: #fffaf5; }
+  .brand { display: block; margin: .25rem .5rem 2rem; color: var(--ink); font-size: 1.15rem; font-weight: 800; text-decoration: none; }
+  .brand span { display: block; color: var(--terracotta); font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; }
+  .desktop-nav { display: grid; gap: .2rem; }
+  .desktop-nav a { min-height: 44px; display: flex; align-items: center; padding: 0 .75rem; border-radius: .55rem; color: var(--ink); text-decoration: none; }
+  .desktop-nav a:hover, .desktop-nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+  .nav-label { margin: 1.25rem .75rem .3rem; color: var(--muted); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .app-content { width: min(100% - 3rem, 82rem); margin: 0 auto; padding-bottom: 2rem; }
+  .mobile-nav { display: none; }
+  .mobile-brand { display: none; }
   .reference-list a {
     grid-template-columns: 5.5rem 1fr;
     column-gap: 1rem;
@@ -302,10 +358,7 @@ a:focus-visible {
 }
 
 @media (max-width: 480px) {
-  .app-shell {
-    width: min(100% - 1.25rem, 48rem);
-    padding-top: 1.25rem;
-  }
+  .app-content { width: min(100% - 1.25rem, 48rem); padding-top: 1.25rem; }
 
   main {
     padding: 1rem;

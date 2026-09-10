@@ -22,6 +22,31 @@ async function loginAsAdmin(
 }
 
 describe('App shell', () => {
+  it('shows the operational navigation and dashboard after login', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { initialEntries: ['/login'] });
+
+    await loginAsAdmin(user);
+
+    expect(await screen.findByRole('heading', { name: 'Inicio' })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Pedidos' })[0]).toHaveAttribute(
+      'href',
+      '/orders',
+    );
+    expect(screen.getAllByRole('link', { name: 'Conversaciones' })[0]).toHaveAttribute(
+      'href',
+      '/conversations',
+    );
+    expect(screen.getAllByRole('link', { name: 'Catálogo' })[0]).toHaveAttribute(
+      'href',
+      '/catalog',
+    );
+    expect(screen.getAllByRole('link', { name: 'Preferencias' })[0]).toHaveAttribute(
+      'href',
+      '/settings/shipping',
+    );
+  });
+
   it('renders Camila Operaciones brand landmarks after login', async () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { initialEntries: ['/login'] });
@@ -37,7 +62,7 @@ describe('App shell', () => {
     expect(screen.getByRole('main')).toBeInTheDocument();
     expect(screen.getByText('Entorno local')).toBeInTheDocument();
     expect(
-      await screen.findByRole('heading', { name: 'Catálogo' }),
+      await screen.findByRole('heading', { name: 'Inicio' }),
     ).toBeInTheDocument();
   });
 });
@@ -139,14 +164,14 @@ describe('Login and session', () => {
   });
 
   it('redirects protected routes to login without session', async () => {
-    renderWithProviders(<App />, { initialEntries: ['/'] });
+    renderWithProviders(<App />, { initialEntries: ['/catalog'] });
 
     expect(
       await screen.findByRole('heading', { name: 'Iniciar sesión' }),
     ).toBeInTheDocument();
   });
 
-  it('logs in and reaches catalog', async () => {
+  it('logs in and reaches the operational dashboard', async () => {
     const user = userEvent.setup();
     seedDefaultCatalog();
     state.authenticated = false;
@@ -154,15 +179,18 @@ describe('Login and session', () => {
 
     await loginAsAdmin(user);
 
-    expect(await screen.findByText('01')).toBeInTheDocument();
-    expect(screen.getByText(/Ballerina/)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Inicio' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Nuevo pedido' })).toHaveAttribute(
+      'href',
+      '/orders/new',
+    );
   });
 });
 
 describe('Catalog flows', () => {
   it('lists references with complete fields', async () => {
     seedDefaultCatalog();
-    renderWithProviders(<App />, { initialEntries: ['/'] });
+    renderWithProviders(<App />, { initialEntries: ['/catalog'] });
 
     const item = await screen.findByRole('link', { name: /01/ });
     expect(item).toHaveTextContent('Ballerina');
@@ -180,7 +208,7 @@ describe('Catalog flows', () => {
     const user = userEvent.setup();
     seedDefaultCatalog();
     state.references[0]!.active = false;
-    renderWithProviders(<App />, { initialEntries: ['/'] });
+    renderWithProviders(<App />, { initialEntries: ['/catalog'] });
 
     expect(
       await screen.findByText('No hay referencias con estos filtros'),
@@ -544,7 +572,7 @@ describe('Catalog flows', () => {
   it('shows server errors on catalog list', async () => {
     seedDefaultCatalog();
     state.forceServerError = true;
-    renderWithProviders(<App />, { initialEntries: ['/'] });
+    renderWithProviders(<App />, { initialEntries: ['/catalog'] });
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'An unexpected error occurred',
@@ -563,7 +591,7 @@ describe('Catalog flows', () => {
         }),
       ),
     );
-    renderWithProviders(<App />, { initialEntries: ['/'] });
+    renderWithProviders(<App />, { initialEntries: ['/catalog'] });
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'La respuesta del servidor no es válida',
@@ -573,7 +601,7 @@ describe('Catalog flows', () => {
   it('clears session and shows login on expired 401', async () => {
     const user = userEvent.setup();
     seedDefaultCatalog();
-    renderWithProviders(<App />, { initialEntries: ['/'] });
+    renderWithProviders(<App />, { initialEntries: ['/catalog'] });
     expect(await screen.findByText('01')).toBeInTheDocument();
 
     state.forceUnauthorized = true;
@@ -588,7 +616,7 @@ describe('Catalog flows', () => {
 
   it('shows loading and empty states', async () => {
     state.authenticated = true;
-    renderWithProviders(<App />, { initialEntries: ['/'] });
+    renderWithProviders(<App />, { initialEntries: ['/catalog'] });
 
     expect(
       await screen.findByText('No hay referencias con estos filtros'),
