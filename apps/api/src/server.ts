@@ -32,6 +32,12 @@ import { LocalGuidePdfStorage } from './modules/shipping/local-guide-pdf-storage
 import { DashboardService } from './modules/dashboard/dashboard-service.js';
 import { PostgresDashboardRepository } from './modules/dashboard/postgres-dashboard-repository.js';
 import { ConnectionCapabilityService } from './modules/whatsapp/connection-capability-service.js';
+import { AlertService } from './modules/alerts/alert-service.js';
+import { PostgresAlertRepository } from './modules/alerts/postgres-alert-repository.js';
+import { InventoryClosureService } from './modules/inventory/inventory-closure-service.js';
+import { PostgresInventoryClosureRepository } from './modules/inventory/postgres-inventory-closure-repository.js';
+import { IntegrationHealthService } from './modules/integrations/integration-health-service.js';
+import { access } from 'node:fs/promises';
 import path from 'node:path';
 
 async function main(): Promise<void> {
@@ -130,6 +136,19 @@ async function main(): Promise<void> {
       webhookConfigured:
         config.whatsappWebhookVerifyToken !== undefined &&
         config.whatsappAppSecret !== undefined,
+    }),
+    alertService: new AlertService(new PostgresAlertRepository(database)),
+    inventoryClosureService: new InventoryClosureService(
+      new PostgresInventoryClosureRepository(database),
+    ),
+    integrationHealthService: new IntegrationHealthService({
+      database: () => database.ping(),
+      mediaStorage: () => access(config.mediaRoot),
+      whatsappConfigured:
+        config.whatsappAccessToken !== undefined &&
+        config.whatsappPhoneNumberId !== undefined,
+      shippingConfigured: shippingClient !== undefined,
+      schedulerHealthy: true,
     }),
     photoStorage,
     ...(shippingQuoteService === undefined ? {} : { shippingQuoteService }),

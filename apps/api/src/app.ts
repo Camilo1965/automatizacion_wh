@@ -28,6 +28,9 @@ import type { DashboardService } from './modules/dashboard/dashboard-service.js'
 import type { ShippingQuoteOperations } from './modules/shipping/shipping-quote-service.js';
 import type { ShippingGuideOperations } from './modules/shipping/shipping-guide-service.js';
 import type { ConnectionCapabilityService } from './modules/whatsapp/connection-capability-service.js';
+import type { AlertService } from './modules/alerts/alert-service.js';
+import type { InventoryClosureService } from './modules/inventory/inventory-closure-service.js';
+import type { IntegrationHealthService } from './modules/integrations/integration-health-service.js';
 import { adminRoutes } from './routes/admin/index.js';
 import { healthRoutes } from './routes/health.js';
 import { whatsappRoutes } from './routes/whatsapp.js';
@@ -56,6 +59,9 @@ export type AppDependencies = Readonly<{
   shippingGuideService?: ShippingGuideOperations;
   dashboardService?: DashboardService;
   connectionCapabilityService?: ConnectionCapabilityService;
+  alertService?: AlertService;
+  inventoryClosureService?: InventoryClosureService;
+  integrationHealthService?: IntegrationHealthService;
 }>;
 
 declare module 'fastify' {
@@ -210,6 +216,15 @@ export async function buildApp(
       : {
           connectionCapabilityService: dependencies.connectionCapabilityService,
         }),
+    ...(dependencies.alertService === undefined
+      ? {}
+      : { alertService: dependencies.alertService }),
+    ...(dependencies.inventoryClosureService === undefined
+      ? {}
+      : { inventoryClosureService: dependencies.inventoryClosureService }),
+    ...(dependencies.integrationHealthService === undefined
+      ? {}
+      : { integrationHealthService: dependencies.integrationHealthService }),
     photoStorage: dependencies.photoStorage,
   });
 

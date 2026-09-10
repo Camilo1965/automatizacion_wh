@@ -16,6 +16,8 @@ import { ConversationInboxPage } from './conversations/ConversationInboxPage';
 import { DashboardPage } from './dashboard/DashboardPage';
 import { ShippingSettingsPage } from './settings/ShippingSettingsPage';
 import { WhatsAppSettingsPage } from './settings/WhatsAppSettingsPage';
+import { IntegrationsPage } from './settings/IntegrationsPage';
+import { AlertsPage } from './alerts/AlertsPage';
 
 function AuthenticatedShell() {
   const { user, logout } = useAuth();
@@ -61,6 +63,8 @@ export function App() {
           <Route path="catalog-import" element={<CatalogImportPage />} />
           <Route path="settings/shipping" element={<ShippingSettingsPage />} />
           <Route path="settings/whatsapp" element={<WhatsAppSettingsPage />} />
+          <Route path="settings/integrations" element={<IntegrationsPage />} />
+          <Route path="alerts" element={<AlertsPage />} />
           <Route path="references/new" element={<ReferenceCreatePage />} />
           <Route
             path="references/:referenceId"

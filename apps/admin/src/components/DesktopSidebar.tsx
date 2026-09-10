@@ -31,6 +31,8 @@ export function DesktopSidebar() {
         <p className="nav-label">Configuración</p>
         <NavLink to="/settings/shipping">Preferencias</NavLink>
         <NavLink to="/settings/whatsapp">WhatsApp Business</NavLink>
+        <NavLink to="/settings/integrations">Integraciones</NavLink>
+        <NavLink to="/alerts">Alertas</NavLink>
       </nav>
     </aside>
   );

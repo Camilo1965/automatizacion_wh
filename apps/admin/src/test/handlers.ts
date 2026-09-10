@@ -98,6 +98,25 @@ export const handlers = [
       },
     }),
   ),
+  http.get(`${base}/integrations/health`, () =>
+    HttpResponse.json({
+      data: Object.fromEntries(
+        ['database', 'mediaStorage', 'whatsapp', 'shipping', 'scheduler'].map(
+          (key) => [
+            key,
+            {
+              status: 'up',
+              checkedAt: '2026-09-10T19:00:00.000Z',
+              detail: null,
+            },
+          ],
+        ),
+      ),
+    }),
+  ),
+  http.get(`${base}/alerts`, () =>
+    HttpResponse.json({ data: { items: [], nextCursor: null } }),
+  ),
   http.get(`${base}/dashboard`, () =>
     HttpResponse.json({
       data: {

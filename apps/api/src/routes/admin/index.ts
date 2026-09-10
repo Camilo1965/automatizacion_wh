@@ -56,6 +56,9 @@ import type { DashboardService } from '../../modules/dashboard/dashboard-service
 import { registerDashboardRoute } from './dashboard.js';
 import { CARRIER_CATALOG } from '../../modules/shipping/carrier-catalog.js';
 import type { ConnectionCapabilityService } from '../../modules/whatsapp/connection-capability-service.js';
+import type { AlertService } from '../../modules/alerts/alert-service.js';
+import type { InventoryClosureService } from '../../modules/inventory/inventory-closure-service.js';
+import type { IntegrationHealthService } from '../../modules/integrations/integration-health-service.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -110,6 +113,9 @@ export type AdminRoutesDependencies = Readonly<{
   shippingGuideService?: ShippingGuideOperations;
   dashboardService?: DashboardService;
   connectionCapabilityService?: ConnectionCapabilityService;
+  alertService?: AlertService;
+  inventoryClosureService?: InventoryClosureService;
+  integrationHealthService?: IntegrationHealthService;
 }>;
 
 export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
@@ -138,6 +144,50 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
       return reply.status(200).send({
         data: dependencies.connectionCapabilityService!.getConnection(),
       });
+    });
+  }
+
+  if (dependencies.alertService !== undefined) {
+    app.get('/alerts', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      return reply
+        .status(200)
+        .send({
+          data: {
+            items: await dependencies.alertService!.list(),
+            nextCursor: null,
+          },
+        });
+    });
+    app.post('/alerts/:id/read', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const id = z.uuid().parse((request.params as { id: string }).id);
+      return reply
+        .status(200)
+        .send({ data: await dependencies.alertService!.markRead(id) });
+    });
+  }
+
+  if (dependencies.inventoryClosureService !== undefined) {
+    app.post('/inventory/closures/:date/generate', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const date = z.iso
+        .date()
+        .parse((request.params as { date: string }).date);
+      return reply
+        .status(201)
+        .send({
+          data: await dependencies.inventoryClosureService!.generate(date),
+        });
+    });
+  }
+
+  if (dependencies.integrationHealthService !== undefined) {
+    app.get('/integrations/health', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      return reply
+        .status(200)
+        .send({ data: await dependencies.integrationHealthService!.check() });
     });
   }
 
