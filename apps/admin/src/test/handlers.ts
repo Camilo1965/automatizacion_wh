@@ -84,6 +84,31 @@ function toReferencePublic(item: typeof referenceDetail) {
 }
 
 export const handlers = [
+  http.get(`${base}/dashboard`, () =>
+    HttpResponse.json({
+      data: {
+        queues: {
+          conversations: 2,
+          guideIncidents: 1,
+          readyToDispatch: 3,
+          awaitingConfirmation: 4,
+          closurePending: false,
+          lowStockReferences: 5,
+          integrationFailures: 0,
+        },
+        today: {
+          newConversations: 7,
+          confirmedOrders: 4,
+          dispatchedOrders: 2,
+          codValueCop: 480000,
+          guidesCreated: 3,
+          reservedUnits: 4,
+          averageFirstResponseSeconds: null,
+        },
+        generatedAt: '2026-09-10T15:00:00.000Z',
+      },
+    }),
+  ),
   http.get(`${base}/shipping/preferences`, () =>
     HttpResponse.json({
       data: {

@@ -27,6 +27,8 @@ import { PostgresShippingQuoteRepository } from './modules/shipping/postgres-shi
 import { ShippingQuoteService } from './modules/shipping/shipping-quote-service.js';
 import { ShippingGuideService } from './modules/shipping/shipping-guide-service.js';
 import { LocalGuidePdfStorage } from './modules/shipping/local-guide-pdf-storage.js';
+import { DashboardService } from './modules/dashboard/dashboard-service.js';
+import { PostgresDashboardRepository } from './modules/dashboard/postgres-dashboard-repository.js';
 import path from 'node:path';
 
 async function main(): Promise<void> {
@@ -105,6 +107,9 @@ async function main(): Promise<void> {
     inboundProcessor,
     conversationAdminRepository: new PostgresConversationAdminRepository(
       database,
+    ),
+    dashboardService: new DashboardService(
+      new PostgresDashboardRepository(database),
     ),
     photoStorage,
     ...(shippingQuoteService === undefined ? {} : { shippingQuoteService }),

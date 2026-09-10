@@ -47,6 +47,8 @@ import type { OrderService } from '../../modules/orders/order-service.js';
 import type { ConversationAdminRepository } from '../../modules/conversations/postgres-conversation-admin-repository.js';
 import type { ShippingQuoteOperations } from '../../modules/shipping/shipping-quote-service.js';
 import type { ShippingGuideOperations } from '../../modules/shipping/shipping-guide-service.js';
+import type { DashboardService } from '../../modules/dashboard/dashboard-service.js';
+import { registerDashboardRoute } from './dashboard.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -97,6 +99,7 @@ export type AdminRoutesDependencies = Readonly<{
   conversationAdminRepository?: ConversationAdminRepository;
   shippingQuoteService?: ShippingQuoteOperations;
   shippingGuideService?: ShippingGuideOperations;
+  dashboardService?: DashboardService;
 }>;
 
 export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
@@ -114,7 +117,15 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     conversationAdminRepository,
     shippingQuoteService,
     shippingGuideService,
+    dashboardService,
   } = dependencies;
+
+  if (dashboardService !== undefined) {
+    await registerDashboardRoute(app, {
+      dashboardService,
+      authenticate: (request) => requireAdminSession(request, authService),
+    });
+  }
 
   if (shippingGuideService !== undefined) {
     const ReviewGuideBodySchema = z

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export * from './dashboard.js';
+
 export const ApiErrorSchema = z
   .object({
     error: z
