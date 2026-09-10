@@ -22,6 +22,26 @@ async function loginAsAdmin(
 }
 
 describe('App shell', () => {
+  it('saves a municipality carrier preference', async () => {
+    const user = userEvent.setup();
+    state.authenticated = true;
+    let saved: unknown;
+    server.use(
+      http.put('/api/admin/shipping/carrier-rules', async ({ request }) => {
+        saved = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderWithProviders(<App />, { initialEntries: ['/settings/shipping'] });
+
+    await user.type(await screen.findByLabelText('Código DANE'), '05001000');
+    await user.type(screen.getByLabelText('Transportadora preferida'), 'TCC');
+    await user.click(screen.getByRole('button', { name: 'Guardar regla' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Regla guardada');
+    expect(saved).toEqual({ localityCarrierCode: '05001000', carrier: 'tcc' });
+  });
+
   it('shows the operational navigation and dashboard after login', async () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { initialEntries: ['/login'] });
