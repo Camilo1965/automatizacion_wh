@@ -6,35 +6,31 @@ import { ShippingUncertainError } from '../src/modules/shipping/99envios-client.
 describe('ShippingGuideWorker', () => {
   it('opens a non-retriable alert when guide creation is uncertain', async () => {
     const jobs = {
-      claimNext: vi
-        .fn()
-        .mockResolvedValue({
-          id: 'job-1',
-          orderId: 'order-1',
-          carrier: 'tcc',
-          insuranceMode: 'standard',
-          collectionValueCop: 120000,
-        }),
+      claimNext: vi.fn().mockResolvedValue({
+        id: 'job-1',
+        orderId: 'order-1',
+        carrier: 'tcc',
+        insuranceMode: 'standard',
+        collectionValueCop: 120000,
+      }),
       markCreated: vi.fn(),
       markUncertain: vi.fn(),
       markFailed: vi.fn(),
     };
     const orders = {
-      get: vi
-        .fn()
-        .mockResolvedValue({
-          referenceModelName: 'Tenis',
-          referenceCode: '01',
-          unitPriceCop: 120000,
-          size: '37',
-          quantity: 1,
-          customer: { name: 'Ana Ruiz', phone: '573001234567' },
-          destination: {
-            address: 'Calle 1',
-            localityCarrierCode: '05001000',
-            deliveryNotes: null,
-          },
-        }),
+      get: vi.fn().mockResolvedValue({
+        referenceModelName: 'Tenis',
+        referenceCode: '01',
+        unitPriceCop: 120000,
+        size: '37',
+        quantity: 1,
+        customer: { name: 'Ana Ruiz', phone: '573001234567' },
+        destination: {
+          address: 'Calle 1',
+          localityCarrierCode: '05001000',
+          deliveryNotes: null,
+        },
+      }),
     };
     const client = {
       createPreShipment: vi

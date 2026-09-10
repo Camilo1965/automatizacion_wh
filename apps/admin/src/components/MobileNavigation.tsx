@@ -5,7 +5,7 @@ const items = [
   { to: '/conversations', label: 'Chats', glyph: '◌' },
   { to: '/orders', label: 'Pedidos', glyph: '▣' },
   { to: '/catalog', label: 'Catálogo', glyph: '◇' },
-  { to: '/settings/shipping', label: 'Más', glyph: '•••' },
+  { to: '/more', label: 'Más', glyph: '•••' },
 ] as const;
 
 export function MobileNavigation() {

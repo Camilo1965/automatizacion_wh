@@ -5,14 +5,12 @@ import { OutboxWorker } from '../src/modules/whatsapp/outbox-worker.js';
 describe('OutboxWorker', () => {
   it('opens a safe retry alert when a WhatsApp send fails', async () => {
     const repository = {
-      claimNext: vi
-        .fn()
-        .mockResolvedValue({
-          id: 'msg-1',
-          customerPhone: '573001234567',
-          messageType: 'text',
-          textBody: 'Hola',
-        }),
+      claimNext: vi.fn().mockResolvedValue({
+        id: 'msg-1',
+        customerPhone: '573001234567',
+        messageType: 'text',
+        textBody: 'Hola',
+      }),
       markSent: vi.fn(),
       markFailed: vi.fn(),
     };

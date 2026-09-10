@@ -19,6 +19,7 @@ import { WhatsAppSettingsPage } from './settings/WhatsAppSettingsPage';
 import { IntegrationsPage } from './settings/IntegrationsPage';
 import { AlertsPage } from './alerts/AlertsPage';
 import { InventoryClosuresPage } from './inventory/InventoryClosuresPage';
+import { MorePage } from './more/MorePage';
 
 function AuthenticatedShell() {
   const { user, logout } = useAuth();
@@ -66,6 +67,7 @@ export function App() {
           <Route path="settings/whatsapp" element={<WhatsAppSettingsPage />} />
           <Route path="settings/integrations" element={<IntegrationsPage />} />
           <Route path="alerts" element={<AlertsPage />} />
+          <Route path="more" element={<MorePage />} />
           <Route
             path="inventory/closures"
             element={<InventoryClosuresPage />}

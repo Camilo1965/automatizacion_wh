@@ -1207,3 +1207,38 @@ a:focus-visible {
     align-items: flex-start;
   }
 }
+.more-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  gap: 1rem;
+}
+
+.more-card {
+  display: flex;
+  min-height: 7rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.more-card:hover {
+  border-color: var(--color-accent, #236052);
+  transform: translateY(-1px);
+}
+
+.more-card span:first-child {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.more-card small {
+  color: var(--color-muted, #6d625c);
+  line-height: 1.45;
+}
+
+.more-card-arrow {
+  color: var(--color-accent, #236052);
+  font-size: 1.4rem;
+}

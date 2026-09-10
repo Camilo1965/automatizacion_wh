@@ -81,6 +81,33 @@ const StockParamsSchema = z
 
 const OrderIdParamsSchema = z.object({ orderId: z.uuid() }).strict();
 
+function toPublicClosure(value: unknown) {
+  const row = value as {
+    id: string;
+    businessDate: string;
+    version: number;
+    profile: string;
+    status: string;
+    movementCount: number;
+    totalUnits: number;
+    checksum: string;
+    createdAt: Date;
+    acknowledgedAt: Date | null;
+  };
+  return {
+    id: row.id,
+    businessDate: row.businessDate,
+    version: row.version,
+    profile: row.profile,
+    status: row.status,
+    movementCount: row.movementCount,
+    totalUnits: row.totalUnits,
+    checksum: row.checksum,
+    createdAt: row.createdAt.toISOString(),
+    acknowledgedAt: row.acknowledgedAt?.toISOString() ?? null,
+  };
+}
+
 async function requireAdminSession(
   request: FastifyRequest,
   authService: AuthService,
@@ -169,8 +196,9 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
   if (dependencies.inventoryClosureService !== undefined) {
     app.get('/inventory/closures', async (request, reply) => {
       await requireAdminSession(request, authService);
+      const items = await dependencies.inventoryClosureService!.list();
       return reply.status(200).send({
-        data: { items: await dependencies.inventoryClosureService!.list() },
+        data: { items: items.map(toPublicClosure) },
       });
     });
     app.post('/inventory/closures/:date/generate', async (request, reply) => {
@@ -179,7 +207,9 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
         .date()
         .parse((request.params as { date: string }).date);
       return reply.status(201).send({
-        data: await dependencies.inventoryClosureService!.generate(date),
+        data: toPublicClosure(
+          await dependencies.inventoryClosureService!.generate(date),
+        ),
       });
     });
     app.get('/inventory/closures/:id/download', async (request, reply) => {
@@ -207,7 +237,9 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
       await requireAdminSession(request, authService);
       const id = z.uuid().parse((request.params as { id: string }).id);
       return reply.status(200).send({
-        data: await dependencies.inventoryClosureService!.acknowledge(id),
+        data: toPublicClosure(
+          await dependencies.inventoryClosureService!.acknowledge(id),
+        ),
       });
     });
     app.post('/inventory/closures/:id/reopen', async (request, reply) => {
@@ -218,7 +250,9 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
         .strict()
         .parse(request.body);
       return reply.status(201).send({
-        data: await dependencies.inventoryClosureService!.reopen(id, reason),
+        data: toPublicClosure(
+          await dependencies.inventoryClosureService!.reopen(id, reason),
+        ),
       });
     });
   }
