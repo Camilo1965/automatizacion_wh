@@ -103,10 +103,12 @@ export function CatalogImportPage() {
       {preview ? (
         <div aria-live="polite">
           <p>
-            {preview.status === 'invalid' ? 'Hay filas por corregir. ' : ''}
-            Referencias listas: {preview.references.length}. Errores:{' '}
+            Referencias: {preview.references.length}. Errores:{' '}
             {preview.errors.length}.
           </p>
+          {preview.status === 'invalid' ? (
+            <p className="form-hint">Hay filas por corregir.</p>
+          ) : null}
           {preview.references.length ? (
             <table>
               <caption>Referencias detectadas</caption>

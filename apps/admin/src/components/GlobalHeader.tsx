@@ -30,7 +30,7 @@ export function GlobalHeader({
           <StatusBadge tone="warning">WhatsApp por validar</StatusBadge>
         </Link>
         <span className="session-user">{username}</span>
-        <Button variant="ghost" onClick={onLogout}>
+        <Button variant="ghost" aria-label="Cerrar sesión" onClick={onLogout}>
           Salir
         </Button>
       </div>
