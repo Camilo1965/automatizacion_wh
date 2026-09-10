@@ -43,3 +43,4 @@ Thumbs.db
 # Existing non-product materials
 entregables/
 proposal_work/
+.worktrees/
