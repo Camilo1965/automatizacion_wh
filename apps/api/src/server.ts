@@ -113,6 +113,7 @@ async function main(): Promise<void> {
     conversationAdminRepository,
     outboundRepository,
   );
+  const alertService = new AlertService(new PostgresAlertRepository(database));
 
   const inventoryClosureService = new InventoryClosureService(
     new PostgresInventoryClosureRepository(database),
@@ -141,7 +142,7 @@ async function main(): Promise<void> {
         config.whatsappWebhookVerifyToken !== undefined &&
         config.whatsappAppSecret !== undefined,
     }),
-    alertService: new AlertService(new PostgresAlertRepository(database)),
+    alertService,
     inventoryClosureService,
     integrationHealthService: new IntegrationHealthService({
       database: () => database.ping(),
@@ -178,6 +179,7 @@ async function main(): Promise<void> {
         graphApiVersion: config.whatsappGraphApiVersion ?? 'v26.0',
       }),
       photoStorage,
+      alertService,
     );
     let running = false;
     const timer = setInterval(() => {
@@ -198,6 +200,7 @@ async function main(): Promise<void> {
       shippingGuideJobs,
       orderService,
       shippingClient,
+      alertService,
     );
     let running = false;
     const timer = setInterval(() => {

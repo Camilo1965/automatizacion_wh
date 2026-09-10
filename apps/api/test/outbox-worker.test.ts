@@ -3,6 +3,37 @@ import { describe, expect, it, vi } from 'vitest';
 import { OutboxWorker } from '../src/modules/whatsapp/outbox-worker.js';
 
 describe('OutboxWorker', () => {
+  it('opens a safe retry alert when a WhatsApp send fails', async () => {
+    const repository = {
+      claimNext: vi
+        .fn()
+        .mockResolvedValue({
+          id: 'msg-1',
+          customerPhone: '573001234567',
+          messageType: 'text',
+          textBody: 'Hola',
+        }),
+      markSent: vi.fn(),
+      markFailed: vi.fn(),
+    };
+    const incidents = { open: vi.fn() };
+    await new OutboxWorker(
+      repository,
+      {
+        sendText: vi.fn().mockRejectedValue(new Error('Meta unavailable')),
+        sendImage: vi.fn(),
+      },
+      undefined,
+      incidents,
+    ).runOnce();
+    expect(incidents.open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'whatsapp_send_failed',
+        entityId: 'msg-1',
+        retrySafe: true,
+      }),
+    );
+  });
   it('marks a claimed text message as sent with Meta id', async () => {
     const repository = {
       claimNext: vi.fn().mockResolvedValue({

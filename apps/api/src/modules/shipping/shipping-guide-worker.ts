@@ -45,6 +45,20 @@ type ShippingClient = Readonly<{
   >;
 }>;
 
+type IncidentSink = Readonly<{
+  open(
+    input: Readonly<{
+      type: string;
+      severity: 'critical';
+      title: string;
+      detail: string;
+      entityUrl: string;
+      entityId: string;
+      retrySafe: boolean;
+    }>,
+  ): Promise<unknown>;
+}>;
+
 function recipientName(name: string): {
   firstName: string;
   firstSurname: string;
@@ -61,6 +75,7 @@ export class ShippingGuideWorker {
     private readonly jobs: JobPort,
     private readonly orders: OrderPort,
     private readonly client: ShippingClient,
+    private readonly incidents?: IncidentSink,
   ) {}
 
   async runOnce(): Promise<boolean> {
@@ -105,11 +120,33 @@ export class ShippingGuideWorker {
     } catch (error) {
       if (error instanceof ShippingUncertainError) {
         await this.jobs.markUncertain(job.id);
+        await this.incidents?.open({
+          type: 'guide_uncertain',
+          severity: 'critical',
+          title: 'Guía con resultado incierto',
+          detail:
+            '99envíos no confirmó si la guía fue creada. Debe revisarse antes de reintentar.',
+          entityUrl: `/orders/${job.orderId}`,
+          entityId: job.orderId,
+          retrySafe: false,
+        });
       } else {
         await this.jobs.markFailed(
           job.id,
           error instanceof Error ? error.name : 'unknown',
         );
+        await this.incidents?.open({
+          type: 'guide_failed',
+          severity: 'critical',
+          title: 'No se pudo crear la guía',
+          detail:
+            error instanceof Error
+              ? error.message
+              : 'Error desconocido de 99envíos',
+          entityUrl: `/orders/${job.orderId}`,
+          entityId: job.orderId,
+          retrySafe: true,
+        });
       }
     }
     return true;

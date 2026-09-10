@@ -38,11 +38,26 @@ export interface OutboxPhotoStorage {
   read(storageKey: string): Promise<Uint8Array>;
 }
 
+type IncidentSink = Readonly<{
+  open(
+    input: Readonly<{
+      type: string;
+      severity: 'critical';
+      title: string;
+      detail: string;
+      entityUrl: string;
+      entityId: string;
+      retrySafe: boolean;
+    }>,
+  ): Promise<unknown>;
+}>;
+
 export class OutboxWorker {
   constructor(
     private readonly repository: OutboxWorkerRepository,
     private readonly client: WhatsAppClient,
     private readonly photoStorage?: OutboxPhotoStorage,
+    private readonly incidents?: IncidentSink,
   ) {}
 
   async runOnce(): Promise<boolean> {
@@ -62,6 +77,16 @@ export class OutboxWorker {
     } catch (error) {
       const code = error instanceof Error ? error.name : 'UnknownError';
       await this.repository.markFailed(message.id, code);
+      await this.incidents?.open({
+        type: 'whatsapp_send_failed',
+        severity: 'critical',
+        title: 'Mensaje de WhatsApp no enviado',
+        detail:
+          error instanceof Error ? error.message : 'Error desconocido de Meta',
+        entityUrl: '/conversations',
+        entityId: message.id,
+        retrySafe: true,
+      });
     }
     return true;
   }
