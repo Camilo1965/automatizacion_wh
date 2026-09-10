@@ -378,6 +378,115 @@ describe('WhatsAppSalesService', () => {
     );
   });
 
+  it('asks the customer to choose economy or protected shipping before the summary', async () => {
+    const quotes = [
+      {
+        id: 'economy',
+        carrier: 'envia',
+        freightCop: 10000,
+        cashOnDeliveryCop: 2000,
+        surchargeCop: 0,
+        insuranceCop: 0,
+        insuranceMode: 'none',
+        recommended: true,
+        selected: false,
+      },
+      {
+        id: 'protected',
+        carrier: 'tcc',
+        freightCop: 12000,
+        cashOnDeliveryCop: 2000,
+        surchargeCop: 0,
+        insuranceCop: 3000,
+        insuranceMode: 'plus',
+        recommended: true,
+        selected: false,
+      },
+    ];
+    const conversations = {
+      receive: vi
+        .fn()
+        .mockResolvedValueOnce({
+          duplicate: false,
+          conversationId: 'conversation-1',
+          state: 'awaiting_confirmation',
+          reply: null,
+          activeOrderId: 'order-1',
+          action: 'collect_notes',
+          input: '',
+        })
+        .mockResolvedValueOnce({
+          duplicate: false,
+          conversationId: 'conversation-1',
+          state: 'awaiting_confirmation',
+          reply: null,
+          activeOrderId: 'order-1',
+          action: 'select_shipping',
+          input: '2',
+        }),
+      returnToSize: vi.fn(),
+      setState: vi.fn(),
+      setSummaryVersion: vi.fn(),
+    };
+    const orders = {
+      create: vi.fn(),
+      createSummary: vi.fn().mockResolvedValue({
+        version: 4,
+        snapshot: {
+          totalCop: 137000,
+          shippingCostCop: 17000,
+          shippingQuote: { carrier: 'tcc' },
+        },
+      }),
+    };
+    const shipping = {
+      createQuotes: vi.fn().mockResolvedValue(quotes),
+      getShipping: vi.fn().mockResolvedValue({ quotes, guide: null }),
+      selectQuote: vi.fn(),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      orders,
+      undefined,
+      undefined,
+      shipping,
+    );
+
+    await service.process({
+      whatsappMessageId: 'wamid.notes',
+      customerPhone: '+573001234567',
+      text: 'ninguna',
+    });
+    expect(conversations.setState).toHaveBeenCalledWith(
+      'conversation-1',
+      'awaiting_shipping',
+    );
+    expect(orders.createSummary).not.toHaveBeenCalled();
+    expect(outbound.enqueueText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringMatching(
+          /1\. Económico[\s\S]*2\. Protegido[\s\S]*Seguro 99 Plus/,
+        ),
+      }),
+    );
+
+    await service.process({
+      whatsappMessageId: 'wamid.shipping',
+      customerPhone: '+573001234567',
+      text: '2',
+    });
+    expect(shipping.selectQuote).toHaveBeenCalledWith('order-1', 'protected');
+    expect(orders.createSummary).toHaveBeenCalledWith('order-1');
+    expect(conversations.setSummaryVersion).toHaveBeenCalledWith(
+      'conversation-1',
+      4,
+    );
+  });
+
   it('accepts only an imported locality in the selected department', async () => {
     const conversations = {
       receive: vi.fn().mockResolvedValue({

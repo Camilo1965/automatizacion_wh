@@ -49,7 +49,7 @@ export function ReferenceCreatePage() {
     <section aria-labelledby="create-title">
       <div className="section-header">
         <h2 id="create-title">Nueva referencia</h2>
-        <Link className="button-secondary" to="/">
+        <Link className="button-secondary" to="/catalog">
           Volver
         </Link>
       </div>

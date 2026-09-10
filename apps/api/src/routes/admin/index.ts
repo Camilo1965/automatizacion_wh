@@ -13,6 +13,9 @@ import {
   PatchOrderBodySchema,
   ConfirmOrderBodySchema,
   CarrierRuleBodySchema,
+  ShippingPolicySchema,
+  ShippingRuleBodySchema,
+  ShippingPolicyPreviewBodySchema,
 } from '@camila/contracts';
 
 import type { AppConfig } from '../../config.js';
@@ -166,8 +169,13 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
       freightCop: quote.freightCop,
       cashOnDeliveryCop: quote.cashOnDeliveryCop,
       surchargeCop: quote.surchargeCop,
+      insuranceMode: quote.insuranceMode,
+      insuranceCop: quote.insuranceCop,
       totalShippingCop:
-        quote.freightCop + quote.cashOnDeliveryCop + quote.surchargeCop,
+        quote.freightCop +
+        quote.cashOnDeliveryCop +
+        quote.surchargeCop +
+        quote.insuranceCop,
       estimatedDays: quote.estimatedDays,
       quotedAt: quote.quotedAt.toISOString(),
       expiresAt: quote.expiresAt.toISOString(),
@@ -221,6 +229,74 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
       );
       return reply.status(204).send();
     });
+    app.get('/shipping/preferences', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      return reply.status(200).send({
+        data: await shippingQuoteService.getDefaultPolicy(),
+      });
+    });
+    app.patch('/shipping/preferences', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const policy = ShippingPolicySchema.parse(request.body);
+      await shippingQuoteService.setDefaultPolicy(policy);
+      return reply.status(200).send({ data: policy });
+    });
+    app.get('/shipping/rules', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const items = await shippingQuoteService.listShippingRules();
+      return reply.status(200).send({
+        data: {
+          items: items.map((item) => ({
+            ...item,
+            updatedAt: item.updatedAt.toISOString(),
+          })),
+        },
+      });
+    });
+    app.get('/shipping/carriers', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      return reply.status(200).send({
+        data: { items: await shippingQuoteService.listObservedCarriers() },
+      });
+    });
+    app.post('/shipping/rules', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const body = ShippingRuleBodySchema.parse(request.body);
+      const { localityCarrierCode, ...policy } = body;
+      await shippingQuoteService.setShippingPolicy(localityCarrierCode, policy);
+      return reply.status(201).send();
+    });
+    app.post('/shipping/rules/preview', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const body = ShippingPolicyPreviewBodySchema.parse(request.body);
+      return reply.status(200).send({
+        data: await shippingQuoteService.previewPolicy(
+          body.localityCarrierCode,
+        ),
+      });
+    });
+    app.patch('/shipping/rules/:localityCode', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const { localityCode } = z
+        .object({ localityCode: z.string().regex(/^\d{8}$/) })
+        .strict()
+        .parse(request.params);
+      const policy = ShippingPolicySchema.parse(request.body);
+      await shippingQuoteService.setShippingPolicy(localityCode, policy);
+      return reply.status(204).send();
+    });
+    app.post(
+      '/shipping/rules/:localityCode/deactivate',
+      async (request, reply) => {
+        await requireAdminSession(request, authService);
+        const { localityCode } = z
+          .object({ localityCode: z.string().regex(/^\d{8}$/) })
+          .strict()
+          .parse(request.params);
+        await shippingQuoteService.deactivateShippingRule(localityCode);
+        return reply.status(204).send();
+      },
+    );
   } else {
     const unavailable = async (
       request: FastifyRequest,
@@ -238,6 +314,14 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     app.post('/orders/:orderId/shipping-quotes', unavailable);
     app.post('/orders/:orderId/shipping-quotes/:quoteId/select', unavailable);
     app.put('/shipping/carrier-rules', unavailable);
+    app.get('/shipping/preferences', unavailable);
+    app.patch('/shipping/preferences', unavailable);
+    app.get('/shipping/rules', unavailable);
+    app.get('/shipping/carriers', unavailable);
+    app.post('/shipping/rules', unavailable);
+    app.post('/shipping/rules/preview', unavailable);
+    app.patch('/shipping/rules/:localityCode', unavailable);
+    app.post('/shipping/rules/:localityCode/deactivate', unavailable);
   }
 
   if (conversationAdminRepository !== undefined) {

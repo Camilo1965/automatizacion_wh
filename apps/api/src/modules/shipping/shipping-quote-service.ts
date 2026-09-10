@@ -1,5 +1,10 @@
 import type { CarrierQuote, QuoteInput } from './99envios-client.js';
 import { selectRecommendedCarrier } from './shipping-selection.js';
+import {
+  shippingOfferInsurances,
+  type InsuranceMode,
+  type ShippingPolicy,
+} from './shipping-policy.js';
 
 export class ShippingDomainError extends Error {
   constructor(
@@ -18,6 +23,18 @@ export type ShippingQuoteRecord = CarrierQuote &
     expiresAt: Date;
     recommended: boolean;
     selected: boolean;
+    insuranceMode: InsuranceMode;
+    insuranceCop: number;
+  }>;
+
+export type ShippingOfferQuote = CarrierQuote &
+  Readonly<{ insuranceMode?: InsuranceMode; insuranceCop?: number }>;
+
+export type ShippingRuleRecord = ShippingPolicy &
+  Readonly<{
+    localityCarrierCode: string;
+    active: boolean;
+    updatedAt: Date;
   }>;
 
 export type ShippingGuideRecord = Readonly<{
@@ -31,13 +48,19 @@ export type ShippingGuideRecord = Readonly<{
 }>;
 
 type Repository = Readonly<{
-  preferredCarrier(localityCode: string): Promise<string | null>;
+  shippingPolicy(localityCode: string): Promise<ShippingPolicy>;
   replaceQuotes(
     input: Readonly<{
       orderId: string;
       draftVersion: number;
-      quotes: readonly CarrierQuote[];
+      quotes: readonly ShippingOfferQuote[];
       recommendedCarrier: string;
+      recommendedQuotes: readonly Readonly<{
+        carrier: string;
+        insuranceMode: InsuranceMode;
+      }>[];
+      automaticallySelect: boolean;
+      policy: ShippingPolicy;
       quotedAt: Date;
       expiresAt: Date;
     }>,
@@ -54,6 +77,15 @@ type Repository = Readonly<{
     }>
   >;
   upsertCarrierRule(localityCode: string, carrier: string): Promise<void>;
+  upsertShippingPolicy(
+    localityCode: string,
+    policy: ShippingPolicy,
+  ): Promise<void>;
+  defaultShippingPolicy(): Promise<ShippingPolicy>;
+  setDefaultShippingPolicy(policy: ShippingPolicy): Promise<void>;
+  listShippingRules(): Promise<readonly ShippingRuleRecord[]>;
+  deactivateShippingRule(localityCode: string): Promise<void>;
+  listObservedCarriers(): Promise<readonly string[]>;
 }>;
 
 type OrderPort = Readonly<{
@@ -100,23 +132,48 @@ export class ShippingQuoteService {
       );
     }
     const quotedAt = this.now();
-    const quotes = await this.client.quote({
-      localityCode,
-      declaredValueCop: order.unitPriceCop * order.quantity,
-      weightKg: 1,
-      lengthCm: 30,
-      widthCm: 20,
-      heightCm: 12,
-      shippingDate: shippingDate(quotedAt),
-    });
-    if (quotes.length === 0)
-      throw new ShippingDomainError(
-        'shipping_unavailable',
-        'No carrier returned a usable quote',
+    const policy = await this.repository.shippingPolicy(localityCode);
+    const offers: ShippingOfferQuote[] = [];
+    const recommendedQuotes: Array<{
+      carrier: string;
+      insuranceMode: InsuranceMode;
+    }> = [];
+    for (const insurance of shippingOfferInsurances(policy)) {
+      const quotes = await this.client.quote({
+        localityCode,
+        declaredValueCop: order.unitPriceCop * order.quantity,
+        weightKg: 1,
+        lengthCm: 30,
+        widthCm: 20,
+        heightCm: 12,
+        shippingDate: shippingDate(quotedAt),
+        insurance,
+      });
+      const recommendedCarrier = selectRecommendedCarrier(quotes, policy);
+      if (recommendedCarrier === null) {
+        throw new ShippingDomainError(
+          policy.fallbackPolicy === 'block'
+            ? 'preferred_carrier_unavailable'
+            : 'shipping_unavailable',
+          policy.fallbackPolicy === 'block'
+            ? 'The required carrier is unavailable for this municipality'
+            : 'No carrier returned a usable quote',
+        );
+      }
+      offers.push(
+        ...quotes.map((quote) => ({
+          ...quote,
+          insuranceMode: insurance,
+          insuranceCop: quote.insuranceCop ?? 0,
+        })),
       );
-    const preferred = await this.repository.preferredCarrier(localityCode);
-    const recommendedCarrier = selectRecommendedCarrier(quotes, preferred);
-    if (recommendedCarrier === null)
+      recommendedQuotes.push({
+        carrier: recommendedCarrier,
+        insuranceMode: insurance,
+      });
+    }
+    const recommendedCarrier = recommendedQuotes[0]?.carrier;
+    if (recommendedCarrier === undefined)
       throw new ShippingDomainError(
         'shipping_unavailable',
         'No carrier returned a usable quote',
@@ -124,8 +181,11 @@ export class ShippingQuoteService {
     return this.repository.replaceQuotes({
       orderId,
       draftVersion: order.draftVersion,
-      quotes,
+      quotes: offers,
       recommendedCarrier,
+      recommendedQuotes,
+      automaticallySelect: policy.offerMode !== 'customer_choice',
+      policy,
       quotedAt,
       expiresAt: new Date(quotedAt.getTime() + 30 * 60 * 1000),
     });
@@ -145,9 +205,60 @@ export class ShippingQuoteService {
       carrier.trim().toLowerCase(),
     );
   }
+
+  getDefaultPolicy() {
+    return this.repository.defaultShippingPolicy();
+  }
+
+  setDefaultPolicy(policy: ShippingPolicy) {
+    return this.repository.setDefaultShippingPolicy(policy);
+  }
+
+  setShippingPolicy(localityCode: string, policy: ShippingPolicy) {
+    return this.repository.upsertShippingPolicy(localityCode, policy);
+  }
+
+  listShippingRules() {
+    return this.repository.listShippingRules();
+  }
+
+  deactivateShippingRule(localityCode: string) {
+    return this.repository.deactivateShippingRule(localityCode);
+  }
+
+  listObservedCarriers() {
+    return this.repository.listObservedCarriers();
+  }
+
+  async previewPolicy(localityCarrierCode: string) {
+    const [policy, rules] = await Promise.all([
+      this.repository.shippingPolicy(localityCarrierCode),
+      this.repository.listShippingRules(),
+    ]);
+    return {
+      localityCarrierCode,
+      source: rules.some(
+        (rule) =>
+          rule.localityCarrierCode === localityCarrierCode && rule.active,
+      )
+        ? ('municipality' as const)
+        : ('global' as const),
+      policy,
+    };
+  }
 }
 
 export type ShippingQuoteOperations = Pick<
   ShippingQuoteService,
-  'createQuotes' | 'selectQuote' | 'getShipping' | 'setCarrierRule'
+  | 'createQuotes'
+  | 'selectQuote'
+  | 'getShipping'
+  | 'setCarrierRule'
+  | 'getDefaultPolicy'
+  | 'setDefaultPolicy'
+  | 'setShippingPolicy'
+  | 'listShippingRules'
+  | 'deactivateShippingRule'
+  | 'listObservedCarriers'
+  | 'previewPolicy'
 >;

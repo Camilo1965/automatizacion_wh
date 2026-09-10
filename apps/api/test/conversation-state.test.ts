@@ -87,4 +87,15 @@ describe('advanceConversation', () => {
       action: 'confirm_order',
     });
   });
+
+  it('accepts only a numbered shipping option before confirmation', () => {
+    expect(advanceConversation('awaiting_shipping', '2')).toMatchObject({
+      state: 'awaiting_confirmation',
+      action: 'select_shipping',
+      input: '2',
+    });
+    const invalid = advanceConversation('awaiting_shipping', 'protegido');
+    expect(invalid).toMatchObject({ state: 'awaiting_shipping' });
+    expect(invalid).not.toHaveProperty('action');
+  });
 });

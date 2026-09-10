@@ -21,6 +21,9 @@ const quoteResponseSchema = z.record(
       sobreflete: z.number().nonnegative().optional(),
       IdServicio: z.number().int().positive().optional(),
       dias: z.union([z.string(), z.number()]).optional(),
+      valor_seguro: z.number().nonnegative().optional(),
+      valorSeguro: z.number().nonnegative().optional(),
+      valor_seguro99: z.number().nonnegative().optional(),
     })
     .passthrough(),
 );
@@ -74,6 +77,7 @@ export type QuoteInput = Readonly<{
   widthCm: number;
   heightCm: number;
   shippingDate: string;
+  insurance?: 'none' | 'standard' | 'plus';
 }>;
 
 export type CarrierQuote = Readonly<{
@@ -83,6 +87,8 @@ export type CarrierQuote = Readonly<{
   surchargeCop: number;
   serviceId: number;
   estimatedDays: string;
+  insuranceMode?: 'none' | 'standard' | 'plus';
+  insuranceCop?: number;
 }>;
 
 export class NinetyNineEnviosClient {
@@ -187,8 +193,8 @@ export class NinetyNineEnviosClient {
           alto: input.heightCm,
           fecha: input.shippingDate,
           AplicaContrapago: true,
-          seguro99: false,
-          seguro99plus: false,
+          seguro99: input.insurance === 'standard',
+          seguro99plus: input.insurance === 'plus',
         }),
       });
     } catch {
@@ -220,6 +226,13 @@ export class NinetyNineEnviosClient {
           surchargeCop: quote.sobreflete ?? 0,
           serviceId: quote.IdServicio,
           estimatedDays: String(quote.dias ?? ''),
+          insuranceMode: input.insurance ?? 'none',
+          insuranceCop: Math.round(
+            quote.valor_seguro ??
+              quote.valorSeguro ??
+              quote.valor_seguro99 ??
+              0,
+          ),
         },
       ];
     });

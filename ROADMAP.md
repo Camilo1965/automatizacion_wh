@@ -2,7 +2,26 @@
 
 Fecha de preparación: 4 de septiembre de 2026.
 
-Estado: implementación local en curso. Actualizado el 7 de septiembre de 2026.
+Estado: implementación local en curso. Actualizado el 9 de septiembre de 2026.
+
+## Actualización operativa: experiencia premium y reglas de envío
+
+El bloque principal de preferencias de envío ya está implementado en la rama `codex/premium-ux`:
+
+- panel responsive con navegación operativa e Inicio;
+- política global de envío y reemplazo exacto por código DANE;
+- transportadora automática, preferida u obligatoria;
+- fallback permitido o bloqueado con error visible;
+- modalidades “económico y protegido”, “solo económico” y “siempre protegido”;
+- Seguro 99 estándar o Plus enviado realmente al cotizador y al crear la guía;
+- dos cotizaciones independientes cuando el cliente debe elegir;
+- elección numerada en WhatsApp antes de crear el resumen;
+- snapshot de la política y seguro confirmado en la cotización y la tarea de guía;
+- registro de transportadoras observadas y auditoría persistente de cambios;
+- simulador de regla efectiva sin crear cotizaciones ni guías;
+- contratos estrictos, migraciones incrementales y pruebas unitarias, de integración y E2E.
+
+Los siguientes bloques del plan premium permanecen separados: centro de alertas, cierre diario para Treinta, página completa de salud de integraciones y ampliación visual de pedidos/conversaciones. La autoridad de stock para WhatsApp continúa siendo Camila y Treinta se conciliará manualmente mediante archivo.
 
 ## 1 Objetivo y alcance acordado
 

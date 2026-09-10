@@ -3,6 +3,7 @@ export type SelectableCarrierQuote = Readonly<{
   freightCop: number;
   cashOnDeliveryCop: number;
   surchargeCop: number;
+  insuranceCop?: number;
 }>;
 
 export type CarrierSelectionPolicy = Readonly<{
@@ -44,8 +45,12 @@ export function selectRecommendedCarrier(
         (left, right) =>
           left.freightCop +
           left.cashOnDeliveryCop +
-          left.surchargeCop -
-          (right.freightCop + right.cashOnDeliveryCop + right.surchargeCop),
+          left.surchargeCop +
+          (left.insuranceCop ?? 0) -
+          (right.freightCop +
+            right.cashOnDeliveryCop +
+            right.surchargeCop +
+            (right.insuranceCop ?? 0)),
       )[0]?.carrier ?? null
   );
 }

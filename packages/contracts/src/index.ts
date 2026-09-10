@@ -231,6 +231,8 @@ export const OrderSummarySnapshotSchema = z
         freightCop: shippingCopSchema,
         cashOnDeliveryCop: shippingCopSchema,
         surchargeCop: shippingCopSchema,
+        insuranceMode: z.enum(['none', 'standard', 'plus']).optional(),
+        insuranceCop: shippingCopSchema.optional(),
         estimatedDays: z.string().max(32),
         expiresAt: z.string().datetime(),
       })
@@ -262,7 +264,8 @@ export const OrderSummarySnapshotSchema = z
     const shippingTotal = value.shippingQuote
       ? value.shippingQuote.freightCop +
         value.shippingQuote.cashOnDeliveryCop +
-        value.shippingQuote.surchargeCop
+        value.shippingQuote.surchargeCop +
+        (value.shippingQuote.insuranceCop ?? 0)
       : 0;
     if (
       value.shippingPending !== (value.shippingQuote === undefined) ||
@@ -649,6 +652,73 @@ export const ListOrdersResponseSchema = dataEnvelopeSchema(
     .strict(),
 );
 
+export const ShippingOfferModeSchema = z.enum([
+  'customer_choice',
+  'economy_only',
+  'protected_only',
+]);
+export const InsuranceModeSchema = z.enum(['none', 'standard', 'plus']);
+export const ShippingFallbackPolicySchema = z.enum(['allow', 'block']);
+export const ShippingPolicySchema = z
+  .object({
+    preferredCarrier: carrierSchema.nullable(),
+    fallbackPolicy: ShippingFallbackPolicySchema,
+    offerMode: ShippingOfferModeSchema,
+    protectedInsurance: z.enum(['standard', 'plus']),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      value.fallbackPolicy !== 'block' || value.preferredCarrier !== null,
+    {
+      message: 'A blocked fallback requires a preferred carrier',
+      path: ['preferredCarrier'],
+    },
+  );
+export type ShippingPolicy = z.infer<typeof ShippingPolicySchema>;
+
+export const ShippingRuleBodySchema = ShippingPolicySchema.and(
+  z.object({ localityCarrierCode: z.string().regex(/^\d{8}$/) }).strict(),
+);
+export type ShippingRuleBody = z.infer<typeof ShippingRuleBodySchema>;
+
+export const ShippingRulePublicSchema = z
+  .object({
+    localityCarrierCode: z.string().regex(/^\d{8}$/),
+    preferredCarrier: carrierSchema.nullable(),
+    fallbackPolicy: ShippingFallbackPolicySchema,
+    offerMode: ShippingOfferModeSchema,
+    protectedInsurance: z.enum(['standard', 'plus']),
+    active: z.boolean(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+export type ShippingRulePublic = z.infer<typeof ShippingRulePublicSchema>;
+export const ShippingPreferencesResponseSchema =
+  dataEnvelopeSchema(ShippingPolicySchema);
+export const ShippingRuleResponseSchema = dataEnvelopeSchema(
+  ShippingRulePublicSchema,
+);
+export const ShippingRulesResponseSchema = dataEnvelopeSchema(
+  z.object({ items: z.array(ShippingRulePublicSchema) }).strict(),
+);
+export const ShippingCarriersResponseSchema = dataEnvelopeSchema(
+  z.object({ items: z.array(carrierSchema) }).strict(),
+);
+export const ShippingPolicyPreviewBodySchema = z
+  .object({ localityCarrierCode: z.string().regex(/^\d{8}$/) })
+  .strict();
+export const ShippingPolicyPreviewSchema = z
+  .object({
+    localityCarrierCode: z.string().regex(/^\d{8}$/),
+    source: z.enum(['global', 'municipality']),
+    policy: ShippingPolicySchema,
+  })
+  .strict();
+export const ShippingPolicyPreviewResponseSchema = dataEnvelopeSchema(
+  ShippingPolicyPreviewSchema,
+);
+
 export const CarrierRuleBodySchema = z
   .object({
     localityCarrierCode: z.string().regex(/^\d{8}$/),
@@ -665,6 +735,8 @@ export const ShippingQuotePublicSchema = z
     freightCop: shippingCopSchema,
     cashOnDeliveryCop: shippingCopSchema,
     surchargeCop: shippingCopSchema,
+    insuranceMode: InsuranceModeSchema,
+    insuranceCop: shippingCopSchema,
     totalShippingCop: shippingCopSchema,
     estimatedDays: z.string().max(32),
     quotedAt: z.string().datetime(),
@@ -676,7 +748,10 @@ export const ShippingQuotePublicSchema = z
   .refine(
     (value) =>
       value.totalShippingCop ===
-      value.freightCop + value.cashOnDeliveryCop + value.surchargeCop,
+      value.freightCop +
+        value.cashOnDeliveryCop +
+        value.surchargeCop +
+        value.insuranceCop,
     { message: 'totalShippingCop must equal all shipping charges' },
   );
 export type ShippingQuotePublic = z.infer<typeof ShippingQuotePublicSchema>;

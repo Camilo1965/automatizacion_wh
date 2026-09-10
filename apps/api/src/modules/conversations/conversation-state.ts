@@ -7,6 +7,7 @@ export type ConversationState =
   | 'awaiting_locality'
   | 'awaiting_address'
   | 'awaiting_notes'
+  | 'awaiting_shipping'
   | 'awaiting_confirmation'
   | 'completed';
 
@@ -27,6 +28,7 @@ export type ConversationTransition = Readonly<{
     | 'collect_locality'
     | 'collect_address'
     | 'collect_notes'
+    | 'select_shipping'
     | 'confirm_order'
     | 'cancel_order';
   input?: string;
@@ -159,6 +161,20 @@ export function advanceConversation(
       reply: null,
       action: 'collect_notes',
       input: /^(ninguna|no|omitir)$/.test(normalized) ? '' : value,
+    };
+  }
+  if (state === 'awaiting_shipping') {
+    if (/^[12]$/.test(value)) {
+      return {
+        state: 'awaiting_confirmation',
+        reply: null,
+        action: 'select_shipping',
+        input: value,
+      };
+    }
+    return {
+      state,
+      reply: 'Responde 1 para envío económico o 2 para envío protegido.',
     };
   }
   if (state === 'awaiting_confirmation') {

@@ -28,6 +28,8 @@ const state = {
       freightCop: 13368,
       cashOnDeliveryCop: 3000,
       surchargeCop: 600,
+      insuranceMode: 'none' as const,
+      insuranceCop: 0,
       estimatedDays: '1',
       quotedAt: new Date('2026-09-07T17:00:00Z'),
       expiresAt: new Date('2026-09-07T17:30:00Z'),
@@ -45,6 +47,37 @@ describe('admin shipping HTTP API', () => {
       selectQuote: vi.fn().mockResolvedValue(state.quotes),
       getShipping: vi.fn().mockResolvedValue(state),
       setCarrierRule: vi.fn(),
+      getDefaultPolicy: vi.fn().mockResolvedValue({
+        preferredCarrier: null,
+        fallbackPolicy: 'allow',
+        offerMode: 'customer_choice',
+        protectedInsurance: 'standard',
+      }),
+      setDefaultPolicy: vi.fn(),
+      setShippingPolicy: vi.fn(),
+      listShippingRules: vi.fn().mockResolvedValue([
+        {
+          localityCarrierCode: '05001000',
+          preferredCarrier: 'tcc',
+          fallbackPolicy: 'block',
+          offerMode: 'protected_only',
+          protectedInsurance: 'plus',
+          active: true,
+          updatedAt: new Date('2026-09-09T12:00:00Z'),
+        },
+      ]),
+      deactivateShippingRule: vi.fn(),
+      listObservedCarriers: vi.fn().mockResolvedValue(['envia', 'tcc']),
+      previewPolicy: vi.fn().mockResolvedValue({
+        localityCarrierCode: '05001000',
+        source: 'municipality',
+        policy: {
+          preferredCarrier: 'tcc',
+          fallbackPolicy: 'block',
+          offerMode: 'protected_only',
+          protectedInsurance: 'plus',
+        },
+      }),
     };
     const guideService = {
       fetchPdf: vi.fn().mockResolvedValue({
@@ -107,6 +140,36 @@ describe('admin shipping HTTP API', () => {
     });
     expect(rule.statusCode).toBe(204);
     expect(service.setCarrierRule).toHaveBeenCalledWith('05001000', 'tcc');
+    const preferences = await app.inject({
+      method: 'GET',
+      url: '/api/admin/shipping/preferences',
+      headers: { cookie: 'camila_admin_session=good' },
+    });
+    expect(preferences.statusCode).toBe(200);
+    expect(preferences.json().data.offerMode).toBe('customer_choice');
+    const savePolicy = await app.inject({
+      method: 'POST',
+      url: '/api/admin/shipping/rules',
+      headers: {
+        cookie: 'camila_admin_session=good',
+        origin: config.adminOrigin,
+      },
+      payload: {
+        localityCarrierCode: '05001000',
+        preferredCarrier: 'tcc',
+        fallbackPolicy: 'block',
+        offerMode: 'protected_only',
+        protectedInsurance: 'plus',
+      },
+    });
+    expect(savePolicy.statusCode).toBe(201);
+    expect(service.setShippingPolicy).toHaveBeenCalledWith(
+      '05001000',
+      expect.objectContaining({
+        fallbackPolicy: 'block',
+        protectedInsurance: 'plus',
+      }),
+    );
     const pdf = await app.inject({
       method: 'GET',
       url: `/api/admin/orders/${orderId}/shipping-guide/pdf`,

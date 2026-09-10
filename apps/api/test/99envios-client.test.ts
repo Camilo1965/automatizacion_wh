@@ -6,19 +6,87 @@ import {
 } from '../src/modules/shipping/99envios-client.js';
 
 describe('NinetyNineEnviosClient', () => {
-  it('sends the selected Plus insurance to 99envios', async () => {
-    const request = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ numeroPreenvio: '1', valorFlete: 1000 }), { status: 200 }));
-    const client = new NinetyNineEnviosClient({ email: 'owner@example.test', password: 'secret', fetch: request });
-
-    await client.createPreShipment({
-      weightKg: 1, lengthCm: 30, widthCm: 20, heightCm: 12, contents: 'Calzado', declaredValueCop: 120000,
-      recipient: { firstName: 'Camila', firstSurname: 'Pérez', phone: '3158191776', address: 'Calle 1', localityCode: '05001000' },
-      carrier: 'tcc', notes: null, insurance: 'plus',
+  it('sends the requested insurance mode when quoting', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            envia: {
+              exito: true,
+              valor: 1000,
+              valor_contrapago: 200,
+              IdServicio: 1,
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+    const client = new NinetyNineEnviosClient({
+      email: 'owner@example.test',
+      password: 'secret',
+      fetch: request,
     });
 
-    const body = JSON.parse((request.mock.calls[1]![1] as RequestInit).body as string) as { seguro99: boolean; seguro99plus: boolean };
+    await client.quote({
+      localityCode: '05001000',
+      declaredValueCop: 120000,
+      weightKg: 1,
+      lengthCm: 30,
+      widthCm: 20,
+      heightCm: 12,
+      shippingDate: '09-09-2026',
+      insurance: 'standard',
+    });
+
+    const body = JSON.parse(
+      (request.mock.calls[1]![1] as RequestInit).body as string,
+    ) as { seguro99: boolean; seguro99plus: boolean };
+    expect(body).toMatchObject({ seguro99: true, seguro99plus: false });
+  });
+  it('sends the selected Plus insurance to 99envios', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ numeroPreenvio: '1', valorFlete: 1000 }),
+          { status: 200 },
+        ),
+      );
+    const client = new NinetyNineEnviosClient({
+      email: 'owner@example.test',
+      password: 'secret',
+      fetch: request,
+    });
+
+    await client.createPreShipment({
+      weightKg: 1,
+      lengthCm: 30,
+      widthCm: 20,
+      heightCm: 12,
+      contents: 'Calzado',
+      declaredValueCop: 120000,
+      recipient: {
+        firstName: 'Camila',
+        firstSurname: 'Pérez',
+        phone: '3158191776',
+        address: 'Calle 1',
+        localityCode: '05001000',
+      },
+      carrier: 'tcc',
+      notes: null,
+      insurance: 'plus',
+    });
+
+    const body = JSON.parse(
+      (request.mock.calls[1]![1] as RequestInit).body as string,
+    ) as { seguro99: boolean; seguro99plus: boolean };
     expect(body).toMatchObject({ seguro99: false, seguro99plus: true });
   });
 
@@ -425,6 +493,8 @@ describe('NinetyNineEnviosClient', () => {
         freightCop: 13368,
         cashOnDeliveryCop: 3000,
         surchargeCop: 600,
+        insuranceMode: 'none',
+        insuranceCop: 0,
         serviceId: 12,
         estimatedDays: '1',
       },

@@ -29,6 +29,8 @@ async function login(page: Page): Promise<void> {
     page.getByRole('button', { name: 'Cerrar sesión' }),
   ).toBeVisible();
   await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Inicio' })).toBeVisible();
+  await page.goto('/catalog');
   await expect(page.getByRole('heading', { name: 'Catálogo' })).toBeVisible();
 }
 

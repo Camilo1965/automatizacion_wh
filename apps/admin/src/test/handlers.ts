@@ -84,6 +84,22 @@ function toReferencePublic(item: typeof referenceDetail) {
 }
 
 export const handlers = [
+  http.get(`${base}/shipping/preferences`, () =>
+    HttpResponse.json({
+      data: {
+        preferredCarrier: null,
+        fallbackPolicy: 'allow',
+        offerMode: 'customer_choice',
+        protectedInsurance: 'standard',
+      },
+    }),
+  ),
+  http.get(`${base}/shipping/rules`, () =>
+    HttpResponse.json({ data: { items: [] } }),
+  ),
+  http.get(`${base}/shipping/carriers`, () =>
+    HttpResponse.json({ data: { items: ['envia', 'tcc'] } }),
+  ),
   http.get(`${base}/catalog-readiness`, () => {
     const total = state.references.length;
     const active = state.references.filter((item) => item.active).length;

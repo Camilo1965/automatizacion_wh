@@ -40,6 +40,10 @@ import {
   ConfirmOrderBodySchema,
   OrderPublicSchema,
   OrderSummaryPublicSchema,
+  ShippingPolicySchema,
+  ShippingRuleBodySchema,
+  ShippingRulePublicSchema,
+  ShippingPreferencesResponseSchema,
 } from '../src/index.js';
 
 const SAMPLE_UUID = '22222222-2222-4222-8222-222222222222';
@@ -1192,6 +1196,51 @@ describe('strict public response contracts', () => {
         createdAt: SAMPLE_ISO,
         snapshot: sampleOrderSnapshot,
       }).success,
+    ).toBe(true);
+  });
+
+  it('validates shipping policy combinations', () => {
+    expect(
+      ShippingPolicySchema.safeParse({
+        preferredCarrier: null,
+        fallbackPolicy: 'allow',
+        offerMode: 'customer_choice',
+        protectedInsurance: 'standard',
+      }).success,
+    ).toBe(true);
+    expect(
+      ShippingPolicySchema.safeParse({
+        preferredCarrier: null,
+        fallbackPolicy: 'block',
+        offerMode: 'protected_only',
+        protectedInsurance: 'plus',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('validates municipality shipping rules and preference responses', () => {
+    const policy = {
+      preferredCarrier: 'tcc',
+      fallbackPolicy: 'block',
+      offerMode: 'protected_only',
+      protectedInsurance: 'plus',
+    } as const;
+    expect(
+      ShippingRuleBodySchema.safeParse({
+        localityCarrierCode: '05001000',
+        ...policy,
+      }).success,
+    ).toBe(true);
+    expect(
+      ShippingRulePublicSchema.safeParse({
+        localityCarrierCode: '05001000',
+        ...policy,
+        active: true,
+        updatedAt: SAMPLE_ISO,
+      }).success,
+    ).toBe(true);
+    expect(
+      ShippingPreferencesResponseSchema.safeParse({ data: policy }).success,
     ).toBe(true);
   });
 });

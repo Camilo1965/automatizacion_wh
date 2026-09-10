@@ -5,12 +5,20 @@ import {
   salesOrders,
   shippingCarrierRules,
   shippingGuideJobs,
+  shippingObservedCarriers,
+  shippingPolicyAudits,
+  shippingPreferences,
   shippingQuotes,
 } from '../../database/schema.js';
-import type { CarrierQuote } from './99envios-client.js';
+import {
+  DEFAULT_SHIPPING_POLICY,
+  resolveShippingPolicy,
+  type ShippingPolicy,
+} from './shipping-policy.js';
 import {
   ShippingDomainError,
   type ShippingGuideRecord,
+  type ShippingOfferQuote,
   type ShippingQuoteRecord,
 } from './shipping-quote-service.js';
 
@@ -24,6 +32,8 @@ function mapQuote(
     freightCop: row.freightCop,
     cashOnDeliveryCop: row.cashOnDeliveryCop,
     surchargeCop: row.surchargeCop,
+    insuranceMode: row.insuranceMode as ShippingQuoteRecord['insuranceMode'],
+    insuranceCop: row.insuranceCop,
     estimatedDays: row.estimatedDays,
     quotedAt: row.quotedAt,
     expiresAt: row.expiresAt,
@@ -36,38 +46,184 @@ export class PostgresShippingQuoteRepository {
   constructor(private readonly database: PostgresDatabase) {}
 
   async preferredCarrier(localityCode: string): Promise<string | null> {
+    return (await this.shippingPolicy(localityCode)).preferredCarrier;
+  }
+
+  async defaultShippingPolicy(): Promise<ShippingPolicy> {
     const [row] = await this.database.orm
-      .select({ carrier: shippingCarrierRules.carrier })
-      .from(shippingCarrierRules)
-      .where(
-        and(
-          eq(shippingCarrierRules.localityCarrierCode, localityCode),
-          eq(shippingCarrierRules.active, true),
-        ),
-      )
+      .select()
+      .from(shippingPreferences)
+      .where(eq(shippingPreferences.id, true))
       .limit(1);
-    return row?.carrier ?? null;
+    return row === undefined
+      ? DEFAULT_SHIPPING_POLICY
+      : {
+          preferredCarrier: row.carrier,
+          fallbackPolicy:
+            row.fallbackPolicy as ShippingPolicy['fallbackPolicy'],
+          offerMode: row.offerMode as ShippingPolicy['offerMode'],
+          protectedInsurance:
+            row.protectedInsurance as ShippingPolicy['protectedInsurance'],
+        };
+  }
+
+  async setDefaultShippingPolicy(policy: ShippingPolicy): Promise<void> {
+    await this.database.orm.transaction(async (tx) => {
+      await tx
+        .insert(shippingPreferences)
+        .values({
+          id: true,
+          carrier: policy.preferredCarrier,
+          fallbackPolicy: policy.fallbackPolicy,
+          offerMode: policy.offerMode,
+          protectedInsurance: policy.protectedInsurance,
+        })
+        .onConflictDoUpdate({
+          target: shippingPreferences.id,
+          set: {
+            carrier: policy.preferredCarrier,
+            fallbackPolicy: policy.fallbackPolicy,
+            offerMode: policy.offerMode,
+            protectedInsurance: policy.protectedInsurance,
+            updatedAt: new Date(),
+          },
+        });
+      await tx
+        .insert(shippingPolicyAudits)
+        .values({ scope: 'global', policy, action: 'upsert' });
+    });
+  }
+
+  async shippingPolicy(localityCode: string): Promise<ShippingPolicy> {
+    const [defaults, rows] = await Promise.all([
+      this.defaultShippingPolicy(),
+      this.database.orm
+        .select()
+        .from(shippingCarrierRules)
+        .where(eq(shippingCarrierRules.localityCarrierCode, localityCode))
+        .limit(1),
+    ]);
+    const row = rows[0];
+    return resolveShippingPolicy(
+      defaults,
+      row === undefined
+        ? null
+        : {
+            preferredCarrier: row.carrier,
+            fallbackPolicy:
+              row.fallbackPolicy as ShippingPolicy['fallbackPolicy'],
+            offerMode: row.offerMode as ShippingPolicy['offerMode'],
+            protectedInsurance:
+              row.protectedInsurance as ShippingPolicy['protectedInsurance'],
+            active: row.active,
+          },
+    );
+  }
+
+  async upsertShippingPolicy(
+    localityCode: string,
+    policy: ShippingPolicy,
+  ): Promise<void> {
+    await this.database.orm.transaction(async (tx) => {
+      await tx
+        .insert(shippingCarrierRules)
+        .values({
+          localityCarrierCode: localityCode,
+          carrier: policy.preferredCarrier,
+          fallbackPolicy: policy.fallbackPolicy,
+          offerMode: policy.offerMode,
+          protectedInsurance: policy.protectedInsurance,
+        })
+        .onConflictDoUpdate({
+          target: shippingCarrierRules.localityCarrierCode,
+          set: {
+            carrier: policy.preferredCarrier,
+            fallbackPolicy: policy.fallbackPolicy,
+            offerMode: policy.offerMode,
+            protectedInsurance: policy.protectedInsurance,
+            active: true,
+            updatedAt: new Date(),
+          },
+        });
+      await tx.insert(shippingPolicyAudits).values({
+        scope: 'municipality',
+        localityCarrierCode: localityCode,
+        policy,
+        action: 'upsert',
+      });
+    });
+  }
+
+  async listShippingRules() {
+    const rows = await this.database.orm
+      .select()
+      .from(shippingCarrierRules)
+      .orderBy(asc(shippingCarrierRules.localityCarrierCode));
+    return rows.map((row) => ({
+      localityCarrierCode: row.localityCarrierCode,
+      preferredCarrier: row.carrier,
+      fallbackPolicy: row.fallbackPolicy as ShippingPolicy['fallbackPolicy'],
+      offerMode: row.offerMode as ShippingPolicy['offerMode'],
+      protectedInsurance:
+        row.protectedInsurance as ShippingPolicy['protectedInsurance'],
+      active: row.active,
+      updatedAt: row.updatedAt,
+    }));
+  }
+
+  async deactivateShippingRule(localityCode: string): Promise<void> {
+    await this.database.orm.transaction(async (tx) => {
+      const [row] = await tx
+        .update(shippingCarrierRules)
+        .set({ active: false, updatedAt: new Date() })
+        .where(eq(shippingCarrierRules.localityCarrierCode, localityCode))
+        .returning();
+      if (row !== undefined) {
+        await tx.insert(shippingPolicyAudits).values({
+          scope: 'municipality',
+          localityCarrierCode: localityCode,
+          policy: {
+            preferredCarrier: row.carrier,
+            fallbackPolicy: row.fallbackPolicy,
+            offerMode: row.offerMode,
+            protectedInsurance: row.protectedInsurance,
+          },
+          action: 'deactivate',
+        });
+      }
+    });
+  }
+
+  async listObservedCarriers(): Promise<readonly string[]> {
+    const rows = await this.database.orm
+      .select({ carrier: shippingObservedCarriers.carrier })
+      .from(shippingObservedCarriers)
+      .orderBy(asc(shippingObservedCarriers.carrier));
+    return rows.map((row) => row.carrier);
   }
 
   async upsertCarrierRule(
     localityCode: string,
     carrier: string,
   ): Promise<void> {
-    await this.database.orm
-      .insert(shippingCarrierRules)
-      .values({ localityCarrierCode: localityCode, carrier })
-      .onConflictDoUpdate({
-        target: shippingCarrierRules.localityCarrierCode,
-        set: { carrier, active: true, updatedAt: new Date() },
-      });
+    await this.upsertShippingPolicy(localityCode, {
+      ...DEFAULT_SHIPPING_POLICY,
+      preferredCarrier: carrier,
+    });
   }
 
   async replaceQuotes(
     input: Readonly<{
       orderId: string;
       draftVersion: number;
-      quotes: readonly CarrierQuote[];
+      quotes: readonly ShippingOfferQuote[];
       recommendedCarrier: string;
+      recommendedQuotes?: readonly Readonly<{
+        carrier: string;
+        insuranceMode: ShippingQuoteRecord['insuranceMode'];
+      }>[];
+      automaticallySelect?: boolean;
+      policy?: ShippingPolicy;
       quotedAt: Date;
       expiresAt: Date;
     }>,
@@ -76,6 +232,17 @@ export class PostgresShippingQuoteRepository {
       await tx
         .delete(shippingQuotes)
         .where(eq(shippingQuotes.orderId, input.orderId));
+      for (const carrier of new Set(
+        input.quotes.map((quote) => quote.carrier),
+      )) {
+        await tx
+          .insert(shippingObservedCarriers)
+          .values({ carrier })
+          .onConflictDoUpdate({
+            target: shippingObservedCarriers.carrier,
+            set: { lastSeenAt: new Date() },
+          });
+      }
       const inserted = await tx
         .insert(shippingQuotes)
         .values(
@@ -87,11 +254,25 @@ export class PostgresShippingQuoteRepository {
             freightCop: quote.freightCop,
             cashOnDeliveryCop: quote.cashOnDeliveryCop,
             surchargeCop: quote.surchargeCop,
+            insuranceMode: quote.insuranceMode ?? 'none',
+            insuranceCop: quote.insuranceCop ?? 0,
+            policySnapshot: input.policy ?? null,
             estimatedDays: quote.estimatedDays,
             quotedAt: input.quotedAt,
             expiresAt: input.expiresAt,
-            recommended: quote.carrier === input.recommendedCarrier,
-            selected: quote.carrier === input.recommendedCarrier,
+            recommended:
+              input.recommendedQuotes?.some(
+                (candidate) =>
+                  candidate.carrier === quote.carrier &&
+                  candidate.insuranceMode === (quote.insuranceMode ?? 'none'),
+              ) ?? quote.carrier === input.recommendedCarrier,
+            selected:
+              (input.automaticallySelect ?? true) &&
+              (input.recommendedQuotes?.[0]?.carrier ??
+                input.recommendedCarrier) === quote.carrier &&
+              (input.recommendedQuotes?.[0]?.insuranceMode ??
+                quote.insuranceMode ??
+                'none') === (quote.insuranceMode ?? 'none'),
           })),
         )
         .returning();

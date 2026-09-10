@@ -9,6 +9,8 @@ const quote = {
   freightCop: 13_368,
   cashOnDeliveryCop: 3_000,
   surchargeCop: 600,
+  insuranceMode: 'none' as const,
+  insuranceCop: 0,
   totalShippingCop: 16_968,
   estimatedDays: '1',
   quotedAt: '2026-09-07T17:00:00.000Z',

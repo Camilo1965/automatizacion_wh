@@ -84,6 +84,25 @@ type ShippingGuideJobPort = Readonly<{
 
 type ShippingQuotePort = Readonly<{
   createQuotes(orderId: string): Promise<unknown>;
+  getShipping?(orderId: string): Promise<
+    Readonly<{
+      quotes: readonly ShippingChoice[];
+      guide: unknown;
+    }>
+  >;
+  selectQuote?(orderId: string, quoteId: string): Promise<unknown>;
+}>;
+
+type ShippingChoice = Readonly<{
+  id: string;
+  carrier: string;
+  freightCop: number;
+  cashOnDeliveryCop: number;
+  surchargeCop: number;
+  insuranceCop: number;
+  insuranceMode: 'none' | 'standard' | 'plus';
+  recommended: boolean;
+  selected: boolean;
 }>;
 
 function displaySize(size: string): string {
@@ -103,14 +122,17 @@ function summaryText(summary: OrderSummary): string {
     size?: string;
     totalCop?: number;
     shippingCostCop?: number | null;
-    shippingQuote?: { carrier?: string };
+    shippingQuote?: {
+      carrier?: string;
+      insuranceMode?: 'none' | 'standard' | 'plus';
+    };
     customer?: { name?: string };
     destination?: { locality?: string; department?: string; address?: string };
   };
   const shippingLine =
     snapshot.shippingCostCop == null
       ? 'Envío pendiente de cotización'
-      : `Envío: ${snapshot.shippingQuote?.carrier ?? 'transportadora'} · ${formatCop(snapshot.shippingCostCop)}`;
+      : `Envío: ${snapshot.shippingQuote?.carrier ?? 'transportadora'} · ${formatCop(snapshot.shippingCostCop)}${snapshot.shippingQuote?.insuranceMode && snapshot.shippingQuote.insuranceMode !== 'none' ? ` · Seguro ${snapshot.shippingQuote.insuranceMode === 'plus' ? '99 Plus' : '99 estándar'}` : ''}`;
   return [
     `Resumen ${snapshot.orderNumber ?? ''}`.trim(),
     `REF ${snapshot.reference?.code ?? ''} · ${snapshot.reference?.modelName ?? ''} · ${snapshot.reference?.color ?? ''}`,
@@ -121,6 +143,39 @@ function summaryText(summary: OrderSummary): string {
     `Entrega: ${snapshot.destination?.address ?? ''}, ${snapshot.destination?.locality ?? ''}, ${snapshot.destination?.department ?? ''}`,
     'Pago contra entrega. Responde “confirmar” para reservar o “cancelar”.',
   ].join('\n');
+}
+
+function shippingChoices(
+  quotes: readonly ShippingChoice[],
+): readonly ShippingChoice[] {
+  return quotes
+    .filter((quote) => quote.recommended)
+    .sort((left, right) =>
+      left.insuranceMode === 'none'
+        ? -1
+        : right.insuranceMode === 'none'
+          ? 1
+          : 0,
+    );
+}
+
+function shippingChoiceText(quotes: readonly ShippingChoice[]): string {
+  return [
+    'Elige cómo quieres recibir tu pedido:',
+    ...quotes.map((quote, index) => {
+      const protectedLabel =
+        quote.insuranceMode === 'none'
+          ? 'Económico'
+          : `Protegido · Seguro 99 ${quote.insuranceMode === 'plus' ? 'Plus' : 'estándar'}`;
+      const total =
+        quote.freightCop +
+        quote.cashOnDeliveryCop +
+        quote.surchargeCop +
+        quote.insuranceCop;
+      return `${index + 1}. ${protectedLabel}\nTransportadora: ${quote.carrier}\nEnvío: ${formatCop(total)}`;
+    }),
+    'Responde 1 o 2 para continuar.',
+  ].join('\n\n');
 }
 
 export class WhatsAppSalesService {
@@ -269,7 +324,65 @@ export class WhatsAppSalesService {
       this.orders?.createSummary !== undefined &&
       this.conversations.setSummaryVersion !== undefined
     ) {
-      await this.shippingQuotes?.createQuotes(result.activeOrderId);
+      const created = await this.shippingQuotes?.createQuotes(
+        result.activeOrderId,
+      );
+      if (Array.isArray(created)) {
+        const choices = shippingChoices(created as ShippingChoice[]);
+        if (choices.length > 1 && !choices.some((quote) => quote.selected)) {
+          await this.conversations.setState?.(
+            result.conversationId,
+            'awaiting_shipping',
+          );
+          await this.queueText(
+            result.conversationId,
+            input,
+            shippingChoiceText(choices),
+            `shipping-options:${result.activeOrderId}`,
+          );
+          return;
+        }
+      }
+      const summary = await this.orders.createSummary(result.activeOrderId);
+      await this.conversations.setSummaryVersion(
+        result.conversationId,
+        summary.version,
+      );
+      await this.queueText(
+        result.conversationId,
+        input,
+        summaryText(summary),
+        `summary:${summary.version}`,
+      );
+    }
+    if (
+      result.action === 'select_shipping' &&
+      result.input !== undefined &&
+      result.activeOrderId != null &&
+      this.shippingQuotes?.getShipping !== undefined &&
+      this.shippingQuotes.selectQuote !== undefined &&
+      this.orders?.createSummary !== undefined &&
+      this.conversations.setSummaryVersion !== undefined
+    ) {
+      const shipping = await this.shippingQuotes.getShipping(
+        result.activeOrderId,
+      );
+      const choices = shippingChoices(shipping.quotes);
+      const selected = choices[Number(result.input) - 1];
+      if (selected === undefined) {
+        await this.conversations.setState?.(
+          result.conversationId,
+          'awaiting_shipping',
+        );
+        await this.queueText(
+          result.conversationId,
+          input,
+          'Esa opción ya no está disponible. Responde 1 o 2.',
+          'invalid-shipping-option',
+        );
+        return;
+      }
+      await this.shippingQuotes.selectQuote(result.activeOrderId, selected.id);
       const summary = await this.orders.createSummary(result.activeOrderId);
       await this.conversations.setSummaryVersion(
         result.conversationId,

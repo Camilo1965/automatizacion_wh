@@ -125,7 +125,7 @@ export function ReferenceDetailPage() {
         <h2 id="detail-title">
           Referencia <span className="reference-code">{detail.code}</span>
         </h2>
-        <Link className="button-secondary" to="/">
+        <Link className="button-secondary" to="/catalog">
           Volver al catálogo
         </Link>
       </div>

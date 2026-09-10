@@ -190,6 +190,7 @@ describe('complete WhatsApp sale', () => {
         'Medellín',
         'Calle 1 # 2-3',
         'ninguna',
+        '1',
         'confirmar',
       ].entries()) {
         await service.process({
@@ -223,7 +224,7 @@ describe('complete WhatsApp sale', () => {
       expect(createPreShipment).toHaveBeenCalledWith(
         expect.objectContaining({ declaredValueCop: 136_968 }),
       );
-      expect(quote).toHaveBeenCalledTimes(1);
+      expect(quote).toHaveBeenCalledTimes(2);
       expect(getGuidePdf).toHaveBeenCalledTimes(1);
       const job = await jobs.findByOrderId(order!.id);
       expect(job).toMatchObject({

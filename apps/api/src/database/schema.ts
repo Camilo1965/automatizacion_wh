@@ -678,6 +678,11 @@ export const shippingQuotes = pgTable(
     freightCop: integer('freight_cop').notNull(),
     cashOnDeliveryCop: integer('cash_on_delivery_cop').notNull(),
     surchargeCop: integer('surcharge_cop').notNull(),
+    insuranceMode: varchar('insurance_mode', { length: 8 })
+      .notNull()
+      .default('none'),
+    insuranceCop: integer('insurance_cop').notNull().default(0),
+    policySnapshot: jsonb('policy_snapshot'),
     estimatedDays: varchar('estimated_days', { length: 32 }).notNull(),
     quotedAt: timestamp('quoted_at', { withTimezone: true }).notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
@@ -691,16 +696,21 @@ export const shippingQuotes = pgTable(
     ),
     check(
       'shipping_quotes_cop_non_negative',
-      sql`${table.freightCop} >= 0 AND ${table.cashOnDeliveryCop} >= 0 AND ${table.surchargeCop} >= 0`,
+      sql`${table.freightCop} >= 0 AND ${table.cashOnDeliveryCop} >= 0 AND ${table.surchargeCop} >= 0 AND ${table.insuranceCop} >= 0`,
+    ),
+    check(
+      'shipping_quotes_insurance_mode_allowed',
+      sql`${table.insuranceMode} IN ('none', 'standard', 'plus')`,
     ),
     check(
       'shipping_quotes_expiry_after_quote',
       sql`${table.expiresAt} > ${table.quotedAt}`,
     ),
-    unique('shipping_quotes_order_carrier_version_unique').on(
+    unique('shipping_quotes_order_carrier_insurance_version_unique').on(
       table.orderId,
       table.draftVersion,
       table.carrier,
+      table.insuranceMode,
     ),
     uniqueIndex('shipping_quotes_one_selected_per_order')
       .on(table.orderId)
@@ -714,7 +724,16 @@ export const shippingCarrierRules = pgTable(
     localityCarrierCode: varchar('locality_carrier_code', {
       length: 32,
     }).primaryKey(),
-    carrier: varchar('carrier', { length: 32 }).notNull(),
+    carrier: varchar('carrier', { length: 32 }),
+    fallbackPolicy: varchar('fallback_policy', { length: 8 })
+      .notNull()
+      .default('allow'),
+    offerMode: varchar('offer_mode', { length: 20 })
+      .notNull()
+      .default('customer_choice'),
+    protectedInsurance: varchar('protected_insurance', { length: 8 })
+      .notNull()
+      .default('standard'),
     active: boolean('active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -730,7 +749,100 @@ export const shippingCarrierRules = pgTable(
     ),
     check(
       'shipping_carrier_rules_carrier_format',
-      sql`${table.carrier} ~ '^[a-z0-9_-]{2,32}$'`,
+      sql`${table.carrier} IS NULL OR ${table.carrier} ~ '^[a-z0-9_-]{2,32}$'`,
+    ),
+    check(
+      'shipping_carrier_rules_fallback_allowed',
+      sql`${table.fallbackPolicy} IN ('allow', 'block')`,
+    ),
+    check(
+      'shipping_carrier_rules_offer_mode_allowed',
+      sql`${table.offerMode} IN ('customer_choice', 'economy_only', 'protected_only')`,
+    ),
+    check(
+      'shipping_carrier_rules_insurance_allowed',
+      sql`${table.protectedInsurance} IN ('standard', 'plus')`,
+    ),
+    check(
+      'shipping_carrier_rules_block_requires_carrier',
+      sql`${table.fallbackPolicy} <> 'block' OR ${table.carrier} IS NOT NULL`,
+    ),
+  ],
+);
+
+export const shippingPreferences = pgTable(
+  'shipping_preferences',
+  {
+    id: boolean('id').primaryKey().default(true),
+    carrier: varchar('carrier', { length: 32 }),
+    fallbackPolicy: varchar('fallback_policy', { length: 8 })
+      .notNull()
+      .default('allow'),
+    offerMode: varchar('offer_mode', { length: 20 })
+      .notNull()
+      .default('customer_choice'),
+    protectedInsurance: varchar('protected_insurance', { length: 8 })
+      .notNull()
+      .default('standard'),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check('shipping_preferences_singleton', sql`${table.id} = true`),
+    check(
+      'shipping_preferences_carrier_format',
+      sql`${table.carrier} IS NULL OR ${table.carrier} ~ '^[a-z0-9_-]{2,32}$'`,
+    ),
+    check(
+      'shipping_preferences_fallback_allowed',
+      sql`${table.fallbackPolicy} IN ('allow', 'block')`,
+    ),
+    check(
+      'shipping_preferences_offer_mode_allowed',
+      sql`${table.offerMode} IN ('customer_choice', 'economy_only', 'protected_only')`,
+    ),
+    check(
+      'shipping_preferences_insurance_allowed',
+      sql`${table.protectedInsurance} IN ('standard', 'plus')`,
+    ),
+    check(
+      'shipping_preferences_block_requires_carrier',
+      sql`${table.fallbackPolicy} <> 'block' OR ${table.carrier} IS NOT NULL`,
+    ),
+  ],
+);
+
+export const shippingObservedCarriers = pgTable('shipping_observed_carriers', {
+  carrier: varchar('carrier', { length: 32 }).primaryKey(),
+  firstSeenAt: timestamp('first_seen_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const shippingPolicyAudits = pgTable(
+  'shipping_policy_audits',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    scope: varchar('scope', { length: 16 }).notNull(),
+    localityCarrierCode: varchar('locality_carrier_code', { length: 32 }),
+    policy: jsonb('policy').notNull(),
+    action: varchar('action', { length: 16 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'shipping_policy_audits_scope_allowed',
+      sql`${table.scope} IN ('global', 'municipality')`,
+    ),
+    check(
+      'shipping_policy_audits_action_allowed',
+      sql`${table.action} IN ('upsert', 'deactivate')`,
     ),
   ],
 );
@@ -747,6 +859,9 @@ export const shippingGuideJobs = pgTable(
     }),
     status: varchar('status', { length: 16 }).notNull().default('pending'),
     carrier: varchar('carrier', { length: 32 }).notNull().default('envia'),
+    insuranceMode: varchar('insurance_mode', { length: 8 })
+      .notNull()
+      .default('none'),
     preShipmentNumber: varchar('pre_shipment_number', { length: 64 }),
     freightCop: integer('freight_cop'),
     errorCode: varchar('error_code', { length: 64 }),
@@ -768,6 +883,10 @@ export const shippingGuideJobs = pgTable(
     check(
       'shipping_guide_jobs_status_allowed',
       sql`${table.status} IN ('pending', 'processing', 'created', 'uncertain', 'failed')`,
+    ),
+    check(
+      'shipping_guide_jobs_insurance_mode_allowed',
+      sql`${table.insuranceMode} IN ('none', 'standard', 'plus')`,
     ),
     index('shipping_guide_jobs_status_created_idx').on(
       table.status,
@@ -798,4 +917,7 @@ export const schema = {
   shippingGuideJobs,
   shippingQuotes,
   shippingCarrierRules,
+  shippingPreferences,
+  shippingObservedCarriers,
+  shippingPolicyAudits,
 };

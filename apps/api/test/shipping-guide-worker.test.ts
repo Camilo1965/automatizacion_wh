@@ -9,6 +9,7 @@ describe('ShippingGuideWorker', () => {
         id: 'job-1',
         orderId: 'order-1',
         carrier: 'envia',
+        insuranceMode: 'plus',
         collectionValueCop: 136968,
       }),
       markCreated: vi.fn(),
@@ -42,6 +43,7 @@ describe('ShippingGuideWorker', () => {
       expect.objectContaining({
         contents: 'Calzado REF 01 · Tenis Camila · Talla 37',
         declaredValueCop: 136968,
+        insurance: 'plus',
         recipient: expect.objectContaining({
           firstName: 'Camila',
           firstSurname: 'Pérez',

@@ -8,6 +8,7 @@ type JobPort = Readonly<{
     id: string;
     orderId: string;
     carrier: string;
+    insuranceMode: 'none' | 'standard' | 'plus';
     collectionValueCop: number;
   }> | null>;
   markCreated(
@@ -93,6 +94,7 @@ export class ShippingGuideWorker {
           localityCode: order.destination.localityCarrierCode,
         },
         carrier: job.carrier,
+        insurance: job.insuranceMode,
         notes: order.destination.deliveryNotes,
       });
       await this.jobs.markCreated(

@@ -27,19 +27,48 @@ describe('App shell', () => {
     state.authenticated = true;
     let saved: unknown;
     server.use(
-      http.put('/api/admin/shipping/carrier-rules', async ({ request }) => {
+      http.post('/api/admin/shipping/rules', async ({ request }) => {
         saved = await request.json();
         return new HttpResponse(null, { status: 204 });
       }),
     );
     renderWithProviders(<App />, { initialEntries: ['/settings/shipping'] });
 
-    await user.type(await screen.findByLabelText('Código DANE'), '05001000');
-    await user.type(screen.getByLabelText('Transportadora preferida'), 'TCC');
+    const municipalityForm = (
+      await screen.findByRole('heading', { name: 'Nueva regla municipal' })
+    ).closest('form')!;
+    await user.type(
+      within(municipalityForm).getByLabelText('Código DANE'),
+      '05001000',
+    );
+    await user.type(
+      within(municipalityForm).getByLabelText('Transportadora preferida'),
+      'TCC',
+    );
+    await user.selectOptions(
+      within(municipalityForm).getByLabelText('Si no aparece la preferida'),
+      'block',
+    );
+    await user.selectOptions(
+      within(municipalityForm).getByLabelText('Opciones para el cliente'),
+      'protected_only',
+    );
+    await user.selectOptions(
+      within(municipalityForm).getByLabelText('Seguro protegido'),
+      'plus',
+    );
     await user.click(screen.getByRole('button', { name: 'Guardar regla' }));
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Regla guardada');
-    expect(saved).toEqual({ localityCarrierCode: '05001000', carrier: 'tcc' });
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Regla guardada',
+    );
+    expect(saved).toEqual({
+      localityCarrierCode: '05001000',
+      preferredCarrier: 'tcc',
+      fallbackPolicy: 'block',
+      offerMode: 'protected_only',
+      protectedInsurance: 'plus',
+    });
   });
 
   it('shows the operational navigation and dashboard after login', async () => {
@@ -48,23 +77,22 @@ describe('App shell', () => {
 
     await loginAsAdmin(user);
 
-    expect(await screen.findByRole('heading', { name: 'Inicio' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Inicio' }),
+    ).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Pedidos' })[0]).toHaveAttribute(
       'href',
       '/orders',
     );
-    expect(screen.getAllByRole('link', { name: 'Conversaciones' })[0]).toHaveAttribute(
-      'href',
-      '/conversations',
-    );
-    expect(screen.getAllByRole('link', { name: 'Catálogo' })[0]).toHaveAttribute(
-      'href',
-      '/catalog',
-    );
-    expect(screen.getAllByRole('link', { name: 'Preferencias' })[0]).toHaveAttribute(
-      'href',
-      '/settings/shipping',
-    );
+    expect(
+      screen.getAllByRole('link', { name: 'Conversaciones' })[0],
+    ).toHaveAttribute('href', '/conversations');
+    expect(
+      screen.getAllByRole('link', { name: 'Catálogo' })[0],
+    ).toHaveAttribute('href', '/catalog');
+    expect(
+      screen.getAllByRole('link', { name: 'Preferencias' })[0],
+    ).toHaveAttribute('href', '/settings/shipping');
   });
 
   it('renders Camila Operaciones brand landmarks after login', async () => {
@@ -128,6 +156,8 @@ describe('Shipping operations', () => {
             freightCop: 13368,
             cashOnDeliveryCop: 3000,
             surchargeCop: 600,
+            insuranceMode: 'none',
+            insuranceCop: 0,
             totalShippingCop: 16968,
             estimatedDays: '1',
             quotedAt: '2026-09-07T17:00:00.000Z',
@@ -199,7 +229,9 @@ describe('Login and session', () => {
 
     await loginAsAdmin(user);
 
-    expect(await screen.findByRole('heading', { name: 'Inicio' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Inicio' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Nuevo pedido' })).toHaveAttribute(
       'href',
       '/orders/new',

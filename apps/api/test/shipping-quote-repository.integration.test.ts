@@ -26,10 +26,24 @@ describe('shipping quote persistence', () => {
     const repository = new PostgresShippingQuoteRepository(database);
     const now = new Date();
     try {
-      await repository.upsertCarrierRule('05001000', 'tcc');
-      await expect(repository.preferredCarrier('05001000')).resolves.toBe(
+      await repository.upsertCarrierRule('05002000', 'tcc');
+      await expect(repository.preferredCarrier('05002000')).resolves.toBe(
         'tcc',
       );
+      await repository.upsertShippingPolicy('05002000', {
+        preferredCarrier: 'tcc',
+        fallbackPolicy: 'block',
+        offerMode: 'protected_only',
+        protectedInsurance: 'plus',
+      });
+      await expect(
+        repository.shippingPolicy('05002000'),
+      ).resolves.toMatchObject({
+        preferredCarrier: 'tcc',
+        fallbackPolicy: 'block',
+        offerMode: 'protected_only',
+        protectedInsurance: 'plus',
+      });
       const rows = await repository.replaceQuotes({
         orderId: '11111111-1111-4111-8111-111111111111',
         draftVersion: 1,

@@ -181,6 +181,10 @@ export function OrderDetailPage() {
                 onChange={() => chooseQuote.mutate(item.id)}
               />
               <strong>{item.carrier}</strong> · {money(item.totalShippingCop)}
+              {' · '}
+              {item.insuranceMode === 'none'
+                ? 'Económico'
+                : `Protegido · Seguro 99 ${item.insuranceMode === 'plus' ? 'Plus' : 'estándar'}`}
               {item.estimatedDays ? ` · ${item.estimatedDays} día(s)` : ''}
               {item.recommended ? ' · Recomendada' : ''}
             </label>

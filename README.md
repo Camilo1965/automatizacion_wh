@@ -8,6 +8,8 @@ Antes de probar eventos firmados, agrega los secretos directamente al archivo lo
 
 La autenticación de 99envíos sigue su OpenAPI: el servidor hace `POST /api/integration/v1/login` con `NINETYNINE_ENVIOS_EMAIL` y `NINETYNINE_ENVIOS_PASSWORD`, recibe un JWT y lo utiliza como `Authorization: Bearer <token>`. `NINETYNINE_ENVIOS_INTEGRATION_TOKEN` y `NINETYNINE_ENVIOS_INTEGRATION_ID` son encabezados opcionales del preenvío; no reemplazan el JWT obtenido por login.
 
+En **Preferencias → Envíos** se configura la regla general y las excepciones por código DANE. Una excepción reemplaza la política general completa y puede preferir u obligar una transportadora, permitir o bloquear el fallback y ofrecer envío económico, protegido o ambos. El modo protegido cotiza y crea la guía con Seguro 99 estándar o Plus. El simulador solo muestra la regla efectiva; nunca crea una guía.
+
 ## Requisitos
 
 - Node.js `24.14.1` (ver `.nvmrc`)

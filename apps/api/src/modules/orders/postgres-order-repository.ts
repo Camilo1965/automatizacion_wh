@@ -251,7 +251,8 @@ export class PostgresOrderRepository implements OrderRepository {
           ? null
           : selectedQuote.freightCop +
             selectedQuote.cashOnDeliveryCop +
-            selectedQuote.surchargeCop;
+            selectedQuote.surchargeCop +
+            selectedQuote.insuranceCop;
       const snapshot = {
         schemaVersion: 1,
         version,
@@ -280,6 +281,8 @@ export class PostgresOrderRepository implements OrderRepository {
                 freightCop: selectedQuote.freightCop,
                 cashOnDeliveryCop: selectedQuote.cashOnDeliveryCop,
                 surchargeCop: selectedQuote.surchargeCop,
+                insuranceMode: selectedQuote.insuranceMode,
+                insuranceCop: selectedQuote.insuranceCop,
                 estimatedDays: selectedQuote.estimatedDays,
                 expiresAt: selectedQuote.expiresAt.toISOString(),
               },
@@ -476,6 +479,7 @@ export class PostgresOrderRepository implements OrderRepository {
               orderId: order.id,
               quoteId: confirmedShippingQuote.id,
               carrier: confirmedShippingQuote.carrier,
+              insuranceMode: confirmedShippingQuote.insuranceMode,
             })
             .onConflictDoNothing({ target: shippingGuideJobs.orderId });
         }
