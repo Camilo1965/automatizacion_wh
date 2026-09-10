@@ -1,0 +1,2 @@
+ALTER TABLE "whatsapp_outbound_messages" ADD COLUMN "source" varchar(16) DEFAULT 'bot' NOT NULL;--> statement-breakpoint
+ALTER TABLE "whatsapp_outbound_messages" ADD CONSTRAINT "whatsapp_outbound_messages_source_allowed" CHECK ("whatsapp_outbound_messages"."source" IN ('bot', 'owner_panel', 'owner_mobile'));

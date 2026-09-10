@@ -1,10 +1,7 @@
 import { desc, eq, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
-import {
-  whatsappConversations,
-  whatsappOutboundMessages,
-} from '../../database/schema.js';
+import { whatsappConversations } from '../../database/schema.js';
 
 export type AdminConversation = Readonly<{
   id: string;
@@ -23,6 +20,11 @@ export interface ConversationAdminRepository {
   get(conversationId: string): Promise<AdminConversation | null>;
   takeControl(conversationId: string): Promise<void>;
   releaseControl(conversationId: string): Promise<void>;
+  getManualContext?(conversationId: string): Promise<{
+    customerPhone: string;
+    controlMode: 'bot' | 'human';
+    lastInboundMessageAt: Date;
+  } | null>;
 }
 
 function mapConversation(
@@ -83,26 +85,74 @@ export class PostgresConversationAdminRepository implements ConversationAdminRep
       : mapConversation(row.conversation, row.pendingOutbound);
   }
 
+  async getManualContext(conversationId: string) {
+    const [row] = await this.database.orm
+      .select({
+        customerPhone: whatsappConversations.customerPhone,
+        mode: whatsappConversations.mode,
+        lastInboundMessageAt: whatsappConversations.lastInboundMessageAt,
+      })
+      .from(whatsappConversations)
+      .where(eq(whatsappConversations.id, conversationId))
+      .limit(1);
+    return row === undefined
+      ? null
+      : {
+          customerPhone: row.customerPhone,
+          controlMode: row.mode as 'bot' | 'human',
+          lastInboundMessageAt: row.lastInboundMessageAt,
+        };
+  }
+
   async takeControl(conversationId: string): Promise<void> {
     await this.database.orm.transaction(async (tx) => {
-      await tx
-        .update(whatsappConversations)
-        .set({ mode: 'human', updatedAt: new Date() })
-        .where(eq(whatsappConversations.id, conversationId));
-      await tx
-        .update(whatsappOutboundMessages)
-        .set({ status: 'cancelled', updatedAt: new Date() })
-        .where(
-          sql`${whatsappOutboundMessages.conversationId} = ${conversationId}
-            AND ${whatsappOutboundMessages.status} = 'pending'`,
-        );
+      const rows = await tx.execute<{ customer_phone: string }>(sql`
+        SELECT customer_phone FROM whatsapp_conversations WHERE id = ${conversationId}
+      `);
+      const conversation = rows[0];
+      if (conversation === undefined) return;
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${conversation.customer_phone}))`,
+      );
+      await tx.execute(
+        sql`SELECT id FROM whatsapp_conversations WHERE id = ${conversationId} FOR UPDATE`,
+      );
+      await tx.execute(sql`
+        UPDATE whatsapp_conversations
+        SET mode = 'human', updated_at = clock_timestamp()
+        WHERE id = ${conversationId}
+      `);
+      await tx.execute(sql`
+        WITH cancelled AS (
+          UPDATE whatsapp_outbound_messages
+          SET status = 'cancelled', updated_at = clock_timestamp()
+          WHERE conversation_id = ${conversationId}
+            AND status = 'pending' AND source = 'bot'
+          RETURNING id
+        )
+        UPDATE whatsapp_conversation_messages AS transcript
+        SET status = 'cancelled', updated_at = clock_timestamp()
+        FROM cancelled
+        WHERE transcript.outbound_message_id = cancelled.id
+      `);
     });
   }
 
   async releaseControl(conversationId: string): Promise<void> {
-    await this.database.orm
-      .update(whatsappConversations)
-      .set({ mode: 'bot', updatedAt: new Date() })
-      .where(eq(whatsappConversations.id, conversationId));
+    await this.database.orm.transaction(async (tx) => {
+      const rows = await tx.execute<{ customer_phone: string }>(sql`
+        SELECT customer_phone FROM whatsapp_conversations WHERE id = ${conversationId}
+      `);
+      const conversation = rows[0];
+      if (conversation === undefined) return;
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${conversation.customer_phone}))`,
+      );
+      await tx.execute(sql`
+        UPDATE whatsapp_conversations
+        SET mode = 'bot', updated_at = clock_timestamp()
+        WHERE id = ${conversationId}
+      `);
+    });
   }
 }

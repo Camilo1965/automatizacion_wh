@@ -22,6 +22,8 @@ import type { LocalityService } from './modules/localities/locality-service.js';
 import type { OrderService } from './modules/orders/order-service.js';
 import type { WhatsAppInboundRepository } from './modules/whatsapp/whatsapp-inbound-repository.js';
 import type { ConversationAdminRepository } from './modules/conversations/postgres-conversation-admin-repository.js';
+import type { ConversationTranscriptRepository } from './modules/conversations/conversation-transcript-repository.js';
+import type { ManualMessageService } from './modules/conversations/manual-message-service.js';
 import type { DashboardService } from './modules/dashboard/dashboard-service.js';
 import type { ShippingQuoteOperations } from './modules/shipping/shipping-quote-service.js';
 import type { ShippingGuideOperations } from './modules/shipping/shipping-guide-service.js';
@@ -47,6 +49,8 @@ export type AppDependencies = Readonly<{
     }): Promise<void>;
   }>;
   conversationAdminRepository?: ConversationAdminRepository;
+  conversationTranscriptRepository?: ConversationTranscriptRepository;
+  manualMessageService?: ManualMessageService;
   shippingQuoteService?: ShippingQuoteOperations;
   shippingGuideService?: ShippingGuideOperations;
   dashboardService?: DashboardService;
@@ -181,6 +185,15 @@ export async function buildApp(
       : {
           conversationAdminRepository: dependencies.conversationAdminRepository,
         }),
+    ...(dependencies.conversationTranscriptRepository === undefined
+      ? {}
+      : {
+          conversationTranscriptRepository:
+            dependencies.conversationTranscriptRepository,
+        }),
+    ...(dependencies.manualMessageService === undefined
+      ? {}
+      : { manualMessageService: dependencies.manualMessageService }),
     ...(dependencies.shippingQuoteService === undefined
       ? {}
       : { shippingQuoteService: dependencies.shippingQuoteService }),

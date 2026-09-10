@@ -15,6 +15,7 @@ export type EnqueueTextInput = Readonly<{
   customerPhone: string;
   body: string;
   idempotencyKey: string;
+  source?: 'bot' | 'owner_panel' | 'owner_mobile';
 }>;
 
 export type EnqueueImageInput = Readonly<{
@@ -24,6 +25,7 @@ export type EnqueueImageInput = Readonly<{
   storageKey: string;
   mimeType: 'image/jpeg' | 'image/png';
   idempotencyKey: string;
+  source?: 'bot' | 'owner_panel' | 'owner_mobile';
 }>;
 
 export class PostgresOutboundRepository implements OutboxWorkerRepository {
@@ -42,6 +44,7 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
             : { conversationId: input.conversationId }),
           customerPhone: input.customerPhone,
           idempotencyKey: input.idempotencyKey,
+          source: input.source ?? 'bot',
           messageType: 'text',
           textBody: input.body,
         })
@@ -54,7 +57,7 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
           await tx.insert(whatsappConversationMessages).values({
             conversationId: input.conversationId,
             outboundMessageId: inserted.id,
-            source: 'bot',
+            source: input.source ?? 'bot',
             messageType: 'text',
             textBody: input.body,
             status: 'queued',
@@ -89,6 +92,7 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
             : { conversationId: input.conversationId }),
           customerPhone: input.customerPhone,
           idempotencyKey: input.idempotencyKey,
+          source: input.source ?? 'bot',
           messageType: 'image',
           textBody: input.caption,
           mediaStorageKey: input.storageKey,
@@ -103,7 +107,7 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
           await tx.insert(whatsappConversationMessages).values({
             conversationId: input.conversationId,
             outboundMessageId: inserted.id,
-            source: 'bot',
+            source: input.source ?? 'bot',
             messageType: 'image',
             textBody: input.caption,
             mediaStorageKey: input.storageKey,
@@ -135,6 +139,7 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
           FROM whatsapp_conversations AS conversation
           WHERE outbound.conversation_id = conversation.id
             AND outbound.status = 'pending'
+            AND outbound.source = 'bot'
             AND conversation.mode = 'human'
           RETURNING outbound.id
         )
@@ -165,7 +170,11 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
                 AND outbound.media_mime_type IN ('image/jpeg', 'image/png'))
             )
             AND (outbound.expires_at IS NULL OR outbound.expires_at > now())
-            AND (conversation.id IS NULL OR conversation.mode = 'bot')
+            AND (
+              outbound.source <> 'bot'
+              OR conversation.id IS NULL
+              OR conversation.mode = 'bot'
+            )
           ORDER BY outbound.created_at, outbound.id
           FOR UPDATE OF outbound SKIP LOCKED
           LIMIT 1

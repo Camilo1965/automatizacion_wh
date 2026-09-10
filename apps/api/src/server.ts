@@ -20,6 +20,8 @@ import { PostgresOutboundRepository } from './modules/whatsapp/postgres-outbound
 import { MetaWhatsAppClient } from './modules/whatsapp/meta-whatsapp-client.js';
 import { OutboxWorker } from './modules/whatsapp/outbox-worker.js';
 import { PostgresConversationAdminRepository } from './modules/conversations/postgres-conversation-admin-repository.js';
+import { PostgresConversationTranscriptRepository } from './modules/conversations/postgres-conversation-transcript-repository.js';
+import { ManualMessageService } from './modules/conversations/manual-message-service.js';
 import { PostgresShippingGuideJobRepository } from './modules/shipping/postgres-shipping-guide-job-repository.js';
 import { NinetyNineEnviosClient } from './modules/shipping/99envios-client.js';
 import { ShippingGuideWorker } from './modules/shipping/shipping-guide-worker.js';
@@ -94,6 +96,15 @@ async function main(): Promise<void> {
     shippingGuideJobs,
     shippingQuoteService,
   );
+  const conversationAdminRepository = new PostgresConversationAdminRepository(
+    database,
+  );
+  const conversationTranscriptRepository =
+    new PostgresConversationTranscriptRepository(database);
+  const manualMessageService = new ManualMessageService(
+    conversationAdminRepository,
+    outboundRepository,
+  );
 
   const app = await buildApp({
     config,
@@ -105,9 +116,9 @@ async function main(): Promise<void> {
     orderService,
     inboundRepository: new PostgresWhatsAppInboundRepository(database),
     inboundProcessor,
-    conversationAdminRepository: new PostgresConversationAdminRepository(
-      database,
-    ),
+    conversationAdminRepository,
+    conversationTranscriptRepository,
+    manualMessageService,
     dashboardService: new DashboardService(
       new PostgresDashboardRepository(database),
     ),

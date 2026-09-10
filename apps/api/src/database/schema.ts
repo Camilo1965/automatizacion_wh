@@ -677,6 +677,7 @@ export const whatsappOutboundMessages = pgTable(
     ),
     idempotencyKey: varchar('idempotency_key', { length: 160 }).notNull(),
     customerPhone: varchar('customer_phone', { length: 20 }).notNull(),
+    source: varchar('source', { length: 16 }).notNull().default('bot'),
     messageType: varchar('message_type', { length: 16 }).notNull(),
     textBody: text('text_body'),
     mediaStorageKey: varchar('media_storage_key', { length: 255 }),
@@ -696,6 +697,10 @@ export const whatsappOutboundMessages = pgTable(
   (table) => [
     unique('whatsapp_outbound_messages_idempotency_unique').on(
       table.idempotencyKey,
+    ),
+    check(
+      'whatsapp_outbound_messages_source_allowed',
+      sql`${table.source} IN ('bot', 'owner_panel', 'owner_mobile')`,
     ),
     check(
       'whatsapp_outbound_messages_type_allowed',

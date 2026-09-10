@@ -7,6 +7,7 @@ import { AuthenticationRequiredError } from '../src/modules/auth/auth-errors.js'
 import type { AuthService } from '../src/modules/auth/auth-service.js';
 import type { CatalogService } from '../src/modules/catalog/catalog-service.js';
 import type { PhotoStorage } from '../src/modules/catalog/photo-storage.js';
+import type { ManualMessageService } from '../src/modules/conversations/manual-message-service.js';
 
 const config: AppConfig = {
   nodeEnv: 'test',
@@ -86,6 +87,84 @@ describe('admin conversation HTTP API', () => {
     expect(takeControl).toHaveBeenCalledWith(
       '11111111-1111-4111-8111-111111111111',
     );
+    await app.close();
+  });
+
+  it('returns the transcript and queues an authenticated owner message', async () => {
+    const send = vi
+      .fn()
+      .mockResolvedValue({ id: 'outbound-1', status: 'queued' });
+    const authService = {
+      getSession: vi.fn().mockResolvedValue({
+        id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        username: 'camila',
+      }),
+    } as unknown as AuthService;
+    const conversationAdminRepository = {
+      list: vi.fn(),
+      get: vi.fn(),
+      takeControl: vi.fn(),
+      releaseControl: vi.fn(),
+    };
+    const app = await buildApp({
+      config,
+      database: {
+        orm: {} as PostgresDatabase['orm'],
+        ping: vi.fn(),
+        close: vi.fn(),
+      },
+      authService,
+      catalogService: {} as CatalogService,
+      photoStorage: {} as PhotoStorage,
+      conversationAdminRepository,
+      conversationTranscriptRepository: {
+        listMessages: vi.fn().mockResolvedValue({
+          items: [
+            {
+              id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+              conversationId: '11111111-1111-4111-8111-111111111111',
+              source: 'customer',
+              messageType: 'text',
+              text: 'Hola',
+              mediaUrl: null,
+              status: 'received',
+              providerMessageId: 'wamid.1',
+              occurredAt: new Date('2026-09-10T12:00:00Z'),
+            },
+          ],
+          nextCursor: null,
+        }),
+        updateProviderStatus: vi.fn(),
+      },
+      manualMessageService: { send } as unknown as ManualMessageService,
+    });
+    const headers = {
+      cookie: 'camila_admin_session=good',
+      origin: config.adminOrigin,
+    };
+    const transcript = await app.inject({
+      method: 'GET',
+      url: '/api/admin/conversations/11111111-1111-4111-8111-111111111111/messages',
+      headers,
+    });
+    expect(transcript.statusCode).toBe(200);
+    expect(transcript.json().data.items[0].occurredAt).toBe(
+      '2026-09-10T12:00:00.000Z',
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/admin/conversations/11111111-1111-4111-8111-111111111111/messages',
+      headers,
+      payload: { clientRequestId: 'owner-reply-1', text: 'Hola' },
+    });
+    expect(response.statusCode).toBe(202);
+    expect(send).toHaveBeenCalledWith({
+      conversationId: '11111111-1111-4111-8111-111111111111',
+      actorUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      clientRequestId: 'owner-reply-1',
+      text: 'Hola',
+    });
     await app.close();
   });
 });
