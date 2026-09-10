@@ -12,7 +12,7 @@ import { LoadingState } from './components/LoadingState';
 import { OrdersListPage } from './orders/OrdersListPage';
 import { OrderCreatePage } from './orders/OrderCreatePage';
 import { OrderDetailPage } from './orders/OrderDetailPage';
-import { ConversationsListPage } from './conversations/ConversationsListPage';
+import { ConversationInboxPage } from './conversations/ConversationInboxPage';
 import { DashboardPage } from './dashboard/DashboardPage';
 import { ShippingSettingsPage } from './settings/ShippingSettingsPage';
 
@@ -56,7 +56,7 @@ export function App() {
           <Route path="orders" element={<OrdersListPage />} />
           <Route path="orders/new" element={<OrderCreatePage />} />
           <Route path="orders/:orderId" element={<OrderDetailPage />} />
-          <Route path="conversations" element={<ConversationsListPage />} />
+          <Route path="conversations" element={<ConversationInboxPage />} />
           <Route path="catalog-import" element={<CatalogImportPage />} />
           <Route path="settings/shipping" element={<ShippingSettingsPage />} />
           <Route path="references/new" element={<ReferenceCreatePage />} />
