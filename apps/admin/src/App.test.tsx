@@ -138,7 +138,7 @@ describe('App shell', () => {
     renderWithProviders(<App />, { initialEntries: ['/login'] });
     await loginAsAdmin(user);
     await user.click(
-      screen.getByRole('button', { name: 'Abrir búsqueda global' }),
+      await screen.findByRole('button', { name: 'Abrir búsqueda global' }),
     );
     expect(
       screen.getByRole('dialog', { name: 'Búsqueda global' }),
@@ -316,6 +316,10 @@ describe('Catalog flows', () => {
     await user.type(screen.getByLabelText('Modelo'), 'Clásico');
     await user.type(screen.getByLabelText('Color'), 'Rojo');
     await user.type(screen.getByLabelText('Precio (COP)'), '99000');
+    await user.upload(
+      screen.getByLabelText('Fotografía principal'),
+      tinyPngFile(),
+    );
     await user.click(screen.getByRole('button', { name: 'Crear referencia' }));
 
     expect(

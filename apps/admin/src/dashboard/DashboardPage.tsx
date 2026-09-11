@@ -8,6 +8,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { PageHeader } from '../components/PageHeader';
 import { Skeleton } from '../components/Skeleton';
+import { OperationalChart } from './OperationalChart';
 
 const priorityDefinitions = [
   {
@@ -172,6 +173,7 @@ export function DashboardPage() {
                 <strong>{query.data.today.reservedUnits}</strong>
               </article>
             </div>
+            <OperationalChart values={query.data.today} />
           </section>
 
           {Object.values(query.data.queues).every(

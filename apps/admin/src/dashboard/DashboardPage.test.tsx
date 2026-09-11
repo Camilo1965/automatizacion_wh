@@ -17,6 +17,9 @@ describe('DashboardPage', () => {
       screen.getByRole('link', { name: /Conversaciones por atender/ }),
     ).toHaveAttribute('href', '/conversations?attention=true');
     expect(screen.getByText('$ 480.000')).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Gráfica: 7 conversaciones nuevas/),
+    ).toBeInTheDocument();
   });
 
   it('switches the range without manufacturing dashboard data', async () => {
