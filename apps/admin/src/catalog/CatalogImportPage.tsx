@@ -7,6 +7,8 @@ import {
 import { getErrorMessage } from '../api/client';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { PageHeader } from '../components/PageHeader';
+import { FileSpreadsheet } from 'lucide-react';
 
 export function CatalogImportPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -46,7 +48,11 @@ export function CatalogImportPage() {
 
   return (
     <section aria-labelledby="catalog-import-title">
-      <h2 id="catalog-import-title">Importar catálogo</h2>
+      <PageHeader
+        eyebrow="Inventario"
+        title="Importar desde Treinta"
+        description="Revisa todos los cambios antes de actualizar las existencias de KAIRO."
+      />
       <p className="page-intro">
         Carga el archivo de inventario, revisa cada fila y confirma solo cuando
         los datos sean correctos. La vista previa nunca modifica existencias.
@@ -69,24 +75,33 @@ export function CatalogImportPage() {
           · Columnas: referencia, modelo, color, precio y tallas
         </span>
       </p>
-      <label htmlFor="catalog-file">Archivo CSV</label>
-      <input
-        id="catalog-file"
-        type="file"
-        accept=".csv,text/csv"
-        onChange={(event) => {
-          const next = event.target.files?.[0] ?? null;
-          setPreview(null);
-          setError(
-            next && !next.name.toLowerCase().endsWith('.csv')
-              ? 'Selecciona un archivo CSV.'
-              : null,
-          );
-          setFile(
-            next && next.name.toLowerCase().endsWith('.csv') ? next : null,
-          );
-        }}
-      />
+      <div className="import-drop-card">
+        <FileSpreadsheet aria-hidden="true" size={36} />
+        <div>
+          <label htmlFor="catalog-file">Archivo CSV de Treinta</label>
+          <p className="muted">
+            Selecciona el archivo exportado. La vista previa no modifica el
+            inventario.
+          </p>
+        </div>
+        <input
+          id="catalog-file"
+          type="file"
+          accept=".csv,text/csv"
+          onChange={(event) => {
+            const next = event.target.files?.[0] ?? null;
+            setPreview(null);
+            setError(
+              next && !next.name.toLowerCase().endsWith('.csv')
+                ? 'Selecciona un archivo CSV.'
+                : null,
+            );
+            setFile(
+              next && next.name.toLowerCase().endsWith('.csv') ? next : null,
+            );
+          }}
+        />
+      </div>
       {file ? (
         <p className="muted">
           Archivo seleccionado: {file.name} ({Math.ceil(file.size / 1024)} KB)

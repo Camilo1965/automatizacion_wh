@@ -27,9 +27,12 @@ export function AlertsPage() {
           description="Las fallas de mensajes, guías e inventario aparecerán aquí."
         />
       ) : (
-        <div className="stack">
+        <div className="stack alert-center">
           {query.data.items.map((alert) => (
-            <article className="card" key={alert.id}>
+            <article
+              className={`card alert-card alert-card--${alert.severity}`}
+              key={alert.id}
+            >
               <div className="section-header">
                 <h3>{alert.title}</h3>
                 <StatusBadge

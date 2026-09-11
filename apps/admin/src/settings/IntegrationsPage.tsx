@@ -33,7 +33,10 @@ export function IntegrationsPage() {
       />
       <div className="metric-grid">
         {Object.entries(query.data).map(([key, check]) => (
-          <article className="card" key={key}>
+          <article
+            className={`card integration-card integration-card--${check.status}`}
+            key={key}
+          >
             <div className="section-header">
               <h3>{labels[key as keyof typeof labels]}</h3>
               <StatusBadge

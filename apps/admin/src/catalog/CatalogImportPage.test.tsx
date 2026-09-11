@@ -13,12 +13,12 @@ describe('CatalogImportPage', () => {
   it('offers template download and CSV preview', async () => {
     renderWithProviders(<CatalogImportPage />);
     expect(
-      await screen.findByRole('heading', { name: 'Importar catálogo' }),
+      await screen.findByRole('heading', { name: 'Importar desde Treinta' }),
     ).toBeVisible();
     expect(
       screen.getByRole('link', { name: 'Descargar plantilla' }),
     ).toBeVisible();
-    expect(screen.getByLabelText('Archivo CSV')).toBeVisible();
+    expect(screen.getByLabelText('Archivo CSV de Treinta')).toBeVisible();
   });
 
   it('shows row errors and does not offer commit for an invalid preview', async () => {
@@ -49,7 +49,7 @@ describe('CatalogImportPage', () => {
     renderWithProviders(<CatalogImportPage />);
 
     await user.upload(
-      screen.getByLabelText('Archivo CSV'),
+      screen.getByLabelText('Archivo CSV de Treinta'),
       new File(['invalid'], 'catalogo.csv', { type: 'text/csv' }),
     );
     await user.click(screen.getByRole('button', { name: 'Previsualizar' }));
@@ -110,7 +110,7 @@ describe('CatalogImportPage', () => {
     renderWithProviders(<CatalogImportPage />);
 
     await user.upload(
-      screen.getByLabelText('Archivo CSV'),
+      screen.getByLabelText('Archivo CSV de Treinta'),
       new File(['valid'], 'catalogo.csv', { type: 'text/csv' }),
     );
     await user.click(screen.getByRole('button', { name: 'Previsualizar' }));

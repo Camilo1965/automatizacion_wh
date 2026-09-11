@@ -17,6 +17,9 @@ import {
 import { getErrorMessage } from '../api/client';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
+import { LocalityPicker } from '../components/LocalityPicker';
+import type { LocalityPublic } from '@camila/contracts';
+import { operationalLabel } from '../lib/operational-label';
 
 export function OrderDetailPage() {
   const { orderId = '' } = useParams();
@@ -33,6 +36,8 @@ export function OrderDetailPage() {
   const [phone, setPhone] = useState<string | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [locality, setLocality] = useState<string | null>(null);
+  const [selectedLocality, setSelectedLocality] =
+    useState<LocalityPublic | null>(null);
   const refresh = () =>
     Promise.all([
       client.invalidateQueries({ queryKey: ['order', orderId] }),
@@ -102,10 +107,17 @@ export function OrderDetailPage() {
     }).format(value);
   const selectedQuote = shipping.data?.quotes.find((item) => item.selected);
   return (
-    <section aria-labelledby="order-title">
-      <h2 id="order-title">
-        {order.orderNumber} · {order.status}
-      </h2>
+    <section aria-labelledby="order-title" className="order-detail">
+      <header className="order-hero">
+        <div>
+          <p className="eyebrow">Pedido</p>
+          <h2 id="order-title">{order.orderNumber}</h2>
+          <p className="status-pill">{operationalLabel(order.status)}</p>
+        </div>
+        <strong>
+          {order.quantity} {order.quantity === 1 ? 'par' : 'pares'}
+        </strong>
+      </header>
       <p>
         {order.reference.code} · {order.reference.modelName} · talla{' '}
         {order.size} · {order.quantity} par(es)
@@ -138,14 +150,13 @@ export function OrderDetailPage() {
               onChange={(event) => setAddress(event.target.value)}
             />
           </label>
-          <label>
-            Código de localidad
-            <input
-              required
-              value={locality ?? order.destination.localityCarrierCode ?? ''}
-              onChange={(event) => setLocality(event.target.value)}
-            />
-          </label>
+          <LocalityPicker
+            value={selectedLocality}
+            onChange={(value) => {
+              setSelectedLocality(value);
+              setLocality(value.carrierCode);
+            }}
+          />
           <button className="button-primary" disabled={save.isPending}>
             Guardar borrador
           </button>
