@@ -45,7 +45,11 @@ export function OperationalChart({
             <XAxis dataKey="name" />
             <YAxis allowDecimals={false} />
             <Tooltip />
-            <Bar dataKey="value" fill="#b96f09" radius={[8, 8, 0, 0]} />
+            <Bar
+              dataKey="value"
+              fill="var(--color-primary)"
+              radius={[8, 8, 0, 0]}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>

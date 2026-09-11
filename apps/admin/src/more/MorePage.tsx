@@ -5,7 +5,7 @@ import { PageHeader } from '../components/PageHeader';
 const sections = [
   {
     to: '/catalog-import',
-    title: 'Importar catálogo',
+    title: 'Importar desde Treinta',
     description:
       'Carga y valida referencias y existencias antes de aplicarlas.',
   },

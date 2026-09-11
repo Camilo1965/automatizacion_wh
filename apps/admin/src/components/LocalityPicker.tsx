@@ -19,13 +19,14 @@ export function LocalityPicker({
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (query.trim().length < 2) {
-      setItems([]);
-      return;
-    }
+    const normalizedQuery = query.trim();
+    const selectedLabel = value
+      ? `${value.locality}, ${value.department}`
+      : null;
+    if (normalizedQuery.length < 2 || normalizedQuery === selectedLabel) return;
     const timer = window.setTimeout(() => {
       void apiRequest(
-        `/localities?query=${encodeURIComponent(query.trim())}&limit=20`,
+        `/localities?query=${encodeURIComponent(normalizedQuery)}&limit=20`,
         { schema: LocalitiesResponseSchema },
       )
         .then((response) => {
@@ -37,7 +38,9 @@ export function LocalityPicker({
         );
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [query]);
+  }, [query, value]);
+
+  const showResults = query.trim().length >= 2 && items.length > 0;
 
   return (
     <div className="locality-picker">
@@ -53,7 +56,7 @@ export function LocalityPicker({
         />
       </div>
       {error ? <p role="alert">{error}</p> : null}
-      {items.length > 0 ? (
+      {showResults ? (
         <ul className="locality-results" aria-label="Municipios encontrados">
           {items.map((item) => (
             <li key={item.carrierCode}>

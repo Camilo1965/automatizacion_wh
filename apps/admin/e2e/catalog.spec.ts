@@ -23,7 +23,7 @@ async function login(page: Page): Promise<void> {
   });
   await page.goto('/login');
   await page.getByLabel('Usuario').fill(E2E_USERNAME);
-  await page.getByLabel('Contraseña').fill(E2E_PASSWORD);
+  await page.getByLabel('Contraseña', { exact: true }).fill(E2E_PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(
     page.getByRole('button', { name: 'Cerrar sesión' }),
@@ -48,14 +48,14 @@ test.describe.configure({ mode: 'serial' });
 test('protected route redirects to login', async ({ page }) => {
   await page.goto('/');
   await expect(
-    page.getByRole('heading', { name: 'Iniciar sesión' }),
+    page.getByRole('heading', { name: 'Bienvenida de nuevo' }),
   ).toBeVisible();
 });
 
 test('rejects bad credentials with generic message', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('Usuario').fill('e2e_admin');
-  await page.getByLabel('Contraseña').fill('not-the-password');
+  await page.getByLabel('Contraseña', { exact: true }).fill('not-the-password');
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page.getByRole('alert')).toHaveText('Credenciales inválidas');
 });
@@ -80,7 +80,7 @@ test('API anonymous logout returns 401', async ({ request }) => {
 test('main catalog operations flow', async ({ page }) => {
   await page.goto('/references/new');
   await expect(
-    page.getByRole('heading', { name: 'Iniciar sesión' }),
+    page.getByRole('heading', { name: 'Bienvenida de nuevo' }),
   ).toBeVisible();
 
   await login(page);
@@ -90,6 +90,7 @@ test('main catalog operations flow', async ({ page }) => {
   await page.getByLabel('Modelo').fill('Ballerina');
   await page.getByLabel('Color').fill('Negro');
   await page.getByLabel('Precio (COP)').fill('120000');
+  await page.getByLabel('Fotografía principal').setInputFiles(pngPath);
   await page.getByRole('button', { name: 'Crear referencia' }).click();
 
   await expect(page.getByLabel('Código')).toHaveValue('01');
@@ -112,6 +113,10 @@ test('main catalog operations flow', async ({ page }) => {
   expect(photoUploads).toBe(0);
 
   await page.getByRole('button', { name: 'Guardar fotografía' }).click();
+  await page
+    .getByRole('alertdialog', { name: 'Reemplazar fotografía' })
+    .getByRole('button', { name: 'Reemplazar' })
+    .click();
   await expect.poll(() => photoUploads).toBe(1);
   await expect(
     page.getByAltText('Vista previa de la referencia'),
@@ -219,7 +224,7 @@ test('main catalog operations flow', async ({ page }) => {
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
   await page.goto('/references/new');
   await expect(
-    page.getByRole('heading', { name: 'Iniciar sesión' }),
+    page.getByRole('heading', { name: 'Bienvenida de nuevo' }),
   ).toBeVisible();
 });
 
@@ -284,9 +289,9 @@ test('loads more movements when seeded beyond page size', async ({ page }) => {
 
 test('previews and confirms a catalog CSV import', async ({ page }) => {
   await login(page);
-  await page.getByRole('link', { name: 'Importar catálogo' }).click();
+  await page.getByRole('link', { name: 'Importar desde Treinta' }).click();
   await expect(
-    page.getByRole('heading', { name: 'Importar catálogo' }),
+    page.getByRole('heading', { name: 'Importar desde Treinta' }),
   ).toBeVisible();
 
   await page.getByLabel('Archivo CSV').setInputFiles(catalogImportPath);

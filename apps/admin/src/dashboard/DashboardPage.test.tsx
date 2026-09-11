@@ -1,8 +1,14 @@
 import { screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '../test/render';
 import { DashboardPage } from './DashboardPage';
+
+vi.mock('./OperationalChart', () => ({
+  OperationalChart: ({ values }: { values: { newConversations: number } }) => (
+    <p>Gráfica: {values.newConversations} conversaciones nuevas</p>
+  ),
+}));
 
 describe('DashboardPage', () => {
   it('renders real operational queues and links to filtered work', async () => {

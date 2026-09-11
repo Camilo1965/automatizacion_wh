@@ -59,7 +59,7 @@ export default defineConfig({
       command: 'pnpm --filter @camila/api exec tsx src/server.ts',
       cwd: repoRoot,
       url: `${E2E_API_ORIGIN}/health/live`,
-      reuseExistingServer: false,
+      reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: webServerEnv({
         NODE_ENV: 'test',
@@ -75,7 +75,7 @@ export default defineConfig({
       command: `pnpm --filter @camila/admin exec vite --host 127.0.0.1 --port ${E2E_ADMIN_PORT}`,
       cwd: repoRoot,
       url: E2E_ADMIN_ORIGIN,
-      reuseExistingServer: false,
+      reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: webServerEnv({
         CAMILA_E2E_API_PORT: E2E_API_PORT,

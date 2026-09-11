@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import {
   E2E_ADMIN_ORIGIN,
   E2E_API_ORIGIN,
@@ -6,10 +7,16 @@ import {
   E2E_USERNAME,
 } from './constants';
 
+let loginSequence = 0;
+
 async function login(page: Page) {
+  loginSequence += 1;
+  await page.setExtraHTTPHeaders({
+    'x-camila-test-client': `operations-playwright-${loginSequence}`,
+  });
   await page.goto('/login');
   await page.getByLabel('Usuario').fill(E2E_USERNAME);
-  await page.getByLabel('Contraseña').fill(E2E_PASSWORD);
+  await page.getByLabel('Contraseña', { exact: true }).fill(E2E_PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(
     page.getByRole('button', { name: 'Cerrar sesión' }),
@@ -73,20 +80,22 @@ test('exposes every secondary operation from the mobile navigation', async ({
     page.getByRole('heading', { name: 'Más herramientas' }),
   ).toBeVisible();
   for (const name of [
-    'Importar catálogo',
+    'Importar desde Treinta',
     'Cierres de Treinta',
     'Alertas',
     'Preferencias de envío',
     'WhatsApp Business',
     'Integraciones',
   ]) {
-    await expect(page.getByRole('link', { name })).toBeVisible();
+    await expect(page.getByRole('link', { name, exact: true })).toBeVisible();
   }
 });
 
 for (const viewport of [
   { width: 390, height: 844 },
+  { width: 768, height: 1024 },
   { width: 1280, height: 720 },
+  { width: 1440, height: 900 },
 ]) {
   test(`has no horizontal overflow at ${viewport.width}px`, async ({
     page,
@@ -117,3 +126,36 @@ for (const viewport of [
     }
   });
 }
+
+test('has no serious accessibility violations in critical operations', async ({
+  page,
+}) => {
+  await login(page);
+  for (const route of [
+    '/',
+    '/conversations',
+    '/catalog',
+    '/orders',
+    '/settings/shipping',
+    '/alerts',
+    '/settings/integrations',
+  ]) {
+    await page.goto(route);
+    await expect(page.locator('main')).toBeVisible();
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    const seriousViolations = results.violations
+      .filter((violation) =>
+        ['critical', 'serious'].includes(violation.impact ?? ''),
+      )
+      .map((violation) => ({
+        id: violation.id,
+        impact: violation.impact,
+        targets: violation.nodes.map((node) => node.target.join(' ')),
+      }));
+    expect(seriousViolations, `${route} has accessibility violations`).toEqual(
+      [],
+    );
+  }
+});

@@ -7,7 +7,7 @@ describe('MorePage', () => {
   it('makes every secondary operation reachable on mobile', () => {
     renderWithProviders(<MorePage />);
     for (const name of [
-      'Importar catálogo',
+      'Importar desde Treinta',
       'Cierres de Treinta',
       'Alertas',
       'Preferencias de envío',

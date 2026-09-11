@@ -281,7 +281,7 @@ main:has(.login-layout) {
 }
 
 .dashboard-range button.active {
-  color: #fff;
+  color: white;
   background: var(--color-primary);
   box-shadow: var(--shadow-sm);
 }
@@ -1080,7 +1080,7 @@ a:focus-visible {
   .desktop-nav a:hover,
   .desktop-nav a.active {
     background: var(--accent-soft);
-    color: var(--accent);
+    color: var(--color-primary-hover);
     font-weight: 700;
   }
   .nav-label {
@@ -1317,7 +1317,7 @@ a:focus-visible {
 }
 
 .ui-button--ghost {
-  color: var(--color-primary);
+  color: var(--color-primary-hover);
   background: transparent;
 }
 
