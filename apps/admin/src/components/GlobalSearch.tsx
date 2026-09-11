@@ -1,25 +1,88 @@
 import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
 import { Link } from 'react-router-dom';
 import { listReferences } from '../api/catalog-api';
 import { listConversations } from '../api/conversations-api';
 import { listOrders } from '../api/orders-api';
 
 export function GlobalSearch({ onClose }: { onClose: () => void }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const [query, setQuery] = useState('');
   const source = useQuery({
     queryKey: ['global-search-source'],
     queryFn: async () => {
-      const [orders, conversations, references] = await Promise.all([
+      const references = [] as Awaited<
+        ReturnType<typeof listReferences>
+      >['items'][number][];
+      let afterCode: string | undefined;
+      for (let page = 0; page < 10; page += 1) {
+        const next = await listReferences({
+          limit: 100,
+          status: 'all',
+          ...(afterCode === undefined ? {} : { afterCode }),
+        });
+        references.push(...next.items);
+        if (!next.nextAfterCode) break;
+        afterCode = next.nextAfterCode;
+      }
+      const [orders, conversations] = await Promise.all([
         listOrders(),
         listConversations(),
-        listReferences({ limit: 100 }),
       ]);
-      return { orders, conversations, references: references.items };
+      return { orders, conversations, references };
     },
   });
   const needle = query.trim().toLocaleLowerCase('es-CO');
+
+  useLayoutEffect(() => {
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const background = [
+      document.querySelector('main'),
+      document.querySelector('.app-sidebar'),
+      document.querySelector('.mobile-nav'),
+      document.querySelector('.global-header'),
+    ].filter(
+      (element): element is HTMLElement => element instanceof HTMLElement,
+    );
+    background.forEach((element) => element.setAttribute('inert', ''));
+    return () => {
+      background.forEach((element) => element.removeAttribute('inert'));
+      const trigger = restoreFocusRef.current?.isConnected
+        ? restoreFocusRef.current
+        : document.querySelector<HTMLElement>(
+            '[aria-label="Abrir búsqueda global"]',
+          );
+      trigger?.focus();
+    };
+  }, []);
+
+  function trapFocus(event: KeyboardEvent<HTMLElement>) {
+    if (event.key !== 'Tab') return;
+    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled])',
+    );
+    if (!focusable || focusable.length === 0) return;
+    const first = focusable[0]!;
+    const last = focusable[focusable.length - 1]!;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
   const results = useMemo(
     () =>
       !source.data || needle.length < 2
@@ -51,10 +114,12 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
   return (
     <div className="search-backdrop">
       <section
+        ref={dialogRef}
         className="global-search-dialog"
         role="dialog"
         aria-modal="true"
         aria-label="Búsqueda global"
+        onKeyDown={trapFocus}
       >
         <header>
           <Search aria-hidden="true" />

@@ -1032,6 +1032,9 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
               'returned',
             ])
             .optional(),
+          view: z
+            .enum(['incidents', 'ready_to_dispatch', 'awaiting_confirmation'])
+            .optional(),
           limit: z.coerce.number().int().min(1).max(100).default(25),
         })
         .strict()
@@ -1039,6 +1042,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
       const page = await orderService.list({
         limit: query.limit,
         ...(query.status === undefined ? {} : { status: query.status }),
+        ...(query.view === undefined ? {} : { view: query.view }),
       });
       return reply.status(200).send({
         data: {

@@ -38,6 +38,18 @@ export function OrderDetailPage() {
   const [locality, setLocality] = useState<string | null>(null);
   const [selectedLocality, setSelectedLocality] =
     useState<LocalityPublic | null>(null);
+  const [localityEdited, setLocalityEdited] = useState(false);
+  const pickerLocality =
+    !localityEdited && query.data?.destination.localityCarrierCode
+      ? {
+          carrierCode: query.data.destination.localityCarrierCode,
+          department: query.data.destination.localityDepartment ?? 'Colombia',
+          locality: query.data.destination.localityName ?? 'Municipio guardado',
+          country: 'CO' as const,
+          normalizedName:
+            `${query.data.destination.localityName ?? ''} ${query.data.destination.localityDepartment ?? ''}`.trim(),
+        }
+      : selectedLocality;
   const refresh = () =>
     Promise.all([
       client.invalidateQueries({ queryKey: ['order', orderId] }),
@@ -151,13 +163,17 @@ export function OrderDetailPage() {
             />
           </label>
           <LocalityPicker
-            value={selectedLocality}
+            value={pickerLocality}
             onChange={(value) => {
+              setLocalityEdited(true);
               setSelectedLocality(value);
-              setLocality(value.carrierCode);
+              setLocality(value?.carrierCode ?? '');
             }}
           />
-          <button className="button-primary" disabled={save.isPending}>
+          <button
+            className="button-primary"
+            disabled={save.isPending || pickerLocality === null}
+          >
             Guardar borrador
           </button>
         </form>

@@ -64,6 +64,7 @@ export type OrderSummary = Readonly<{
 
 export type OrderListInput = Readonly<{
   status?: OrderStatus;
+  view?: 'incidents' | 'ready_to_dispatch' | 'awaiting_confirmation';
   limit: number;
   after?: Readonly<{ createdAt: Date; id: string }>;
 }>;

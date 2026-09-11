@@ -58,6 +58,8 @@ describe('admin shipping HTTP API', () => {
       listShippingRules: vi.fn().mockResolvedValue([
         {
           localityCarrierCode: '05001000',
+          locality: 'Medellín',
+          department: 'Antioquia',
           preferredCarrier: 'tcc',
           fallbackPolicy: 'block',
           offerMode: 'protected_only',

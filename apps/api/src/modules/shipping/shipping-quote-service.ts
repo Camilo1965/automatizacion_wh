@@ -33,6 +33,8 @@ export type ShippingOfferQuote = CarrierQuote &
 export type ShippingRuleRecord = ShippingPolicy &
   Readonly<{
     localityCarrierCode: string;
+    locality: string;
+    department: string;
     active: boolean;
     updatedAt: Date;
   }>;

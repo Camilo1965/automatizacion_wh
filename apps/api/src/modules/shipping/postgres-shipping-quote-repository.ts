@@ -5,6 +5,7 @@ import {
   salesOrders,
   shippingCarrierRules,
   shippingGuideJobs,
+  shippingLocalities,
   shippingObservedCarriers,
   shippingPolicyAudits,
   shippingPreferences,
@@ -156,18 +157,27 @@ export class PostgresShippingQuoteRepository {
 
   async listShippingRules() {
     const rows = await this.database.orm
-      .select()
+      .select({ rule: shippingCarrierRules, locality: shippingLocalities })
       .from(shippingCarrierRules)
+      .innerJoin(
+        shippingLocalities,
+        eq(
+          shippingLocalities.carrierCode,
+          shippingCarrierRules.localityCarrierCode,
+        ),
+      )
       .orderBy(asc(shippingCarrierRules.localityCarrierCode));
-    return rows.map((row) => ({
-      localityCarrierCode: row.localityCarrierCode,
-      preferredCarrier: row.carrier,
-      fallbackPolicy: row.fallbackPolicy as ShippingPolicy['fallbackPolicy'],
-      offerMode: row.offerMode as ShippingPolicy['offerMode'],
+    return rows.map(({ rule, locality }) => ({
+      localityCarrierCode: rule.localityCarrierCode,
+      locality: locality.locality,
+      department: locality.department,
+      preferredCarrier: rule.carrier,
+      fallbackPolicy: rule.fallbackPolicy as ShippingPolicy['fallbackPolicy'],
+      offerMode: rule.offerMode as ShippingPolicy['offerMode'],
       protectedInsurance:
-        row.protectedInsurance as ShippingPolicy['protectedInsurance'],
-      active: row.active,
-      updatedAt: row.updatedAt,
+        rule.protectedInsurance as ShippingPolicy['protectedInsurance'],
+      active: rule.active,
+      updatedAt: rule.updatedAt,
     }));
   }
 

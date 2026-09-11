@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { listOrders } from '../api/orders-api';
 import { getErrorMessage } from '../api/client';
@@ -8,7 +8,20 @@ import { LoadingState } from '../components/LoadingState';
 import { operationalLabel } from '../lib/operational-label';
 
 export function OrdersListPage() {
-  const query = useQuery({ queryKey: ['orders'], queryFn: listOrders });
+  const [searchParams] = useSearchParams();
+  const view = searchParams.get('view');
+  const query = useQuery({
+    queryKey: ['orders', view],
+    queryFn: () =>
+      listOrders(
+        undefined,
+        view as
+          | 'incidents'
+          | 'ready_to_dispatch'
+          | 'awaiting_confirmation'
+          | undefined,
+      ),
+  });
   return (
     <section aria-labelledby="orders-title">
       <div className="section-header">
@@ -17,6 +30,12 @@ export function OrdersListPage() {
           Nuevo pedido
         </Link>
       </div>
+      {view ? (
+        <p className="filter-summary" role="status">
+          Vista activa: {operationalLabel(view)} ·{' '}
+          <Link to="/orders">Ver todos</Link>
+        </p>
+      ) : null}
       {query.isLoading ? <LoadingState label="Cargando pedidos…" /> : null}
       {query.isError ? (
         <ErrorMessage

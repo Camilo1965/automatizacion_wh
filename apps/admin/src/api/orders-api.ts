@@ -14,9 +14,16 @@ import { apiDownload, apiRequest, apiRequestNoContent } from './client';
 
 export type { OrderPublic, OrderSummaryPublic };
 
-export async function listOrders(): Promise<readonly OrderPublic[]> {
-  return (await apiRequest('/orders', { schema: ListOrdersResponseSchema }))
-    .data.items;
+export async function listOrders(
+  status?: OrderPublic['status'],
+  view?: 'incidents' | 'ready_to_dispatch' | 'awaiting_confirmation',
+): Promise<readonly OrderPublic[]> {
+  const query = new URLSearchParams({ limit: '100' });
+  if (status) query.set('status', status);
+  if (view) query.set('view', view);
+  return (
+    await apiRequest(`/orders?${query}`, { schema: ListOrdersResponseSchema })
+  ).data.items;
 }
 export async function createOrder(body: CreateOrderBody): Promise<OrderPublic> {
   return (

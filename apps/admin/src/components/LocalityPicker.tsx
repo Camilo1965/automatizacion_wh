@@ -12,7 +12,7 @@ export function LocalityPicker({
   onChange,
 }: {
   value: LocalityPublic | null;
-  onChange: (value: LocalityPublic) => void;
+  onChange: (value: LocalityPublic | null) => void;
 }) {
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<readonly LocalityPublic[]>([]);
@@ -50,9 +50,13 @@ export function LocalityPicker({
         <input
           id="locality-search"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            if (value !== null) onChange(null);
+          }}
           placeholder="Busca Medellín, Antioquia…"
           autoComplete="off"
+          required
         />
       </div>
       {error ? <p role="alert">{error}</p> : null}

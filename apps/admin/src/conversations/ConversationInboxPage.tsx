@@ -18,18 +18,29 @@ import { ConversationList } from './ConversationList';
 import { ConversationTimeline } from './ConversationTimeline';
 import { MessageComposer } from './MessageComposer';
 import { operationalLabel } from '../lib/operational-label';
+import { useSearchParams } from 'react-router-dom';
 
 export function ConversationInboxPage() {
   const client = useQueryClient();
   const { showToast } = useToast();
+  const [searchParams] = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const requestedId = searchParams.get('conversation');
+  const attentionOnly = searchParams.get('attention') === 'true';
   const conversations = useQuery({
     queryKey: ['conversations'],
     queryFn: listConversations,
     refetchInterval: 5000,
   });
-  const effectiveSelectedId = selectedId ?? conversations.data?.[0]?.id ?? null;
-  const selected = conversations.data?.find(
+  const visibleConversations = attentionOnly
+    ? conversations.data?.filter((item) => item.mode === 'human')
+    : conversations.data;
+  const effectiveSelectedId =
+    selectedId ??
+    visibleConversations?.find((item) => item.id === requestedId)?.id ??
+    visibleConversations?.[0]?.id ??
+    null;
+  const selected = visibleConversations?.find(
     (item) => item.id === effectiveSelectedId,
   );
   const messages = useQuery({
@@ -80,10 +91,10 @@ export function ConversationInboxPage() {
           description="Los mensajes que lleguen al número conectado aparecerán aquí."
         />
       ) : null}
-      {conversations.data && conversations.data.length > 0 ? (
+      {visibleConversations && visibleConversations.length > 0 ? (
         <div className="inbox-layout">
           <ConversationList
-            items={conversations.data}
+            items={visibleConversations}
             selectedId={effectiveSelectedId}
             onSelect={setSelectedId}
           />

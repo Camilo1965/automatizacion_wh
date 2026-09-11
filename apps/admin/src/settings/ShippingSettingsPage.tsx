@@ -272,7 +272,7 @@ export function ShippingSettingsPage() {
           value={selectedLocality}
           onChange={(locality) => {
             setSelectedLocality(locality);
-            setLocalityCarrierCode(locality.carrierCode);
+            setLocalityCarrierCode(locality?.carrierCode ?? '');
           }}
         />
         <PolicyFields
@@ -289,7 +289,7 @@ export function ShippingSettingsPage() {
         {saved ? <p role="status">{saved}</p> : null}
         <button
           className="button-primary"
-          disabled={pending || invalidBlockedRule}
+          disabled={pending || invalidBlockedRule || selectedLocality === null}
           type="submit"
         >
           Guardar regla
@@ -331,7 +331,9 @@ export function ShippingSettingsPage() {
             {rules.map((rule) => (
               <article key={rule.localityCarrierCode} className="rule-row">
                 <div>
-                  <strong>Municipio configurado</strong>
+                  <strong>
+                    {rule.locality}, {rule.department}
+                  </strong>
                   <p>{describePolicy(rule)}</p>
                 </div>
                 <span className={`status-pill ${rule.active ? '' : 'muted'}`}>

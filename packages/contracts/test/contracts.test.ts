@@ -1234,6 +1234,8 @@ describe('strict public response contracts', () => {
     expect(
       ShippingRulePublicSchema.safeParse({
         localityCarrierCode: '05001000',
+        locality: 'Medellín',
+        department: 'Antioquia',
         ...policy,
         active: true,
         updatedAt: SAMPLE_ISO,

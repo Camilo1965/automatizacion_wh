@@ -690,6 +690,8 @@ export type ShippingRuleBody = z.infer<typeof ShippingRuleBodySchema>;
 export const ShippingRulePublicSchema = z
   .object({
     localityCarrierCode: z.string().regex(/^\d{8}$/),
+    locality: z.string().min(1).max(120),
+    department: z.string().min(1).max(100),
     preferredCarrier: carrierSchema.nullable(),
     fallbackPolicy: ShippingFallbackPolicySchema,
     offerMode: ShippingOfferModeSchema,

@@ -148,6 +148,20 @@ export class PostgresOrderRepository implements OrderRepository {
     const conditions = [];
     if (input.status !== undefined)
       conditions.push(eq(salesOrders.status, input.status));
+    if (input.view === 'awaiting_confirmation')
+      conditions.push(
+        sql`${salesOrders.status} = 'draft' AND ${salesOrders.latestSummaryVersion} > 0`,
+      );
+    if (input.view === 'ready_to_dispatch')
+      conditions.push(sql`EXISTS (
+        SELECT 1 FROM shipping_guide_jobs AS jobs
+        WHERE jobs.order_id = ${salesOrders.id} AND jobs.status = 'created'
+      )`);
+    if (input.view === 'incidents')
+      conditions.push(sql`EXISTS (
+        SELECT 1 FROM shipping_guide_jobs AS jobs
+        WHERE jobs.order_id = ${salesOrders.id} AND jobs.status IN ('uncertain', 'failed')
+      )`);
     if (input.after !== undefined)
       conditions.push(
         or(

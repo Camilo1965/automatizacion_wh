@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { createReference, uploadReferencePhoto } from '../api/catalog-api';
+import {
+  activateReference,
+  createReference,
+  deactivateReference,
+  uploadReferencePhoto,
+} from '../api/catalog-api';
 import { getErrorMessage, getFieldError } from '../api/client';
 import { parseIntegerDigits } from '../lib/parse-integer-digits';
 import { ReferenceForm, type ReferenceFormValues } from './ReferenceForm';
@@ -15,6 +20,9 @@ export function ReferenceCreatePage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [fieldError, setFieldError] = useState<string | undefined>();
   const [photo, setPhoto] = useState<File | null>(null);
+  const [pendingReferenceId, setPendingReferenceId] = useState<string | null>(
+    null,
+  );
 
   async function onSubmit(values: ReferenceFormValues) {
     setSubmitting(true);
@@ -36,17 +44,34 @@ export function ReferenceCreatePage() {
       return;
     }
 
+    let referenceId = pendingReferenceId;
     try {
-      const created = await createReference({
-        code: values.code,
-        modelName: values.modelName,
-        color: values.color,
-        priceCop,
-      });
-      await uploadReferencePhoto(created.id, photo);
-      void navigate(`/references/${created.id}`);
+      if (referenceId === null) {
+        const created = await createReference({
+          code: values.code,
+          modelName: values.modelName,
+          color: values.color,
+          priceCop,
+        });
+        referenceId = created.id;
+        await deactivateReference(referenceId);
+        setPendingReferenceId(referenceId);
+      }
+      await uploadReferencePhoto(referenceId, photo);
+      await activateReference(referenceId);
+      void navigate(`/references/${referenceId}`);
     } catch (err) {
-      setErrorMessage(getErrorMessage(err, 'No se pudo crear la referencia'));
+      if (referenceId !== null && pendingReferenceId === null) {
+        await deactivateReference(referenceId).catch(() => undefined);
+      }
+      setErrorMessage(
+        getErrorMessage(
+          err,
+          pendingReferenceId
+            ? 'La referencia está guardada como inactiva. Reintenta la fotografía.'
+            : 'No se pudo crear la referencia',
+        ),
+      );
       setFieldError(getFieldError(err));
     } finally {
       setSubmitting(false);
