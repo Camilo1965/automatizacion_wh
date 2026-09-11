@@ -17,6 +17,7 @@ import { useToast } from '../components/toast-context';
 import { ConversationList } from './ConversationList';
 import { ConversationTimeline } from './ConversationTimeline';
 import { MessageComposer } from './MessageComposer';
+import { operationalLabel } from '../lib/operational-label';
 
 export function ConversationInboxPage() {
   const client = useQueryClient();
@@ -94,7 +95,7 @@ export function ConversationInboxPage() {
               <div>
                 <strong>{selected?.customerPhone}</strong>
                 <small>
-                  El bot espera: {selected?.state.replaceAll('_', ' ')}
+                  El bot espera: {operationalLabel(selected?.state)}
                 </small>
               </div>
               <Button

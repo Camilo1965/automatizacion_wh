@@ -30,6 +30,11 @@ export function ReferenceCreatePage() {
       setSubmitting(false);
       return;
     }
+    if (photo === null) {
+      setErrorMessage('Carga una fotografía antes de crear la referencia');
+      setSubmitting(false);
+      return;
+    }
 
     try {
       const created = await createReference({
@@ -38,9 +43,7 @@ export function ReferenceCreatePage() {
         color: values.color,
         priceCop,
       });
-      if (photo !== null) {
-        await uploadReferencePhoto(created.id, photo);
-      }
+      await uploadReferencePhoto(created.id, photo);
       void navigate(`/references/${created.id}`);
     } catch (err) {
       setErrorMessage(getErrorMessage(err, 'No se pudo crear la referencia'));
@@ -73,7 +76,7 @@ export function ReferenceCreatePage() {
       >
         <FileDropzone
           accept={['image/jpeg', 'image/png']}
-          label="Fotografía principal (opcional, puedes cargarla ahora)"
+          label="Fotografía principal"
           maxBytes={5 * 1024 * 1024}
           onFile={setPhoto}
           disabled={submitting}

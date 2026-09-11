@@ -5,6 +5,7 @@ import { listOrders } from '../api/orders-api';
 import { getErrorMessage } from '../api/client';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
+import { operationalLabel } from '../lib/operational-label';
 
 export function OrdersListPage() {
   const query = useQuery({ queryKey: ['orders'], queryFn: listOrders });
@@ -30,7 +31,7 @@ export function OrdersListPage() {
         <article className="card" key={order.id}>
           <h3>
             <Link to={`/orders/${order.id}`}>{order.orderNumber}</Link> ·{' '}
-            {order.status}
+            {operationalLabel(order.status)}
           </h3>
           <p>
             {order.reference.code} · talla {order.size} · {order.quantity}{' '}
