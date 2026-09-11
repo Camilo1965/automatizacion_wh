@@ -131,6 +131,22 @@ describe('App shell', () => {
       await screen.findByRole('heading', { name: 'Inicio' }),
     ).toBeInTheDocument();
   });
+
+  it('opens the global operations search from the header', async () => {
+    const user = userEvent.setup();
+    state.authenticated = false;
+    renderWithProviders(<App />, { initialEntries: ['/login'] });
+    await loginAsAdmin(user);
+    await user.click(
+      screen.getByRole('button', { name: 'Abrir búsqueda global' }),
+    );
+    expect(
+      screen.getByRole('dialog', { name: 'Búsqueda global' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('Cliente, teléfono, pedido o referencia'),
+    ).toHaveFocus();
+  });
 });
 
 describe('Shipping operations', () => {
