@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 
 import { getDashboardSummary } from '../api/dashboard-api';
 import { getErrorMessage } from '../api/client';
@@ -46,9 +47,10 @@ const money = new Intl.NumberFormat('es-CO', {
 });
 
 export function DashboardPage() {
+  const [range, setRange] = useState<'today' | '7d' | '30d'>('today');
   const query = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: getDashboardSummary,
+    queryKey: ['dashboard', range],
+    queryFn: () => getDashboardSummary(range),
   });
 
   return (
@@ -66,6 +68,29 @@ export function DashboardPage() {
           </Link>
         }
       />
+      <div
+        className="dashboard-range"
+        role="group"
+        aria-label="Periodo de métricas"
+      >
+        {(
+          [
+            ['today', 'Hoy'],
+            ['7d', '7 días'],
+            ['30d', '30 días'],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={range === value ? 'active' : ''}
+            onClick={() => setRange(value)}
+            aria-pressed={range === value}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {query.isLoading ? (
         <Skeleton lines={4} label="Cargando resumen operativo" />
@@ -104,7 +129,14 @@ export function DashboardPage() {
             <div className="section-heading">
               <div>
                 <p className="eyebrow">Rendimiento</p>
-                <h3 id="today-title">Resumen de hoy</h3>
+                <h3 id="today-title">
+                  Resumen de{' '}
+                  {range === 'today'
+                    ? 'hoy'
+                    : range === '7d'
+                      ? 'los últimos 7 días'
+                      : 'los últimos 30 días'}
+                </h3>
               </div>
               <small>
                 Actualizado{' '}

@@ -261,6 +261,31 @@ main:has(.login-layout) {
   color: var(--muted);
 }
 
+.dashboard-range {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin: 0 0 1.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: var(--color-surface-soft);
+}
+
+.dashboard-range button {
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 0.6rem;
+  color: var(--muted);
+  background: transparent;
+}
+
+.dashboard-range button.active {
+  color: #fff;
+  background: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
 * {
   box-sizing: border-box;
 }

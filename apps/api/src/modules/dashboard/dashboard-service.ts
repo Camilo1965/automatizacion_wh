@@ -25,10 +25,16 @@ export class DashboardService {
     private readonly clock: () => Date = () => new Date(),
   ) {}
 
-  async getSummary(): Promise<DashboardSummary> {
+  async getSummary(
+    range: 'today' | '7d' | '30d' = 'today',
+  ): Promise<DashboardSummary> {
     const now = this.clock();
     const [dayStart, dayEnd] = bogotaDayBounds(now);
-    const counts = await this.repository.getSummary(dayStart, dayEnd);
+    const days = range === 'today' ? 1 : range === '7d' ? 7 : 30;
+    const counts = await this.repository.getSummary(
+      new Date(dayStart.getTime() - (days - 1) * 24 * 60 * 60 * 1000),
+      dayEnd,
+    );
     return { ...counts, generatedAt: now.toISOString() };
   }
 }

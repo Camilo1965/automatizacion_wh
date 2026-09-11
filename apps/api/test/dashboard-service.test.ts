@@ -37,4 +37,19 @@ describe('DashboardService', () => {
     );
     expect(result.generatedAt).toBe('2026-09-10T15:00:00.000Z');
   });
+
+  it('aggregates a requested seven-day operational range', async () => {
+    const repository = { getSummary: vi.fn().mockResolvedValue({}) };
+    const service = new DashboardService(
+      repository as never,
+      () => new Date('2026-09-10T15:00:00.000Z'),
+    );
+
+    await service.getSummary('7d');
+
+    expect(repository.getSummary).toHaveBeenCalledWith(
+      new Date('2026-09-04T05:00:00.000Z'),
+      new Date('2026-09-11T05:00:00.000Z'),
+    );
+  });
 });
