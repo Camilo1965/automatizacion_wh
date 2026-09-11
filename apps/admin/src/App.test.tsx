@@ -27,6 +27,22 @@ describe('App shell', () => {
     state.authenticated = true;
     let saved: unknown;
     server.use(
+      http.get('/api/admin/localities', () =>
+        HttpResponse.json({
+          data: {
+            items: [
+              {
+                carrierCode: '05001000',
+                department: 'Antioquia',
+                locality: 'Medellín',
+                country: 'CO',
+                normalizedName: 'medellin antioquia',
+              },
+            ],
+            nextAfterCode: null,
+          },
+        }),
+      ),
       http.post('/api/admin/shipping/rules', async ({ request }) => {
         saved = await request.json();
         return new HttpResponse(null, { status: 204 });
@@ -38,9 +54,10 @@ describe('App shell', () => {
       await screen.findByRole('heading', { name: 'Nueva regla municipal' })
     ).closest('form')!;
     await user.type(
-      within(municipalityForm).getByLabelText('Código DANE'),
-      '05001000',
+      within(municipalityForm).getByLabelText('Departamento y municipio'),
+      'Medellín',
     );
+    await user.click(await screen.findByRole('button', { name: /Medellín/ }));
     await user.selectOptions(
       within(municipalityForm).getByLabelText('Transportadora preferida'),
       'tcc',
@@ -90,12 +107,13 @@ describe('App shell', () => {
     expect(
       screen.getAllByRole('link', { name: 'Catálogo' })[0],
     ).toHaveAttribute('href', '/catalog');
-    expect(
-      screen.getAllByRole('link', { name: 'Preferencias' })[0],
-    ).toHaveAttribute('href', '/settings/shipping');
+    expect(screen.getAllByRole('link', { name: 'Envíos' })[0]).toHaveAttribute(
+      'href',
+      '/settings/shipping',
+    );
   });
 
-  it('renders Camila Operaciones brand landmarks after login', async () => {
+  it('renders KAIRO brand landmarks after login', async () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { initialEntries: ['/login'] });
 
@@ -104,7 +122,7 @@ describe('App shell', () => {
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'Camila Operaciones',
+        name: 'KAIRO',
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole('main')).toBeInTheDocument();
@@ -217,7 +235,7 @@ describe('Login and session', () => {
     renderWithProviders(<App />, { initialEntries: ['/catalog'] });
 
     expect(
-      await screen.findByRole('heading', { name: 'Iniciar sesión' }),
+      await screen.findByRole('heading', { name: 'Bienvenida de nuevo' }),
     ).toBeInTheDocument();
   });
 
@@ -662,7 +680,7 @@ describe('Catalog flows', () => {
     await user.click(screen.getByRole('link', { name: /01/ }));
 
     expect(
-      await screen.findByRole('heading', { name: 'Iniciar sesión' }),
+      await screen.findByRole('heading', { name: 'Bienvenida de nuevo' }),
     ).toBeInTheDocument();
   });
 

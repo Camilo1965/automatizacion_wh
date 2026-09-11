@@ -1,39 +1,68 @@
 import { Link, NavLink } from 'react-router-dom';
+import {
+  Bell,
+  Boxes,
+  ClipboardList,
+  FileSpreadsheet,
+  House,
+  MessageCircle,
+  PackageSearch,
+  Truck,
+  Store,
+  Webhook,
+} from 'lucide-react';
 
 const primaryItems = [
-  { to: '/', label: 'Inicio', end: true },
-  { to: '/conversations', label: 'Conversaciones' },
-  { to: '/orders', label: 'Pedidos' },
-  { to: '/catalog', label: 'Catálogo' },
+  { to: '/', label: 'Inicio', icon: House, end: true },
+  { to: '/conversations', label: 'Conversaciones', icon: MessageCircle },
+  { to: '/orders', label: 'Pedidos', icon: ClipboardList },
+  { to: '/catalog', label: 'Catálogo', icon: Store },
 ] as const;
 
 export function DesktopSidebar() {
   return (
     <aside className="app-sidebar">
-      <Link className="brand" to="/" aria-label="Camila Operaciones, inicio">
-        <span className="brand-mark" aria-hidden="true">
-          C
-        </span>
+      <Link className="brand" to="/" aria-label="KAIRO, inicio">
+        <img src="/brand/kairo-logo.png" alt="" className="sidebar-logo" />
         <span className="brand-copy">
-          <strong>Camila</strong>
-          <small>Operaciones</small>
+          <strong>KAIRO</strong>
+          <small>Centro de operaciones</small>
         </span>
       </Link>
       <nav aria-label="Principal" className="desktop-nav">
         <p className="nav-label">Operación</p>
-        {primaryItems.map((item) => (
+        {primaryItems.map(({ icon: Icon, ...item }) => (
           <NavLink key={item.to} end={'end' in item && item.end} to={item.to}>
+            <Icon aria-hidden="true" />
             {item.label}
           </NavLink>
         ))}
         <p className="nav-label">Inventario</p>
-        <NavLink to="/catalog-import">Importar catálogo</NavLink>
-        <NavLink to="/inventory/closures">Cierres de Treinta</NavLink>
+        <NavLink to="/catalog-import">
+          <FileSpreadsheet aria-hidden="true" />
+          Importar desde Treinta
+        </NavLink>
+        <NavLink to="/inventory/closures">
+          <Boxes aria-hidden="true" />
+          Cierres diarios
+        </NavLink>
         <p className="nav-label">Configuración</p>
-        <NavLink to="/settings/shipping">Preferencias</NavLink>
-        <NavLink to="/settings/whatsapp">WhatsApp Business</NavLink>
-        <NavLink to="/settings/integrations">Integraciones</NavLink>
-        <NavLink to="/alerts">Alertas</NavLink>
+        <NavLink to="/settings/shipping">
+          <Truck aria-hidden="true" />
+          Envíos
+        </NavLink>
+        <NavLink to="/settings/whatsapp">
+          <Webhook aria-hidden="true" />
+          WhatsApp
+        </NavLink>
+        <NavLink to="/settings/integrations">
+          <PackageSearch aria-hidden="true" />
+          Integraciones
+        </NavLink>
+        <NavLink to="/alerts">
+          <Bell aria-hidden="true" />
+          Alertas
+        </NavLink>
       </nav>
     </aside>
   );

@@ -5,6 +5,7 @@ import {
   ShippingRulesResponseSchema,
   type ShippingPolicy,
   type ShippingRulePublic,
+  type LocalityPublic,
 } from '@camila/contracts';
 import { useEffect, useState, type FormEvent } from 'react';
 
@@ -14,6 +15,7 @@ import {
   getErrorMessage,
 } from '../api/client';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { LocalityPicker } from '../components/LocalityPicker';
 
 const DEFAULT_POLICY: ShippingPolicy = {
   preferredCarrier: null,
@@ -126,6 +128,8 @@ export function ShippingSettingsPage() {
   const [municipalPolicy, setMunicipalPolicy] =
     useState<ShippingPolicy>(DEFAULT_POLICY);
   const [localityCarrierCode, setLocalityCarrierCode] = useState('');
+  const [selectedLocality, setSelectedLocality] =
+    useState<LocalityPublic | null>(null);
   const [rules, setRules] = useState<readonly ShippingRulePublic[]>([]);
   const [carriers, setCarriers] = useState<readonly string[]>([]);
   const [preview, setPreview] = useState<{
@@ -264,17 +268,12 @@ export function ShippingSettingsPage() {
           <p className="eyebrow">Excepción por municipio</p>
           <h3>Nueva regla municipal</h3>
         </div>
-        <label htmlFor="locality-code">Código DANE</label>
-        <input
-          id="locality-code"
-          inputMode="numeric"
-          maxLength={8}
-          pattern="[0-9]{8}"
-          value={localityCarrierCode}
-          onChange={(event) =>
-            setLocalityCarrierCode(event.target.value.replace(/\D/g, ''))
-          }
-          required
+        <LocalityPicker
+          value={selectedLocality}
+          onChange={(locality) => {
+            setSelectedLocality(locality);
+            setLocalityCarrierCode(locality.carrierCode);
+          }}
         />
         <PolicyFields
           prefix="municipal"
@@ -332,7 +331,7 @@ export function ShippingSettingsPage() {
             {rules.map((rule) => (
               <article key={rule.localityCarrierCode} className="rule-row">
                 <div>
-                  <strong>{rule.localityCarrierCode}</strong>
+                  <strong>Municipio configurado</strong>
                   <p>{describePolicy(rule)}</p>
                 </div>
                 <span className={`status-pill ${rule.active ? '' : 'muted'}`}>

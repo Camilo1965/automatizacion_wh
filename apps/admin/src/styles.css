@@ -17,6 +17,250 @@
     linear-gradient(180deg, #f7f3eb 0%, #efe7da 100%);
 }
 
+/* KAIRO premium shell */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-focus) 65%, white);
+  outline-offset: 3px;
+}
+
+.app-content:has(.login-layout) {
+  width: 100%;
+  padding: 0;
+}
+
+main:has(.login-layout) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.login-layout {
+  min-height: 100vh;
+  display: grid;
+}
+
+.login-brand-panel {
+  display: none;
+  align-content: center;
+  padding: clamp(2rem, 6vw, 5rem);
+  color: #fff9ef;
+  background: linear-gradient(145deg, #2b211b, #4b3021);
+}
+
+.login-brand-panel h2 {
+  max-width: 12ch;
+  font-size: clamp(2.4rem, 5vw, 4.8rem);
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+}
+
+.login-brand-panel p:not(.eyebrow) {
+  max-width: 36rem;
+  color: #e9ddcc;
+  font-size: 1.1rem;
+}
+
+.login-logo {
+  width: 8rem;
+  height: 10rem;
+  margin-bottom: 2rem;
+  object-fit: contain;
+}
+
+.login-card {
+  width: min(100% - 2rem, 30rem);
+  margin: auto;
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-md);
+}
+
+.login-card h2 {
+  font-size: 2rem;
+}
+
+.input-with-icon {
+  min-height: 3.15rem;
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+.input-with-icon:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.input-with-icon input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+}
+
+.password-toggle,
+.icon-link {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.7rem;
+}
+
+.password-toggle {
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+}
+
+.field-hint {
+  margin: -0.35rem 0 0;
+  font-size: 0.84rem;
+}
+
+.field-hint--warning {
+  color: var(--color-warning);
+}
+
+.login-security {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: center;
+  margin: 1.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.header-logo,
+.sidebar-logo {
+  object-fit: contain;
+}
+
+.header-logo {
+  width: 2rem;
+  height: 2.5rem;
+}
+
+.sidebar-logo {
+  width: 2.5rem;
+  height: 3rem;
+}
+
+.global-search-trigger {
+  min-height: 2.75rem;
+  display: none;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  color: var(--muted);
+  background: var(--panel);
+}
+
+.global-search-trigger kbd {
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--color-surface-soft);
+  font-size: 0.72rem;
+}
+
+.icon-link {
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.desktop-only {
+  display: none;
+}
+
+@media (min-width: 56rem) {
+  .login-layout {
+    grid-template-columns: minmax(26rem, 1.1fr) minmax(30rem, 0.9fr);
+  }
+
+  .login-brand-panel {
+    display: grid;
+  }
+
+  .global-search-trigger {
+    display: flex;
+  }
+
+  .desktop-only {
+    display: inline;
+  }
+}
+
+.locality-picker {
+  position: relative;
+  display: grid;
+  gap: 0.6rem;
+}
+.locality-results {
+  position: absolute;
+  top: 5rem;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  max-height: 18rem;
+  overflow: auto;
+  margin: 0;
+  padding: 0.4rem;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: var(--shadow-md);
+}
+.locality-results button {
+  width: 100%;
+  min-height: 3.5rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.65rem 0.8rem;
+  border: 0;
+  border-radius: 0.65rem;
+  text-align: left;
+  background: transparent;
+}
+.locality-results button:hover {
+  background: var(--color-primary-soft);
+}
+.locality-results span,
+.locality-results small {
+  display: block;
+}
+.locality-results small {
+  color: var(--muted);
+}
+.selected-locality {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin: 0;
+  color: var(--muted);
+}
+
 * {
   box-sizing: border-box;
 }

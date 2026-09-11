@@ -6,3 +6,5 @@ allowBuilds:
   msw: true
 saveExact: true
 engineStrict: true
+minimumReleaseAgeExclude:
+  - lucide-react@1.44.0
