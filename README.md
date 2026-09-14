@@ -1,253 +1,230 @@
-# WhatsApp Commerce Automation
+# Camila — Automatización de comercio por WhatsApp
 
-Automatización operativa para negocios de comercio conversacional por WhatsApp: catálogo guiado por talla, pedidos contraentrega, cotización de envíos, selección de seguro, generación de guía y control de inventario.
+Plataforma operativa para vender por WhatsApp con catálogo guiado por talla, reserva de inventario, cotización de envíos, selección de seguro, generación de guía y panel de administración.
 
-> Proyecto en evolución. La integración con Treinta funciona mediante importación inicial y archivo de cierre manual; WhatsApp Cloud API y 99envíos se conectan mediante adaptadores configurables.
+Diseñada para un negocio de calzado con contraentrega en Colombia. Integra **WhatsApp Cloud API**, **99envíos** y un panel responsive para la operación diaria.
+
+> Estado: producto en evolución. Treinta se integra por importación inicial y cierre manual. WhatsApp y 99envíos se conectan mediante adaptadores configurables.
+
+## Tabla de contenidos
+
+- [Qué resuelve](#qué-resuelve)
+- [Arquitectura](#arquitectura)
+- [Mapa del repositorio](#mapa-del-repositorio)
+- [Conceptos de dominio](#conceptos-de-dominio)
+- [Inicio rápido](#inicio-rápido)
+- [URLs locales](#urls-locales)
+- [Configuración](#configuración)
+- [Verificación y pruebas](#verificación-y-pruebas)
+- [Seguridad](#seguridad)
+- [Documentación](#documentación)
+- [Contribuir](#contribuir)
 
 ## Qué resuelve
 
-- Guía al cliente desde WhatsApp: talla → referencias disponibles → datos → envío → confirmación.
-- Muestra únicamente fotografías de referencias con stock real para la talla solicitada.
-- Permite reglas de envío globales o específicas por municipio: transportadora preferida, fallback permitido o bloqueado y seguro estándar o 99 Plus.
-- Conserva la opción de envío confirmada hasta la creación de la guía y su PDF.
-- Administra catálogo, fotografías, stock, pedidos, cotizaciones y operaciones desde un panel responsive.
-- Mantiene trazabilidad de reservas, movimientos de inventario y cambios de políticas.
+| Capacidad | Descripción |
+| --- | --- |
+| Conversación WhatsApp | Guía al cliente: talla → referencias con foto → datos → envío → confirmación |
+| Catálogo con stock real | Solo muestra referencias activas, con fotografía y disponibilidad para la talla confirmada |
+| Inventario | Stock por `referencia + talla`, reservas y movimientos auditables |
+| Envíos | Reglas globales o por municipio (código DANE), transportadora, fallback y seguro |
+| Guías | Cotización, creación de guía, PDF y manejo de resultados inciertos |
+| Panel admin | Auth, catálogo, pedidos, conversaciones, alertas, preferencias e integraciones |
 
-Base técnica local para la automatización de ventas de calzado por WhatsApp.
+Flujo de disponibilidad obligatorio:
 
-El flujo local recibe WhatsApp con firma verificada, guía al cliente por talla y fotografías, crea pedidos con reserva de inventario y prepara cotizaciones y guías mediante el adaptador de 99envíos. El panel de la propietaria cubre autenticación, catálogo, inventario, pedidos, cotizaciones, estado de guía, descarga de PDF y revisión de resultados inciertos. La aceptación real completó login, cotización, guía TCC y PDF el 8 de septiembre de 2026. La API real devuelve identificadores numéricos y, para algunas transportadoras, una URL de almacenamiento con un tipo de contenido incorrecto; el adaptador normaliza y valida ambos casos.
+`talla → confirmación → consulta → fotos`
 
-Antes de probar eventos firmados, agrega los secretos directamente al archivo local `.env`; nunca los incluyas en Git ni los pegues en chats. Si faltan las credenciales completas de 99envíos, las rutas protegidas de envío responden `shipping_not_configured` y no intentan operaciones externas.
+No existe un listado general de catálogo sin talla confirmada. Cada tanda devuelve como máximo cuatro referencias, ordenadas por código.
 
-La autenticación de 99envíos sigue su OpenAPI: el servidor hace `POST /api/integration/v1/login` con `NINETYNINE_ENVIOS_EMAIL` y `NINETYNINE_ENVIOS_PASSWORD`, recibe un JWT y lo utiliza como `Authorization: Bearer <token>`. `NINETYNINE_ENVIOS_INTEGRATION_TOKEN` y `NINETYNINE_ENVIOS_INTEGRATION_ID` son encabezados opcionales del preenvío; no reemplazan el JWT obtenido por login.
+## Arquitectura
 
-En **Preferencias → Envíos** se configura la regla general y las excepciones por código DANE. Una excepción reemplaza la política general completa y puede preferir u obligar una transportadora, permitir o bloquear el fallback y ofrecer envío económico, protegido o ambos. El modo protegido cotiza y crea la guía con Seguro 99 estándar o Plus. El simulador solo muestra la regla efectiva; nunca crea una guía.
+```mermaid
+flowchart LR
+  WA[WhatsApp Cloud API] -->|webhook firmado| API["@camila/api Fastify"]
+  Admin["@camila/admin Vite"] -->|/api/admin cookie| API
+  API --> PG[(PostgreSQL)]
+  API --> Media[(MEDIA_ROOT)]
+  API -->|JWT login| N99[99envíos]
+  API --> Contracts["@camila/contracts"]
+  Admin --> Contracts
+```
 
-## Requisitos
+**API** (`apps/api`): Fastify 5, Drizzle ORM, módulos de dominio (`whatsapp`, `catalog`, `inventory`, `orders`, `shipping`, `conversations`, `localities`, `auth`, `alerts`, `dashboard`, `integrations`).
+
+**Admin** (`apps/admin`): React + Vite, sesión por cookie HttpOnly (`credentials: include`), proxy a `/api/admin` en desarrollo.
+
+**Contracts** (`packages/contracts`): tipos y contratos compartidos entre API y panel.
+
+Detalle: [docs/architecture.md](docs/architecture.md).
+
+## Mapa del repositorio
+
+```text
+automatizacion_wh/
+├── apps/
+│   ├── api/                 # API Fastify + Drizzle + workers/CLI
+│   └── admin/               # Panel React (Vite) + Playwright E2E
+├── packages/
+│   └── contracts/           # Contratos TypeScript compartidos
+├── docs/                    # Documentación (índice Diátaxis)
+├── compose.yaml             # PostgreSQL desarrollo y pruebas
+├── .env.example             # Variables de entorno (sin secretos)
+├── ROADMAP.md               # Plan de producto
+└── README.md                # Este documento
+```
+
+## Conceptos de dominio
+
+| Término | Definición |
+| --- | --- |
+| **Referencia** | Combinación concreta de modelo y color (p. ej. `01`). El código puede conservar ceros iniciales. |
+| **Talla** | Entera o media (`36`, `37`, `37.5`). El stock se controla por `referencia + talla`. |
+| **Disponible** | `physicalQuantity - reservedQuantity > 0` para la talla confirmada. |
+| **Lista para publicar** | Referencia activa, con foto válida y al menos una talla disponible. |
+| **Política de envío** | Regla general o excepción por código DANE: transportadora, fallback y modo de seguro. |
+| **Guía incierta** | 99envíos no respondió tras enviar la solicitud. No se reintenta sola; la operadora verifica en 99envíos. |
+
+## Inicio rápido
+
+### Requisitos
 
 - Node.js `24.14.1` (ver `.nvmrc`)
-- pnpm `11.19.0`
-- Docker Desktop con Docker Compose
+- pnpm `11.19.0` (ver `packageManager` en `package.json`)
+- Docker con Compose
 
-## Configuración inicial
+### 1. Clonar y configurar entorno
 
-Copia el archivo de ejemplo a `.env` en PowerShell:
-
-```powershell
-Copy-Item .env.example .env
+```bash
+cp .env.example .env
+# Edita .env solo en local. Nunca lo subas a Git.
 ```
 
-`.env` contiene solo valores locales de desarrollo. Nunca versiones `.env`, datos reales ni credenciales.
+### 2. Instalar dependencias
 
-## Instalación
-
-```powershell
+```bash
 pnpm install
-```
-
-Para verificar el lockfile:
-
-```powershell
+# o, para CI / verificación estricta:
 pnpm install --frozen-lockfile
 ```
 
-Navegadores de Playwright (una vez, desde el monorepo):
+Chromium para E2E (una vez):
 
-```powershell
+```bash
 pnpm --filter @camila/admin exec playwright install chromium
 ```
 
-## Panel de administración
+### 3. Base de datos
 
-El panel vive en `apps/admin` y habla con la API bajo `/api/admin` (Vite proxy en desarrollo).
-
-### Crear o restablecer usuario admin
-
-Con PostgreSQL de desarrollo en marcha y migraciones aplicadas:
-
-```powershell
-pnpm admin:create -- --username=tu_usuario
-pnpm admin:reset-password -- --username=tu_usuario
-```
-
-Los comandos piden la contraseña de forma interactiva. No se documentan contraseñas reales aquí.
-
-### Flujos del panel
-
-- Inicio de sesión con cookie HttpOnly (`credentials: include`)
-- Catálogo con búsqueda, filtro de estado y paginación «Ver más»
-- Alta de referencia (el código puede conservar ceros iniciales, p. ej. `01`)
-- Detalle: editar modelo/color/precio, activar/desactivar con confirmación
-- Foto JPEG/PNG hasta 5 MiB
-- Ajuste de stock por talla con nota e historial de movimientos
-- Importación CSV con vista previa, errores por fila y confirmación explícita
-- Indicador de referencias listas para publicar: activa, con foto y stock disponible
-
-### URLs locales
-
-| Servicio              | URL                   |
-| --------------------- | --------------------- |
-| API                   | http://127.0.0.1:3000 |
-| Panel                 | http://127.0.0.1:5173 |
-| PostgreSQL desarrollo | 127.0.0.1:5432        |
-| PostgreSQL pruebas    | 127.0.0.1:5433        |
-
-## Catálogo interno
-
-Una **referencia** es una combinación concreta de modelo y color (por ejemplo `01`). El código visible puede conservar ceros iniciales.
-
-El stock se controla por `referencia + talla`. Se admiten tallas enteras y medias (`36`, `37`, `37.5`).
-
-Flujo obligatorio para disponibilidad:
-
-`talla → confirmación de talla → consulta de disponibilidad → fotos`
-
-No existe una consulta de catálogo general sin talla confirmada. Solo se listan referencias activas, con fotografía válida y `physicalQuantity - reservedQuantity > 0` para esa talla. Cada tanda devuelve máximo cuatro referencias, ordenadas por código.
-
-Las fotografías se guardan como archivos bajo `MEDIA_ROOT` (predeterminado `./var/media`). PostgreSQL guarda únicamente metadatos y la clave interna. Se aceptan JPEG/PNG de hasta 5 MiB.
-
-Ejemplo ficticio: la referencia `01` puede tener stock en tallas `36`, `37` y `37.5` a la vez; una consulta confirmada de `37` no debe devolver existencias de otras tallas.
-
-### Importar referencias y stock inicial
-
-En el panel abre **Importar catálogo**, descarga la plantilla y conserva exactamente este encabezado:
-
-```csv
-reference_code,model_name,color,price_cop,size,physical_quantity
-```
-
-Cada fila representa una talla de una referencia. Repite código, modelo, color y precio para agregar otras tallas. Los códigos conservan ceros iniciales y las tallas admiten medios puntos. El archivo debe estar en UTF-8, pesar máximo 2 MiB y contener máximo 500 filas de datos.
-
-La vista previa no modifica el catálogo. Muestra errores de estructura, datos inconsistentes, talla repetida y códigos que ya existen. Solo una vista previa sin errores permite confirmar. La confirmación crea referencias **inactivas**, registra el stock inicial y crea un movimiento de inventario por talla dentro de una sola transacción. Después se carga y revisa una foto por referencia y se activa únicamente cuando esté lista.
-
-### Importar localidades de envío
-
-El sistema recibe una copia CSV autorizada del catálogo de localidades, sin ejecutar código PHP ni contenido del documento de origen. El encabezado obligatorio es:
-
-```csv
-carrier_code,department,locality,country
-```
-
-Solo admite `CO`, preserva `carrier_code` como texto y rechaza códigos repetidos o longitudes inválidas. Con PostgreSQL de desarrollo iniciado y migrado:
-
-```powershell
-pnpm --filter @camila/api localities:import -- --input C:\ruta\localidades.csv
-```
-
-La carga reemplaza todas las localidades dentro de una transacción. Si el SHA-256 del archivo coincide con la fuente ya cargada, no vuelve a escribir datos. Un archivo inválido o sin localidades conserva los datos anteriores.
-
-## Migraciones
-
-Generar SQL desde el esquema Drizzle:
-
-```powershell
-pnpm db:generate -- --name=catalog_core
-```
-
-Aplicar migraciones con `DATABASE_URL`:
-
-```powershell
+```bash
+docker compose up -d postgres
 pnpm db:migrate
 ```
 
-## PostgreSQL de desarrollo
+### 4. Usuario administrador
 
-```powershell
-docker compose up -d postgres
+```bash
+pnpm admin:create -- --username=tu_usuario
+# o restablecer:
+pnpm admin:reset-password -- --username=tu_usuario
 ```
 
-Detener:
+Los comandos piden la contraseña de forma interactiva.
 
-```powershell
-docker compose stop postgres
-```
+### 5. Arrancar API y panel
 
-## Iniciar API y panel
-
-Con `.env` presente y PostgreSQL de desarrollo en marcha:
-
-```powershell
-pnpm --filter @camila/api dev
-pnpm --filter @camila/admin dev
-```
-
-O ambos en paralelo:
-
-```powershell
+```bash
 pnpm dev
 ```
 
-## Validaciones
+Equivale a levantar `@camila/api` y `@camila/admin` en paralelo (tras compilar contracts).
 
-```powershell
-pnpm format:check
-pnpm lint
-pnpm typecheck
-pnpm test:unit
-pnpm test:integration
-pnpm test:e2e
-pnpm build
-pnpm verify
-```
+Guía ampliada: [docs/getting-started.md](docs/getting-started.md).
 
-`pnpm verify` ejecuta formato, lint, tipos, unitarias, integración, E2E y build. Integración y E2E requieren `postgres-test` y `TEST_DATABASE_URL`.
+## URLs locales
 
-## Pruebas de integración
+| Servicio | URL |
+| --- | --- |
+| API | http://127.0.0.1:3000 |
+| Panel | http://127.0.0.1:5173 |
+| PostgreSQL desarrollo | 127.0.0.1:5432 |
+| PostgreSQL pruebas | 127.0.0.1:5433 |
 
-`postgres-test` almacena sus datos en memoria temporal y los pierde al eliminar o recrear el contenedor.
+Salud:
 
-Iniciar PostgreSQL de pruebas:
-
-```powershell
-docker compose --profile test up -d postgres-test
-```
-
-Ejecutar desde PowerShell:
-
-```powershell
-$env:TEST_DATABASE_URL='postgresql://camila_test:camila_test@127.0.0.1:5433/camila_test'
-pnpm test:integration
-```
-
-Si `TEST_DATABASE_URL` no está definida, el comando falla con una explicación clara.
-
-## Pruebas E2E del panel
-
-Las E2E usan Playwright (Chromium), `postgres-test`, migraciones, un usuario de prueba creado por `AuthService` vía CLI de seed, `MEDIA_ROOT` temporal, API y Vite.
-
-Puertos por defecto (evitan chocar con `pnpm dev` en 3000/5173; `pnpm verify` puede correr con esos ocupados):
-
-| Servicio E2E | Puerto | Override                |
-| ------------ | ------ | ----------------------- |
-| API          | 3100   | `CAMILA_E2E_API_PORT`   |
-| Panel Vite   | 5174   | `CAMILA_E2E_ADMIN_PORT` |
-
-```powershell
-docker compose --profile test up -d postgres-test
-$env:TEST_DATABASE_URL='postgresql://camila_test:camila_test@127.0.0.1:5433/camila_test'
-pnpm test:e2e
-```
-
-`apps/admin/playwright.config.ts` arranca API + Vite (`webServer`) tras `globalSetup`. Credenciales E2E viven en `apps/admin/e2e/constants.ts`; no uses esas credenciales fuera de pruebas locales.
-
-Detener PostgreSQL de pruebas:
-
-```powershell
-docker compose --profile test stop postgres-test
-```
-
-## Comprobar salud de la API
-
-Con la API en ejecución:
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:3000/health/live
-Invoke-RestMethod http://127.0.0.1:3000/health/ready
+```bash
+curl -s http://127.0.0.1:3000/health/live
+curl -s http://127.0.0.1:3000/health/ready
 ```
 
 `/health/live` no consulta PostgreSQL. `/health/ready` exige que la base responda.
 
-## Notas
+## Configuración
 
-- `entregables/` y `proposal_work/` no forman parte del producto y están en `.gitignore`.
-- No se versionan `node_modules`, artefactos de compilación, cobertura, `/var/` ni secretos.
+Todas las variables están documentadas en [`.env.example`](.env.example).
+
+| Área | Variables clave |
+| --- | --- |
+| App | `HOST`, `PORT`, `ADMIN_ORIGIN`, `MEDIA_ROOT`, `LOG_LEVEL` |
+| Base de datos | `DATABASE_URL`, `TEST_DATABASE_URL` |
+| WhatsApp | `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` |
+| 99envíos | `NINETYNINE_ENVIOS_EMAIL`, `NINETYNINE_ENVIOS_PASSWORD` (JWT vía `POST /api/integration/v1/login`); headers opcionales `NINETYNINE_ENVIOS_INTEGRATION_*` |
+
+Sin credenciales completas de 99envíos, las rutas de envío responden `shipping_not_configured` y no llaman al proveedor.
+
+Fotografías: JPEG/PNG hasta 5 MiB bajo `MEDIA_ROOT` (por defecto `./var/media`). PostgreSQL guarda metadatos y la clave interna.
+
+## Verificación y pruebas
+
+```bash
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test:unit
+pnpm test:integration   # requiere postgres-test + TEST_DATABASE_URL
+pnpm test:e2e           # Playwright; puertos por defecto 3100 / 5174
+pnpm build
+pnpm verify             # formato + lint + tipos + unit + integración + e2e + build
+```
+
+PostgreSQL de pruebas (tmpfs; se pierde al recrear el contenedor):
+
+```bash
+docker compose --profile test up -d postgres-test
+export TEST_DATABASE_URL='postgresql://camila_test:camila_test@127.0.0.1:5433/camila_test'
+pnpm test:integration
+pnpm test:e2e
+```
+
+## Seguridad
+
+- Nunca versionar `.env`, credenciales, datos reales ni `/var/`.
+- Webhooks de WhatsApp: verificar firma antes de procesar eventos.
+- Sesión admin: cookie HttpOnly; el panel usa `credentials: include`.
+- Rotar tokens de Meta y App Secret antes de producción (ver [piloto](docs/how-to/pilot-and-deploy.md)).
+- `entregables/` y `proposal_work/` están en `.gitignore` y no forman parte del producto.
+
+## Documentación
+
+Índice completo (Diátaxis): **[docs/README.md](docs/README.md)**
+
+| Tipo | Documento |
+| --- | --- |
+| Tutorial | [Inicio local](docs/getting-started.md) |
+| How-to | [Piloto y despliegue](docs/how-to/pilot-and-deploy.md) |
+| Explanation | [Arquitectura](docs/architecture.md) |
+| Reference | [Integraciones 99envíos](docs/integrations/99envios-validation-2026-09-07.md) |
+| Producto | [ROADMAP.md](ROADMAP.md) |
+
+## Contribuir
+
+Ver [CONTRIBUTING.md](CONTRIBUTING.md). Resumen:
+
+1. Rama desde `main`.
+2. Cambios pequeños y verificables.
+3. `pnpm verify` (o el subconjunto relevante) antes del PR.
+4. Sin secretos en el diff.
+
+---
+
+**Nombre interno del monorepo:** `camila` (`@camila/api`, `@camila/admin`, `@camila/contracts`).
