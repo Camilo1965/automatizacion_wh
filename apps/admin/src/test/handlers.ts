@@ -117,6 +117,16 @@ export const handlers = [
   http.get(`${base}/alerts`, () =>
     HttpResponse.json({ data: { items: [], nextCursor: null } }),
   ),
+  http.get(`${base}/orders`, () => {
+    const authError = requireAuth();
+    return (
+      authError ?? HttpResponse.json({ data: { items: [], nextCursor: null } })
+    );
+  }),
+  http.get(`${base}/conversations`, () => {
+    const authError = requireAuth();
+    return authError ?? HttpResponse.json({ data: { items: [] } });
+  }),
   http.get(`${base}/inventory/closures`, () =>
     HttpResponse.json({
       data: {

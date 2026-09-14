@@ -7,7 +7,7 @@
     "node": ">=24.14.1 <25"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @camila/api --filter @camila/admin dev",
+    "dev": "pnpm --filter @camila/contracts build && pnpm --parallel --filter @camila/api --filter @camila/admin dev",
     "build": "pnpm --filter @camila/contracts --filter @camila/api --filter @camila/admin build",
     "test": "pnpm test:unit",
     "test:unit": "pnpm --filter @camila/contracts test:unit && pnpm --filter @camila/api test:unit && pnpm --filter @camila/admin test:unit",
