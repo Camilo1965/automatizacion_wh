@@ -24,7 +24,7 @@ async function login(page: Page): Promise<void> {
   await page.goto('/login');
   await page.getByLabel('Usuario').fill(E2E_USERNAME);
   await page.getByLabel('Contraseña', { exact: true }).fill(E2E_PASSWORD);
-  await page.getByRole('button', { name: 'Entrar' }).click();
+  await page.getByRole('button', { name: 'Entrar al panel' }).click();
   await expect(
     page.getByRole('button', { name: 'Cerrar sesión' }),
   ).toBeVisible();
@@ -48,7 +48,7 @@ test.describe.configure({ mode: 'serial' });
 test('protected route redirects to login', async ({ page }) => {
   await page.goto('/');
   await expect(
-    page.getByRole('heading', { name: 'Bienvenida de nuevo' }),
+    page.getByRole('heading', { name: 'Bienvenida a KAIRO' }),
   ).toBeVisible();
 });
 
@@ -56,7 +56,7 @@ test('rejects bad credentials with generic message', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('Usuario').fill('e2e_admin');
   await page.getByLabel('Contraseña', { exact: true }).fill('not-the-password');
-  await page.getByRole('button', { name: 'Entrar' }).click();
+  await page.getByRole('button', { name: 'Entrar al panel' }).click();
   await expect(page.getByRole('alert')).toHaveText('Credenciales inválidas');
 });
 
@@ -80,7 +80,7 @@ test('API anonymous logout returns 401', async ({ request }) => {
 test('main catalog operations flow', async ({ page }) => {
   await page.goto('/references/new');
   await expect(
-    page.getByRole('heading', { name: 'Bienvenida de nuevo' }),
+    page.getByRole('heading', { name: 'Bienvenida a KAIRO' }),
   ).toBeVisible();
 
   await login(page);
@@ -224,7 +224,7 @@ test('main catalog operations flow', async ({ page }) => {
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
   await page.goto('/references/new');
   await expect(
-    page.getByRole('heading', { name: 'Bienvenida de nuevo' }),
+    page.getByRole('heading', { name: 'Bienvenida a KAIRO' }),
   ).toBeVisible();
 });
 

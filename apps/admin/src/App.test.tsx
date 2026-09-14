@@ -18,7 +18,7 @@ async function loginAsAdmin(
   await user.type(username, 'camila');
   await user.clear(password);
   await user.type(password, 'password1234');
-  await user.click(screen.getByRole('button', { name: 'Entrar' }));
+  await user.click(screen.getByRole('button', { name: 'Entrar al panel' }));
 }
 
 describe('App shell', () => {
@@ -240,7 +240,7 @@ describe('Login and session', () => {
     const username = await screen.findByLabelText('Usuario');
     await user.type(username, 'camila');
     await user.type(screen.getByLabelText('Contraseña'), 'wrong-password');
-    await user.click(screen.getByRole('button', { name: 'Entrar' }));
+    await user.click(screen.getByRole('button', { name: 'Entrar al panel' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Credenciales inválidas',
@@ -251,7 +251,7 @@ describe('Login and session', () => {
     renderWithProviders(<App />, { initialEntries: ['/catalog'] });
 
     expect(
-      await screen.findByRole('heading', { name: 'Bienvenida de nuevo' }),
+      await screen.findByRole('heading', { name: 'Bienvenida a KAIRO' }),
     ).toBeInTheDocument();
   });
 
@@ -700,7 +700,7 @@ describe('Catalog flows', () => {
     await user.click(screen.getByRole('link', { name: /01/ }));
 
     expect(
-      await screen.findByRole('heading', { name: 'Bienvenida de nuevo' }),
+      await screen.findByRole('heading', { name: 'Bienvenida a KAIRO' }),
     ).toBeInTheDocument();
   });
 
