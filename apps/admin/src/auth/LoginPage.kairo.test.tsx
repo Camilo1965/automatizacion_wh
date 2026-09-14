@@ -6,7 +6,7 @@ import { App } from '../App';
 import { renderWithProviders } from '../test/render';
 
 describe('KAIRO login', () => {
-  it('presents the KAIRO operations brand and a usable password control', async () => {
+  it('presents the centered KAIRO access experience and a usable password control', async () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { initialEntries: ['/login'] });
 
@@ -14,8 +14,17 @@ describe('KAIRO login', () => {
       await screen.findByRole('img', { name: 'KAIRO' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Centro de operaciones KAIRO' }),
+      screen.getByRole('heading', {
+        name: 'Tu negocio, organizado en un solo lugar',
+      }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Bienvenida a KAIRO' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveClass('auth-shell');
+    expect(
+      screen.getByRole('button', { name: 'Entrar al panel' }),
+    ).toBeEnabled();
 
     const password = screen.getByLabelText('Contraseña');
     expect(password).toHaveAttribute('type', 'password');

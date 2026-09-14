@@ -1,11 +1,17 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, LockKeyhole, UserRound } from 'lucide-react';
-import { motion } from 'motion/react';
+import {
+  Eye,
+  EyeOff,
+  LoaderCircle,
+  LockKeyhole,
+  UserRound,
+} from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 
 import { ApiClientError } from '../api/client';
-import { AppShell } from '../components/AppShell';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { AuthShell } from './AuthShell';
 import { useAuth } from './AuthProvider';
 
 const INVALID_CREDENTIALS_MESSAGE = 'Credenciales inválidas';
@@ -20,6 +26,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   if (!loading && user !== null) {
     const from =
@@ -58,97 +65,128 @@ export function LoginPage() {
   }
 
   return (
-    <AppShell>
+    <AuthShell>
       <div className="login-layout">
         <motion.section
           className="login-brand-panel"
-          initial={{ opacity: 0, x: -24 }}
+          aria-labelledby="login-title"
+          initial={reduceMotion ? false : { opacity: 0, x: -24 }}
           animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.24, ease: 'easeOut' }}
         >
-          <img src="/brand/kairo-logo.png" alt="KAIRO" className="login-logo" />
-          <p className="eyebrow">Boutique · Operación en tiempo real</p>
-          <h2 id="login-title">Centro de operaciones KAIRO</h2>
-          <p>Conversaciones, pedidos, catálogo y despachos en un solo lugar.</p>
+          <div className="login-brand-content">
+            <img
+              src="/brand/kairo-logo.png"
+              alt="KAIRO"
+              className="login-logo"
+            />
+            <p className="eyebrow">Boutique · Operación en tiempo real</p>
+            <h1 id="login-title">Tu negocio, organizado en un solo lugar</h1>
+            <p>
+              Gestiona conversaciones, pedidos, catálogo, envíos e inventario
+              desde una sola operación.
+            </p>
+          </div>
         </motion.section>
-        <motion.section
-          className="login-card"
-          aria-labelledby="access-title"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08 }}
-        >
-          <p className="eyebrow">Acceso privado</p>
-          <h2 id="access-title">Bienvenida de nuevo</h2>
-          <p className="muted">Ingresa con tu cuenta de propietaria.</p>
-          <form className="stack-form" onSubmit={onSubmit} noValidate>
-            <label htmlFor="username">Usuario</label>
-            <div className="input-with-icon">
-              <UserRound aria-hidden="true" size={19} />
-              <input
-                id="username"
-                name="username"
-                autoComplete="username"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                required
-              />
+        <div className="login-form-panel">
+          <motion.section
+            className="login-card"
+            aria-labelledby="access-title"
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, delay: reduceMotion ? 0 : 0.08 }}
+          >
+            <div className="login-card-heading">
+              <p className="eyebrow">Acceso privado</p>
+              <h2 id="access-title">Bienvenida a KAIRO</h2>
+              <p className="muted">
+                Ingresa para continuar con la operación de hoy.
+              </p>
             </div>
+            <form
+              className="stack-form login-form"
+              onSubmit={onSubmit}
+              noValidate
+            >
+              <label htmlFor="username">Usuario</label>
+              <div className="input-with-icon">
+                <UserRound aria-hidden="true" size={19} />
+                <input
+                  id="username"
+                  name="username"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  required
+                />
+              </div>
 
-            <label htmlFor="password">Contraseña</label>
-            <div className="input-with-icon password-field">
-              <LockKeyhole aria-hidden="true" size={19} />
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                onKeyUp={(event) =>
-                  setCapsLock(event.getModifierState('CapsLock'))
-                }
-                onKeyDown={(event) =>
-                  setCapsLock(event.getModifierState('CapsLock'))
-                }
-                required
-              />
+              <label htmlFor="password">Contraseña</label>
+              <div className="input-with-icon password-field">
+                <LockKeyhole aria-hidden="true" size={19} />
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  onKeyUp={(event) =>
+                    setCapsLock(event.getModifierState('CapsLock'))
+                  }
+                  onKeyDown={(event) =>
+                    setCapsLock(event.getModifierState('CapsLock'))
+                  }
+                  required
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  aria-label={
+                    showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'
+                  }
+                  onClick={() => setShowPassword((value) => !value)}
+                >
+                  {showPassword ? (
+                    <EyeOff aria-hidden="true" />
+                  ) : (
+                    <Eye aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+              {capsLock ? (
+                <p className="field-hint field-hint--warning">
+                  Bloq Mayús está activado
+                </p>
+              ) : null}
+
+              <ErrorMessage message={error} />
+
               <button
-                type="button"
-                className="password-toggle"
-                aria-label={
-                  showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'
-                }
-                onClick={() => setShowPassword((value) => !value)}
+                type="submit"
+                className="button-primary login-submit"
+                disabled={submitting}
               >
-                {showPassword ? (
-                  <EyeOff aria-hidden="true" />
+                {submitting ? (
+                  <>
+                    <LoaderCircle
+                      className="login-spinner"
+                      aria-hidden="true"
+                    />
+                    Entrando…
+                  </>
                 ) : (
-                  <Eye aria-hidden="true" />
+                  'Entrar al panel'
                 )}
               </button>
-            </div>
-            {capsLock ? (
-              <p className="field-hint field-hint--warning">
-                Bloq Mayús está activado
-              </p>
-            ) : null}
-
-            <ErrorMessage message={error} />
-
-            <button
-              type="submit"
-              className="button-primary"
-              disabled={submitting}
-            >
-              {submitting ? 'Entrando…' : 'Entrar'}
-            </button>
-          </form>
-          <p className="login-security">
-            <LockKeyhole aria-hidden="true" size={15} /> Sesión protegida y
-            acceso exclusivo.
-          </p>
-        </motion.section>
+            </form>
+            <p className="login-security">
+              <LockKeyhole aria-hidden="true" size={15} /> Sesión protegida y
+              acceso exclusivo.
+            </p>
+          </motion.section>
+        </div>
       </div>
-    </AppShell>
+    </AuthShell>
   );
 }

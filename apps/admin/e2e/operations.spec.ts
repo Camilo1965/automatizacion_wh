@@ -17,7 +17,7 @@ async function login(page: Page) {
   await page.goto('/login');
   await page.getByLabel('Usuario').fill(E2E_USERNAME);
   await page.getByLabel('Contraseña', { exact: true }).fill(E2E_PASSWORD);
-  await page.getByRole('button', { name: 'Entrar' }).click();
+  await page.getByRole('button', { name: 'Entrar al panel' }).click();
   await expect(
     page.getByRole('button', { name: 'Cerrar sesión' }),
   ).toBeVisible();
