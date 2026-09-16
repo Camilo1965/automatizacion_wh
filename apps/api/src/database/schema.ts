@@ -293,6 +293,27 @@ export const shippingLocalityImports = pgTable(
   ],
 );
 
+export const integrationSettings = pgTable(
+  'integration_settings',
+  {
+    provider: varchar('provider', { length: 16 }).primaryKey(),
+    encryptedPayload: text('encrypted_payload').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'integration_settings_provider_allowed',
+      sql`${table.provider} IN ('whatsapp', 'shipping')`,
+    ),
+    check(
+      'integration_settings_encrypted_payload_format',
+      sql`${table.encryptedPayload} ~ '^v1\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$'`,
+    ),
+  ],
+);
+
 export const salesOrders = pgTable(
   'sales_orders',
   {

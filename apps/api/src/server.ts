@@ -38,6 +38,9 @@ import { InventoryClosureService } from './modules/inventory/inventory-closure-s
 import { PostgresInventoryClosureRepository } from './modules/inventory/postgres-inventory-closure-repository.js';
 import { DailyClosureScheduler } from './modules/inventory/daily-closure-scheduler.js';
 import { IntegrationHealthService } from './modules/integrations/integration-health-service.js';
+import { IntegrationSecretCrypto } from './modules/integrations/integration-secret-crypto.js';
+import { IntegrationSettingsService } from './modules/integrations/integration-settings-service.js';
+import { PostgresIntegrationSettingsRepository } from './modules/integrations/postgres-integration-settings-repository.js';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -58,6 +61,13 @@ async function main(): Promise<void> {
   const localityService = new LocalityService(
     new PostgresLocalityRepository(database),
   );
+  const integrationSettingsService =
+    config.integrationEncryptionKey === undefined
+      ? undefined
+      : new IntegrationSettingsService(
+          new PostgresIntegrationSettingsRepository(database),
+          new IntegrationSecretCrypto(config.integrationEncryptionKey),
+        );
   const orderService = new OrderService(
     new PostgresOrderRepository(database),
     (referenceId) => catalogRepository.findReferenceById(referenceId),
@@ -156,6 +166,9 @@ async function main(): Promise<void> {
     photoStorage,
     ...(shippingQuoteService === undefined ? {} : { shippingQuoteService }),
     ...(shippingGuideService === undefined ? {} : { shippingGuideService }),
+    ...(integrationSettingsService === undefined
+      ? {}
+      : { integrationSettingsService }),
   });
 
   const closureScheduler = new DailyClosureScheduler(inventoryClosureService);

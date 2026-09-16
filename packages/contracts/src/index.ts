@@ -603,6 +603,55 @@ export const DepartmentsResponseSchema = dataEnvelopeSchema(
   z.object({ items: z.array(DepartmentPublicSchema) }).strict(),
 );
 
+const optionalSecretSchema = z.string().trim().min(1).max(4096).optional();
+export const IntegrationSettingsUpdateSchema = z
+  .object({
+    whatsapp: z
+      .object({
+        phoneNumberId: z.string().trim().min(1).max(64).optional(),
+        graphApiVersion: z.string().regex(/^v\d+\.\d+$/).optional(),
+        accessToken: optionalSecretSchema,
+        appSecret: optionalSecretSchema,
+        webhookVerifyToken: optionalSecretSchema,
+      })
+      .strict()
+      .optional(),
+    shipping: z
+      .object({
+        accountEmail: z.string().trim().email().max(254).optional(),
+        password: optionalSecretSchema,
+        integrationToken: optionalSecretSchema,
+        integrationId: z.string().trim().min(1).max(128).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .refine((value) => value.whatsapp !== undefined || value.shipping !== undefined, {
+    message: 'Configure al menos una integración',
+  });
+
+export const IntegrationSettingsResponseSchema = dataEnvelopeSchema(
+  z
+    .object({
+      whatsapp: z
+        .object({
+          configured: z.boolean(),
+          phoneNumberId: z.string().nullable(),
+          graphApiVersion: z.string().nullable().optional(),
+        })
+        .strict(),
+      shipping: z
+        .object({
+          configured: z.boolean(),
+          accountEmail: z.string().email().nullable(),
+          integrationId: z.string().nullable().optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+);
+
 export const OrderPublicSchema = z
   .object({
     id: z.uuid(),

@@ -16,6 +16,7 @@ import {
   ShippingPolicySchema,
   ShippingRuleBodySchema,
   ShippingPolicyPreviewBodySchema,
+  IntegrationSettingsUpdateSchema,
 } from '@camila/contracts';
 
 import type { AppConfig } from '../../config.js';
@@ -59,6 +60,10 @@ import type { ConnectionCapabilityService } from '../../modules/whatsapp/connect
 import type { AlertService } from '../../modules/alerts/alert-service.js';
 import type { InventoryClosureService } from '../../modules/inventory/inventory-closure-service.js';
 import type { IntegrationHealthService } from '../../modules/integrations/integration-health-service.js';
+import {
+  IntegrationSettingsError,
+  type IntegrationSettingsOperations,
+} from '../../modules/integrations/integration-settings-service.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -143,6 +148,7 @@ export type AdminRoutesDependencies = Readonly<{
   alertService?: AlertService;
   inventoryClosureService?: InventoryClosureService;
   integrationHealthService?: IntegrationHealthService;
+  integrationSettingsService?: IntegrationSettingsOperations;
 }>;
 
 export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
@@ -164,6 +170,33 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     shippingGuideService,
     dashboardService,
   } = dependencies;
+
+  if (dependencies.integrationSettingsService !== undefined) {
+    app.get('/integrations/settings', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      return reply.status(200).send({
+        data: await dependencies.integrationSettingsService!.getPublic(),
+      });
+    });
+    app.patch('/integrations/settings', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      try {
+        await dependencies.integrationSettingsService!.update(
+          IntegrationSettingsUpdateSchema.parse(request.body),
+        );
+      } catch (error) {
+        if (error instanceof IntegrationSettingsError) {
+          return reply.status(400).send({
+            error: { code: 'invalid_integration_settings', message: error.message },
+          });
+        }
+        throw error;
+      }
+      return reply.status(200).send({
+        data: await dependencies.integrationSettingsService!.getPublic(),
+      });
+    });
+  }
 
   if (dependencies.connectionCapabilityService !== undefined) {
     app.get('/whatsapp/connection', async (request, reply) => {

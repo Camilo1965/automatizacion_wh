@@ -1263,4 +1263,35 @@ describe('strict public response contracts', () => {
       }).success,
     ).toBe(false);
   });
+
+  it('accepts integration updates without ever returning secret values', async () => {
+    const {
+      IntegrationSettingsUpdateSchema,
+      IntegrationSettingsResponseSchema,
+    } = await import('../src/index.js');
+    expect(
+      IntegrationSettingsUpdateSchema.safeParse({
+        whatsapp: {
+          phoneNumberId: '1339849665872310',
+          accessToken: 'long-lived-token',
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      IntegrationSettingsResponseSchema.safeParse({
+        data: {
+          whatsapp: { configured: true, phoneNumberId: '1339849665872310' },
+          shipping: { configured: false, accountEmail: null },
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      IntegrationSettingsResponseSchema.safeParse({
+        data: {
+          whatsapp: { configured: true, accessToken: 'secret' },
+          shipping: { configured: false, accountEmail: null },
+        },
+      }).success,
+    ).toBe(false);
+  });
 });

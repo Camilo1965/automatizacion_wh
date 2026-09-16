@@ -97,6 +97,21 @@ describe('admin shipping HTTP API', () => {
         };
       },
     } as unknown as AuthService;
+    const integrationSettingsService = {
+      getPublic: vi.fn().mockResolvedValue({
+        whatsapp: {
+          configured: true,
+          phoneNumberId: '1339849665872310',
+          graphApiVersion: 'v26.0',
+        },
+        shipping: {
+          configured: false,
+          accountEmail: null,
+          integrationId: null,
+        },
+      }),
+      update: vi.fn(),
+    };
     const app = await buildApp({
       config,
       database: {
@@ -109,6 +124,7 @@ describe('admin shipping HTTP API', () => {
       photoStorage: {} as PhotoStorage,
       shippingQuoteService: service,
       shippingGuideService: guideService,
+      integrationSettingsService,
     });
     const orderId = '22222222-2222-4222-8222-222222222222';
     expect(
@@ -142,6 +158,15 @@ describe('admin shipping HTTP API', () => {
     });
     expect(rule.statusCode).toBe(204);
     expect(service.setCarrierRule).toHaveBeenCalledWith('05001000', 'tcc');
+    const integrationSettings = await app.inject({
+      method: 'GET',
+      url: '/api/admin/integrations/settings',
+      headers: { cookie: 'camila_admin_session=good' },
+    });
+    expect(integrationSettings.statusCode).toBe(200);
+    expect(integrationSettings.json().data.whatsapp).not.toHaveProperty(
+      'accessToken',
+    );
     const preferences = await app.inject({
       method: 'GET',
       url: '/api/admin/shipping/preferences',

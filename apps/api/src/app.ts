@@ -31,6 +31,7 @@ import type { ConnectionCapabilityService } from './modules/whatsapp/connection-
 import type { AlertService } from './modules/alerts/alert-service.js';
 import type { InventoryClosureService } from './modules/inventory/inventory-closure-service.js';
 import type { IntegrationHealthService } from './modules/integrations/integration-health-service.js';
+import type { IntegrationSettingsOperations } from './modules/integrations/integration-settings-service.js';
 import { adminRoutes } from './routes/admin/index.js';
 import { healthRoutes } from './routes/health.js';
 import { whatsappRoutes } from './routes/whatsapp.js';
@@ -62,6 +63,7 @@ export type AppDependencies = Readonly<{
   alertService?: AlertService;
   inventoryClosureService?: InventoryClosureService;
   integrationHealthService?: IntegrationHealthService;
+  integrationSettingsService?: IntegrationSettingsOperations;
 }>;
 
 declare module 'fastify' {
@@ -115,6 +117,10 @@ export async function buildApp(
           'res.headers["set-cookie"]',
           'req.body.password',
           'req.body.passwordConfirmation',
+          'req.body.accessToken',
+          'req.body.appSecret',
+          'req.body.webhookVerifyToken',
+          'req.body.integrationToken',
           'body.password',
           'body.passwordConfirmation',
         ],
@@ -225,6 +231,9 @@ export async function buildApp(
     ...(dependencies.integrationHealthService === undefined
       ? {}
       : { integrationHealthService: dependencies.integrationHealthService }),
+    ...(dependencies.integrationSettingsService === undefined
+      ? {}
+      : { integrationSettingsService: dependencies.integrationSettingsService }),
     photoStorage: dependencies.photoStorage,
   });
 

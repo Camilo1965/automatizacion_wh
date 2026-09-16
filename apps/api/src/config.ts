@@ -17,6 +17,7 @@ export type AppConfig = Readonly<{
   ninetyNineEnviosPassword?: string;
   ninetyNineEnviosIntegrationToken?: string;
   ninetyNineEnviosIntegrationId?: string;
+  integrationEncryptionKey?: string;
 }>;
 
 export class ConfigurationError extends Error {
@@ -172,6 +173,14 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     environment.NINETYNINE_ENVIOS_INTEGRATION_TOKEN?.trim() || undefined;
   const ninetyNineEnviosIntegrationId =
     environment.NINETYNINE_ENVIOS_INTEGRATION_ID?.trim() || undefined;
+  const integrationEncryptionKey =
+    environment.INTEGRATION_ENCRYPTION_KEY?.trim() || undefined;
+  if (
+    integrationEncryptionKey !== undefined &&
+    Buffer.from(integrationEncryptionKey, 'base64').length !== 32
+  ) {
+    issues.push('INTEGRATION_ENCRYPTION_KEY');
+  }
   if (
     (ninetyNineEnviosEmail === undefined) !==
     (ninetyNineEnviosPassword === undefined)
@@ -214,5 +223,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     ...(ninetyNineEnviosIntegrationId === undefined
       ? {}
       : { ninetyNineEnviosIntegrationId }),
+    ...(integrationEncryptionKey === undefined ? {} : { integrationEncryptionKey }),
   };
 }
