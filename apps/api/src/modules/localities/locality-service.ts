@@ -76,6 +76,7 @@ export class LocalityService {
       localities,
       sourceSha256: createHash('sha256').update(source, 'utf8').digest('hex'),
       sourceType: '99envios_document',
+      issues: parsed.issues,
     });
   }
 

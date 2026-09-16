@@ -82,4 +82,17 @@ describe('locality repository integration', () => {
     );
     expect(historical?.active).toBe(false);
   });
+
+  it('records source import warnings without rejecting valid localities', async () => {
+    await repository.replaceAll({
+      localities: [localities[0]!],
+      sourceSha256: 'e'.repeat(64),
+      sourceType: '99envios_document',
+      issues: [{ row: 7, code: 'invalid_dane' }],
+    });
+    const [audit] = await database.orm.execute<{ issues: unknown }>(
+      "SELECT issues FROM shipping_locality_imports WHERE source_sha256 = 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'",
+    );
+    expect(audit?.issues).toEqual([{ row: 7, code: 'invalid_dane' }]);
+  });
 });

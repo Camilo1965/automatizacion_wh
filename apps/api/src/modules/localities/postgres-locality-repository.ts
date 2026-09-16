@@ -18,6 +18,7 @@ export class PostgresLocalityRepository implements LocalityRepository {
     localities: readonly ColombianLocality[];
     sourceSha256: string;
     sourceType?: 'csv' | '99envios_document';
+    issues?: unknown;
   }) {
     return this.database.orm.transaction(async (tx) => {
       const [current] = await tx
@@ -59,7 +60,7 @@ export class PostgresLocalityRepository implements LocalityRepository {
         sourceSha256: input.sourceSha256,
         sourceType: input.sourceType ?? 'csv',
         importedCount: input.localities.length,
-        issues: [],
+        issues: input.issues ?? [],
       });
       return { imported: input.localities.length, unchanged: false };
     });
