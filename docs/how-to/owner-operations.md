@@ -26,7 +26,7 @@ La aplicación móvil de WhatsApp Business solo puede compartir el número con C
 
 ## Cargar municipios y definir envíos
 
-En **Configuración → Localidades**, pulsa **Usar listado 99envíos incluido** o carga el documento/CSV correspondiente. Revisa la vista previa y publica. El archivo incluido conserva 1.256 destinos colombianos válidos; su archivo de metadatos registra fuente, hash y 17 filas excluidas. No se publica automáticamente. Los códigos se conservan como texto internamente; selecciona nombres en el panel.
+En **Configuración → Departamentos y municipios**, pulsa **Usar listado de 99envíos incluido** o carga el documento/CSV correspondiente. Revisa la vista previa y publica. El archivo incluido conserva 1.256 destinos colombianos válidos; su archivo de metadatos registra fuente, hash y 17 filas excluidas. No se publica automáticamente. Los códigos se conservan como texto internamente; selecciona nombres en el panel.
 
 El historial permite restaurar un listado creando una nueva versión. No se borran destinos antiguos referenciados por pedidos. Una vista previa queda obsoleta si alguien publica otro listado antes de confirmar: vuelve a previsualizar.
 

@@ -15,7 +15,7 @@
     "test:integration": "pnpm --filter @camila/api test:integration",
     "test:e2e": "pnpm --filter @camila/admin test:e2e",
     "lint": "eslint .",
-    "typecheck": "pnpm --filter @camila/contracts --filter @camila/api --filter @camila/admin typecheck",
+    "typecheck": "pnpm --filter @camila/contracts build && pnpm --filter @camila/contracts --filter @camila/api --filter @camila/admin typecheck",
     "admin:create": "pnpm --filter @camila/api admin:create",
     "admin:reset-password": "pnpm --filter @camila/api admin:reset-password",
     "format": "prettier --write .",

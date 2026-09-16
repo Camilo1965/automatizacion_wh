@@ -23,6 +23,7 @@ Fecha: 16 de septiembre de 2026. Implementación en `codex/configurable-operatio
 6. La respuesta administrativa de creación municipal no coincidía con el cliente. Se conserva el contrato sin contenido y el recorrido E2E valida su persistencia.
 7. Los formularios nuevos tenían botones y casillas nativas poco adecuados para celular. Se unificaron espaciado, superficies, objetivos táctiles, foco y nombres de transportadoras, conservando sus identificadores internos.
 8. Las respuestas inciertas de novedades podían volver a quedar disponibles para reintento. La incertidumbre se conserva incluso después de sincronizar con el proveedor.
+9. La verificación podía leer contratos compilados obsoletos en otra copia del repositorio. El comando de tipos ahora reconstruye los contratos compartidos antes de verificar los consumidores.
 
 ## Verificación
 
