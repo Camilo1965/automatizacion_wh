@@ -17,13 +17,11 @@ import { PostgresConversationRepository } from './modules/conversations/postgres
 import { PostgresConversationMenuRepository } from './modules/conversations/postgres-conversation-menu-repository.js';
 import { WhatsAppSalesService } from './modules/conversations/whatsapp-sales-service.js';
 import { PostgresOutboundRepository } from './modules/whatsapp/postgres-outbound-repository.js';
-import { MetaWhatsAppClient } from './modules/whatsapp/meta-whatsapp-client.js';
 import { OutboxWorker } from './modules/whatsapp/outbox-worker.js';
 import { PostgresConversationAdminRepository } from './modules/conversations/postgres-conversation-admin-repository.js';
 import { PostgresConversationTranscriptRepository } from './modules/conversations/postgres-conversation-transcript-repository.js';
 import { ManualMessageService } from './modules/conversations/manual-message-service.js';
 import { PostgresShippingGuideJobRepository } from './modules/shipping/postgres-shipping-guide-job-repository.js';
-import { NinetyNineEnviosClient } from './modules/shipping/99envios-client.js';
 import { ShippingGuideWorker } from './modules/shipping/shipping-guide-worker.js';
 import { PostgresShippingQuoteRepository } from './modules/shipping/postgres-shipping-quote-repository.js';
 import { ShippingQuoteService } from './modules/shipping/shipping-quote-service.js';
@@ -41,6 +39,10 @@ import { IntegrationHealthService } from './modules/integrations/integration-hea
 import { IntegrationSecretCrypto } from './modules/integrations/integration-secret-crypto.js';
 import { IntegrationSettingsService } from './modules/integrations/integration-settings-service.js';
 import { PostgresIntegrationSettingsRepository } from './modules/integrations/postgres-integration-settings-repository.js';
+import {
+  ConfiguredNinetyNineEnviosClient,
+  ConfiguredWhatsAppClient,
+} from './modules/integrations/configured-clients.js';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -74,10 +76,10 @@ async function main(): Promise<void> {
   );
   const outboundRepository = new PostgresOutboundRepository(database);
   const shippingGuideJobs = new PostgresShippingGuideJobRepository(database);
-  const shippingClient =
+  const shippingFallback =
     config.ninetyNineEnviosEmail !== undefined &&
     config.ninetyNineEnviosPassword !== undefined
-      ? new NinetyNineEnviosClient({
+      ? {
           email: config.ninetyNineEnviosEmail,
           password: config.ninetyNineEnviosPassword,
           ...(config.ninetyNineEnviosIntegrationToken === undefined
@@ -86,7 +88,14 @@ async function main(): Promise<void> {
           ...(config.ninetyNineEnviosIntegrationId === undefined
             ? {}
             : { integrationId: config.ninetyNineEnviosIntegrationId }),
-        })
+        }
+      : undefined;
+  const shippingClient =
+    integrationSettingsService !== undefined || shippingFallback !== undefined
+      ? new ConfiguredNinetyNineEnviosClient(
+          integrationSettingsService,
+          shippingFallback,
+        )
       : undefined;
   const shippingQuoteService =
     shippingClient === undefined
@@ -180,27 +189,37 @@ async function main(): Promise<void> {
   void closureScheduler.tick(new Date());
   app.addHook('onClose', async () => clearInterval(closureTimer));
 
-  if (
+  const whatsappFallback =
     config.whatsappAccessToken !== undefined &&
     config.whatsappPhoneNumberId !== undefined
-  ) {
+      ? {
+          accessToken: config.whatsappAccessToken,
+          phoneNumberId: config.whatsappPhoneNumberId,
+          graphApiVersion: config.whatsappGraphApiVersion ?? 'v26.0',
+        }
+      : undefined;
+  if (integrationSettingsService !== undefined || whatsappFallback !== undefined) {
     const worker = new OutboxWorker(
       outboundRepository,
-      new MetaWhatsAppClient({
-        accessToken: config.whatsappAccessToken,
-        phoneNumberId: config.whatsappPhoneNumberId,
-        graphApiVersion: config.whatsappGraphApiVersion ?? 'v26.0',
-      }),
+      new ConfiguredWhatsAppClient(integrationSettingsService, whatsappFallback),
       photoStorage,
       alertService,
     );
     let running = false;
     const timer = setInterval(() => {
       if (running) return;
-      running = true;
-      void worker.runOnce().finally(() => {
-        running = false;
-      });
+      void (async () => {
+        if (
+          whatsappFallback === undefined &&
+          (await integrationSettingsService?.getWhatsApp()) === null
+        ) {
+          return;
+        }
+        running = true;
+        await worker.runOnce().finally(() => {
+          running = false;
+        });
+      })();
     }, 250);
     timer.unref();
     app.addHook('onClose', async () => {
@@ -218,10 +237,18 @@ async function main(): Promise<void> {
     let running = false;
     const timer = setInterval(() => {
       if (running) return;
-      running = true;
-      void worker.runOnce().finally(() => {
-        running = false;
-      });
+      void (async () => {
+        if (
+          shippingFallback === undefined &&
+          (await integrationSettingsService?.getShipping()) === null
+        ) {
+          return;
+        }
+        running = true;
+        await worker.runOnce().finally(() => {
+          running = false;
+        });
+      })();
     }, 1000);
     timer.unref();
     app.addHook('onClose', async () => {
