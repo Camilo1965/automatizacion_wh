@@ -82,11 +82,15 @@ type Repository = Readonly<{
   upsertShippingPolicy(
     localityCode: string,
     policy: ShippingPolicy,
+    author?: string,
   ): Promise<void>;
   defaultShippingPolicy(): Promise<ShippingPolicy>;
-  setDefaultShippingPolicy(policy: ShippingPolicy): Promise<void>;
+  setDefaultShippingPolicy(
+    policy: ShippingPolicy,
+    author?: string,
+  ): Promise<void>;
   listShippingRules(): Promise<readonly ShippingRuleRecord[]>;
-  deactivateShippingRule(localityCode: string): Promise<void>;
+  deactivateShippingRule(localityCode: string, author?: string): Promise<void>;
   listObservedCarriers(): Promise<readonly string[]>;
 }>;
 
@@ -140,14 +144,19 @@ export class ShippingQuoteService {
       carrier: string;
       insuranceMode: InsuranceMode;
     }> = [];
-    for (const insurance of shippingOfferInsurances(policy)) {
+    for (const insurance of shippingOfferInsurances(
+      policy,
+      order.unitPriceCop * order.quantity,
+    )) {
       const quotes = await this.client.quote({
         localityCode,
         declaredValueCop: order.unitPriceCop * order.quantity,
-        weightKg: 1,
-        lengthCm: 30,
-        widthCm: 20,
-        heightCm: 12,
+        ...(policy.packageDefaults ?? {
+          weightKg: 1,
+          lengthCm: 30,
+          widthCm: 20,
+          heightCm: 12,
+        }),
         shippingDate: shippingDate(quotedAt),
         insurance,
       });
@@ -214,20 +223,24 @@ export class ShippingQuoteService {
     return this.repository.defaultShippingPolicy();
   }
 
-  setDefaultPolicy(policy: ShippingPolicy) {
-    return this.repository.setDefaultShippingPolicy(policy);
+  setDefaultPolicy(policy: ShippingPolicy, author = 'owner') {
+    return this.repository.setDefaultShippingPolicy(policy, author);
   }
 
-  setShippingPolicy(localityCode: string, policy: ShippingPolicy) {
-    return this.repository.upsertShippingPolicy(localityCode, policy);
+  setShippingPolicy(
+    localityCode: string,
+    policy: ShippingPolicy,
+    author = 'owner',
+  ) {
+    return this.repository.upsertShippingPolicy(localityCode, policy, author);
   }
 
   listShippingRules() {
     return this.repository.listShippingRules();
   }
 
-  deactivateShippingRule(localityCode: string) {
-    return this.repository.deactivateShippingRule(localityCode);
+  deactivateShippingRule(localityCode: string, author = 'owner') {
+    return this.repository.deactivateShippingRule(localityCode, author);
   }
 
   listObservedCarriers() {
@@ -250,6 +263,51 @@ export class ShippingQuoteService {
       policy,
     };
   }
+  async simulate(localityCarrierCode: string, declaredValueCop: number) {
+    const policy = await this.repository.shippingPolicy(localityCarrierCode);
+    const insurance = shippingOfferInsurances(policy, declaredValueCop)[0]!;
+    const quotes = await this.client.quote({
+      localityCode: localityCarrierCode,
+      declaredValueCop,
+      shippingDate: shippingDate(this.now()),
+      insurance,
+      ...(policy.packageDefaults ?? {
+        weightKg: 1,
+        lengthCm: 30,
+        widthCm: 20,
+        heightCm: 12,
+      }),
+    });
+    const selectedCarrier = selectRecommendedCarrier(quotes, policy);
+    return {
+      localityCarrierCode,
+      selectedCarrier,
+      blocked: selectedCarrier === null,
+      sideEffects: false as const,
+      quotes: quotes.map((quote) => ({
+        carrier: quote.carrier,
+        totalCop:
+          declaredValueCop +
+          quote.freightCop +
+          quote.cashOnDeliveryCop +
+          quote.surchargeCop +
+          (quote.insuranceCop ?? 0),
+        insuranceMode: insurance,
+        selected: selectedCarrier === quote.carrier,
+        reason:
+          selectedCarrier === quote.carrier
+            ? ('selected' as const)
+            : policy.excludedCarriers?.includes(quote.carrier)
+              ? ('excluded' as const)
+              : policy.allowedCarriers?.length &&
+                  !policy.allowedCarriers.includes(quote.carrier)
+                ? ('not_allowed' as const)
+                : selectedCarrier === null
+                  ? ('required_unavailable' as const)
+                  : ('higher_cost_or_preference' as const),
+      })),
+    };
+  }
 }
 
 export type ShippingQuoteOperations = Pick<
@@ -265,4 +323,5 @@ export type ShippingQuoteOperations = Pick<
   | 'deactivateShippingRule'
   | 'listObservedCarriers'
   | 'previewPolicy'
->;
+> &
+  Partial<Pick<ShippingQuoteService, 'simulate'>>;

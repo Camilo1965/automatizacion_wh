@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import {
@@ -10,6 +10,7 @@ import {
   shippingPolicyAudits,
   shippingPreferences,
   shippingQuotes,
+  configurationAudits,
 } from '../../database/schema.js';
 import {
   DEFAULT_SHIPPING_POLICY,
@@ -57,8 +58,9 @@ export class PostgresShippingQuoteRepository {
       .where(eq(shippingPreferences.id, true))
       .limit(1);
     return row === undefined
-      ? DEFAULT_SHIPPING_POLICY
+      ? { ...DEFAULT_SHIPPING_POLICY, revision: 0 }
       : {
+          ...(row.policyConfig as Partial<ShippingPolicy> | null),
           preferredCarrier: row.carrier,
           fallbackPolicy:
             row.fallbackPolicy as ShippingPolicy['fallbackPolicy'],
@@ -68,12 +70,32 @@ export class PostgresShippingQuoteRepository {
         };
   }
 
-  async setDefaultShippingPolicy(policy: ShippingPolicy): Promise<void> {
+  async setDefaultShippingPolicy(
+    policy: ShippingPolicy,
+    author = 'owner',
+  ): Promise<void> {
     await this.database.orm.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('kairo.shipping.global'))`,
+      );
+      const [current] = await tx
+        .select()
+        .from(shippingPreferences)
+        .where(eq(shippingPreferences.id, true));
+      const revision =
+        (current?.policyConfig as Partial<ShippingPolicy> | null)?.revision ??
+        0;
+      if (policy.revision !== undefined && policy.revision !== revision)
+        throw new ShippingDomainError(
+          'stale_policy',
+          'La preferencia cambió. Recarga la configuración antes de guardar.',
+        );
+      const snapshot = { ...policy, revision: revision + 1 };
       await tx
         .insert(shippingPreferences)
         .values({
           id: true,
+          policyConfig: snapshot,
           carrier: policy.preferredCarrier,
           fallbackPolicy: policy.fallbackPolicy,
           offerMode: policy.offerMode,
@@ -82,6 +104,7 @@ export class PostgresShippingQuoteRepository {
         .onConflictDoUpdate({
           target: shippingPreferences.id,
           set: {
+            policyConfig: snapshot,
             carrier: policy.preferredCarrier,
             fallbackPolicy: policy.fallbackPolicy,
             offerMode: policy.offerMode,
@@ -91,7 +114,14 @@ export class PostgresShippingQuoteRepository {
         });
       await tx
         .insert(shippingPolicyAudits)
-        .values({ scope: 'global', policy, action: 'upsert' });
+        .values({ scope: 'global', policy: snapshot, action: 'upsert' });
+      await tx.insert(configurationAudits).values({
+        scope: 'shipping-policy',
+        action: 'published',
+        author,
+        revision: snapshot.revision,
+        snapshot: { scope: 'global', policy: snapshot },
+      });
     });
   }
 
@@ -110,6 +140,7 @@ export class PostgresShippingQuoteRepository {
       row === undefined
         ? null
         : {
+            ...(row.policyConfig as Partial<ShippingPolicy> | null),
             preferredCarrier: row.carrier,
             fallbackPolicy:
               row.fallbackPolicy as ShippingPolicy['fallbackPolicy'],
@@ -124,12 +155,30 @@ export class PostgresShippingQuoteRepository {
   async upsertShippingPolicy(
     localityCode: string,
     policy: ShippingPolicy,
+    author = 'owner',
   ): Promise<void> {
     await this.database.orm.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${`kairo.shipping.${localityCode}`}))`,
+      );
+      const [current] = await tx
+        .select()
+        .from(shippingCarrierRules)
+        .where(eq(shippingCarrierRules.localityCarrierCode, localityCode));
+      const revision =
+        (current?.policyConfig as Partial<ShippingPolicy> | null)?.revision ??
+        0;
+      if (policy.revision !== undefined && policy.revision !== revision)
+        throw new ShippingDomainError(
+          'stale_policy',
+          'La regla municipal cambió. Recárgala antes de guardar.',
+        );
+      const snapshot = { ...policy, revision: revision + 1 };
       await tx
         .insert(shippingCarrierRules)
         .values({
           localityCarrierCode: localityCode,
+          policyConfig: snapshot,
           carrier: policy.preferredCarrier,
           fallbackPolicy: policy.fallbackPolicy,
           offerMode: policy.offerMode,
@@ -138,6 +187,7 @@ export class PostgresShippingQuoteRepository {
         .onConflictDoUpdate({
           target: shippingCarrierRules.localityCarrierCode,
           set: {
+            policyConfig: snapshot,
             carrier: policy.preferredCarrier,
             fallbackPolicy: policy.fallbackPolicy,
             offerMode: policy.offerMode,
@@ -149,8 +199,15 @@ export class PostgresShippingQuoteRepository {
       await tx.insert(shippingPolicyAudits).values({
         scope: 'municipality',
         localityCarrierCode: localityCode,
-        policy,
+        policy: snapshot,
         action: 'upsert',
+      });
+      await tx.insert(configurationAudits).values({
+        scope: 'shipping-policy',
+        action: 'published',
+        author,
+        revision: snapshot.revision,
+        snapshot: { localityCode, policy: snapshot },
       });
     });
   }
@@ -168,6 +225,7 @@ export class PostgresShippingQuoteRepository {
       )
       .orderBy(asc(shippingCarrierRules.localityCarrierCode));
     return rows.map(({ rule, locality }) => ({
+      ...(rule.policyConfig as Partial<ShippingPolicy> | null),
       localityCarrierCode: rule.localityCarrierCode,
       locality: locality.locality,
       department: locality.department,
@@ -181,14 +239,30 @@ export class PostgresShippingQuoteRepository {
     }));
   }
 
-  async deactivateShippingRule(localityCode: string): Promise<void> {
+  async deactivateShippingRule(
+    localityCode: string,
+    author = 'owner',
+  ): Promise<void> {
     await this.database.orm.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext(${`kairo.shipping.${localityCode}`}))`,
+      );
       const [row] = await tx
         .update(shippingCarrierRules)
-        .set({ active: false, updatedAt: new Date() })
+        .set({
+          active: false,
+          updatedAt: new Date(),
+          policyConfig: sql`COALESCE(${shippingCarrierRules.policyConfig}, '{}'::jsonb) || jsonb_build_object('revision', COALESCE((${shippingCarrierRules.policyConfig}->>'revision')::integer, 0) + 1)`,
+        })
         .where(eq(shippingCarrierRules.localityCarrierCode, localityCode))
         .returning();
       if (row !== undefined) {
+        await tx.insert(configurationAudits).values({
+          scope: 'shipping-policy',
+          action: 'deactivated',
+          author,
+          snapshot: { localityCode, policy: row.policyConfig },
+        });
         await tx.insert(shippingPolicyAudits).values({
           scope: 'municipality',
           localityCarrierCode: localityCode,

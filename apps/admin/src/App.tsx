@@ -20,6 +20,10 @@ import { IntegrationsPage } from './settings/IntegrationsPage';
 import { AlertsPage } from './alerts/AlertsPage';
 import { InventoryClosuresPage } from './inventory/InventoryClosuresPage';
 import { MorePage } from './more/MorePage';
+import { BotFlowPage } from './settings/BotFlowPage';
+import { LocalityCatalogPage } from './settings/LocalityCatalogPage';
+import { ShippingIncidentsPage } from './settings/ShippingIncidentsPage';
+import { ConfigurationAuditPage } from './settings/ConfigurationAuditPage';
 
 function AuthenticatedShell() {
   const { user, logout } = useAuth();
@@ -65,6 +69,13 @@ export function App() {
           <Route path="catalog-import" element={<CatalogImportPage />} />
           <Route path="settings/shipping" element={<ShippingSettingsPage />} />
           <Route path="settings/whatsapp" element={<WhatsAppSettingsPage />} />
+          <Route path="settings/bot-flow" element={<BotFlowPage />} />
+          <Route path="settings/audit" element={<ConfigurationAuditPage />} />
+          <Route path="settings/localities" element={<LocalityCatalogPage />} />
+          <Route
+            path="shipping/incidents"
+            element={<ShippingIncidentsPage />}
+          />
           <Route path="settings/integrations" element={<IntegrationsPage />} />
           <Route path="alerts" element={<AlertsPage />} />
           <Route path="more" element={<MorePage />} />

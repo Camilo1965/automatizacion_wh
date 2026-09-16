@@ -8,6 +8,22 @@
 
 **Tech Stack:** React 19, Vite 8, TanStack Query 5, Fastify 5, PostgreSQL 18, Drizzle ORM, Zod 4, TypeScript 6, Vitest, Playwright, MSW.
 
+## Ejecución y trazabilidad — 16 de septiembre de 2026
+
+Implementación en una sola rama, `codex/configurable-operations`, conforme a la instrucción posterior de la propietaria del proyecto. Se extendieron los módulos existentes para conservar compatibilidad, en lugar de reemplazar repositorios o renumerar migraciones. Los pasos detallados más abajo son el procedimiento original; la siguiente matriz registra el resultado implementado. Los comandos RED propuestos no constituyen evidencia de ejecución histórica.
+
+- [x] 1. Catálogo DANE versionado: vista previa, publicación, restauración, bootstrap y auditoría. Documento oficial preparado como archivo incluido; 1.256 localidades válidas y 17 exclusiones visibles.
+- [x] 2. Selector departamento → municipio y API autenticada; código interno, validación compartida y conflictos de versiones.
+- [x] 3. Credenciales cifradas AES-256-GCM, borrador versionado, prueba limitada, activación y retiro; clave externa obligatoria en producción.
+- [x] 4. Configuración desde el panel de WhatsApp, 99envíos, notificaciones, horarios, origen de cotización, formato PDF y paquetes; adaptadores leen únicamente la versión activa.
+- [x] 5. Selección automática por costo total o preferencia municipal, transportadoras permitidas/excluidas, fallback ordenado o bloqueo, seguro estándar/Plus y umbral de valor. Simulador sin crear guía.
+- [x] 6. Flujo cerrado con mensajes editables, variables disponibles por paso, comandos, opciones, control optimista y versiones inmutables.
+- [x] 7. Editor guiado y simulación de seis escenarios; conversaciones fijan versión. Cotización vencida en ejecución real exige resumen y confirmación nuevos.
+- [x] 8. Entrega de PDF con deduplicación, alertas persistentes y notificación mediante plantilla aprobada; novedades 99envíos con trazabilidad y bloqueo ante respuesta incierta.
+- [x] 9. Importador legado que solo prepara borradores, guía operativa, verificación autocontenida, pruebas de migración y recorrido controlado hasta cierre de Treinta.
+
+Ver [guía de operación](../../how-to/owner-operations.md). Las pruebas de Meta y 99envíos emplean adaptadores controlados: no crean guías externas ni certifican coexistencia móvil. Activar credenciales reales, disponer de una plantilla aprobada y validar coexistencia son requisitos de la puesta en marcha, no resultados simulados.
+
 ## Global Constraints
 
 - The owner is the only administrator in this MVP.

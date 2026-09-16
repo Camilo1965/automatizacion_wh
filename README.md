@@ -1,10 +1,12 @@
-# Camila — Automatización de comercio por WhatsApp
+# KAIRO — Centro de operaciones de comercio por WhatsApp
 
-Plataforma operativa para vender por WhatsApp con catálogo guiado por talla, reserva de inventario, cotización de envíos, selección de seguro, generación de guía y panel de administración.
+Plataforma operativa para vender por WhatsApp con catálogo guiado por talla, reserva de inventario, envío automático según preferencias de la propietaria, generación de guía y panel de administración.
 
 Diseñada para un negocio de calzado con contraentrega en Colombia. Integra **WhatsApp Cloud API**, **99envíos** y un panel responsive para la operación diaria.
 
 > Estado: producto en evolución. Treinta se integra por importación inicial y cierre manual. WhatsApp y 99envíos se conectan mediante adaptadores configurables.
+
+La [guía de operación y demo](docs/how-to/owner-operations.md) explica cómo conectar el número, guardar/probar/activar credenciales cifradas, publicar mensajes del bot, cargar municipios, configurar transportadoras y seguros, atender pedidos y cerrar inventario en Treinta. El cliente no selecciona transportadora ni seguro; la política de la propietaria determina el envío.
 
 ## Tabla de contenidos
 
@@ -35,7 +37,7 @@ Flujo de disponibilidad obligatorio:
 
 `talla → confirmación → consulta → fotos`
 
-No existe un listado general de catálogo sin talla confirmada. Cada tanda devuelve como máximo cuatro referencias, ordenadas por código.
+No existe un listado general de catálogo sin talla confirmada. La propietaria configura entre una y diez fotografías por tanda; el flujo inicial usa seis referencias, ordenadas por código.
 
 ## Arquitectura
 

@@ -184,12 +184,11 @@ describe('ShippingQuoteService', () => {
     );
 
     await service.createQuotes('order-1');
-    expect(client.quote).toHaveBeenCalledTimes(2);
+    expect(client.quote).toHaveBeenCalledTimes(1);
     expect(repository.replaceQuotes).toHaveBeenCalledWith(
       expect.objectContaining({
         quotes: expect.arrayContaining([
           expect.objectContaining({ insuranceMode: 'none' }),
-          expect.objectContaining({ insuranceMode: 'standard' }),
         ]),
         automaticallySelect: true,
       }),

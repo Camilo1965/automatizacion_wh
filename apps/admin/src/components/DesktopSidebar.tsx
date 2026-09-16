@@ -47,6 +47,22 @@ export function DesktopSidebar() {
           Cierres diarios
         </NavLink>
         <p className="nav-label">Configuración</p>
+        <NavLink to="/settings/audit">
+          <ClipboardList aria-hidden="true" />
+          Historial de cambios
+        </NavLink>
+        <NavLink to="/settings/bot-flow">
+          <MessageCircle aria-hidden="true" />
+          Flujo del bot
+        </NavLink>
+        <NavLink to="/settings/localities">
+          <Truck aria-hidden="true" />
+          Departamentos y municipios
+        </NavLink>
+        <NavLink to="/shipping/incidents">
+          <Truck aria-hidden="true" />
+          Novedades de entrega
+        </NavLink>
         <NavLink to="/settings/shipping">
           <Truck aria-hidden="true" />
           Envíos

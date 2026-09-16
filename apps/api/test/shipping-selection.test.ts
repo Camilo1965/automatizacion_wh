@@ -22,8 +22,24 @@ describe('selectRecommendedCarrier', () => {
     expect(selectRecommendedCarrier(quotes, 'envia')).toBe('envia');
   });
 
-  it('uses Envia when no municipality rule applies', () => {
-    expect(selectRecommendedCarrier(quotes, null)).toBe('envia');
+  it('uses the cheapest complete cost when no municipality rule applies', () => {
+    expect(selectRecommendedCarrier(quotes, null)).toBe('tcc');
+  });
+  it('excludes forbidden carriers and honors ordered alternatives', () => {
+    expect(
+      selectRecommendedCarrier(quotes, {
+        preferredCarrier: null,
+        fallbackPolicy: 'allow',
+        excludedCarriers: ['tcc'],
+      }),
+    ).toBe('envia');
+    expect(
+      selectRecommendedCarrier(quotes, {
+        preferredCarrier: 'coordinadora',
+        fallbackPolicy: 'allow',
+        orderedCarriers: ['envia', 'tcc'],
+      }),
+    ).toBe('envia');
   });
 
   it('uses the lowest complete charge when Envia has no coverage', () => {

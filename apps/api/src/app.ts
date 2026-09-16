@@ -12,6 +12,9 @@ import Fastify, {
 } from 'fastify';
 
 import type { AppConfig } from './config.js';
+import type { BotFlowService } from './modules/conversations/bot-flow-service.js';
+import type { LocalityCatalogService } from './modules/localities/locality-catalog-service.js';
+import type { ShippingIncidentService } from './modules/shipping/shipping-incident-service.js';
 import type { PostgresDatabase } from './database/client.js';
 import { mapDomainError, sendApiError } from './http/map-domain-error.js';
 import type { AuthService } from './modules/auth/auth-service.js';
@@ -64,6 +67,9 @@ export type AppDependencies = Readonly<{
   inventoryClosureService?: InventoryClosureService;
   integrationHealthService?: IntegrationHealthService;
   integrationSettingsService?: IntegrationSettingsOperations;
+  botFlowService?: BotFlowService;
+  localityCatalogService?: LocalityCatalogService;
+  shippingIncidentService?: ShippingIncidentService;
 }>;
 
 declare module 'fastify' {
@@ -172,6 +178,9 @@ export async function buildApp(
 
   await app.register(healthRoutes);
   await app.register(whatsappRoutes, {
+    ...(dependencies.integrationSettingsService === undefined
+      ? {}
+      : { settings: dependencies.integrationSettingsService }),
     config: dependencies.config,
     ...(dependencies.inboundRepository === undefined
       ? {}
@@ -237,6 +246,15 @@ export async function buildApp(
           integrationSettingsService: dependencies.integrationSettingsService,
         }),
     photoStorage: dependencies.photoStorage,
+    ...(dependencies.botFlowService === undefined
+      ? {}
+      : { botFlowService: dependencies.botFlowService }),
+    ...(dependencies.localityCatalogService === undefined
+      ? {}
+      : { localityCatalogService: dependencies.localityCatalogService }),
+    ...(dependencies.shippingIncidentService === undefined
+      ? {}
+      : { shippingIncidentService: dependencies.shippingIncidentService }),
   });
 
   let databaseClosed = false;

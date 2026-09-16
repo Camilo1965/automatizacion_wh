@@ -166,16 +166,19 @@ export class DefaultCatalogService implements CatalogService {
         ? undefined
         : input.afterCode.trim().toUpperCase();
 
+    const pageSize = input.pageSize ?? PAGE_SIZE;
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 10)
+      throw new Error('Invalid catalog page size');
     const rows = await this.repository.listAvailableForConfirmedSize({
       confirmedSize,
       ...(afterCode === undefined ? {} : { afterCode }),
-      limit: PAGE_SIZE + 1,
+      limit: pageSize + 1,
     });
 
-    const items = rows.slice(0, PAGE_SIZE);
+    const items = rows.slice(0, pageSize);
     const lastItem = items.at(-1);
     const nextAfterCode =
-      rows.length > PAGE_SIZE && lastItem !== undefined ? lastItem.code : null;
+      rows.length > pageSize && lastItem !== undefined ? lastItem.code : null;
 
     return {
       items,

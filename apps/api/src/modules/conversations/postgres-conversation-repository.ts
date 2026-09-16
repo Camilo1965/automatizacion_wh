@@ -5,11 +5,18 @@ import {
   whatsappConversationEvents,
   whatsappConversationMessages,
   whatsappConversations,
+  botFlowDrafts,
+  botFlowVersions,
+  salesOrders,
+  catalogReferences,
 } from '../../database/schema.js';
+import { type ConversationTransition } from './conversation-state.js';
+import { BotFlowDefinitionSchema } from '@camila/contracts';
+import { advanceConfiguredConversation } from './configured-flow.js';
 import {
-  advanceConversation,
-  type ConversationTransition,
-} from './conversation-state.js';
+  createDefaultBotFlow,
+  type BotFlowDefinition,
+} from './flow-definition.js';
 
 export type ReceiveConversationInput = Readonly<{
   whatsappMessageId: string;
@@ -29,10 +36,18 @@ export type ReceiveConversationResult = Readonly<{
   activeSummaryVersion?: number | null;
   action?: ConversationTransition['action'];
   input?: string;
+  flow?: BotFlowDefinition;
+  variables?: Record<string, string>;
 }>;
 
 export class PostgresConversationRepository {
   constructor(private readonly database: PostgresDatabase) {}
+  async takeOver(conversationId: string) {
+    await this.database.orm
+      .update(whatsappConversations)
+      .set({ mode: 'human', activeSummaryVersion: null, updatedAt: new Date() })
+      .where(eq(whatsappConversations.id, conversationId));
+  }
 
   receive(input: ReceiveConversationInput): Promise<ReceiveConversationResult> {
     return this.database.orm.transaction(async (tx) => {
@@ -65,13 +80,84 @@ export class PostgresConversationRepository {
       }
 
       const now = input.occurredAt ?? new Date();
-      const transition = advanceConversation(
-        existing === undefined
-          ? null
-          : (existing.state as import('./conversation-state.js').ConversationState),
-        input.text,
-        existing?.invalidAttempts ?? 0,
+      const [published] = await tx
+        .select()
+        .from(botFlowDrafts)
+        .where(eq(botFlowDrafts.id, 'sales'));
+      const [activeVersion] =
+        published?.activeVersionId == null
+          ? []
+          : await tx
+              .select()
+              .from(botFlowVersions)
+              .where(eq(botFlowVersions.id, published.activeVersionId));
+      let flow = BotFlowDefinitionSchema.parse(
+        existing?.flowSnapshot ??
+          (published?.activeVersionId == null
+            ? createDefaultBotFlow()
+            : (activeVersion?.definition ?? createDefaultBotFlow())),
       );
+      const [context] =
+        existing?.activeOrderId == null
+          ? []
+          : await tx
+              .select({
+                name: salesOrders.customerName,
+                orderNumber: salesOrders.orderNumber,
+                reference: catalogReferences.code,
+                total: sql<
+                  string | null
+                >`(SELECT snapshot->>'totalCop' FROM order_summaries WHERE order_id = ${salesOrders.id} ORDER BY version DESC LIMIT 1)`,
+                carrier: sql<
+                  string | null
+                >`(SELECT snapshot->'shippingQuote'->>'carrier' FROM order_summaries WHERE order_id = ${salesOrders.id} ORDER BY version DESC LIMIT 1)`,
+              })
+              .from(salesOrders)
+              .innerJoin(
+                catalogReferences,
+                eq(catalogReferences.id, salesOrders.referenceId),
+              )
+              .where(eq(salesOrders.id, existing.activeOrderId));
+      const variables = {
+        talla: existing?.selectedSize ?? '',
+        nombre: context?.name ?? '',
+        referencia: context?.reference ?? '',
+        pedido:
+          context?.orderNumber == null
+            ? ''
+            : `PED-${String(context.orderNumber).padStart(6, '0')}`,
+        total:
+          context?.total == null
+            ? ''
+            : new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP',
+                maximumFractionDigits: 0,
+              }).format(Number(context.total)),
+        transportadora: context?.carrier ?? '',
+      };
+      const transition: ConversationTransition =
+        existing?.mode === 'human'
+          ? {
+              state:
+                existing.state as import('./conversation-state.js').ConversationState,
+              reply: null,
+            }
+          : advanceConfiguredConversation(
+              existing === undefined
+                ? null
+                : (existing.state as import('./conversation-state.js').ConversationState),
+              input.text,
+              existing?.invalidAttempts ?? 0,
+              flow,
+              variables,
+            );
+      if (transition.action === 'reset')
+        flow = BotFlowDefinitionSchema.parse(
+          published?.activeVersionId == null
+            ? createDefaultBotFlow()
+            : (activeVersion?.definition ?? createDefaultBotFlow()),
+        );
       const conversation =
         existing ??
         (
@@ -81,6 +167,8 @@ export class PostgresConversationRepository {
               customerPhone: input.customerPhone,
               state: transition.state,
               lastInboundMessageAt: now,
+              flowVersionId: published?.activeVersionId ?? null,
+              flowSnapshot: flow,
             })
             .returning()
         )[0];
@@ -133,6 +221,12 @@ export class PostgresConversationRepository {
             : {}),
           lastInboundMessageAt: now,
           updatedAt: now,
+          ...(existing?.flowSnapshot == null || transition.action === 'reset'
+            ? {
+                flowSnapshot: flow,
+                flowVersionId: published?.activeVersionId ?? null,
+              }
+            : {}),
         })
         .where(
           and(
@@ -145,6 +239,8 @@ export class PostgresConversationRepository {
         conversationId: conversation.id,
         state: transition.state,
         reply,
+        flow,
+        variables,
         selectedSize:
           transition.selectedSize === undefined
             ? (existing?.selectedSize ?? null)

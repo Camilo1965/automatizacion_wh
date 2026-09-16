@@ -16,8 +16,21 @@ import {
 } from '../api/client';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { LocalityPicker } from '../components/LocalityPicker';
+import { ShippingSimulator } from './ShippingSimulator';
+
+function carrierName(value: string): string {
+  const names: Record<string, string> = {
+    interrapidisimo: 'Interrapidísimo',
+    tcc: 'TCC',
+    servientrega: 'Servientrega',
+    coordinadora: 'Coordinadora',
+    envia: 'Envia',
+  };
+  return names[value.toLowerCase()] ?? value;
+}
 
 const DEFAULT_POLICY: ShippingPolicy = {
+  revision: 0,
   preferredCarrier: null,
   fallbackPolicy: 'allow',
   offerMode: 'customer_choice',
@@ -52,7 +65,7 @@ function PolicyFields({
         <option value="">Automática (recomendado)</option>
         {carriers.map((carrier) => (
           <option key={carrier} value={carrier}>
-            {carrier}
+            {carrierName(carrier)}
           </option>
         ))}
       </select>
@@ -102,13 +115,228 @@ function PolicyFields({
         <option value="standard">Seguro 99 estándar</option>
         <option value="plus">Seguro 99 Plus</option>
       </select>
+      <fieldset>
+        <legend>Transportadoras permitidas</legend>
+        <p>
+          Sin restricciones se consideran todas las transportadoras disponibles
+          en la cotización.
+        </p>
+        <label>
+          <input
+            type="checkbox"
+            checked={policy.allowedCarriers !== undefined}
+            onChange={(event) =>
+              onChange({
+                ...policy,
+                allowedCarriers: event.target.checked
+                  ? carriers.filter(
+                      (carrier) => !policy.excludedCarriers?.includes(carrier),
+                    )
+                  : undefined,
+              })
+            }
+          />{' '}
+          Limitar a una lista de transportadoras
+        </label>
+        {policy.allowedCarriers !== undefined &&
+          carriers.map((carrier) => (
+            <label key={carrier}>
+              <input
+                type="checkbox"
+                disabled={policy.excludedCarriers?.includes(carrier)}
+                checked={policy.allowedCarriers?.includes(carrier) ?? false}
+                onChange={(event) =>
+                  onChange({
+                    ...policy,
+                    allowedCarriers: event.target.checked
+                      ? [...(policy.allowedCarriers ?? []), carrier]
+                      : (policy.allowedCarriers ?? []).filter(
+                          (value) => value !== carrier,
+                        ),
+                  })
+                }
+              />{' '}
+              {carrierName(carrier)}
+            </label>
+          ))}
+      </fieldset>
+      <fieldset>
+        <legend>Transportadoras excluidas</legend>
+        {carriers.map((carrier) => (
+          <label key={carrier}>
+            <input
+              type="checkbox"
+              checked={policy.excludedCarriers?.includes(carrier) ?? false}
+              onChange={(event) =>
+                onChange({
+                  ...policy,
+                  excludedCarriers: event.target.checked
+                    ? [...(policy.excludedCarriers ?? []), carrier]
+                    : (policy.excludedCarriers ?? []).filter(
+                        (value) => value !== carrier,
+                      ),
+                })
+              }
+            />
+            {carrierName(carrier)}
+          </label>
+        ))}
+      </fieldset>
+      <label htmlFor={`${prefix}-secondary`}>Transportadora secundaria</label>
+      <div className="stack">
+        {(policy.orderedCarriers ?? []).map((carrier, index) => (
+          <div className="button-row" key={carrier}>
+            <span>
+              {index + 1}. {carrierName(carrier)}
+            </span>
+            <button
+              type="button"
+              disabled={index === 0}
+              aria-label={`Subir prioridad de ${carrierName(carrier)}`}
+              onClick={() => {
+                const ordered = [...(policy.orderedCarriers ?? [])];
+                [ordered[index - 1], ordered[index]] = [
+                  ordered[index]!,
+                  ordered[index - 1]!,
+                ];
+                onChange({ ...policy, orderedCarriers: ordered });
+              }}
+            >
+              Subir
+            </button>
+            <button
+              type="button"
+              aria-label={`Quitar preferencia ${carrierName(carrier)}`}
+              onClick={() =>
+                onChange({
+                  ...policy,
+                  orderedCarriers: (policy.orderedCarriers ?? []).filter(
+                    (value) => value !== carrier,
+                  ),
+                })
+              }
+            >
+              Quitar
+            </button>
+          </div>
+        ))}
+      </div>
+      <select
+        id={`${prefix}-secondary`}
+        value=""
+        onChange={(event) =>
+          onChange({
+            ...policy,
+            orderedCarriers: event.target.value
+              ? [
+                  ...new Set([
+                    ...(policy.orderedCarriers ?? []),
+                    event.target.value,
+                  ]),
+                ]
+              : (policy.orderedCarriers ?? []),
+          })
+        }
+      >
+        <option value="">
+          Añadir preferencia (sin preferencias se elige la más económica)
+        </option>
+        {carriers.map((carrier) => (
+          <option key={carrier} value={carrier}>
+            {carrierName(carrier)}
+          </option>
+        ))}
+      </select>
+      <label htmlFor={`${prefix}-threshold`}>
+        Asegurar desde este valor del producto (COP)
+      </label>
+      <input
+        id={`${prefix}-threshold`}
+        type="number"
+        min={0}
+        step={1}
+        value={policy.insuranceThresholdCop ?? ''}
+        onChange={(event) =>
+          onChange({
+            ...policy,
+            insuranceThresholdCop:
+              event.target.value === '' ? null : Number(event.target.value),
+          })
+        }
+      />
+      <fieldset>
+        <legend>Paquete para cotizar</legend>
+        <label>
+          Contenido declarado
+          <input
+            value={policy.packageDefaults?.contents ?? ''}
+            maxLength={200}
+            placeholder="Calzado (se completará con la referencia y talla)"
+            onChange={(event) =>
+              onChange({
+                ...policy,
+                packageDefaults: {
+                  weightKg: 1,
+                  lengthCm: 30,
+                  widthCm: 20,
+                  heightCm: 12,
+                  ...policy.packageDefaults,
+                  contents: event.target.value || undefined,
+                },
+              })
+            }
+          />
+        </label>
+        {(['weightKg', 'lengthCm', 'widthCm', 'heightCm'] as const).map(
+          (key) => (
+            <label key={key}>
+              {
+                {
+                  weightKg: 'Peso (kg)',
+                  lengthCm: 'Largo (cm)',
+                  widthCm: 'Ancho (cm)',
+                  heightCm: 'Alto (cm)',
+                }[key]
+              }
+              <input
+                type="number"
+                min={0.1}
+                step={0.1}
+                value={
+                  (policy.packageDefaults ?? {
+                    weightKg: 1,
+                    lengthCm: 30,
+                    widthCm: 20,
+                    heightCm: 12,
+                  })[key]
+                }
+                onChange={(event) =>
+                  onChange({
+                    ...policy,
+                    packageDefaults: {
+                      ...(policy.packageDefaults ?? {
+                        weightKg: 1,
+                        lengthCm: 30,
+                        widthCm: 20,
+                        heightCm: 12,
+                      }),
+                      [key]: Number(event.target.value),
+                    },
+                  })
+                }
+              />
+            </label>
+          ),
+        )}
+      </fieldset>
     </div>
   );
 }
 
 function describePolicy(policy: ShippingPolicy): string {
-  const carrier =
-    policy.preferredCarrier ?? 'la mejor transportadora disponible';
+  const carrier = policy.preferredCarrier
+    ? carrierName(policy.preferredCarrier)
+    : 'la mejor transportadora disponible';
   const fallback =
     policy.fallbackPolicy === 'allow'
       ? 'permite otra transportadora si hace falta'
@@ -119,7 +347,7 @@ function describePolicy(policy: ShippingPolicy): string {
       : policy.offerMode === 'economy_only'
         ? 'envía sin seguro adicional'
         : `exige envío protegido con seguro ${policy.protectedInsurance === 'plus' ? 'Plus' : 'estándar'}`;
-  return `Prefiere ${carrier}, ${fallback} y ${offer}.`;
+  return `Prefiere ${carrierName(carrier)}, ${fallback} y ${offer}.`;
 }
 
 export function ShippingSettingsPage() {
@@ -171,7 +399,7 @@ export function ShippingSettingsPage() {
     setError(null);
     setSaved(null);
     try {
-      await apiRequest('/shipping/preferences', {
+      const response = await apiRequest('/shipping/preferences', {
         method: 'PATCH',
         body: {
           ...globalPolicy,
@@ -180,6 +408,7 @@ export function ShippingSettingsPage() {
         },
         schema: ShippingPreferencesResponseSchema,
       });
+      setGlobalPolicy(response.data);
       setSaved('Preferencia general guardada');
     } catch (caught) {
       setError(
@@ -206,6 +435,10 @@ export function ShippingSettingsPage() {
         },
       });
       setSaved('Regla guardada');
+      setMunicipalPolicy({
+        ...municipalPolicy,
+        revision: (municipalPolicy.revision ?? 0) + 1,
+      });
       await load();
     } catch (caught) {
       setError(getErrorMessage(caught, 'No se pudo guardar la regla'));
@@ -233,7 +466,7 @@ export function ShippingSettingsPage() {
     municipalPolicy.preferredCarrier === null;
 
   return (
-    <section aria-labelledby="settings-title">
+    <section className="operational-config" aria-labelledby="settings-title">
       <p className="eyebrow">Configuración</p>
       <h2 id="settings-title">Preferencias de envío</h2>
       <p className="muted">
@@ -319,6 +552,7 @@ export function ShippingSettingsPage() {
         ) : null}
       </form>
 
+      <ShippingSimulator />
       <section
         className="card settings-card"
         aria-labelledby="active-rules-title"
@@ -339,6 +573,67 @@ export function ShippingSettingsPage() {
                 <span className={`status-pill ${rule.active ? '' : 'muted'}`}>
                   {rule.active ? 'Activa' : 'Inactiva'}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMunicipalPolicy({
+                      revision: rule.revision ?? 0,
+                      preferredCarrier: rule.preferredCarrier,
+                      fallbackPolicy: rule.fallbackPolicy,
+                      offerMode: rule.offerMode,
+                      protectedInsurance: rule.protectedInsurance,
+                      allowedCarriers: rule.allowedCarriers,
+                      excludedCarriers: rule.excludedCarriers,
+                      orderedCarriers: rule.orderedCarriers,
+                      insuranceThresholdCop: rule.insuranceThresholdCop,
+                      packageDefaults: rule.packageDefaults,
+                    });
+                    setLocalityCarrierCode(rule.localityCarrierCode);
+                    setSelectedLocality({
+                      carrierCode: rule.localityCarrierCode,
+                      department: rule.department,
+                      locality: rule.locality,
+                      country: 'CO',
+                      normalizedName: rule.locality.toLocaleLowerCase('es-CO'),
+                    });
+                    setSaved(
+                      'Regla cargada para editar. Guarda para aplicar los cambios.',
+                    );
+                  }}
+                >
+                  Editar regla de {rule.locality}
+                </button>
+                {rule.active && (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `¿Desactivar la regla de ${rule.locality}? Se utilizará la preferencia general.`,
+                        )
+                      ) {
+                        setPending(true);
+                        void apiRequestNoContent(
+                          `/shipping/rules/${rule.localityCarrierCode}/deactivate`,
+                          { method: 'POST' },
+                        )
+                          .then(load)
+                          .catch((caught) =>
+                            setError(
+                              getErrorMessage(
+                                caught,
+                                'No se pudo desactivar la regla.',
+                              ),
+                            ),
+                          )
+                          .finally(() => setPending(false));
+                      }
+                    }}
+                  >
+                    Desactivar regla
+                  </button>
+                )}
               </article>
             ))}
           </div>

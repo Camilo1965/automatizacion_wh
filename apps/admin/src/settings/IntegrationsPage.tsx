@@ -8,6 +8,10 @@ import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
+import { IntegrationLifecycle } from './IntegrationLifecycle';
+import { useState } from 'react';
+import type { LocalityPublic } from '@camila/contracts';
+import { LocalityPicker } from '../components/LocalityPicker';
 
 const labels = {
   database: 'Base de datos',
@@ -18,6 +22,7 @@ const labels = {
 } as const;
 
 export function IntegrationsPage() {
+  const [origin, setOrigin] = useState<LocalityPublic | null>(null);
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ['integration-health'],
@@ -32,6 +37,14 @@ export function IntegrationsPage() {
   const save = useMutation({
     mutationFn: updateIntegrationSettings,
     onSuccess: () => {
+      document
+        .querySelectorAll<HTMLInputElement>('form input[type="password"]')
+        .forEach((input) => {
+          input.value = '';
+        });
+      void queryClient.invalidateQueries({
+        queryKey: ['integration-lifecycle'],
+      });
       void queryClient.invalidateQueries({
         queryKey: ['integration-settings'],
       });
@@ -45,7 +58,7 @@ export function IntegrationsPage() {
       <ErrorMessage message="No se pudo comprobar el estado de las integraciones" />
     );
   return (
-    <section>
+    <section className="operational-config">
       <PageHeader
         title="Integraciones"
         description="Comprobaciones seguras que no envían mensajes ni crean guías."
@@ -111,6 +124,32 @@ export function IntegrationsPage() {
                 return;
               save.mutate({
                 whatsapp: {
+                  timezone: 'America/Bogota',
+                  serviceHours:
+                    fields.get('hoursEnabled') === 'on'
+                      ? {
+                          days: fields.getAll('hoursDays').map(Number),
+                          start: String(fields.get('hoursStart')),
+                          end: String(fields.get('hoursEnd')),
+                        }
+                      : null,
+                  ...(String(fields.get('wabaId') ?? '').trim()
+                    ? { wabaId: String(fields.get('wabaId')).trim() }
+                    : {}),
+                  ...(String(fields.get('ownerAlertPhone') ?? '').trim()
+                    ? {
+                        ownerAlertPhone: String(
+                          fields.get('ownerAlertPhone'),
+                        ).trim(),
+                      }
+                    : {}),
+                  ...(String(fields.get('ownerAlertTemplate') ?? '').trim()
+                    ? {
+                        ownerAlertTemplate: String(
+                          fields.get('ownerAlertTemplate'),
+                        ).trim(),
+                      }
+                    : {}),
                   ...(phoneNumberId === '' ? {} : { phoneNumberId }),
                   ...(accessToken === '' ? {} : { accessToken }),
                   ...(graphApiVersion === '' ? {} : { graphApiVersion }),
@@ -123,7 +162,7 @@ export function IntegrationsPage() {
             <h2>WhatsApp Cloud API</h2>
             <p className="muted">
               {settings.data.whatsapp.configured
-                ? `Número conectado: ${settings.data.whatsapp.phoneNumberId}`
+                ? `Número configurado en el editor: ${settings.data.whatsapp.phoneNumberId}`
                 : 'Aún no hay credenciales guardadas.'}
             </p>
             <label>
@@ -143,12 +182,101 @@ export function IntegrationsPage() {
               />
             </label>
             <label>
+              Cuenta de WhatsApp Business (WABA ID)
+              <input
+                name="wabaId"
+                inputMode="numeric"
+                defaultValue={settings.data.whatsapp.wabaId ?? ''}
+              />
+            </label>
+            <label>
+              WhatsApp de la propietaria para alertas
+              <input
+                name="ownerAlertPhone"
+                type="tel"
+                placeholder="+573001234567"
+                defaultValue={settings.data.whatsapp.ownerAlertPhone ?? ''}
+              />
+            </label>
+            <label>
+              Plantilla aprobada para alertas
+              <input
+                name="ownerAlertTemplate"
+                defaultValue={settings.data.whatsapp.ownerAlertTemplate ?? ''}
+                placeholder="alerta_operativa"
+              />
+            </label>
+            <p className="muted">
+              La plantilla debe estar aprobada por Meta, en español (es_CO), con
+              una variable de texto en el cuerpo. Sin plantilla se conservan las
+              alertas en el panel.
+            </p>
+            <label>
               Versión de Graph API
               <input
                 name="graphApiVersion"
                 defaultValue={settings.data.whatsapp.graphApiVersion ?? 'v26.0'}
               />
             </label>
+            <fieldset>
+              <legend>Horario de atención de la propietaria</legend>
+              <p className="muted">
+                El bot vende las 24 horas. Al solicitar atención humana fuera de
+                este horario, informa cuándo responderás. Zona: Colombia.
+              </p>
+              <label>
+                <input
+                  type="checkbox"
+                  name="hoursEnabled"
+                  defaultChecked={settings.data.whatsapp.serviceHours != null}
+                />{' '}
+                Informar un horario de atención
+              </label>
+              {[
+                'Domingo',
+                'Lunes',
+                'Martes',
+                'Miércoles',
+                'Jueves',
+                'Viernes',
+                'Sábado',
+              ].map((day, index) => (
+                <label key={day}>
+                  <input
+                    type="checkbox"
+                    name="hoursDays"
+                    value={index}
+                    defaultChecked={
+                      settings.data.whatsapp.serviceHours?.days.includes(
+                        index,
+                      ) ??
+                      (index > 0 && index < 6)
+                    }
+                  />{' '}
+                  {day}
+                </label>
+              ))}
+              <label>
+                Hora de inicio
+                <input
+                  name="hoursStart"
+                  type="time"
+                  defaultValue={
+                    settings.data.whatsapp.serviceHours?.start ?? '09:00'
+                  }
+                />
+              </label>
+              <label>
+                Hora de cierre
+                <input
+                  name="hoursEnd"
+                  type="time"
+                  defaultValue={
+                    settings.data.whatsapp.serviceHours?.end ?? '18:00'
+                  }
+                />
+              </label>
+            </fieldset>
             <label>
               App secret de Meta
               <input
@@ -195,6 +323,11 @@ export function IntegrationsPage() {
                 return;
               save.mutate({
                 shipping: {
+                  ...(origin ? { originLocalityCode: origin.carrierCode } : {}),
+                  ...(String(fields.get('branchCode') ?? '').trim()
+                    ? { branchCode: String(fields.get('branchCode')).trim() }
+                    : {}),
+                  pdfType: Number(fields.get('pdfType') ?? 2),
                   ...(accountEmail === '' ? {} : { accountEmail }),
                   ...(password === '' ? {} : { password }),
                   ...(integrationToken === '' ? {} : { integrationToken }),
@@ -204,9 +337,34 @@ export function IntegrationsPage() {
             }}
           >
             <h2>99envíos</h2>
+            <h3>Municipio de origen para cotizaciones</h3>
+            <LocalityPicker value={origin} onChange={setOrigin} />
+            <p className="muted">
+              Opcional. Si no cambias el origen, se conserva la configuración
+              activa o el origen de tu cuenta en 99envíos.
+            </p>
+            <label>
+              Sucursal de 99envíos
+              <input
+                name="branchCode"
+                inputMode="numeric"
+                pattern="[0-9]+"
+                defaultValue={settings.data.shipping.branchCode ?? ''}
+              />
+            </label>
+            <label>
+              Formato de guía
+              <select
+                name="pdfType"
+                defaultValue={settings.data.shipping.pdfType ?? 2}
+              >
+                <option value={2}>Normal</option>
+                <option value={1}>Etiqueta adhesiva</option>
+              </select>
+            </label>
             <p className="muted">
               {settings.data.shipping.configured
-                ? `Cuenta conectada: ${settings.data.shipping.accountEmail}`
+                ? `Cuenta configurada en el editor: ${settings.data.shipping.accountEmail}`
                 : 'Aún no hay credenciales guardadas.'}
             </p>
             <label>
@@ -239,7 +397,9 @@ export function IntegrationsPage() {
               ID de integración (opcional)
               <input
                 name="integrationId"
-                defaultValue={settings.data.shipping.integrationId ?? ''}
+                type="password"
+                autoComplete="new-password"
+                placeholder="Se conserva si lo dejas vacío"
               />
             </label>
             <button type="submit" disabled={save.isPending}>
@@ -257,6 +417,12 @@ export function IntegrationsPage() {
       {save.isError ? (
         <ErrorMessage message="No fue posible guardar la conexión" />
       ) : null}
+      {save.isSuccess ? (
+        <p role="status">
+          Borrador guardado. Prueba y activa la conexión para utilizarla.
+        </p>
+      ) : null}
+      <IntegrationLifecycle />
     </section>
   );
 }

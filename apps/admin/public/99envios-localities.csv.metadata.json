@@ -1,0 +1,95 @@
+{
+  "sourceUrl": "https://docs.google.com/document/u/0/d/1RQxkGWIiQsoHtBUP8SDhINw3f_IHMRMT_NM2r6JkTxo/mobilebasic",
+  "preparedAt": "2026-09-16T17:13:03.756Z",
+  "sourceSha256": "8e91868bb45316b0b13ddd47f39e1aad19996862d43657d62fcf6abffde9db73",
+  "csvSha256": "2782e4dce04688bff47ab3c4ecefad5f4470fb33848ae69958f35b5e0b8301b8",
+  "validRows": 1256,
+  "excludedRows": 17,
+  "issues": [
+    {
+      "row": 6,
+      "code": "ambiguous_label",
+      "message": "Etiqueta de localidad ambigua"
+    },
+    {
+      "row": 169,
+      "code": "ambiguous_label",
+      "message": "Etiqueta de localidad ambigua"
+    },
+    {
+      "row": 885,
+      "code": "ambiguous_label",
+      "message": "Etiqueta de localidad ambigua"
+    },
+    {
+      "row": 906,
+      "code": "ambiguous_label",
+      "message": "Etiqueta de localidad ambigua"
+    },
+    {
+      "row": 1193,
+      "code": "invalid_dane",
+      "message": "Código DANE inválido"
+    },
+    {
+      "row": 1235,
+      "code": "duplicate_dane",
+      "message": "Código DANE repetido"
+    },
+    {
+      "row": 1241,
+      "code": "duplicate_dane",
+      "message": "Código DANE repetido"
+    },
+    {
+      "row": 1243,
+      "code": "duplicate_dane",
+      "message": "Código DANE repetido"
+    },
+    {
+      "row": 1249,
+      "code": "duplicate_dane",
+      "message": "Código DANE repetido"
+    },
+    {
+      "row": 1252,
+      "code": "duplicate_dane",
+      "message": "Código DANE repetido"
+    },
+    {
+      "row": 1256,
+      "code": "duplicate_dane",
+      "message": "Código DANE repetido"
+    },
+    {
+      "row": 1257,
+      "code": "duplicate_dane",
+      "message": "Código DANE repetido"
+    },
+    {
+      "row": 1258,
+      "code": "ambiguous_label",
+      "message": "Etiqueta de localidad ambigua"
+    },
+    {
+      "row": 1269,
+      "code": "ambiguous_label",
+      "message": "Etiqueta de localidad ambigua"
+    },
+    {
+      "row": 1270,
+      "code": "ambiguous_label",
+      "message": "Etiqueta de localidad ambigua"
+    },
+    {
+      "row": 1271,
+      "code": "ambiguous_label",
+      "message": "Etiqueta de localidad ambigua"
+    },
+    {
+      "row": 1273,
+      "code": "ambiguous_label",
+      "message": "Etiqueta de localidad ambigua"
+    }
+  ]
+}

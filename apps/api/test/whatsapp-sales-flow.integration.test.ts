@@ -19,6 +19,11 @@ import { LocalGuidePdfStorage } from '../src/modules/shipping/local-guide-pdf-st
 import { ShippingGuideService } from '../src/modules/shipping/shipping-guide-service.js';
 import { ShippingGuideWorker } from '../src/modules/shipping/shipping-guide-worker.js';
 import { ShippingQuoteService } from '../src/modules/shipping/shipping-quote-service.js';
+import { GuideDeliveryService } from '../src/modules/shipping/guide-delivery-service.js';
+import { AlertService } from '../src/modules/alerts/alert-service.js';
+import { PostgresAlertRepository } from '../src/modules/alerts/postgres-alert-repository.js';
+import { InventoryClosureService } from '../src/modules/inventory/inventory-closure-service.js';
+import { PostgresInventoryClosureRepository } from '../src/modules/inventory/postgres-inventory-closure-repository.js';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -27,6 +32,37 @@ import { requireTestDatabaseUrl } from './helpers/test-database.js';
 const databaseUrl = requireTestDatabaseUrl();
 
 describe('complete WhatsApp sale', () => {
+  it('delivers the handover acknowledgement while cancelling pending automatic messages', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    try {
+      const outbound = new PostgresOutboundRepository(database);
+      const service = new WhatsAppSalesService(
+        new PostgresConversationRepository(database),
+        { listAvailableForConfirmedSize: vi.fn() },
+        { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+        outbound,
+      );
+      await service.process({
+        whatsappMessageId: 'handover-welcome',
+        customerPhone: '573000000001',
+        text: 'hola',
+      });
+      await service.process({
+        whatsappMessageId: 'handover-human',
+        customerPhone: '573000000001',
+        text: 'asesora',
+      });
+      const message = await outbound.claimNext();
+      expect(message?.textBody).toContain('asesora');
+      expect(await outbound.claimNext()).toBeNull();
+      const [conversation] = await database.orm.execute(
+        'SELECT mode FROM whatsapp_conversations',
+      );
+      expect(conversation?.mode).toBe('human');
+    } finally {
+      await database.close();
+    }
+  });
   beforeAll(() => runMigrations(databaseUrl));
   beforeEach(async () => {
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
@@ -35,7 +71,8 @@ describe('complete WhatsApp sale', () => {
         whatsapp_catalog_menus, whatsapp_conversation_events, whatsapp_conversations,
         order_confirmations, reservation_movements, order_status_events, order_summaries,
         sales_orders, catalog_stock, inventory_movements, catalog_references,
-        shipping_localities CASCADE`;
+        shipping_localities, shipping_carrier_rules, shipping_preferences,
+        bot_flow_versions, bot_flow_drafts, owner_alert_deliveries, owner_alerts, inventory_closures CASCADE`;
       await sql`
         INSERT INTO catalog_references
           (id, code, model_name, color, price_cop, photo_storage_key,
@@ -190,22 +227,52 @@ describe('complete WhatsApp sale', () => {
         'Medellín',
         'Calle 1 # 2-3',
         'ninguna',
-        '1',
         'confirmar',
       ].entries()) {
+        if (index === 9) {
+          const expirySql = postgres(databaseUrl, { max: 1, prepare: false });
+          try {
+            await expirySql`UPDATE shipping_quotes SET quoted_at = now() - interval '2 minutes', expires_at = now() - interval '1 minute'`;
+          } finally {
+            await expirySql.end({ timeout: 5 });
+          }
+        }
         await service.process({
           whatsappMessageId: `wamid.complete-${index}`,
           customerPhone: '+573158191776',
           text,
         });
       }
+      const pendingSql = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        const [pending] = await pendingSql`SELECT status FROM sales_orders`;
+        expect(pending?.status).toBe('draft');
+        const [stock] =
+          await pendingSql`SELECT reserved_quantity FROM catalog_stock`;
+        expect(stock?.reserved_quantity).toBe(0);
+        const [count] =
+          await pendingSql`SELECT count(*)::int AS count FROM shipping_guide_jobs`;
+        expect(count?.count).toBe(0);
+      } finally {
+        await pendingSql.end({ timeout: 5 });
+      }
+      await service.process({
+        whatsappMessageId: 'wamid.refreshed-confirm',
+        customerPhone: '+573158191776',
+        text: 'confirmar',
+      });
       await service.process({
         whatsappMessageId: 'wamid.complete-9',
         customerPhone: '+573158191776',
         text: 'confirmar',
       });
       expect(
-        await new ShippingGuideWorker(jobs, orderService, provider).runOnce(),
+        await new ShippingGuideWorker(
+          jobs,
+          orderService,
+          provider,
+          new AlertService(new PostgresAlertRepository(database)),
+        ).runOnce(),
       ).toBe(true);
       const sql = postgres(databaseUrl, { max: 1, prepare: false });
       const [order] = await sql<{ id: string }[]>`SELECT id FROM sales_orders`;
@@ -220,6 +287,54 @@ describe('complete WhatsApp sale', () => {
       const second = await guides.fetchPdf(order!.id);
       expect(first.bytes).toEqual(providerPdf);
       expect(second.bytes).toEqual(providerPdf);
+      const delivery = new GuideDeliveryService(
+        database,
+        guides,
+        new PostgresOutboundRepository(database),
+      );
+      await Promise.all([delivery.runOnce(), delivery.runOnce()]);
+      const documents = await database.orm.execute(
+        "SELECT id FROM whatsapp_outbound_messages WHERE message_type = 'document'",
+      );
+      expect(documents).toHaveLength(1);
+      expect(await delivery.runOnce()).toBe(false);
+      expect(
+        await database.orm.execute(
+          "SELECT id FROM owner_alerts WHERE type = 'order_confirmed'",
+        ),
+      ).toHaveLength(1);
+      expect(
+        await database.orm.execute(
+          "SELECT id FROM owner_alerts WHERE type = 'guide_created'",
+        ),
+      ).toHaveLength(1);
+      await orderService.transition({ orderId: order!.id, action: 'dispatch' });
+      await expect(
+        orderService.transition({ orderId: order!.id, action: 'dispatch' }),
+      ).rejects.toThrow();
+      const stock = await database.orm.execute(
+        'SELECT physical_quantity, reserved_quantity FROM catalog_stock',
+      );
+      expect(stock[0]).toMatchObject({
+        physical_quantity: 0,
+        reserved_quantity: 0,
+      });
+      const closures = new InventoryClosureService(
+        new PostgresInventoryClosureRepository(database),
+      );
+      const date = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Bogota',
+      }).format(new Date());
+      const closure = (await closures.generate(date)) as {
+        id: string;
+        csvContent: string;
+        totalUnits: number;
+      };
+      const repeated = (await closures.generate(date)) as { id: string };
+      expect(repeated.id).toBe(closure.id);
+      expect(closure.csvContent).toContain('01,37.0,-1');
+      expect(closure.totalUnits).toBe(-1);
+      await closures.acknowledge(closure.id);
       expect(createPreShipment).toHaveBeenCalledTimes(1);
       expect(createPreShipment).toHaveBeenCalledWith(
         expect.objectContaining({ declaredValueCop: 136_968 }),

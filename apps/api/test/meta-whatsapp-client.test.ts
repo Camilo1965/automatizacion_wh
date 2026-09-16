@@ -3,6 +3,42 @@ import { describe, expect, it, vi } from 'vitest';
 import { MetaWhatsAppClient } from '../src/modules/whatsapp/meta-whatsapp-client.js';
 
 describe('MetaWhatsAppClient', () => {
+  it('uploads a PDF and accepts the documented Meta identity envelope', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ id: 'pdf-media' }))
+      .mockResolvedValueOnce(
+        Response.json({
+          messaging_product: 'whatsapp',
+          contacts: [{ wa_id: '573001234567' }],
+          messages: [{ id: 'wamid.pdf' }],
+        }),
+      );
+    const client = new MetaWhatsAppClient({
+      accessToken: 'fixture-only',
+      phoneNumberId: '123',
+      graphApiVersion: 'v26.0',
+      fetch: request,
+    });
+    await expect(
+      client.sendDocument(
+        '+573001234567',
+        new TextEncoder().encode('%PDF-1.4'),
+        'guia.pdf',
+        'Tu guía',
+      ),
+    ).resolves.toEqual({ whatsappMessageId: 'wamid.pdf' });
+    const form = request.mock.calls[0]![1].body as FormData;
+    expect((form.get('file') as File).type).toBe('application/pdf');
+    expect(JSON.parse(request.mock.calls[1]![1].body)).toMatchObject({
+      type: 'document',
+      to: '573001234567',
+      document: { id: 'pdf-media', filename: 'guia.pdf' },
+    });
+    expect(
+      request.mock.calls.every((call) => call[1].signal instanceof AbortSignal),
+    ).toBe(true);
+  });
   it('sends a text message with the configured Cloud API identity', async () => {
     const request = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ messages: [{ id: 'wamid.out-1' }] }), {

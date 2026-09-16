@@ -7,6 +7,7 @@
     "node": ">=24.14.1 <25"
   },
   "scripts": {
+    "verify:local": "node scripts/verify-local.mjs",
     "dev": "pnpm --filter @camila/contracts build && pnpm --parallel --filter @camila/api --filter @camila/admin dev",
     "build": "pnpm --filter @camila/contracts --filter @camila/api --filter @camila/admin build",
     "test": "pnpm test:unit",

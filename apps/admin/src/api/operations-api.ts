@@ -25,7 +25,7 @@ export async function updateIntegrationSettings(body: unknown) {
   return (
     await apiRequest('/integrations/settings', {
       method: 'PATCH',
-      body: JSON.stringify(body),
+      body,
       schema: IntegrationSettingsResponseSchema,
     })
   ).data;

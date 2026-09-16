@@ -63,6 +63,7 @@ export default defineConfig({
       timeout: 120_000,
       env: webServerEnv({
         NODE_ENV: 'test',
+        INTEGRATION_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
         HOST: '127.0.0.1',
         PORT: E2E_API_PORT,
         DATABASE_URL: E2E_DATABASE_URL,

@@ -11,6 +11,7 @@ import {
   reservationMovements,
   salesOrders,
   shippingGuideJobs,
+  ownerAlerts,
   shippingLocalities,
   shippingQuotes,
 } from '../../database/schema.js';
@@ -494,9 +495,24 @@ export class PostgresOrderRepository implements OrderRepository {
               quoteId: confirmedShippingQuote.id,
               carrier: confirmedShippingQuote.carrier,
               insuranceMode: confirmedShippingQuote.insuranceMode,
+              policySnapshot: confirmedShippingQuote.policySnapshot,
+              confirmedTotalCop: (summary.snapshot as { totalCop: number })
+                .totalCop,
             })
             .onConflictDoNothing({ target: shippingGuideJobs.orderId });
         }
+        await tx
+          .insert(ownerAlerts)
+          .values({
+            type: 'order_confirmed',
+            severity: 'info',
+            title: 'Pedido confirmado',
+            detail: `Pedido PED-${String(order.orderNumber).padStart(6, '0')} · talla ${order.size} · ${order.quantity} unidad(es).`,
+            entityUrl: `/orders/${order.id}`,
+            deduplicationKey: `order_confirmed:${order.id}`,
+            retrySafe: false,
+          })
+          .onConflictDoNothing();
       } else if (input.action === 'cancel' && order.status === 'confirmed') {
         await this.releaseReservation(tx, order, 'cancelled');
         await tx

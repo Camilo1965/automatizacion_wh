@@ -2,6 +2,14 @@ export type ClaimedOutboundMessage = Readonly<
   | {
       id: string;
       customerPhone: string;
+      messageType: 'document';
+      textBody: string;
+      mediaStorageKey: string;
+      mediaMimeType: 'application/pdf';
+    }
+  | {
+      id: string;
+      customerPhone: string;
       messageType: 'text';
       textBody: string;
     }
@@ -22,6 +30,12 @@ export interface OutboxWorkerRepository {
 }
 
 export interface WhatsAppClient {
+  sendDocument?(
+    customerPhone: string,
+    bytes: Uint8Array,
+    filename: string,
+    caption: string,
+  ): Promise<Readonly<{ whatsappMessageId: string }>>;
   sendText(
     customerPhone: string,
     body: string,
@@ -58,6 +72,7 @@ export class OutboxWorker {
     private readonly client: WhatsAppClient,
     private readonly photoStorage?: OutboxPhotoStorage,
     private readonly incidents?: IncidentSink,
+    private readonly documentStorage?: OutboxPhotoStorage,
   ) {}
 
   async runOnce(): Promise<boolean> {
@@ -67,12 +82,14 @@ export class OutboxWorker {
       const sent =
         message.messageType === 'text'
           ? await this.client.sendText(message.customerPhone, message.textBody)
-          : await this.client.sendImage(
-              message.customerPhone,
-              await this.requirePhotoStorage().read(message.mediaStorageKey),
-              message.mediaMimeType,
-              message.textBody,
-            );
+          : message.messageType === 'document'
+            ? await this.sendDocument(message)
+            : await this.client.sendImage(
+                message.customerPhone,
+                await this.requirePhotoStorage().read(message.mediaStorageKey),
+                message.mediaMimeType,
+                message.textBody,
+              );
       await this.repository.markSent(message.id, sent.whatsappMessageId);
     } catch (error) {
       const code = error instanceof Error ? error.name : 'UnknownError';
@@ -85,7 +102,7 @@ export class OutboxWorker {
           error instanceof Error ? error.message : 'Error desconocido de Meta',
         entityUrl: '/conversations',
         entityId: message.id,
-        retrySafe: true,
+        retrySafe: false,
       });
     }
     return true;
@@ -96,5 +113,17 @@ export class OutboxWorker {
       throw new Error('Photo storage is required for image messages');
     }
     return this.photoStorage;
+  }
+  private async sendDocument(
+    message: Extract<ClaimedOutboundMessage, { messageType: 'document' }>,
+  ) {
+    if (!this.documentStorage || !this.client.sendDocument)
+      throw new Error('Document delivery is not configured');
+    return this.client.sendDocument(
+      message.customerPhone,
+      await this.documentStorage.read(message.mediaStorageKey),
+      'guia-de-envio.pdf',
+      message.textBody,
+    );
   }
 }

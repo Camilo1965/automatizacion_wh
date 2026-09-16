@@ -3,8 +3,8 @@ import type { IntegrationHealth } from '@camila/contracts';
 type Dependencies = Readonly<{
   database(): Promise<void>;
   mediaStorage(): Promise<void>;
-  whatsappConfigured: boolean;
-  shippingConfigured: boolean;
+  whatsappConfigured: boolean | (() => Promise<boolean>);
+  shippingConfigured: boolean | (() => Promise<boolean>);
   schedulerHealthy: boolean;
 }>;
 
@@ -15,6 +15,14 @@ export class IntegrationHealthService {
   ) {}
   async check(): Promise<IntegrationHealth> {
     const checkedAt = this.now().toISOString();
+    const whatsappConfigured =
+      typeof this.dependencies.whatsappConfigured === 'boolean'
+        ? this.dependencies.whatsappConfigured
+        : await this.dependencies.whatsappConfigured();
+    const shippingConfigured =
+      typeof this.dependencies.shippingConfigured === 'boolean'
+        ? this.dependencies.shippingConfigured
+        : await this.dependencies.shippingConfigured();
     const probe = async (operation: () => Promise<void>) => {
       try {
         await operation();
@@ -31,16 +39,14 @@ export class IntegrationHealthService {
       database: await probe(this.dependencies.database),
       mediaStorage: await probe(this.dependencies.mediaStorage),
       whatsapp: {
-        status: this.dependencies.whatsappConfigured ? 'up' : 'degraded',
+        status: whatsappConfigured ? 'up' : 'degraded',
         checkedAt,
-        detail: this.dependencies.whatsappConfigured
-          ? null
-          : 'Credenciales o webhook pendientes',
+        detail: whatsappConfigured ? null : 'Credenciales o webhook pendientes',
       },
       shipping: {
-        status: this.dependencies.shippingConfigured ? 'up' : 'degraded',
+        status: shippingConfigured ? 'up' : 'degraded',
         checkedAt,
-        detail: this.dependencies.shippingConfigured
+        detail: shippingConfigured
           ? null
           : 'Credenciales de 99envíos pendientes',
       },

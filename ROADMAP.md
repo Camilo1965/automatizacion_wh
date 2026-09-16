@@ -2,26 +2,25 @@
 
 Fecha de preparación: 4 de septiembre de 2026.
 
-Estado: implementación local en curso. Actualizado el 9 de septiembre de 2026.
+Estado: cierre de configuraciones operativas KAIRO. Actualizado el 16 de septiembre de 2026.
 
-## Actualización operativa: experiencia premium y reglas de envío
+## Estado operativo vigente
 
-El bloque principal de preferencias de envío ya está implementado en la rama `codex/premium-ux`:
+La implementación sigue el plan de `docs/superpowers/plans/2026-09-15-configurable-bot-integrations-localities.md`. Las decisiones vigentes sustituyen las propuestas anteriores de selección de transportadora por parte del cliente:
 
-- panel responsive con navegación operativa e Inicio;
-- política global de envío y reemplazo exacto por código DANE;
-- transportadora automática, preferida u obligatoria;
-- fallback permitido o bloqueado con error visible;
-- modalidades “económico y protegido”, “solo económico” y “siempre protegido”;
-- Seguro 99 estándar o Plus enviado realmente al cotizador y al crear la guía;
-- dos cotizaciones independientes cuando el cliente debe elegir;
-- elección numerada en WhatsApp antes de crear el resumen;
-- snapshot de la política y seguro confirmado en la cotización y la tarea de guía;
-- registro de transportadoras observadas y auditoría persistente de cambios;
-- simulador de regla efectiva sin crear cotizaciones ni guías;
-- contratos estrictos, migraciones incrementales y pruebas unitarias, de integración y E2E.
+- La propietaria configura mensajes y comandos desde Flujo del bot; guarda borradores, simula escenarios y publica versiones. Las conversaciones conservan su versión.
+- Las localidades se importan con vista previa, publicación, restauración e historial. El selector usa departamento y municipio; los códigos quedan internos.
+- Credenciales cifradas, borrador, prueba de conexión sin crear guías y activación de revisión verificada.
+- Envío automático de menor costo válido, o transportadora preferida/obligatoria, lista permitida/excluida, prioridades de fallback, seguro estándar/Plus y umbral por valor. Una regla municipal activa sustituye la general.
+- El cliente confirma el pedido; no selecciona transportadora ni seguro. Cotización, paquete y total confirmado se conservan hasta la guía.
+- PDF como documento deduplicado de WhatsApp, disponible también en el pedido. Fallos de descarga generan una alerta sin crear otra guía.
+- Alertas persistentes y avisos a la propietaria mediante plantilla aprobada por Meta. Novedades de 99envíos con respuestas inciertas bloqueadas.
+- Despacho único, movimientos de inventario y cierre manual de Treinta; scheduler de las 19:00 en Colombia.
+- Auditoría administrativa y verificación local autocontenida con PostgreSQL de pruebas.
 
-Los siguientes bloques del plan premium permanecen separados: centro de alertas, cierre diario para Treinta, página completa de salud de integraciones y ampliación visual de pedidos/conversaciones. La autoridad de stock para WhatsApp continúa siendo Camila y Treinta se conciliará manualmente mediante archivo.
+La guía para demostrar y operar el sistema está en `docs/how-to/owner-operations.md`. La coexistencia con WhatsApp Business móvil depende de la habilitación y evidencia de Meta. Las pruebas automatizadas usan proveedores controlados; la activación y cualquier guía real requieren cuentas operativas y un pedido deliberado.
+
+Los apartados siguientes conservan el alcance y la planificación histórica. En caso de contradicción, prevalecen este estado operativo y el plan de configuraciones del 15 de septiembre.
 
 ## 1 Objetivo y alcance acordado
 

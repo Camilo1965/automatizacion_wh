@@ -1,0 +1,4 @@
+ALTER TABLE "whatsapp_conversation_messages" DROP CONSTRAINT "whatsapp_conversation_messages_type_allowed";--> statement-breakpoint
+ALTER TABLE "whatsapp_outbound_messages" DROP CONSTRAINT "whatsapp_outbound_messages_type_allowed";--> statement-breakpoint
+ALTER TABLE "whatsapp_conversation_messages" ADD CONSTRAINT "whatsapp_conversation_messages_type_allowed" CHECK ("whatsapp_conversation_messages"."message_type" IN ('text', 'image', 'document', 'template', 'event'));--> statement-breakpoint
+ALTER TABLE "whatsapp_outbound_messages" ADD CONSTRAINT "whatsapp_outbound_messages_type_allowed" CHECK ("whatsapp_outbound_messages"."message_type" IN ('text', 'image', 'document'));

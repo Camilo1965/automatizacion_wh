@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { WhatsAppSalesService } from '../src/modules/conversations/whatsapp-sales-service.js';
+import { OrderConflictError } from '../src/modules/orders/order-errors.js';
 
 function availableItem() {
   return {
@@ -17,6 +18,104 @@ function availableItem() {
 }
 
 describe('WhatsAppSalesService', () => {
+  it('reopens confirmation when a quote expires without creating a guide', async () => {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'c1',
+        state: 'completed',
+        reply: null,
+        action: 'confirm_order',
+        activeOrderId: 'o1',
+        activeSummaryVersion: 3,
+      }),
+      returnToSize: vi.fn(),
+      setState: vi.fn(),
+      setSummaryVersion: vi.fn(),
+    };
+    const orders = {
+      create: vi.fn(),
+      transition: vi
+        .fn()
+        .mockRejectedValue(
+          new OrderConflictError('shipping_quote_expired', 'Expired'),
+        ),
+      createSummary: vi.fn().mockResolvedValue({
+        version: 4,
+        snapshot: {
+          orderNumber: 'PED-1',
+          reference: { code: '01', modelName: 'Tenis', color: 'Negro' },
+          size: '37.0',
+          quantity: 1,
+          totalCop: 140000,
+          shippingCostCop: 20000,
+          customer: { name: 'Ana', phone: '573000000001' },
+          destination: {
+            locality: 'Medellín',
+            department: 'Antioquia',
+            address: 'Calle 1',
+          },
+        },
+      }),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const guides = { enqueue: vi.fn() };
+    const shipping = { createQuotes: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      orders,
+      undefined,
+      guides,
+      shipping,
+    );
+    await service.process({
+      whatsappMessageId: 'expired-confirmation',
+      customerPhone: '573000000001',
+      text: 'confirmar',
+    });
+    expect(shipping.createQuotes).toHaveBeenCalledWith('o1');
+    expect(conversations.setState).toHaveBeenCalledWith(
+      'c1',
+      'awaiting_confirmation',
+    );
+    expect(conversations.setSummaryVersion).toHaveBeenCalledWith('c1', 4);
+    expect(guides.enqueue).not.toHaveBeenCalled();
+    expect(outbound.enqueueText).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.stringContaining('venció') }),
+    );
+  });
+  it('keeps the handover acknowledgement deliverable after automation pauses', async () => {
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const service = new WhatsAppSalesService(
+      {
+        receive: vi.fn().mockResolvedValue({
+          duplicate: false,
+          conversationId: 'conversation-1',
+          state: 'awaiting_size',
+          reply: 'La propietaria continuará contigo.',
+          action: 'human_takeover',
+        }),
+        returnToSize: vi.fn(),
+      },
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+    );
+    await service.process({
+      whatsappMessageId: 'human-request',
+      customerPhone: '573000000001',
+      text: 'asesora',
+    });
+    expect(outbound.enqueueText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'owner_panel',
+        body: 'La propietaria continuará contigo.',
+      }),
+    );
+  });
   it('queues the first welcome once', async () => {
     const conversations = {
       receive: vi.fn().mockResolvedValue({

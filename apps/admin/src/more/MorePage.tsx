@@ -4,6 +4,26 @@ import { PageHeader } from '../components/PageHeader';
 
 const sections = [
   {
+    to: '/settings/audit',
+    title: 'Historial de cambios',
+    description: 'Consulta publicaciones, conexiones y acciones registradas.',
+  },
+  {
+    to: '/shipping/incidents',
+    title: 'Novedades de entrega',
+    description: 'Consulta y responde las incidencias de 99envíos.',
+  },
+  {
+    to: '/settings/localities',
+    title: 'Departamentos y municipios',
+    description: 'Revisa y publica el listado de destinos de 99envíos.',
+  },
+  {
+    to: '/settings/bot-flow',
+    title: 'Flujo del bot',
+    description: 'Edita, prueba y publica los mensajes de WhatsApp.',
+  },
+  {
     to: '/catalog-import',
     title: 'Importar desde Treinta',
     description:

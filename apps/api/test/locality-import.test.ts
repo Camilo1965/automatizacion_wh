@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFile } from 'node:fs/promises';
 
 import { parseColombianLocalitiesCsv } from '../src/modules/localities/locality-import.js';
 import {
@@ -7,6 +8,18 @@ import {
 } from '../src/modules/localities/locality-service.js';
 
 describe('parseColombianLocalitiesCsv', () => {
+  it('validates the bundled official snapshot including names containing commas', async () => {
+    const source = await readFile(
+      new URL('../../admin/public/99envios-localities.csv', import.meta.url),
+      'utf8',
+    );
+    const result = parseColombianLocalitiesCsv(source);
+    expect(result.errors).toEqual([]);
+    expect(result.localities).toHaveLength(1256);
+    expect(
+      result.localities.every((row) => /^\d{8}$/.test(row.carrierCode)),
+    ).toBe(true);
+  });
   it('keeps carrier codes as text and rejects repeated codes', () => {
     const result = parseColombianLocalitiesCsv(
       [

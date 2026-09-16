@@ -28,7 +28,7 @@ describe('OutboxWorker', () => {
       expect.objectContaining({
         type: 'whatsapp_send_failed',
         entityId: 'msg-1',
-        retrySafe: true,
+        retrySafe: false,
       }),
     );
   });

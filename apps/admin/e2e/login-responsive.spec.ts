@@ -76,7 +76,9 @@ for (const viewport of viewports) {
     expect(geometry.stage.left).toBeGreaterThanOrEqual(0);
     expect(geometry.stage.right).toBeLessThanOrEqual(geometry.viewportWidth);
     expect(geometry.stage.bottom).toBeLessThanOrEqual(geometry.viewportHeight);
-    expect(Math.abs(geometry.margins[0] - geometry.margins[1])).toBeLessThan(2);
+    expect(Math.abs(geometry.margins[0]! - geometry.margins[1]!)).toBeLessThan(
+      2,
+    );
     expect(geometry.overlaps).toBe(false);
   });
 }

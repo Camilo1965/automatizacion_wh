@@ -9,6 +9,9 @@ export type SelectableCarrierQuote = Readonly<{
 export type CarrierSelectionPolicy = Readonly<{
   preferredCarrier: string | null;
   fallbackPolicy: 'allow' | 'block';
+  allowedCarriers?: readonly string[] | undefined;
+  excludedCarriers?: readonly string[] | undefined;
+  orderedCarriers?: readonly string[] | undefined;
 }>;
 
 function normalizePolicy(
@@ -25,8 +28,20 @@ export function selectRecommendedCarrier(
   policyInput: string | null | CarrierSelectionPolicy,
 ): string | null {
   const policy = normalizePolicy(policyInput);
+  const eligible = quotes.filter(
+    (quote) =>
+      (!policy.allowedCarriers?.length ||
+        policy.allowedCarriers.includes(quote.carrier.toLowerCase())) &&
+      !policy.excludedCarriers?.includes(quote.carrier.toLowerCase()) &&
+      [
+        quote.freightCop,
+        quote.cashOnDeliveryCop,
+        quote.surchargeCop,
+        quote.insuranceCop ?? 0,
+      ].every((cost) => Number.isFinite(cost) && cost >= 0),
+  );
   const normalizedRule = policy.preferredCarrier?.trim().toLowerCase() ?? null;
-  const configured = quotes.find(
+  const configured = eligible.find(
     (quote) => quote.carrier.toLowerCase() === normalizedRule,
   );
   if (configured !== undefined) return configured.carrier;
@@ -35,11 +50,15 @@ export function selectRecommendedCarrier(
     return null;
   }
 
-  const envia = quotes.find((quote) => quote.carrier.toLowerCase() === 'envia');
-  if (envia !== undefined) return envia.carrier;
+  for (const carrier of policy.orderedCarriers ?? []) {
+    const alternative = eligible.find(
+      (quote) => quote.carrier.toLowerCase() === carrier,
+    );
+    if (alternative) return alternative.carrier;
+  }
 
   return (
-    quotes
+    eligible
       .slice()
       .sort(
         (left, right) =>

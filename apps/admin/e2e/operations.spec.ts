@@ -40,7 +40,9 @@ test('connects integrations, alerts and the Treinta closure workflow', async ({
     '99envíos',
     'Scheduler',
   ]) {
-    await expect(page.getByRole('heading', { name })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name, exact: true, level: 3 }),
+    ).toBeVisible();
   }
 
   await page.goto('/alerts');
@@ -108,6 +110,9 @@ for (const viewport of [
       '/catalog',
       '/orders',
       '/settings/shipping',
+      '/settings/bot-flow',
+      '/settings/localities',
+      '/shipping/incidents',
       '/settings/whatsapp',
       '/settings/integrations',
       '/alerts',
@@ -137,6 +142,9 @@ test('has no serious accessibility violations in critical operations', async ({
     '/catalog',
     '/orders',
     '/settings/shipping',
+    '/settings/bot-flow',
+    '/settings/localities',
+    '/shipping/incidents',
     '/alerts',
     '/settings/integrations',
   ]) {

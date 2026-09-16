@@ -20,6 +20,12 @@ import {
 } from '@camila/contracts';
 
 import type { AppConfig } from '../../config.js';
+import type { BotFlowService } from '../../modules/conversations/bot-flow-service.js';
+import { registerBotFlowRoutes } from './bot-flow.js';
+import type { LocalityCatalogService } from '../../modules/localities/locality-catalog-service.js';
+import { registerLocalityCatalogRoutes } from './locality-catalog.js';
+import type { ShippingIncidentService } from '../../modules/shipping/shipping-incident-service.js';
+import { registerShippingIncidentRoutes } from './shipping-incidents.js';
 import {
   toPublicMovement,
   toPublicReference,
@@ -131,6 +137,9 @@ function clearSessionCookie(reply: FastifyReply, config: AppConfig): void {
 }
 
 export type AdminRoutesDependencies = Readonly<{
+  botFlowService?: BotFlowService;
+  localityCatalogService?: LocalityCatalogService;
+  shippingIncidentService?: ShippingIncidentService;
   config: AppConfig;
   authService: AuthService;
   catalogService: CatalogService;
@@ -171,7 +180,83 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     dashboardService,
   } = dependencies;
 
+  if (dependencies.shippingIncidentService !== undefined)
+    registerShippingIncidentRoutes(
+      app,
+      dependencies.shippingIncidentService,
+      (request) => requireAdminSession(request, authService),
+    );
+  if (dependencies.localityCatalogService !== undefined)
+    registerLocalityCatalogRoutes(
+      app,
+      dependencies.localityCatalogService,
+      (request) => requireAdminSession(request, authService),
+    );
+  if (dependencies.botFlowService !== undefined) {
+    app.get('/configuration/audit', async (request) => {
+      await requireAdminSession(request, authService);
+      return { data: { items: await dependencies.botFlowService!.audit() } };
+    });
+    registerBotFlowRoutes(app, dependencies.botFlowService, (request) =>
+      requireAdminSession(request, authService),
+    );
+  }
   if (dependencies.integrationSettingsService !== undefined) {
+    const lifecycleService = dependencies.integrationSettingsService;
+    if (
+      lifecycleService.lifecycle &&
+      lifecycleService.test &&
+      lifecycleService.activate
+    ) {
+      app.get('/integrations/lifecycle', async (request) => {
+        await requireAdminSession(request, authService);
+        return { data: await lifecycleService.lifecycle!() };
+      });
+      app.post('/integrations/:provider/test', async (request, reply) => {
+        await requireAdminSession(request, authService);
+        const { provider } = z
+          .object({ provider: z.enum(['whatsapp', 'shipping']) })
+          .parse(request.params);
+        try {
+          return { data: await lifecycleService.test!(provider) };
+        } catch {
+          return reply.code(400).send({
+            error: {
+              code: 'connection_test_failed',
+              message:
+                'No se pudo validar el borrador. Revisa las credenciales y vuelve a probar. No se enviaron mensajes ni se crearon guías.',
+            },
+          });
+        }
+      });
+      app.post('/integrations/:provider/activate', async (request, reply) => {
+        const user = await requireAdminSession(request, authService);
+        const { provider } = z
+          .object({ provider: z.enum(['whatsapp', 'shipping']) })
+          .parse(request.params);
+        const { revision } = z
+          .object({ revision: z.number().int().positive() })
+          .strict()
+          .parse(request.body);
+        try {
+          return {
+            data: await lifecycleService.activate!(
+              provider,
+              revision,
+              user.username,
+            ),
+          };
+        } catch {
+          return reply.code(409).send({
+            error: {
+              code: 'activation_rejected',
+              message:
+                'El borrador cambió o su prueba venció. Vuelve a probar antes de activar.',
+            },
+          });
+        }
+      });
+    }
     app.get('/integrations/settings', async (request, reply) => {
       await requireAdminSession(request, authService);
       return reply.status(200).send({
@@ -179,10 +264,11 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
       });
     });
     app.patch('/integrations/settings', async (request, reply) => {
-      await requireAdminSession(request, authService);
+      const user = await requireAdminSession(request, authService);
       try {
         await dependencies.integrationSettingsService!.update(
           IntegrationSettingsUpdateSchema.parse(request.body),
+          user.username,
         );
       } catch (error) {
         if (error instanceof IntegrationSettingsError) {
@@ -204,13 +290,36 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
   if (dependencies.connectionCapabilityService !== undefined) {
     app.get('/whatsapp/connection', async (request, reply) => {
       await requireAdminSession(request, authService);
+      const saved =
+        await dependencies.integrationSettingsService?.getWhatsApp?.();
+      const connection =
+        dependencies.connectionCapabilityService!.getConnection();
       return reply.status(200).send({
-        data: dependencies.connectionCapabilityService!.getConnection(),
+        data: saved
+          ? {
+              ...connection,
+              phoneNumberId: saved.phoneNumberId,
+              wabaId: saved.wabaId ?? connection.wabaId,
+              webhookConfigured: Boolean(
+                saved.appSecret && saved.webhookVerifyToken,
+              ),
+            }
+          : connection,
       });
     });
   }
 
   if (dependencies.alertService !== undefined) {
+    app.post('/alerts/:id/resolve', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      const id = z.uuid().parse((request.params as { id: string }).id);
+      const data = await dependencies.alertService!.resolve(id);
+      return data
+        ? reply.status(200).send({ data })
+        : reply.status(404).send({
+            error: { code: 'not_found', message: 'La alerta no existe.' },
+          });
+    });
     app.get('/alerts', async (request, reply) => {
       await requireAdminSession(request, authService);
       return reply.status(200).send({
@@ -223,9 +332,12 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     app.post('/alerts/:id/read', async (request, reply) => {
       await requireAdminSession(request, authService);
       const id = z.uuid().parse((request.params as { id: string }).id);
-      return reply
-        .status(200)
-        .send({ data: await dependencies.alertService!.markRead(id) });
+      const data = await dependencies.alertService!.markRead(id);
+      return data
+        ? reply.status(200).send({ data })
+        : reply.status(404).send({
+            error: { code: 'not_found', message: 'La alerta no existe.' },
+          });
     });
   }
 
@@ -382,6 +494,23 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
   });
 
   if (shippingQuoteService !== undefined) {
+    if (shippingQuoteService.simulate)
+      app.post('/shipping/simulate', async (request) => {
+        await requireAdminSession(request, authService);
+        const body = z
+          .object({
+            localityCarrierCode: z.string().regex(/^\d{8}$/),
+            declaredValueCop: z.number().int().positive().max(100000000),
+          })
+          .strict()
+          .parse(request.body);
+        return {
+          data: await shippingQuoteService.simulate!(
+            body.localityCarrierCode,
+            body.declaredValueCop,
+          ),
+        };
+      });
     const ShippingQuoteParamsSchema = z
       .object({ orderId: z.uuid(), quoteId: z.uuid() })
       .strict();
@@ -429,10 +558,12 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
       });
     });
     app.patch('/shipping/preferences', async (request, reply) => {
-      await requireAdminSession(request, authService);
+      const user = await requireAdminSession(request, authService);
       const policy = ShippingPolicySchema.parse(request.body);
-      await shippingQuoteService.setDefaultPolicy(policy);
-      return reply.status(200).send({ data: policy });
+      await shippingQuoteService.setDefaultPolicy(policy, user.username);
+      return reply
+        .status(200)
+        .send({ data: await shippingQuoteService.getDefaultPolicy() });
     });
     app.get('/shipping/rules', async (request, reply) => {
       await requireAdminSession(request, authService);
@@ -453,11 +584,15 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
       });
     });
     app.post('/shipping/rules', async (request, reply) => {
-      await requireAdminSession(request, authService);
+      const user = await requireAdminSession(request, authService);
       const body = ShippingRuleBodySchema.parse(request.body);
       const { localityCarrierCode, ...policy } = body;
-      await shippingQuoteService.setShippingPolicy(localityCarrierCode, policy);
-      return reply.status(201).send();
+      await shippingQuoteService.setShippingPolicy(
+        localityCarrierCode,
+        policy,
+        user.username,
+      );
+      return reply.status(204).send();
     });
     app.post('/shipping/rules/preview', async (request, reply) => {
       await requireAdminSession(request, authService);
@@ -469,24 +604,31 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
       });
     });
     app.patch('/shipping/rules/:localityCode', async (request, reply) => {
-      await requireAdminSession(request, authService);
+      const user = await requireAdminSession(request, authService);
       const { localityCode } = z
         .object({ localityCode: z.string().regex(/^\d{8}$/) })
         .strict()
         .parse(request.params);
       const policy = ShippingPolicySchema.parse(request.body);
-      await shippingQuoteService.setShippingPolicy(localityCode, policy);
+      await shippingQuoteService.setShippingPolicy(
+        localityCode,
+        policy,
+        user.username,
+      );
       return reply.status(204).send();
     });
     app.post(
       '/shipping/rules/:localityCode/deactivate',
       async (request, reply) => {
-        await requireAdminSession(request, authService);
+        const user = await requireAdminSession(request, authService);
         const { localityCode } = z
           .object({ localityCode: z.string().regex(/^\d{8}$/) })
           .strict()
           .parse(request.params);
-        await shippingQuoteService.deactivateShippingRule(localityCode);
+        await shippingQuoteService.deactivateShippingRule(
+          localityCode,
+          user.username,
+        );
         return reply.status(204).send();
       },
     );

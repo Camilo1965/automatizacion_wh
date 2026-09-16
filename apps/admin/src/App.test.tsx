@@ -80,6 +80,7 @@ describe('App shell', () => {
       'Regla guardada',
     );
     expect(saved).toEqual({
+      revision: 0,
       localityCarrierCode: '05001000',
       preferredCarrier: 'tcc',
       fallbackPolicy: 'block',

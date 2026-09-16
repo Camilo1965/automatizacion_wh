@@ -30,6 +30,44 @@ export type EnqueueImageInput = Readonly<{
 
 export class PostgresOutboundRepository implements OutboxWorkerRepository {
   constructor(private readonly database: PostgresDatabase) {}
+  async enqueueDocument(input: {
+    conversationId: string;
+    customerPhone: string;
+    storageKey: string;
+    caption: string;
+    idempotencyKey: string;
+  }) {
+    return this.database.orm.transaction(async (tx) => {
+      const [message] = await tx
+        .insert(whatsappOutboundMessages)
+        .values({
+          conversationId: input.conversationId,
+          customerPhone: input.customerPhone,
+          messageType: 'document',
+          mediaStorageKey: input.storageKey,
+          mediaMimeType: 'application/pdf',
+          textBody: input.caption,
+          idempotencyKey: input.idempotencyKey,
+        })
+        .onConflictDoNothing({
+          target: whatsappOutboundMessages.idempotencyKey,
+        })
+        .returning({ id: whatsappOutboundMessages.id });
+      if (message)
+        await tx.insert(whatsappConversationMessages).values({
+          conversationId: input.conversationId,
+          outboundMessageId: message.id,
+          source: 'bot',
+          messageType: 'document',
+          mediaStorageKey: input.storageKey,
+          mediaMimeType: 'application/pdf',
+          textBody: input.caption,
+          status: 'queued',
+          occurredAt: new Date(),
+        });
+      return message ?? null;
+    });
+  }
 
   async enqueueText(
     input: EnqueueTextInput,
@@ -151,10 +189,10 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
       const result = await tx.execute(sql<{
         id: string;
         customer_phone: string;
-        message_type: 'text' | 'image';
+        message_type: 'text' | 'image' | 'document';
         text_body: string;
         media_storage_key: string | null;
-        media_mime_type: 'image/jpeg' | 'image/png' | null;
+        media_mime_type: 'image/jpeg' | 'image/png' | 'application/pdf' | null;
       }>`
         WITH candidate AS (
           SELECT outbound.id
@@ -168,6 +206,7 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
               OR (outbound.message_type = 'image'
                 AND outbound.media_storage_key IS NOT NULL
                 AND outbound.media_mime_type IN ('image/jpeg', 'image/png'))
+              OR (outbound.message_type = 'document' AND outbound.media_storage_key IS NOT NULL AND outbound.media_mime_type = 'application/pdf')
             )
             AND (outbound.expires_at IS NULL OR outbound.expires_at > now())
             AND (
@@ -192,10 +231,10 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
       const rows = result as unknown as Array<{
         id: string;
         customer_phone: string;
-        message_type: 'text' | 'image';
+        message_type: 'text' | 'image' | 'document';
         text_body: string;
         media_storage_key: string | null;
-        media_mime_type: 'image/jpeg' | 'image/png' | null;
+        media_mime_type: 'image/jpeg' | 'image/png' | 'application/pdf' | null;
       }>;
       const row = rows[0];
       if (row === undefined) return null;
@@ -207,13 +246,22 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
           textBody: row.text_body,
         };
       }
+      if (row.message_type === 'document')
+        return {
+          id: row.id,
+          customerPhone: row.customer_phone,
+          messageType: 'document',
+          textBody: row.text_body,
+          mediaStorageKey: row.media_storage_key!,
+          mediaMimeType: 'application/pdf',
+        };
       return {
         id: row.id,
         customerPhone: row.customer_phone,
         messageType: 'image',
         textBody: row.text_body,
         mediaStorageKey: row.media_storage_key!,
-        mediaMimeType: row.media_mime_type!,
+        mediaMimeType: row.media_mime_type as 'image/jpeg' | 'image/png',
       };
     });
   }

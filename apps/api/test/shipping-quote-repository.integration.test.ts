@@ -13,7 +13,7 @@ describe('shipping quote persistence', () => {
   beforeEach(async () => {
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
     try {
-      await sql`TRUNCATE TABLE shipping_guide_jobs, shipping_quotes, shipping_carrier_rules, sales_orders, catalog_references CASCADE`;
+      await sql`TRUNCATE TABLE shipping_preferences, shipping_guide_jobs, shipping_quotes, shipping_carrier_rules, sales_orders, catalog_references CASCADE`;
       await sql`INSERT INTO catalog_references (id, code, model_name, color, price_cop) VALUES ('22222222-2222-4222-8222-222222222222', '01', 'Tenis', 'Negro', 120000)`;
       await sql`INSERT INTO sales_orders (id, reference_id, size, quantity) VALUES ('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', 37, 1)`;
     } finally {
@@ -81,6 +81,34 @@ describe('shipping quote persistence', () => {
       expect(
         selected.filter((row) => row.selected).map((row) => row.carrier),
       ).toEqual(['envia']);
+    } finally {
+      await database.close();
+    }
+  });
+  it('prevents simultaneous owner edits from overwriting a saved policy revision', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresShippingQuoteRepository(database);
+    try {
+      const policy = {
+        preferredCarrier: null,
+        fallbackPolicy: 'allow' as const,
+        offerMode: 'economy_only' as const,
+        protectedInsurance: 'standard' as const,
+        revision: 0,
+      };
+      const results = await Promise.allSettled([
+        repository.setDefaultShippingPolicy(policy),
+        repository.setDefaultShippingPolicy(policy),
+      ]);
+      expect(
+        results.filter((result) => result.status === 'fulfilled'),
+      ).toHaveLength(1);
+      expect(
+        results.filter((result) => result.status === 'rejected'),
+      ).toHaveLength(1);
+      expect(await repository.defaultShippingPolicy()).toMatchObject({
+        revision: 1,
+      });
     } finally {
       await database.close();
     }

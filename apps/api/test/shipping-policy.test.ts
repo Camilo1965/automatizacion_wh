@@ -42,8 +42,8 @@ describe('shipping policy', () => {
     ).toEqual(defaults);
   });
 
-  it('creates economic and protected offers from customer choice', () => {
-    expect(shippingOfferInsurances(defaults)).toEqual(['none', 'standard']);
+  it('creates one automatic offer without asking the customer', () => {
+    expect(shippingOfferInsurances(defaults)).toEqual(['none']);
   });
 
   it('creates only Plus insurance when the city requires protection', () => {

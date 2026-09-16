@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 25
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:18.4-bookworm
         env:
           POSTGRES_DB: camila_test
           POSTGRES_USER: camila_test
@@ -57,7 +57,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm --filter @camila/admin exec playwright install --with-deps chromium
 
       - name: Run complete verification
         run: pnpm verify

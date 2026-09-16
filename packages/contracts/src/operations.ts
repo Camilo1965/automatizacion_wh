@@ -14,6 +14,10 @@ export const OwnerAlertSchema = z
     createdAt: z.iso.datetime(),
     readAt: z.iso.datetime().nullable(),
     resolvedAt: z.iso.datetime().nullable(),
+    notificationStatus: z
+      .enum(['processing', 'sent', 'uncertain'])
+      .nullable()
+      .optional(),
   })
   .strict();
 export const OwnerAlertsResponseSchema = z

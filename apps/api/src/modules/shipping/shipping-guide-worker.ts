@@ -10,6 +10,13 @@ type JobPort = Readonly<{
     carrier: string;
     insuranceMode: 'none' | 'standard' | 'plus';
     collectionValueCop: number;
+    packageDefaults?: {
+      weightKg: number;
+      lengthCm: number;
+      widthCm: number;
+      heightCm: number;
+      contents?: string;
+    };
   }> | null>;
   markCreated(
     id: string,
@@ -49,7 +56,7 @@ type IncidentSink = Readonly<{
   open(
     input: Readonly<{
       type: string;
-      severity: 'critical';
+      severity: 'critical' | 'info';
       title: string;
       detail: string;
       entityUrl: string;
@@ -95,11 +102,15 @@ export class ShippingGuideWorker {
       }
       const name = recipientName(order.customer.name);
       const guide = await this.client.createPreShipment({
-        weightKg: 1,
-        lengthCm: 30,
-        widthCm: 20,
-        heightCm: 12,
-        contents: `Calzado REF ${order.referenceCode} · ${order.referenceModelName} · Talla ${order.size}`,
+        ...(job.packageDefaults ?? {
+          weightKg: 1,
+          lengthCm: 30,
+          widthCm: 20,
+          heightCm: 12,
+        }),
+        contents:
+          job.packageDefaults?.contents ??
+          `Calzado REF ${order.referenceCode} · ${order.referenceModelName} · Talla ${order.size}`,
         declaredValueCop: job.collectionValueCop,
         recipient: {
           firstName: name.firstName,
@@ -117,6 +128,17 @@ export class ShippingGuideWorker {
         guide.preShipmentNumber,
         guide.freightCop,
       );
+      await this.incidents
+        ?.open({
+          type: 'guide_created',
+          severity: 'info',
+          title: 'Guía lista para despachar',
+          detail: `REF ${order.referenceCode} · talla ${order.size} · guía ${guide.preShipmentNumber}. Abre el pedido para consultar el PDF.`,
+          entityUrl: `/orders/${job.orderId}`,
+          entityId: job.orderId,
+          retrySafe: false,
+        })
+        .catch(() => undefined);
     } catch (error) {
       if (error instanceof ShippingUncertainError) {
         await this.jobs.markUncertain(job.id);

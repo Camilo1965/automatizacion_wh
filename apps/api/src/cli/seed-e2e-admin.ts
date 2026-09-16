@@ -34,6 +34,8 @@ try {
       catalog_references,
       catalog_imports,
       shipping_localities
+      ,locality_catalog_versions, integration_settings, integration_drafts, integration_versions, bot_flow_versions, bot_flow_drafts,
+      owner_alert_deliveries, owner_alerts, inventory_closures, shipping_preferences, shipping_carrier_rules, shipping_incidents, configuration_audits
     RESTART IDENTITY CASCADE
   `;
 } finally {

@@ -13,6 +13,12 @@ const verificationQuerySchema = z.object({
 });
 
 export type WhatsAppRoutesDependencies = Readonly<{
+  settings?: Readonly<{
+    getWhatsApp?(): Promise<Readonly<{
+      appSecret?: string;
+      webhookVerifyToken?: string;
+    }> | null>;
+  }>;
   config: AppConfig;
   inboundRepository?: WhatsAppInboundRepository;
   inboundProcessor?: Readonly<{
@@ -27,16 +33,16 @@ export type WhatsAppRoutesDependencies = Readonly<{
 
 export const whatsappRoutes: FastifyPluginAsync<
   WhatsAppRoutesDependencies
-> = async (app, { config, inboundRepository, inboundProcessor }) => {
+> = async (app, { config, inboundRepository, inboundProcessor, settings }) => {
   app.get('/webhooks/whatsapp', async (request, reply) => {
-    if (config.whatsappWebhookVerifyToken === undefined) {
+    const verifyToken =
+      (await settings?.getWhatsApp?.())?.webhookVerifyToken ??
+      config.whatsappWebhookVerifyToken;
+    if (verifyToken === undefined) {
       return reply.status(404).send({ error: 'not_configured' });
     }
     const query = verificationQuerySchema.safeParse(request.query);
-    if (
-      !query.success ||
-      query.data['hub.verify_token'] !== config.whatsappWebhookVerifyToken
-    ) {
+    if (!query.success || query.data['hub.verify_token'] !== verifyToken) {
       return reply.status(403).send({ error: 'verification_failed' });
     }
     return reply.type('text/plain').send(query.data['hub.challenge']);
@@ -48,10 +54,13 @@ export const whatsappRoutes: FastifyPluginAsync<
     async (request, reply) => {
       const rawBody = request.rawBody;
       const signature = request.headers['x-hub-signature-256'];
+      const appSecret =
+        (await settings?.getWhatsApp?.())?.appSecret ??
+        config.whatsappAppSecret;
       if (
         !Buffer.isBuffer(rawBody) ||
         typeof signature !== 'string' ||
-        !verifyWhatsAppSignature(rawBody, signature, config.whatsappAppSecret)
+        !verifyWhatsAppSignature(rawBody, signature, appSecret)
       ) {
         return reply.status(401).send();
       }

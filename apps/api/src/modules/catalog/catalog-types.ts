@@ -85,6 +85,7 @@ export type AvailableCatalogPage = Readonly<{
 }>;
 
 export type ListAvailableInput = Readonly<{
+  pageSize?: number;
   confirmedSize: string | number;
   afterCode?: string;
 }>;

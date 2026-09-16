@@ -1,4 +1,4 @@
-# Documentación — Camila
+# Documentación — KAIRO
 
 Índice organizado con [Diátaxis](https://diataxis.fr/): tutoriales, guías prácticas (how-to), explicación y referencia.
 
@@ -13,6 +13,8 @@ Aprende haciendo, de cero a un entorno local útil.
 ## How-to
 
 Resuelve una tarea concreta.
+
+[Operación de la propietaria y demostración completa](./how-to/owner-operations.md): conexiones, mensajes, localidades, reglas de envío, alertas, novedades y cierres de Treinta.
 
 | Documento                                           | Cuándo usarlo                                                    |
 | --------------------------------------------------- | ---------------------------------------------------------------- |

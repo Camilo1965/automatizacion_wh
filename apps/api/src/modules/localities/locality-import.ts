@@ -45,7 +45,14 @@ export function parseColombianLocalitiesCsv(
   const codes = new Set<string>();
   for (const [index, line] of lines.slice(1).entries()) {
     const row = index + 2;
-    const fields = line.split(',');
+    const fields =
+      line.match(/(?:"(?:[^"]|"")*"|[^,]*)(?:,|$)/g)?.map((field) =>
+        field
+          .replace(/,$/, '')
+          .replace(/^"(.*)"$/, '$1')
+          .replace(/""/g, '"'),
+      ) ?? [];
+    if (fields.at(-1) === '') fields.pop();
     if (fields.length !== 4) {
       errors.push({
         row,

@@ -604,11 +604,36 @@ export const DepartmentsResponseSchema = dataEnvelopeSchema(
 );
 
 const optionalSecretSchema = z.string().trim().min(1).max(4096).optional();
+export const OwnerServiceHoursSchema = z
+  .object({
+    days: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+    start: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/),
+    end: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      value.start < value.end && new Set(value.days).size === value.days.length,
+    {
+      message: 'El horario debe terminar después de iniciar y no repetir días.',
+    },
+  );
 export const IntegrationSettingsUpdateSchema = z
   .object({
     whatsapp: z
       .object({
         phoneNumberId: z.string().trim().min(1).max(64).optional(),
+        timezone: z.literal('America/Bogota').optional(),
+        serviceHours: OwnerServiceHoursSchema.nullable().optional(),
+        wabaId: z.string().regex(/^\d+$/).optional(),
+        ownerAlertPhone: z
+          .string()
+          .regex(/^\+?57[3]\d{9}$/)
+          .optional(),
+        ownerAlertTemplate: z
+          .string()
+          .regex(/^[a-z0-9_]{1,512}$/)
+          .optional(),
         graphApiVersion: z
           .string()
           .regex(/^v\d+\.\d+$/)
@@ -622,6 +647,12 @@ export const IntegrationSettingsUpdateSchema = z
     shipping: z
       .object({
         accountEmail: z.string().trim().email().max(254).optional(),
+        branchCode: z.string().regex(/^\d+$/).optional(),
+        pdfType: z.union([z.literal(1), z.literal(2)]).optional(),
+        originLocalityCode: z
+          .string()
+          .regex(/^\d{8}$/)
+          .optional(),
         password: optionalSecretSchema,
         integrationToken: optionalSecretSchema,
         integrationId: z.string().trim().min(1).max(128).optional(),
@@ -644,7 +675,12 @@ export const IntegrationSettingsResponseSchema = dataEnvelopeSchema(
         .object({
           configured: z.boolean(),
           phoneNumberId: z.string().nullable(),
+          timezone: z.literal('America/Bogota').optional(),
+          serviceHours: OwnerServiceHoursSchema.nullable().optional(),
           graphApiVersion: z.string().nullable().optional(),
+          wabaId: z.string().nullable().optional(),
+          ownerAlertPhone: z.string().nullable().optional(),
+          ownerAlertTemplate: z.string().nullable().optional(),
         })
         .strict(),
       shipping: z
@@ -652,6 +688,12 @@ export const IntegrationSettingsResponseSchema = dataEnvelopeSchema(
           configured: z.boolean(),
           accountEmail: z.string().email().nullable(),
           integrationId: z.string().nullable().optional(),
+          branchCode: z.string().nullable().optional(),
+          pdfType: z.union([z.literal(1), z.literal(2)]).optional(),
+          originLocalityCode: z
+            .string()
+            .regex(/^\d{8}$/)
+            .optional(),
         })
         .strict(),
     })
@@ -732,10 +774,25 @@ export const InsuranceModeSchema = z.enum(['none', 'standard', 'plus']);
 export const ShippingFallbackPolicySchema = z.enum(['allow', 'block']);
 export const ShippingPolicySchema = z
   .object({
+    revision: z.number().int().nonnegative().optional(),
     preferredCarrier: carrierSchema.nullable(),
     fallbackPolicy: ShippingFallbackPolicySchema,
     offerMode: ShippingOfferModeSchema,
     protectedInsurance: z.enum(['standard', 'plus']),
+    allowedCarriers: z.array(carrierSchema).min(1).max(5).optional(),
+    excludedCarriers: z.array(carrierSchema).max(5).optional(),
+    orderedCarriers: z.array(carrierSchema).max(5).optional(),
+    insuranceThresholdCop: z.number().int().nonnegative().nullable().optional(),
+    packageDefaults: z
+      .object({
+        weightKg: z.number().positive().max(100),
+        lengthCm: z.number().positive().max(200),
+        widthCm: z.number().positive().max(200),
+        heightCm: z.number().positive().max(200),
+        contents: z.string().trim().min(1).max(200).optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine(
@@ -745,16 +802,56 @@ export const ShippingPolicySchema = z
       message: 'A blocked fallback requires a preferred carrier',
       path: ['preferredCarrier'],
     },
+  )
+  .refine(
+    (value) => {
+      const allowed = value.allowedCarriers ?? [];
+      const excluded = value.excludedCarriers ?? [];
+      const ordered = value.orderedCarriers ?? [];
+      const candidates = [value.preferredCarrier, ...ordered].filter(
+        (carrier): carrier is string => carrier !== null,
+      );
+      return (
+        [allowed, excluded, ordered].every(
+          (list) => new Set(list).size === list.length,
+        ) &&
+        !allowed.some((carrier) => excluded.includes(carrier)) &&
+        candidates.every(
+          (carrier) =>
+            !excluded.includes(carrier) &&
+            (allowed.length === 0 || allowed.includes(carrier)),
+        )
+      );
+    },
+    {
+      message:
+        'Las transportadoras permitidas, excluidas y preferidas deben ser consistentes.',
+    },
   );
 export type ShippingPolicy = z.infer<typeof ShippingPolicySchema>;
 
-export const ShippingRuleBodySchema = ShippingPolicySchema.and(
-  z.object({ localityCarrierCode: z.string().regex(/^\d{8}$/) }).strict(),
-);
+export const ShippingRuleBodySchema = ShippingPolicySchema.safeExtend({
+  localityCarrierCode: z.string().regex(/^\d{8}$/),
+});
 export type ShippingRuleBody = z.infer<typeof ShippingRuleBodySchema>;
 
 export const ShippingRulePublicSchema = z
   .object({
+    revision: z.number().int().nonnegative().optional(),
+    allowedCarriers: z.array(carrierSchema).min(1).max(5).optional(),
+    excludedCarriers: z.array(carrierSchema).max(5).optional(),
+    orderedCarriers: z.array(carrierSchema).max(5).optional(),
+    insuranceThresholdCop: z.number().int().nonnegative().nullable().optional(),
+    packageDefaults: z
+      .object({
+        weightKg: z.number().positive(),
+        lengthCm: z.number().positive(),
+        widthCm: z.number().positive(),
+        heightCm: z.number().positive(),
+        contents: z.string().trim().min(1).max(200).optional(),
+      })
+      .strict()
+      .optional(),
     localityCarrierCode: z.string().regex(/^\d{8}$/),
     locality: z.string().min(1).max(120),
     department: z.string().min(1).max(100),
@@ -901,3 +998,9 @@ export function decodeMovementCursor(cursor: string): MovementCursor {
     id: result.data.id,
   };
 }
+export * from './bot-flow.js';
+export * from './locality-catalog.js';
+export * from './integration-lifecycle.js';
+export * from './shipping-incidents.js';
+export * from './shipping-simulation.js';
+export * from './configuration-audit.js';

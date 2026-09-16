@@ -21,10 +21,13 @@ export class PostgresLocalityRepository implements LocalityRepository {
     issues?: unknown;
   }) {
     return this.database.orm.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('kairo.locality-catalog'))`,
+      );
       const [current] = await tx
-        .select({ sourceSha256: shippingLocalityImports.sourceSha256 })
-        .from(shippingLocalityImports)
-        .where(eq(shippingLocalityImports.sourceSha256, input.sourceSha256))
+        .select({ sourceSha256: shippingLocalities.sourceSha256 })
+        .from(shippingLocalities)
+        .where(eq(shippingLocalities.active, true))
         .limit(1);
       if (current?.sourceSha256 === input.sourceSha256)
         return { imported: 0, unchanged: true };
@@ -56,12 +59,15 @@ export class PostgresLocalityRepository implements LocalityRepository {
             },
           });
       }
-      await tx.insert(shippingLocalityImports).values({
-        sourceSha256: input.sourceSha256,
-        sourceType: input.sourceType ?? 'csv',
-        importedCount: input.localities.length,
-        issues: input.issues ?? [],
-      });
+      await tx
+        .insert(shippingLocalityImports)
+        .values({
+          sourceSha256: input.sourceSha256,
+          sourceType: input.sourceType ?? 'csv',
+          importedCount: input.localities.length,
+          issues: input.issues ?? [],
+        })
+        .onConflictDoNothing({ target: shippingLocalityImports.sourceSha256 });
       return { imported: input.localities.length, unchanged: false };
     });
   }

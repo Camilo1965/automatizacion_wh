@@ -262,6 +262,21 @@ export const shippingLocalities = pgTable(
   ],
 );
 
+export const localityCatalogVersions = pgTable('locality_catalog_versions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  sourceSha256: char('source_sha256', { length: 64 }).notNull(),
+  sourceType: varchar('source_type', { length: 24 }).notNull(),
+  rows: jsonb('rows').notNull(),
+  issues: jsonb('issues').notNull(),
+  baseVersionId: uuid('base_version_id'),
+  status: varchar('status', { length: 16 }).notNull().default('preview'),
+  author: varchar('author', { length: 64 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+});
+
 export const shippingLocalityImports = pgTable(
   'shipping_locality_imports',
   {
@@ -292,6 +307,31 @@ export const shippingLocalityImports = pgTable(
     ),
   ],
 );
+
+export const integrationDrafts = pgTable('integration_drafts', {
+  publicConfiguration: jsonb('public_configuration').notNull().default({}),
+  provider: varchar('provider', { length: 16 }).primaryKey(),
+  encryptedPayload: text('encrypted_payload').notNull(),
+  revision: integer('revision').notNull().default(1),
+  testedRevision: integer('tested_revision'),
+  testedAt: timestamp('tested_at', { withTimezone: true }),
+  author: varchar('author', { length: 64 }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+export const integrationVersions = pgTable('integration_versions', {
+  publicConfiguration: jsonb('public_configuration').notNull().default({}),
+  id: uuid('id').defaultRandom().primaryKey(),
+  provider: varchar('provider', { length: 16 }).notNull(),
+  encryptedPayload: text('encrypted_payload').notNull(),
+  revision: integer('revision').notNull(),
+  author: varchar('author', { length: 64 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  status: varchar('status', { length: 16 }).notNull().default('active'),
+});
 
 export const integrationSettings = pgTable(
   'integration_settings',
@@ -526,12 +566,37 @@ export const whatsappInboundMessages = pgTable(
   ],
 );
 
+export const botFlowVersions = pgTable('bot_flow_versions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  revision: integer('revision').notNull().unique(),
+  definition: jsonb('definition').notNull(),
+  author: varchar('author', { length: 64 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const botFlowDrafts = pgTable('bot_flow_drafts', {
+  id: varchar('id', { length: 32 }).primaryKey(),
+  revision: integer('revision').notNull(),
+  definition: jsonb('definition').notNull(),
+  author: varchar('author', { length: 64 }).notNull(),
+  activeVersionId: uuid('active_version_id').references(
+    () => botFlowVersions.id,
+  ),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const whatsappConversations = pgTable(
   'whatsapp_conversations',
   {
     id: uuid('id').defaultRandom().primaryKey(),
     customerPhone: varchar('customer_phone', { length: 20 }).notNull(),
     state: varchar('state', { length: 32 }).notNull(),
+    flowVersionId: uuid('flow_version_id').references(() => botFlowVersions.id),
+    flowSnapshot: jsonb('flow_snapshot'),
     mode: varchar('mode', { length: 8 }).notNull().default('bot'),
     selectedSize: numeric('selected_size', { precision: 4, scale: 1 }),
     selectedReferenceId: uuid('selected_reference_id').references(
@@ -607,7 +672,7 @@ export const whatsappConversationMessages = pgTable(
     ),
     check(
       'whatsapp_conversation_messages_type_allowed',
-      sql`${table.messageType} IN ('text', 'image', 'template', 'event')`,
+      sql`${table.messageType} IN ('text', 'image', 'document', 'template', 'event')`,
     ),
     check(
       'whatsapp_conversation_messages_status_allowed',
@@ -757,7 +822,7 @@ export const whatsappOutboundMessages = pgTable(
     ),
     check(
       'whatsapp_outbound_messages_type_allowed',
-      sql`${table.messageType} IN ('text', 'image')`,
+      sql`${table.messageType} IN ('text', 'image', 'document')`,
     ),
     check(
       'whatsapp_outbound_messages_status_allowed',
@@ -830,6 +895,7 @@ export const shippingQuotes = pgTable(
 export const shippingCarrierRules = pgTable(
   'shipping_carrier_rules',
   {
+    policyConfig: jsonb('policy_config'),
     localityCarrierCode: varchar('locality_carrier_code', {
       length: 32,
     }).primaryKey(),
@@ -882,6 +948,7 @@ export const shippingCarrierRules = pgTable(
 export const shippingPreferences = pgTable(
   'shipping_preferences',
   {
+    policyConfig: jsonb('policy_config'),
     id: boolean('id').primaryKey().default(true),
     carrier: varchar('carrier', { length: 32 }),
     fallbackPolicy: varchar('fallback_policy', { length: 8 })
@@ -956,9 +1023,30 @@ export const shippingPolicyAudits = pgTable(
   ],
 );
 
+export const shippingIncidents = pgTable('shipping_incidents', {
+  id: integer('id').primaryKey(),
+  preShipmentNumber: varchar('pre_shipment_number', { length: 64 }).notNull(),
+  orderId: uuid('order_id').references(() => salesOrders.id),
+  description: text('description').notNull(),
+  observations: text('observations'),
+  response: text('response'),
+  responseStatus: varchar('response_status', { length: 16 })
+    .notNull()
+    .default('open'),
+  author: varchar('author', { length: 64 }),
+  syncedAt: timestamp('synced_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  respondedAt: timestamp('responded_at', { withTimezone: true }),
+});
+
 export const shippingGuideJobs = pgTable(
   'shipping_guide_jobs',
   {
+    policySnapshot: jsonb('policy_snapshot'),
+    confirmedTotalCop: integer('confirmed_total_cop'),
+    pdfDeliveryAttempts: integer('pdf_delivery_attempts').notNull().default(0),
+    pdfLastAttemptAt: timestamp('pdf_last_attempt_at', { withTimezone: true }),
     id: uuid('id').defaultRandom().primaryKey(),
     orderId: uuid('order_id')
       .notNull()
@@ -1039,6 +1127,30 @@ export const ownerAlerts = pgTable(
   ],
 );
 
+export const ownerAlertDeliveries = pgTable('owner_alert_deliveries', {
+  alertId: uuid('alert_id')
+    .primaryKey()
+    .references(() => ownerAlerts.id, { onDelete: 'restrict' }),
+  status: varchar('status', { length: 16 }).notNull().default('processing'),
+  messageId: varchar('message_id', { length: 255 }),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+});
+
+export const configurationAudits = pgTable('configuration_audits', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  scope: varchar('scope', { length: 64 }).notNull(),
+  action: varchar('action', { length: 32 }).notNull(),
+  author: varchar('author', { length: 64 }).notNull(),
+  revision: integer('revision'),
+  snapshot: jsonb('snapshot').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const inventoryClosures = pgTable(
   'inventory_closures',
   {
@@ -1075,6 +1187,12 @@ export const inventoryClosures = pgTable(
 );
 
 export const schema = {
+  shippingIncidents,
+  integrationDrafts,
+  integrationVersions,
+  localityCatalogVersions,
+  botFlowVersions,
+  botFlowDrafts,
   adminUsers,
   adminSessions,
   catalogReferences,

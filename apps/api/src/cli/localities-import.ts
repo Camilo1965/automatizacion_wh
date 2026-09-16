@@ -1,10 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { createPostgresDatabase } from '../database/client.js';
-import {
-  LocalityImportError,
-  LocalityService,
-} from '../modules/localities/locality-service.js';
-import { PostgresLocalityRepository } from '../modules/localities/postgres-locality-repository.js';
+import { LocalityCatalogService } from '../modules/localities/locality-catalog-service.js';
 
 async function main() {
   const inputIndex = process.argv.indexOf('--input');
@@ -17,20 +13,17 @@ async function main() {
     throw new Error('Use --input <ruta> y configure DATABASE_URL');
   const database = createPostgresDatabase(databaseUrl);
   try {
-    const service = new LocalityService(
-      new PostgresLocalityRepository(database),
-    );
+    const service = new LocalityCatalogService(database);
+    await service.bootstrap();
     const bytes = await readFile(inputPath);
-    const result =
-      sourceFormat === '99envios-document'
-        ? await service.import99EnviosSource(
-            new TextDecoder('utf-8', { fatal: true }).decode(bytes),
-          )
-        : await service.importCsv(bytes);
+    const preview = await service.preview(
+      new TextDecoder('utf-8', { fatal: true }).decode(bytes),
+      sourceFormat === '99envios-document' ? '99envios_document' : 'csv',
+      'localities-cli',
+    );
+    await service.publish(preview.id, 'localities-cli');
     console.info(
-      result.unchanged
-        ? 'Localidades sin cambios'
-        : `Localidades importadas: ${result.imported}`,
+      `Localidades publicadas: ${preview.rowCount}; exclusiones: ${preview.excludedCount}`,
     );
   } finally {
     await database.close();
@@ -41,10 +34,5 @@ main().catch((error: unknown) => {
   console.error(
     error instanceof Error ? error.message : 'Falló la importación',
   );
-  if (error instanceof LocalityImportError) {
-    for (const issue of error.issues) {
-      console.error(`Fila ${issue.row}: ${issue.message} (${issue.code})`);
-    }
-  }
   process.exitCode = 1;
 });

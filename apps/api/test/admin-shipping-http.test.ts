@@ -189,13 +189,14 @@ describe('admin shipping HTTP API', () => {
         protectedInsurance: 'plus',
       },
     });
-    expect(savePolicy.statusCode).toBe(201);
+    expect(savePolicy.statusCode).toBe(204);
     expect(service.setShippingPolicy).toHaveBeenCalledWith(
       '05001000',
       expect.objectContaining({
         fallbackPolicy: 'block',
         protectedInsurance: 'plus',
       }),
+      'camila',
     );
     const pdf = await app.inject({
       method: 'GET',

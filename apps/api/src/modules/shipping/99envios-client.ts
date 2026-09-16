@@ -47,6 +47,8 @@ export type NinetyNineEnviosClientOptions = Readonly<{
   password: string;
   integrationToken?: string;
   integrationId?: string;
+  pdfType?: 1 | 2;
+  originLocalityCode?: string;
   fetch?: typeof globalThis.fetch;
 }>;
 
@@ -145,6 +147,7 @@ export class NinetyNineEnviosClient {
           transportadora: { pais: 'colombia', nombre: input.carrier },
           origenCreacion: 1,
         }),
+        signal: AbortSignal.timeout(30000),
       });
     } catch {
       throw new ShippingUncertainError();
@@ -183,7 +186,10 @@ export class NinetyNineEnviosClient {
         },
         body: JSON.stringify({
           destino: { nombre: null, codigo: input.localityCode },
-          origen: { nombre: null, codigo: null },
+          origen: {
+            nombre: null,
+            codigo: this.options.originLocalityCode ?? null,
+          },
           IdTipoEntrega: 1,
           IdServicio: 1,
           valorDeclarado: input.declaredValueCop,
@@ -196,6 +202,7 @@ export class NinetyNineEnviosClient {
           seguro99: input.insurance === 'standard',
           seguro99plus: input.insurance === 'plus',
         }),
+        signal: AbortSignal.timeout(20000),
       });
     } catch {
       throw new ShippingRequestError('99envios quote request failed');
@@ -252,24 +259,28 @@ export class NinetyNineEnviosClient {
     const token = await this.login();
     let response: Response;
     try {
-      response = await this.request(`${baseUrl}/pdf/2`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          ...(this.options.integrationToken === undefined
-            ? {}
-            : { 'X-Integration-Token': this.options.integrationToken }),
-          ...(this.options.integrationId === undefined
-            ? {}
-            : { 'X-Integration-Id': this.options.integrationId }),
+      response = await this.request(
+        `${baseUrl}/pdf/${this.options.pdfType ?? 2}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            ...(this.options.integrationToken === undefined
+              ? {}
+              : { 'X-Integration-Token': this.options.integrationToken }),
+            ...(this.options.integrationId === undefined
+              ? {}
+              : { 'X-Integration-Id': this.options.integrationId }),
+          },
+          body: JSON.stringify({
+            guia: numericGuide,
+            transportadora: { pais: 'colombia', nombre: carrier },
+            AplicaContrapago: true,
+          }),
+          signal: AbortSignal.timeout(30000),
         },
-        body: JSON.stringify({
-          guia: numericGuide,
-          transportadora: { pais: 'colombia', nombre: carrier },
-          AplicaContrapago: true,
-        }),
-      });
+      );
     } catch {
       throw new ShippingRequestError('99envios PDF download request failed');
     }
@@ -297,7 +308,10 @@ export class NinetyNineEnviosClient {
         );
       }
       try {
-        response = await this.request(pdfUrl.href);
+        response = await this.request(pdfUrl.href, {
+          signal: AbortSignal.timeout(30_000),
+          redirect: 'error',
+        });
       } catch {
         throw new ShippingRequestError('99envios PDF file request failed');
       }
@@ -319,6 +333,81 @@ export class NinetyNineEnviosClient {
     return bytes;
   }
 
+  async getIncidents(branchCode: string) {
+    if (!/^\d+$/.test(branchCode))
+      throw new ShippingRequestError('Invalid branch code');
+    const token = await this.login();
+    const response = await this.request(
+      `https://integration.99envios.app/api/integration/sucursal/novedades/${encodeURIComponent(branchCode)}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(20000),
+      },
+    );
+    if (!response.ok)
+      throw new ShippingRequestError(
+        `99envios incidents failed with status ${response.status}`,
+      );
+    return z
+      .object({
+        novedades: z.array(
+          z
+            .object({
+              id: z.number().int().positive(),
+              numero_preenvio: z
+                .union([z.number().int(), z.string().regex(/^\d+$/)])
+                .transform(String),
+              novedad: z.string(),
+              observaciones: z.string().nullable().optional(),
+            })
+            .passthrough(),
+        ),
+      })
+      .passthrough()
+      .parse(await response.json()).novedades;
+  }
+  async respondIncident(
+    id: number,
+    guideNumber: string,
+    description: string,
+    observations: string,
+  ) {
+    const numeroGuia = Number(guideNumber);
+    if (
+      !Number.isSafeInteger(numeroGuia) ||
+      numeroGuia < 1 ||
+      !Number.isSafeInteger(id) ||
+      id < 1
+    )
+      throw new ShippingRequestError('Invalid incident');
+    const token = await this.login();
+    let response: Response;
+    try {
+      response = await this.request(
+        `https://integration.99envios.app/api/integration/sucursal/novedades/${id}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            numero_guia: numeroGuia,
+            novedad_sucursal: description,
+            observaciones: observations,
+          }),
+          signal: AbortSignal.timeout(20000),
+        },
+      );
+    } catch {
+      throw new ShippingUncertainError();
+    }
+    if (response.status >= 500) throw new ShippingUncertainError();
+    if (!response.ok)
+      throw new ShippingRequestError(
+        `99envios incident response failed with status ${response.status}`,
+      );
+  }
   private async login(): Promise<string> {
     let response: Response;
     try {
@@ -329,6 +418,7 @@ export class NinetyNineEnviosClient {
           email: this.options.email,
           password: this.options.password,
         }),
+        signal: AbortSignal.timeout(20000),
       });
     } catch {
       throw new ShippingRequestError(

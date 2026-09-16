@@ -21,6 +21,7 @@ export const ConversationMessageTypeSchema = z.enum([
   'text',
   'image',
   'template',
+  'document',
   'event',
 ]);
 

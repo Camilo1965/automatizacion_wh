@@ -1,4 +1,8 @@
 import { loadConfig } from './config.js';
+import { BotFlowService } from './modules/conversations/bot-flow-service.js';
+import { LocalityCatalogService } from './modules/localities/locality-catalog-service.js';
+import { GuideDeliveryService } from './modules/shipping/guide-delivery-service.js';
+import { ShippingIncidentService } from './modules/shipping/shipping-incident-service.js';
 import { buildApp } from './app.js';
 import { createPostgresDatabase } from './database/client.js';
 import { AuthService } from './modules/auth/auth-service.js';
@@ -32,6 +36,7 @@ import { PostgresDashboardRepository } from './modules/dashboard/postgres-dashbo
 import { ConnectionCapabilityService } from './modules/whatsapp/connection-capability-service.js';
 import { AlertService } from './modules/alerts/alert-service.js';
 import { PostgresAlertRepository } from './modules/alerts/postgres-alert-repository.js';
+import { OwnerAlertWorker } from './modules/alerts/owner-alert-worker.js';
 import { InventoryClosureService } from './modules/inventory/inventory-closure-service.js';
 import { PostgresInventoryClosureRepository } from './modules/inventory/postgres-inventory-closure-repository.js';
 import { DailyClosureScheduler } from './modules/inventory/daily-closure-scheduler.js';
@@ -49,6 +54,10 @@ import path from 'node:path';
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
   const database = createPostgresDatabase(config.databaseUrl);
+  const botFlowService = new BotFlowService(database);
+  await botFlowService.bootstrap();
+  const localityCatalogService = new LocalityCatalogService(database);
+  await localityCatalogService.bootstrap();
   const authRepository = new PostgresAdminAuthRepository(database);
   const authService = new AuthService(authRepository);
   const catalogRepository = new PostgresCatalogRepository(database);
@@ -113,6 +122,7 @@ async function main(): Promise<void> {
           shippingClient,
           new LocalGuidePdfStorage(path.join(config.mediaRoot, 'guides')),
         );
+  const alertService = new AlertService(new PostgresAlertRepository(database));
   const inboundProcessor = new WhatsAppSalesService(
     new PostgresConversationRepository(database),
     catalogService,
@@ -122,6 +132,8 @@ async function main(): Promise<void> {
     localityService,
     shippingGuideJobs,
     shippingQuoteService,
+    alertService,
+    async () => (await integrationSettingsService?.getWhatsApp()) ?? null,
   );
   const conversationAdminRepository = new PostgresConversationAdminRepository(
     database,
@@ -132,7 +144,6 @@ async function main(): Promise<void> {
     conversationAdminRepository,
     outboundRepository,
   );
-  const alertService = new AlertService(new PostgresAlertRepository(database));
 
   const inventoryClosureService = new InventoryClosureService(
     new PostgresInventoryClosureRepository(database),
@@ -166,10 +177,13 @@ async function main(): Promise<void> {
     integrationHealthService: new IntegrationHealthService({
       database: () => database.ping(),
       mediaStorage: () => access(config.mediaRoot),
-      whatsappConfigured:
-        config.whatsappAccessToken !== undefined &&
-        config.whatsappPhoneNumberId !== undefined,
-      shippingConfigured: shippingClient !== undefined,
+      whatsappConfigured: async () =>
+        (await integrationSettingsService?.getWhatsApp()) != null ||
+        (config.whatsappAccessToken !== undefined &&
+          config.whatsappPhoneNumberId !== undefined),
+      shippingConfigured: async () =>
+        (await integrationSettingsService?.getShipping()) != null ||
+        shippingFallback !== undefined,
       schedulerHealthy: true,
     }),
     photoStorage,
@@ -178,9 +192,38 @@ async function main(): Promise<void> {
     ...(integrationSettingsService === undefined
       ? {}
       : { integrationSettingsService }),
+    botFlowService,
+    localityCatalogService,
+    ...(shippingClient === undefined
+      ? {}
+      : {
+          shippingIncidentService: new ShippingIncidentService(
+            database,
+            shippingClient,
+          ),
+        }),
   });
 
   const closureScheduler = new DailyClosureScheduler(inventoryClosureService);
+  if (integrationSettingsService) {
+    const alertWorker = new OwnerAlertWorker(
+      database,
+      integrationSettingsService,
+    );
+    let notifying = false;
+    const timer = setInterval(() => {
+      if (notifying) return;
+      notifying = true;
+      void alertWorker
+        .runOnce()
+        .catch(() => app.log.error('Owner notification failed'))
+        .finally(() => {
+          notifying = false;
+        });
+    }, 5000);
+    timer.unref();
+    app.addHook('onClose', async () => clearInterval(timer));
+  }
   const closureTimer = setInterval(
     () => void closureScheduler.tick(new Date()),
     60_000,
@@ -210,10 +253,12 @@ async function main(): Promise<void> {
       ),
       photoStorage,
       alertService,
+      new LocalGuidePdfStorage(`${config.mediaRoot}/guides`),
     );
     let running = false;
     const timer = setInterval(() => {
       if (running) return;
+      running = true;
       void (async () => {
         if (
           whatsappFallback === undefined &&
@@ -221,11 +266,12 @@ async function main(): Promise<void> {
         ) {
           return;
         }
-        running = true;
-        await worker.runOnce().finally(() => {
+        await worker.runOnce();
+      })()
+        .catch(() => app.log.error('WhatsApp worker failed'))
+        .finally(() => {
           running = false;
         });
-      })();
     }, 250);
     timer.unref();
     app.addHook('onClose', async () => {
@@ -243,6 +289,7 @@ async function main(): Promise<void> {
     let running = false;
     const timer = setInterval(() => {
       if (running) return;
+      running = true;
       void (async () => {
         if (
           shippingFallback === undefined &&
@@ -250,11 +297,36 @@ async function main(): Promise<void> {
         ) {
           return;
         }
-        running = true;
-        await worker.runOnce().finally(() => {
+        await worker.runOnce();
+      })()
+        .catch(() => app.log.error('Shipping worker failed'))
+        .finally(() => {
           running = false;
         });
-      })();
+    }, 1000);
+    timer.unref();
+    app.addHook('onClose', async () => {
+      clearInterval(timer);
+    });
+  }
+
+  if (shippingGuideService !== undefined) {
+    const delivery = new GuideDeliveryService(
+      database,
+      shippingGuideService,
+      outboundRepository,
+      alertService,
+    );
+    let delivering = false;
+    const timer = setInterval(() => {
+      if (delivering) return;
+      delivering = true;
+      void delivery
+        .runOnce()
+        .catch(() => app.log.error('Guide document delivery failed'))
+        .finally(() => {
+          delivering = false;
+        });
     }, 1000);
     timer.unref();
     app.addHook('onClose', async () => {

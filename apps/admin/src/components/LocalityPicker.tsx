@@ -5,7 +5,7 @@ import {
   type LocalityPublic,
 } from '@camila/contracts';
 import { MapPin, Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 import { apiRequest, getErrorMessage } from '../api/client';
 
@@ -16,8 +16,12 @@ export function LocalityPicker({
   value: LocalityPublic | null;
   onChange: (value: LocalityPublic | null) => void;
 }) {
-  const [query, setQuery] = useState('');
-  const [department, setDepartment] = useState('');
+  const id = useId();
+  const [search, setQuery] = useState<string | null>(null);
+  const query =
+    search ?? (value ? `${value.locality}, ${value.department}` : '');
+  const [chosenDepartment, setDepartment] = useState<string | null>(null);
+  const department = chosenDepartment ?? value?.department ?? '';
   const [departments, setDepartments] = useState<readonly DepartmentPublic[]>(
     [],
   );
@@ -29,7 +33,11 @@ export function LocalityPicker({
       schema: DepartmentsResponseSchema,
     })
       .then((response) => setDepartments(response.data.items))
-      .catch(() => setDepartments([]));
+      .catch(() =>
+        setError(
+          'No fue posible cargar los departamentos. Vuelve a abrir esta sección.',
+        ),
+      );
   }, []);
 
   useEffect(() => {
@@ -38,6 +46,7 @@ export function LocalityPicker({
       ? `${value.locality}, ${value.department}`
       : null;
     if (normalizedQuery.length < 2 || normalizedQuery === selectedLabel) return;
+    const controller = new AbortController();
     const timer = window.setTimeout(() => {
       void apiRequest(
         `/localities?query=${encodeURIComponent(normalizedQuery)}&limit=20${
@@ -45,29 +54,37 @@ export function LocalityPicker({
             ? ''
             : `&department=${encodeURIComponent(department)}`
         }`,
-        { schema: LocalitiesResponseSchema },
+        { schema: LocalitiesResponseSchema, signal: controller.signal },
       )
         .then((response) => {
+          if (controller.signal.aborted) return;
           setItems(response.data.items);
           setError('');
         })
-        .catch((caught) =>
-          setError(getErrorMessage(caught, 'No fue posible buscar municipios')),
-        );
+        .catch((caught) => {
+          if (!controller.signal.aborted)
+            setError(
+              getErrorMessage(caught, 'No fue posible buscar municipios'),
+            );
+        });
     }, 250);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [department, query, value]);
 
   const showResults = query.trim().length >= 2 && items.length > 0;
 
   return (
     <div className="locality-picker">
-      <label htmlFor="locality-search">Departamento y municipio</label>
+      <label htmlFor={`${id}-search`}>Departamento y municipio</label>
       <select
         aria-label="Departamento"
         value={department}
         onChange={(event) => {
           setDepartment(event.target.value);
+          setQuery('');
           setItems([]);
           if (value !== null) onChange(null);
         }}
@@ -82,27 +99,41 @@ export function LocalityPicker({
       <div className="input-with-icon">
         <Search aria-hidden="true" size={18} />
         <input
-          id="locality-search"
+          id={`${id}-search`}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
+            setItems([]);
             if (value !== null) onChange(null);
           }}
           placeholder="Busca Medellín, Antioquia…"
           autoComplete="off"
-          required
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowDown') {
+              event.preventDefault();
+              document
+                .getElementById(`${id}-results`)
+                ?.querySelector<HTMLButtonElement>('button')
+                ?.focus();
+            }
+            if (event.key === 'Escape') setItems([]);
+          }}
         />
       </div>
       {error ? <p role="alert">{error}</p> : null}
       {showResults ? (
-        <ul className="locality-results" aria-label="Municipios encontrados">
+        <ul
+          id={`${id}-results`}
+          className="locality-results"
+          aria-label="Municipios encontrados"
+        >
           {items.map((item) => (
             <li key={item.carrierCode}>
               <button
                 type="button"
                 onClick={() => {
                   onChange(item);
-                  setQuery(`${item.locality}, ${item.department}`);
+                  setQuery(null);
                   setItems([]);
                 }}
               >

@@ -1,7 +1,11 @@
+import { OrderConflictError } from '../orders/order-errors.js';
 import type {
   AvailableCatalogItem,
   AvailableCatalogPage,
 } from '../catalog/catalog-types.js';
+import type { BotFlowDefinition } from './flow-definition.js';
+import { renderFlowMessage } from './configured-flow.js';
+import { ownerAvailabilityMessage } from './owner-service-hours.js';
 import type {
   CreateOrderInput,
   OrderRecord,
@@ -18,6 +22,7 @@ import type {
 } from './postgres-conversation-repository.js';
 
 type ConversationPort = Readonly<{
+  takeOver?(conversationId: string): Promise<void>;
   receive(input: ReceiveConversationInput): Promise<ReceiveConversationResult>;
   returnToSize(conversationId: string): Promise<void>;
   attachOrder?(
@@ -33,6 +38,7 @@ type CatalogPort = Readonly<{
   listAvailableForConfirmedSize(input: {
     confirmedSize: string;
     afterCode?: string;
+    pageSize?: number;
   }): Promise<AvailableCatalogPage>;
 }>;
 
@@ -57,7 +63,11 @@ type OutboundPort = Readonly<{
 }>;
 
 type OrderPort = Readonly<{
-  create(input: CreateOrderInput): Promise<Pick<OrderRecord, 'id'>>;
+  create(
+    input: CreateOrderInput,
+  ): Promise<
+    Pick<OrderRecord, 'id'> & Partial<Pick<OrderRecord, 'orderNumber'>>
+  >;
   update?(input: PatchOrderInput): Promise<unknown>;
   createSummary?(orderId: string): Promise<OrderSummary>;
   transition?(input: {
@@ -115,7 +125,7 @@ function formatCop(value: number): string {
   }).format(value)}`;
 }
 
-function summaryText(summary: OrderSummary): string {
+function summaryText(summary: OrderSummary, flow?: BotFlowDefinition): string {
   const snapshot = summary.snapshot as {
     orderNumber?: string;
     reference?: { code?: string; modelName?: string; color?: string };
@@ -132,7 +142,7 @@ function summaryText(summary: OrderSummary): string {
   const shippingLine =
     snapshot.shippingCostCop == null
       ? 'Envío pendiente de cotización'
-      : `Envío: ${snapshot.shippingQuote?.carrier ?? 'transportadora'} · ${formatCop(snapshot.shippingCostCop)}${snapshot.shippingQuote?.insuranceMode && snapshot.shippingQuote.insuranceMode !== 'none' ? ` · Seguro ${snapshot.shippingQuote.insuranceMode === 'plus' ? '99 Plus' : '99 estándar'}` : ''}`;
+      : `Envío: ${flow?.optionalSteps.showCarrierInSummary === false ? '' : (snapshot.shippingQuote?.carrier ?? 'transportadora') + ' · '}${formatCop(snapshot.shippingCostCop)}${snapshot.shippingQuote?.insuranceMode && snapshot.shippingQuote.insuranceMode !== 'none' ? ` · Seguro ${snapshot.shippingQuote.insuranceMode === 'plus' ? '99 Plus' : '99 estándar'}` : ''}`;
   return [
     `Resumen ${snapshot.orderNumber ?? ''}`.trim(),
     `REF ${snapshot.reference?.code ?? ''} · ${snapshot.reference?.modelName ?? ''} · ${snapshot.reference?.color ?? ''}`,
@@ -141,7 +151,7 @@ function summaryText(summary: OrderSummary): string {
     `Total ${formatCop(snapshot.totalCop ?? 0)}`,
     `Cliente: ${snapshot.customer?.name ?? ''}`,
     `Entrega: ${snapshot.destination?.address ?? ''}, ${snapshot.destination?.locality ?? ''}, ${snapshot.destination?.department ?? ''}`,
-    'Pago contra entrega. Responde “confirmar” para reservar o “cancelar”.',
+    `Pago contra entrega. Responde “${flow?.commands.confirm ?? 'confirmar'}” para reservar o “${flow?.commands.cancel ?? 'cancelar'}”.`,
   ].join('\n');
 }
 
@@ -171,20 +181,63 @@ export class WhatsAppSalesService {
     private readonly localities?: LocalityPort,
     private readonly shippingGuideJobs?: ShippingGuideJobPort,
     private readonly shippingQuotes?: ShippingQuotePort,
+    private readonly alerts?: Readonly<{
+      open(input: {
+        type: string;
+        severity: 'info' | 'warning' | 'critical';
+        title: string;
+        detail: string;
+        entityUrl: string;
+        entityId: string;
+        retrySafe: boolean;
+      }): Promise<unknown>;
+    }>,
+    private readonly getOwnerSettings?: () => Promise<
+      Parameters<typeof ownerAvailabilityMessage>[0]
+    >,
   ) {}
 
   async process(input: ReceiveConversationInput): Promise<void> {
     const result = await this.conversations.receive(input);
     if (result.duplicate || result.conversationId === undefined) return;
     if (result.reply !== null) {
-      await this.queueText(result.conversationId, input, result.reply, 'reply');
+      const availability =
+        result.action === 'human_takeover' && this.getOwnerSettings
+          ? ownerAvailabilityMessage(await this.getOwnerSettings())
+          : '';
+      await this.queueText(
+        result.conversationId,
+        input,
+        [result.reply, availability].filter(Boolean).join('\n'),
+        'reply',
+        result.action === 'human_takeover' ? 'owner_panel' : undefined,
+      );
+    }
+    if (result.action === 'human_takeover') {
+      await this.alerts?.open({
+        type: 'conversation_attention',
+        severity: 'warning',
+        title: 'Cliente solicita atención',
+        detail:
+          'La automatización quedó pausada. Abre la conversación para continuar y reanuda el bot cuando corresponda.',
+        entityUrl: `/conversations?conversation=${result.conversationId}`,
+        entityId: result.conversationId,
+        retrySafe: false,
+      });
+      return;
     }
     if (
       result.action === 'show_catalog' &&
       result.selectedSize !== undefined &&
       result.selectedSize !== null
     ) {
-      await this.showCatalog(result.conversationId, input, result.selectedSize);
+      await this.showCatalog(
+        result.conversationId,
+        input,
+        result.selectedSize,
+        undefined,
+        result.flow,
+      );
     }
     if (
       result.action === 'more_models' &&
@@ -205,6 +258,7 @@ export class WhatsAppSalesService {
           input,
           result.selectedSize,
           afterCode,
+          result.flow,
         );
       }
     }
@@ -240,7 +294,17 @@ export class WhatsAppSalesService {
         await this.queueText(
           result.conversationId,
           input,
-          `Perfecto, elegiste la REF ${option.code}. ¿Cuál es tu nombre completo?`,
+          result.flow === undefined
+            ? `Perfecto, elegiste la REF ${option.code}. ¿Cuál es tu nombre completo?`
+            : renderFlowMessage(result.flow.steps.name.message, {
+                ...result.variables,
+                talla: displaySize(result.selectedSize),
+                pedido:
+                  order.orderNumber === undefined
+                    ? ''
+                    : `PED-${String(order.orderNumber).padStart(6, '0')}`,
+                referencia: option.code,
+              }),
           'reference-selected',
         );
       }
@@ -296,29 +360,25 @@ export class WhatsAppSalesService {
         await this.queueText(
           result.conversationId,
           input,
-          'Escribe la dirección completa de entrega.',
+          result.flow
+            ? renderFlowMessage(
+                result.flow.steps.address.message,
+                result.variables,
+              )
+            : 'Escribe la dirección completa de entrega.',
           'locality-selected',
         );
       }
     }
     if (
-      result.action === 'collect_notes' &&
+      (result.action === 'collect_notes' ||
+        (result.action === 'collect_address' &&
+          result.flow?.optionalSteps.notes === false)) &&
       result.activeOrderId != null &&
       this.orders?.createSummary !== undefined &&
       this.conversations.setSummaryVersion !== undefined
     ) {
-      await this.shippingQuotes?.createQuotes(result.activeOrderId);
-      const summary = await this.orders.createSummary(result.activeOrderId);
-      await this.conversations.setSummaryVersion(
-        result.conversationId,
-        summary.version,
-      );
-      await this.queueText(
-        result.conversationId,
-        input,
-        summaryText(summary),
-        `summary:${summary.version}`,
-      );
+      await this.prepareSummary(result, input);
     }
     if (
       result.action === 'select_shipping' &&
@@ -366,20 +426,137 @@ export class WhatsAppSalesService {
       result.activeSummaryVersion != null &&
       this.orders?.transition !== undefined
     ) {
-      await this.orders.transition({
-        orderId: result.activeOrderId,
-        action: 'confirm',
-        summaryVersion: result.activeSummaryVersion,
-        idempotencyKey: `whatsapp:${input.whatsappMessageId}`,
-      });
+      try {
+        await this.orders.transition({
+          orderId: result.activeOrderId,
+          action: 'confirm',
+          summaryVersion: result.activeSummaryVersion,
+          idempotencyKey: `whatsapp:${input.whatsappMessageId}`,
+        });
+      } catch (error) {
+        if (
+          error instanceof OrderConflictError &&
+          [
+            'shipping_quote_expired',
+            'shipping_quote_stale',
+            'stale_summary',
+          ].includes(error.code)
+        ) {
+          await this.queueText(
+            result.conversationId,
+            input,
+            'La cotización venció o cambió. Revisa el nuevo total y confirma nuevamente.',
+            'quote-refresh',
+          );
+          await this.prepareSummary(result, input);
+          return;
+        }
+        await this.conversations.takeOver?.(result.conversationId);
+        await this.outbound.enqueueText({
+          conversationId: result.conversationId,
+          customerPhone: input.customerPhone,
+          body: 'La propietaria revisará tu pedido antes de continuar.',
+          source: 'owner_panel',
+          idempotencyKey: `confirmation-attention:${input.whatsappMessageId}`,
+        });
+        await this.alerts?.open({
+          type: 'order_confirmation_attention',
+          severity: 'critical',
+          title: 'Revisar confirmación de pedido',
+          detail:
+            'No se completó la confirmación. Revisar disponibilidad y estado antes de continuar.',
+          entityUrl: `/orders/${result.activeOrderId}`,
+          entityId: result.activeOrderId,
+          retrySafe: false,
+        });
+        return;
+      }
       await this.shippingGuideJobs?.enqueue(result.activeOrderId);
       await this.queueText(
         result.conversationId,
         input,
-        '¡Listo! Tu pedido quedó confirmado y la unidad fue reservada. Te avisaremos cuando se genere la guía.',
+        (result.flow
+          ? renderFlowMessage(
+              result.flow.steps.complete.message,
+              result.variables,
+            )
+          : undefined) ??
+          '¡Listo! Tu pedido quedó confirmado y la unidad fue reservada. Te avisaremos cuando se genere la guía.',
         'confirmed',
       );
     }
+  }
+
+  private async prepareSummary(
+    result: ReceiveConversationResult,
+    input: ReceiveConversationInput,
+  ): Promise<void> {
+    if (result.conversationId === undefined) return;
+    if (
+      result.activeOrderId == null ||
+      this.orders?.createSummary === undefined ||
+      this.conversations.setSummaryVersion === undefined
+    ) {
+      await this.conversations.takeOver?.(result.conversationId);
+      return;
+    }
+    try {
+      if (result.flow)
+        await this.queueText(
+          result.conversationId,
+          input,
+          renderFlowMessage(result.flow.steps.quote.message, result.variables),
+          'quoting',
+        );
+      await this.shippingQuotes?.createQuotes(result.activeOrderId);
+    } catch {
+      await this.conversations.takeOver?.(result.conversationId);
+      await this.outbound.enqueueText({
+        conversationId: result.conversationId,
+        customerPhone: input.customerPhone,
+        body: 'La propietaria revisará la cobertura del envío antes de confirmar tu pedido.',
+        source: 'owner_panel',
+        idempotencyKey: `shipping-attention:${input.whatsappMessageId}`,
+      });
+      await this.alerts?.open({
+        type: 'shipping_quote_attention',
+        severity: 'critical',
+        title: 'Revisar cobertura del envío',
+        detail:
+          'No se obtuvo una cotización que cumpla las preferencias. El pedido no fue confirmado y requiere atención.',
+        entityUrl: `/orders/${result.activeOrderId}`,
+        entityId: result.activeOrderId,
+        retrySafe: true,
+      });
+      return;
+    }
+    const summary = await this.orders.createSummary(result.activeOrderId);
+    await this.conversations.setSummaryVersion(
+      result.conversationId,
+      summary.version,
+    );
+    const snapshot = summary.snapshot as {
+      totalCop: number;
+      shippingQuote?: { carrier?: string };
+    };
+    const summaryVariables = {
+      ...result.variables,
+      total: formatCop(snapshot.totalCop),
+      transportadora: snapshot.shippingQuote?.carrier ?? '',
+    };
+    await this.queueText(
+      result.conversationId,
+      input,
+      result.flow === undefined
+        ? summaryText(summary)
+        : `${renderFlowMessage(result.flow.steps.summary.message, summaryVariables)}\n\n${summaryText(summary, result.flow)}\n\n${renderFlowMessage(result.flow.steps.confirmation.message, summaryVariables)}`,
+      `summary:${summary.version}`,
+    );
+
+    await this.conversations.setState?.(
+      result.conversationId,
+      'awaiting_confirmation',
+    );
   }
 
   private orderPatchFor(
@@ -406,9 +583,11 @@ export class WhatsAppSalesService {
     inbound: ReceiveConversationInput,
     size: string,
     afterCode?: string,
+    flow?: BotFlowDefinition,
   ): Promise<void> {
     const page = await this.catalog.listAvailableForConfirmedSize({
       confirmedSize: size,
+      ...(flow === undefined ? {} : { pageSize: flow.pageSize }),
       ...(afterCode === undefined ? {} : { afterCode }),
     });
     if (page.items.length === 0) {
@@ -444,7 +623,9 @@ export class WhatsAppSalesService {
     await this.queueText(
       conversationId,
       inbound,
-      `Responde con la referencia que te gustó o “cambiar talla”.${more}`,
+      flow === undefined
+        ? `Responde con la referencia que te gustó o “cambiar talla”.${more}`
+        : `${renderFlowMessage(flow.steps.catalog.message, { talla: displaySize(size) })}\n${renderFlowMessage(flow.steps.reference.message, { talla: displaySize(size) })}\nPara ver más: “${flow.commands.more}”. Para reiniciar: “${flow.commands.reset}”.`,
       `menu-prompt:${menu.version}`,
     );
   }
@@ -454,11 +635,13 @@ export class WhatsAppSalesService {
     inbound: ReceiveConversationInput,
     body: string,
     suffix: string,
+    source?: EnqueueTextInput['source'],
   ): Promise<void> {
     await this.outbound.enqueueText({
       conversationId,
       customerPhone: inbound.customerPhone,
       body,
+      ...(source === undefined ? {} : { source }),
       idempotencyKey: `${suffix}:${inbound.whatsappMessageId}`,
     });
   }

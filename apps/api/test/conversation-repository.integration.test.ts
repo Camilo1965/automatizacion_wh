@@ -43,7 +43,7 @@ describe('conversation persistence', () => {
       expect(first).toMatchObject({
         duplicate: false,
         state: 'awaiting_size',
-        reply: '¡Hola! 😊 ¿Qué talla buscas?',
+        reply: '¡Hola! Soy KAIRO. ¿Qué talla buscas?',
       });
       expect(replay).toMatchObject({ duplicate: true, reply: null });
       const sql = postgres(databaseUrl, { max: 1, prepare: false });

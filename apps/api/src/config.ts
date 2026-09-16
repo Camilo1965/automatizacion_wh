@@ -174,7 +174,14 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
   const ninetyNineEnviosIntegrationId =
     environment.NINETYNINE_ENVIOS_INTEGRATION_ID?.trim() || undefined;
   const integrationEncryptionKey =
-    environment.INTEGRATION_ENCRYPTION_KEY?.trim() || undefined;
+    environment.KAIRO_CONFIG_ENCRYPTION_KEY?.trim() ||
+    environment.INTEGRATION_ENCRYPTION_KEY?.trim() ||
+    undefined;
+  if (
+    environment.NODE_ENV === 'production' &&
+    integrationEncryptionKey === undefined
+  )
+    issues.push('INTEGRATION_ENCRYPTION_KEY');
   if (
     integrationEncryptionKey !== undefined &&
     Buffer.from(integrationEncryptionKey, 'base64').length !== 32

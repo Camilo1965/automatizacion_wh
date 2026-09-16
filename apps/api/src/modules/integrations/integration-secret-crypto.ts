@@ -9,7 +9,7 @@ export class IntegrationSecretCryptoError extends Error {
 
 function decodeKey(value: string): Buffer {
   const key = Buffer.from(value, 'base64');
-  if (key.length !== 32) {
+  if (key.length !== 32 || key.toString('base64') !== value) {
     throw new IntegrationSecretCryptoError(
       'INTEGRATION_ENCRYPTION_KEY must be a base64-encoded 32-byte key',
     );

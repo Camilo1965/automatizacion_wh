@@ -45,6 +45,19 @@ export class ConfiguredWhatsAppClient {
   async sendText(customerPhone: string, body: string) {
     return (await this.client()).sendText(customerPhone, body);
   }
+  async sendDocument(
+    customerPhone: string,
+    bytes: Uint8Array,
+    filename: string,
+    caption: string,
+  ) {
+    return (await this.client()).sendDocument(
+      customerPhone,
+      bytes,
+      filename,
+      caption,
+    );
+  }
 
   async sendImage(
     customerPhone: string,
@@ -75,6 +88,10 @@ export class ConfiguredNinetyNineEnviosClient {
     return new NinetyNineEnviosClient({
       email: saved?.accountEmail ?? this.fallback!.email,
       password: current.password,
+      ...(saved?.pdfType ? { pdfType: saved.pdfType } : {}),
+      ...(saved?.originLocalityCode
+        ? { originLocalityCode: saved.originLocalityCode }
+        : {}),
       ...(current.integrationToken === undefined
         ? {}
         : { integrationToken: current.integrationToken }),
@@ -86,6 +103,25 @@ export class ConfiguredNinetyNineEnviosClient {
 
   async quote(input: QuoteInput) {
     return (await this.client()).quote(input);
+  }
+  async getIncidents() {
+    const settings = await this.settings?.getShipping();
+    if (!settings?.branchCode)
+      throw new IntegrationNotConfiguredError('99envíos');
+    return (await this.client()).getIncidents(settings.branchCode);
+  }
+  async respondIncident(
+    id: number,
+    guide: string,
+    description: string,
+    observations: string,
+  ) {
+    return (await this.client()).respondIncident(
+      id,
+      guide,
+      description,
+      observations,
+    );
   }
 
   async createPreShipment(input: CreatePreShipmentInput) {

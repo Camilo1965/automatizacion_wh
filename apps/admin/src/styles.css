@@ -2157,3 +2157,102 @@ a:focus-visible {
   color: var(--color-accent, #236052);
   font-size: 1.4rem;
 }
+
+.flow-editor {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+  gap: 1.25rem;
+  margin: 1.25rem 0;
+}
+.flow-editor nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-self: start;
+}
+.flow-editor nav button {
+  text-align: left;
+  min-height: 44px;
+}
+.flow-editor nav button[aria-pressed='true'] {
+  background: var(--brand-primary, #9d610c);
+  color: #fff;
+}
+.flow-editor textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+.flow-message-preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 767px) {
+  .flow-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .flow-editor nav {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .flow-editor nav button {
+    flex-shrink: 0;
+  }
+}
+
+.operational-config button {
+  min-height: 44px;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: var(--surface, #fffaf4);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+.operational-config button:hover:not(:disabled) {
+  background: #f9eddb;
+}
+.operational-config button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.operational-config label {
+  display: block;
+  margin: 0.8rem 0 0.4rem;
+  font-weight: 600;
+}
+.operational-config input,
+.operational-config select {
+  min-height: 44px;
+  border-radius: 0.5rem;
+}
+.operational-config textarea {
+  border-radius: 0.5rem;
+}
+.operational-config fieldset {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+}
+.operational-config label:has(input[type='checkbox']) {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 44px;
+  margin: 0.2rem 0;
+  font-weight: 400;
+  cursor: pointer;
+}
+.operational-config input[type='checkbox'] {
+  width: 1.15rem;
+  min-height: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  accent-color: var(--brand-primary, #9d610c);
+}
+@media (prefers-reduced-motion: reduce) {
+  .operational-config button {
+    transition: none;
+  }
+}

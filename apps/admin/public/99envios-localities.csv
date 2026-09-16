@@ -1,0 +1,1257 @@
+carrier_code,department,locality,country
+91263000,"Amazonas","El Encanto",CO
+91405000,"Amazonas","La Chorrera",CO
+91407000,"Amazonas","La Pedrera",CO
+91001000,"Amazonas","Leticia",CO
+91430000,"Amazonas","La Victoria Pacoa",CO
+91530000,"Amazonas","Puerto Alegria",CO
+91536000,"Amazonas","Puerto Arica",CO
+91540000,"Amazonas","Puerto Nariño",CO
+91669000,"Amazonas","Puerto Santander",CO
+91798000,"Amazonas","Tarapaca",CO
+05002000,"Antioquia","Abejorral",CO
+05004000,"Antioquia","Abriaqui",CO
+05021000,"Antioquia","Alejandria",CO
+05030000,"Antioquia","Amaga",CO
+05031000,"Antioquia","Amalfi",CO
+05034000,"Antioquia","Andes",CO
+05036000,"Antioquia","Angelopolis",CO
+05038000,"Antioquia","Angostura",CO
+05040000,"Antioquia","Anori",CO
+05042000,"Antioquia","Santafe De Antioquia",CO
+05044000,"Antioquia","Anza",CO
+05837001,"Antioquia","Currulao",CO
+05591004,"Antioquia","Doradal",CO
+05045000,"Antioquia","Apartado",CO
+05051000,"Antioquia","Arboletes",CO
+05055000,"Antioquia","Argelia",CO
+05059000,"Antioquia","Armenia",CO
+05079000,"Antioquia","Barbosa",CO
+05086000,"Antioquia","Belmira",CO
+05088000,"Antioquia","Bello",CO
+05091000,"Antioquia","Betania",CO
+05093000,"Antioquia","Betulia",CO
+05101000,"Antioquia","Ciudad Bolivar",CO
+05107000,"Antioquia","Briceño",CO
+05113000,"Antioquia","Buritica",CO
+05120000,"Antioquia","Caceres",CO
+05125000,"Antioquia","Caicedo",CO
+05129000,"Antioquia","Caldas",CO
+05134000,"Antioquia","Campamento",CO
+05138000,"Antioquia","Cañasgordas",CO
+05142000,"Antioquia","Caracoli",CO
+05145000,"Antioquia","Caramanta",CO
+05147000,"Antioquia","Carepa",CO
+05148000,"Antioquia","El Carmen De Viboral",CO
+05150000,"Antioquia","Carolina",CO
+05154000,"Antioquia","Caucasia",CO
+05172000,"Antioquia","Chigorodo",CO
+05190000,"Antioquia","Cisneros",CO
+05197000,"Antioquia","Cocorna",CO
+05206000,"Antioquia","Concepcion",CO
+05209000,"Antioquia","Concordia",CO
+05212000,"Antioquia","Copacabana",CO
+05234000,"Antioquia","Dabeiba",CO
+05237000,"Antioquia","Donmatias",CO
+05240000,"Antioquia","Ebejico",CO
+05250000,"Antioquia","El Bagre",CO
+05264000,"Antioquia","Entrerrios",CO
+05266000,"Antioquia","Envigado",CO
+05282000,"Antioquia","Fredonia",CO
+05284000,"Antioquia","Frontino",CO
+05306000,"Antioquia","Giraldo",CO
+05308000,"Antioquia","Girardota",CO
+05310000,"Antioquia","Gomez Plata",CO
+05313000,"Antioquia","Granada",CO
+05315000,"Antioquia","Guadalupe",CO
+05318000,"Antioquia","Guarne",CO
+05321000,"Antioquia","Guatape",CO
+05347000,"Antioquia","Heliconia",CO
+05353000,"Antioquia","Hispania",CO
+05360000,"Antioquia","Itagui",CO
+05361000,"Antioquia","Ituango",CO
+05364000,"Antioquia","Jardin",CO
+05368000,"Antioquia","Jerico",CO
+05376000,"Antioquia","La Ceja",CO
+05380000,"Antioquia","La Estrella",CO
+05390000,"Antioquia","La Pintada",CO
+05400000,"Antioquia","La Union",CO
+05411000,"Antioquia","Liborina",CO
+05425000,"Antioquia","Maceo",CO
+05440000,"Antioquia","Marinilla",CO
+05001000,"Antioquia","Medellín",CO
+05467000,"Antioquia","Montebello",CO
+05475000,"Antioquia","Murindo",CO
+05480000,"Antioquia","Mutata",CO
+05483000,"Antioquia","Nariño",CO
+05490000,"Antioquia","Necocli",CO
+05495000,"Antioquia","Nechi",CO
+05501000,"Antioquia","Olaya",CO
+05541000,"Antioquia","Peñol",CO
+05543000,"Antioquia","Peque",CO
+05576000,"Antioquia","Pueblorrico",CO
+05579000,"Antioquia","Puerto Berrio",CO
+05585000,"Antioquia","Puerto Nare",CO
+05591000,"Antioquia","Puerto Triunfo",CO
+05604000,"Antioquia","Remedios",CO
+05607000,"Antioquia","Retiro",CO
+05615000,"Antioquia","Rionegro",CO
+05628000,"Antioquia","Sabanalarga",CO
+05631000,"Antioquia","Sabaneta",CO
+05642000,"Antioquia","Salgar",CO
+05647000,"Antioquia","San Andres De Cuerquia",CO
+05649000,"Antioquia","San Carlos",CO
+05652000,"Antioquia","San Francisco",CO
+05656000,"Antioquia","San Jeronimo",CO
+05658000,"Antioquia","San Jose De La Montaña",CO
+05659000,"Antioquia","San Juan De Uraba",CO
+05660000,"Antioquia","San Luis",CO
+05664000,"Antioquia","San Pedro De Los Milagros",CO
+05665000,"Antioquia","San Pedro De Uraba",CO
+05667000,"Antioquia","San Rafael",CO
+05670000,"Antioquia","San Roque",CO
+05674000,"Antioquia","San Vicente",CO
+05679000,"Antioquia","Santa Barbara",CO
+05686000,"Antioquia","Santa Rosa De Osos",CO
+05690000,"Antioquia","Santo Domingo",CO
+05697000,"Antioquia","El Santuario",CO
+05736000,"Antioquia","Segovia",CO
+05756000,"Antioquia","Sonson",CO
+05761000,"Antioquia","Sopetran",CO
+05789000,"Antioquia","Tamesis",CO
+05790000,"Antioquia","Taraza",CO
+05792000,"Antioquia","Tarso",CO
+05809000,"Antioquia","Titiribi",CO
+05819000,"Antioquia","Toledo",CO
+05837000,"Antioquia","Turbo",CO
+05842000,"Antioquia","Uramita",CO
+05847000,"Antioquia","Urrao",CO
+05854000,"Antioquia","Valdivia",CO
+05856000,"Antioquia","Valparaiso",CO
+05858000,"Antioquia","Vegachi",CO
+05861000,"Antioquia","Venecia",CO
+05873000,"Antioquia","Vigia Del Fuerte",CO
+05885000,"Antioquia","Yali",CO
+05887000,"Antioquia","Yarumal",CO
+05890000,"Antioquia","Yolombo",CO
+05893000,"Antioquia","Yondo",CO
+05895000,"Antioquia","Zaragoza",CO
+81001000,"Arauca","Arauca",CO
+81065000,"Arauca","Arauquita",CO
+81220000,"Arauca","Cravo Norte",CO
+81300000,"Arauca","Fortul",CO
+81591000,"Arauca","Puerto Rondon",CO
+81736000,"Arauca","Saravena",CO
+81794000,"Arauca","Tame",CO
+08001000,"Atlantico","Barranquilla",CO
+08078000,"Atlantico","Baranoa",CO
+08137000,"Atlantico","Campo De La Cruz",CO
+08141000,"Atlantico","Candelaria",CO
+08296000,"Atlantico","Galapa",CO
+08372000,"Atlantico","Juan De Acosta",CO
+08421000,"Atlantico","Luruaco",CO
+08433000,"Atlantico","Malambo",CO
+08436000,"Atlantico","Manati",CO
+08520000,"Atlantico","Palmar De Varela",CO
+08549000,"Atlantico","Piojo",CO
+08558000,"Atlantico","Polonuevo",CO
+08560000,"Atlantico","Ponedera",CO
+08573000,"Atlantico","Puerto Colombia",CO
+08606000,"Atlantico","Repelon",CO
+08634000,"Atlantico","Sabanagrande",CO
+08638000,"Atlantico","Sabanalarga",CO
+08675000,"Atlantico","Santa Lucia",CO
+08685000,"Atlantico","Santo Tomas",CO
+08758000,"Atlantico","Soledad",CO
+08770000,"Atlantico","Suan",CO
+08832000,"Atlantico","Tubara",CO
+08849000,"Atlantico","Usiacuri",CO
+13001000,"Bolivar","Cartagena",CO
+13006000,"Bolivar","Achi",CO
+13030000,"Bolivar","Altos Del Rosario",CO
+13042000,"Bolivar","Arenal",CO
+13052000,"Bolivar","Arjona",CO
+13062000,"Bolivar","Arroyohondo",CO
+13074000,"Bolivar","Barranco De Loba",CO
+13140000,"Bolivar","Calamar",CO
+13160000,"Bolivar","Cantagallo",CO
+13188000,"Bolivar","Cicuco",CO
+13212000,"Bolivar","Cordoba",CO
+13222000,"Bolivar","Clemencia",CO
+13244000,"Bolivar","El Carmen De Bolivar",CO
+13248000,"Bolivar","El Guamo",CO
+13268000,"Bolivar","El Peñon",CO
+13300000,"Bolivar","Hatillo De Loba",CO
+13430000,"Bolivar","Magangue",CO
+13433000,"Bolivar","Mahates",CO
+13440000,"Bolivar","Margarita",CO
+13442000,"Bolivar","Maria La Baja",CO
+13458000,"Bolivar","Montecristo",CO
+13468000,"Bolivar","Mompos",CO
+13473000,"Bolivar","Morales",CO
+13490000,"Bolivar","Norosi",CO
+13549000,"Bolivar","Pinillos",CO
+13580000,"Bolivar","Regidor",CO
+13600000,"Bolivar","Rio Viejo",CO
+13620000,"Bolivar","San Cristobal",CO
+13647000,"Bolivar","San Estanislao",CO
+13650000,"Bolivar","San Fernando",CO
+13654000,"Bolivar","San Jacinto",CO
+13655000,"Bolivar","San Jacinto Del Cauca",CO
+13657000,"Bolivar","San Juan Nepomuceno",CO
+13667000,"Bolivar","San Martin De Loba",CO
+13670000,"Bolivar","San Pablo",CO
+13673000,"Bolivar","Santa Catalina",CO
+13683000,"Bolivar","Santa Rosa",CO
+13688000,"Bolivar","Santa Rosa Del Sur",CO
+13744000,"Bolivar","Simiti",CO
+13760000,"Bolivar","Soplaviento",CO
+13780000,"Bolivar","Talaigua Nuevo",CO
+13810000,"Bolivar","Tiquisio",CO
+13836000,"Bolivar","Turbaco",CO
+13838000,"Bolivar","Turbana",CO
+13873000,"Bolivar","Villanueva",CO
+13894000,"Bolivar","Zambrano",CO
+15001000,"Boyaca","Tunja",CO
+15022000,"Boyaca","Almeida",CO
+15047000,"Boyaca","Aquitania",CO
+15051000,"Boyaca","Arcabuco",CO
+15087000,"Boyaca","Belen",CO
+15090000,"Boyaca","Berbeo",CO
+15092000,"Boyaca","Beteitiva",CO
+15097000,"Boyaca","Boavita",CO
+15104000,"Boyaca","Boyaca",CO
+15106000,"Boyaca","Briceño",CO
+15109000,"Boyaca","Buenavista",CO
+15114000,"Boyaca","Busbanza",CO
+15131000,"Boyaca","Caldas",CO
+15135000,"Boyaca","Campohermoso",CO
+15162000,"Boyaca","Cerinza",CO
+15172000,"Boyaca","Chinavita",CO
+15176000,"Boyaca","Chiquinquira",CO
+15180000,"Boyaca","Chiscas",CO
+15183000,"Boyaca","Chita",CO
+15185000,"Boyaca","Chitaraque",CO
+15187000,"Boyaca","Chivata",CO
+15189000,"Boyaca","Cienega",CO
+15204000,"Boyaca","Combita",CO
+15212000,"Boyaca","Coper",CO
+15215000,"Boyaca","Corrales",CO
+15218000,"Boyaca","Covarachia",CO
+15223000,"Boyaca","Cubara",CO
+15224000,"Boyaca","Cucaita",CO
+15226000,"Boyaca","Cuitiva",CO
+15232000,"Boyaca","Chiquiza",CO
+15236000,"Boyaca","Chivor",CO
+15238000,"Boyaca","Duitama",CO
+15244000,"Boyaca","El Cocuy",CO
+15248000,"Boyaca","El Espino",CO
+15272000,"Boyaca","Firavitoba",CO
+15276000,"Boyaca","Floresta",CO
+15293000,"Boyaca","Gachantiva",CO
+15296000,"Boyaca","Gameza",CO
+15299000,"Boyaca","Garagoa",CO
+15317000,"Boyaca","Guacamayas",CO
+15322000,"Boyaca","Guateque",CO
+15325000,"Boyaca","Guayata",CO
+15332000,"Boyaca","Guican",CO
+15362000,"Boyaca","Iza",CO
+15367000,"Boyaca","Jenesano",CO
+15368000,"Boyaca","Jerico",CO
+15377000,"Boyaca","Labranzagrande",CO
+15380000,"Boyaca","La Capilla",CO
+15401000,"Boyaca","La Victoria",CO
+15403000,"Boyaca","La Uvita",CO
+15407000,"Boyaca","Villa De Leyva",CO
+15425000,"Boyaca","Macanal",CO
+15442000,"Boyaca","Maripi",CO
+15455000,"Boyaca","Miraflores",CO
+15464000,"Boyaca","Mongua",CO
+15466000,"Boyaca","Mongui",CO
+15469000,"Boyaca","Moniquira",CO
+15476000,"Boyaca","Motavita",CO
+15480000,"Boyaca","Muzo",CO
+15491000,"Boyaca","Nobsa",CO
+15494000,"Boyaca","Nuevo Colon",CO
+15500000,"Boyaca","Oicata",CO
+15507000,"Boyaca","Otanche",CO
+15511000,"Boyaca","Pachavita",CO
+15514000,"Boyaca","Paez",CO
+15516000,"Boyaca","Paipa",CO
+15518000,"Boyaca","Pajarito",CO
+15522000,"Boyaca","Panqueba",CO
+15531000,"Boyaca","Pauna",CO
+15533000,"Boyaca","Paya",CO
+15537000,"Boyaca","Paz De Rio",CO
+15542000,"Boyaca","Pesca",CO
+15550000,"Boyaca","Pisba",CO
+15572000,"Boyaca","Puerto Boyaca",CO
+15580000,"Boyaca","Quipama",CO
+15599000,"Boyaca","Ramiriqui",CO
+15600000,"Boyaca","Raquira",CO
+15621000,"Boyaca","Rondon",CO
+15632000,"Boyaca","Saboya",CO
+15638000,"Boyaca","Sachica",CO
+15646000,"Boyaca","Samaca",CO
+15660000,"Boyaca","San Eduardo",CO
+15664000,"Boyaca","San Jose De Pare",CO
+15667000,"Boyaca","San Luis De Gaceno",CO
+15673000,"Boyaca","San Mateo",CO
+15676000,"Boyaca","San Miguel De Sema",CO
+15681000,"Boyaca","San Pablo De Borbur",CO
+15686000,"Boyaca","Santana",CO
+15690000,"Boyaca","Santa Maria",CO
+15693000,"Boyaca","Santa Rosa De Viterbo",CO
+15696000,"Boyaca","Santa Sofia",CO
+15720000,"Boyaca","Sativanorte",CO
+15723000,"Boyaca","Sativasur",CO
+15740000,"Boyaca","Siachoque",CO
+15753000,"Boyaca","Soata",CO
+15755000,"Boyaca","Socota",CO
+15757000,"Boyaca","Socha",CO
+15759000,"Boyaca","Sogamoso",CO
+15761000,"Boyaca","Somondoco",CO
+15762000,"Boyaca","Sora",CO
+15763000,"Boyaca","Sotaquira",CO
+15764000,"Boyaca","Soraca",CO
+15774000,"Boyaca","Susacon",CO
+15776000,"Boyaca","Sutamarchan",CO
+15778000,"Boyaca","Sutatenza",CO
+15790000,"Boyaca","Tasco",CO
+15798000,"Boyaca","Tenza",CO
+15804000,"Boyaca","Tibana",CO
+15806000,"Boyaca","Tibasosa",CO
+15808000,"Boyaca","Tinjaca",CO
+15810000,"Boyaca","Tipacoque",CO
+15814000,"Boyaca","Toca",CO
+15816000,"Boyaca","Togui",CO
+15820000,"Boyaca","Topaga",CO
+15822000,"Boyaca","Tota",CO
+15832000,"Boyaca","Tunungua",CO
+15835000,"Boyaca","Turmeque",CO
+15837000,"Boyaca","Tuta",CO
+15839000,"Boyaca","Tutaza",CO
+15842000,"Boyaca","Umbita",CO
+15861000,"Boyaca","Ventaquemada",CO
+15879000,"Boyaca","Viracacha",CO
+15897000,"Boyaca","Zetaquira",CO
+17001000,"Caldas","Manizales",CO
+17013000,"Caldas","Aguadas",CO
+17042000,"Caldas","Anserma",CO
+17050000,"Caldas","Aranzazu",CO
+17088000,"Caldas","Belalcazar",CO
+17174000,"Caldas","Chinchina",CO
+17272000,"Caldas","Filadelfia",CO
+17380000,"Caldas","La Dorada",CO
+17388000,"Caldas","La Merced",CO
+17433000,"Caldas","Manzanares",CO
+17442000,"Caldas","Marmato",CO
+17444000,"Caldas","Marquetalia",CO
+17446000,"Caldas","Marulanda",CO
+17486000,"Caldas","Neira",CO
+17495000,"Caldas","Norcasia",CO
+17513000,"Caldas","Pacora",CO
+17524000,"Caldas","Palestina",CO
+17541000,"Caldas","Pensilvania",CO
+17614000,"Caldas","Riosucio",CO
+17616000,"Caldas","Risaralda",CO
+17653000,"Caldas","Salamina",CO
+17662000,"Caldas","Samana",CO
+17665000,"Caldas","San Jose",CO
+17777000,"Caldas","Supia",CO
+17867000,"Caldas","Victoria",CO
+17873000,"Caldas","Villamaria",CO
+17877000,"Caldas","Viterbo",CO
+18001000,"Caqueta","Florencia",CO
+18029000,"Caqueta","Albania",CO
+18094000,"Caqueta","Belen De Los Andaquies",CO
+18150000,"Caqueta","Cartagena Del Chaira",CO
+18205000,"Caqueta","Curillo",CO
+18247000,"Caqueta","El Doncello",CO
+18256000,"Caqueta","El Paujil",CO
+18410000,"Caqueta","La Montañita",CO
+18460000,"Caqueta","Milan",CO
+18479000,"Caqueta","Morelia",CO
+18592000,"Caqueta","Puerto Rico",CO
+18610000,"Caqueta","San Jose Del Fragua",CO
+18753000,"Caqueta","San Vicente Del Caguan",CO
+18756000,"Caqueta","Solano",CO
+18785000,"Caqueta","Solita",CO
+18860000,"Caqueta","Valparaiso",CO
+85001000,"Casanare","Yopal",CO
+85010000,"Casanare","Aguazul",CO
+85015000,"Casanare","Chameza",CO
+85125000,"Casanare","Hato Corozal",CO
+85136000,"Casanare","La Salina",CO
+85139000,"Casanare","Mani",CO
+85162000,"Casanare","Monterrey",CO
+85225000,"Casanare","Nunchia",CO
+85230000,"Casanare","Orocue",CO
+85250000,"Casanare","Paz De Ariporo",CO
+85263000,"Casanare","Pore",CO
+85279000,"Casanare","Recetor",CO
+85300000,"Casanare","Sabanalarga",CO
+85315000,"Casanare","Sacama",CO
+85325000,"Casanare","San Luis De Palenque",CO
+85400000,"Casanare","Tamara",CO
+85410000,"Casanare","Tauramena",CO
+85430000,"Casanare","Trinidad",CO
+85440000,"Casanare","Villanueva",CO
+19001000,"Cauca","Popayan",CO
+19022000,"Cauca","Almaguer",CO
+19050000,"Cauca","Argelia",CO
+19075000,"Cauca","Balboa",CO
+19100000,"Cauca","Bolivar",CO
+19110000,"Cauca","Buenos Aires",CO
+19130000,"Cauca","Cajibio",CO
+19137000,"Cauca","Caldono",CO
+19142000,"Cauca","Caloto",CO
+19212000,"Cauca","Corinto",CO
+19256000,"Cauca","El Tambo",CO
+19290000,"Cauca","Florencia",CO
+19300000,"Cauca","Guachene",CO
+19318000,"Cauca","Guapi",CO
+19355000,"Cauca","Inza",CO
+19364000,"Cauca","Jambalo",CO
+19392000,"Cauca","La Sierra",CO
+19397000,"Cauca","La Vega",CO
+19418000,"Cauca","Lopez",CO
+19450000,"Cauca","Mercaderes",CO
+19455000,"Cauca","Miranda",CO
+19473000,"Cauca","Morales",CO
+19513000,"Cauca","Padilla",CO
+19517000,"Cauca","Paez",CO
+19532000,"Cauca","Patia",CO
+19533000,"Cauca","Piamonte",CO
+19548000,"Cauca","Piendamo",CO
+19573000,"Cauca","Puerto Tejada",CO
+19585000,"Cauca","Purace",CO
+19622000,"Cauca","Rosas",CO
+19693000,"Cauca","San Sebastian",CO
+19698000,"Cauca","Santander De Quilichao",CO
+19701000,"Cauca","Santa Rosa",CO
+19743000,"Cauca","Silvia",CO
+19760000,"Cauca","Sotara",CO
+19780000,"Cauca","Suarez",CO
+19785000,"Cauca","Sucre",CO
+19807000,"Cauca","Timbio",CO
+19809000,"Cauca","Timbiqui",CO
+19821000,"Cauca","Toribio",CO
+19824000,"Cauca","Totoro",CO
+19845000,"Cauca","Villa Rica",CO
+20001000,"Cesar","Valledupar",CO
+20011000,"Cesar","Aguachica",CO
+20013000,"Cesar","Agustin Codazzi",CO
+20032000,"Cesar","Astrea",CO
+20045000,"Cesar","Becerril",CO
+20060000,"Cesar","Bosconia",CO
+20175000,"Cesar","Chimichagua",CO
+20178000,"Cesar","Chiriguana",CO
+20228000,"Cesar","Curumani",CO
+20238000,"Cesar","El Copey",CO
+20250000,"Cesar","El Paso",CO
+20295000,"Cesar","Gamarra",CO
+20310000,"Cesar","Gonzalez",CO
+20383000,"Cesar","La Gloria",CO
+20400000,"Cesar","La Jagua De Ibirico",CO
+20443000,"Cesar","Manaure",CO
+20517000,"Cesar","Pailitas",CO
+20550000,"Cesar","Pelaya",CO
+20570000,"Cesar","Pueblo Bello",CO
+20614000,"Cesar","Rio De Oro",CO
+20621000,"Cesar","La Paz",CO
+20710000,"Cesar","San Alberto",CO
+20750000,"Cesar","San Diego",CO
+20770000,"Cesar","San Martin",CO
+20787000,"Cesar","Tamalameque",CO
+27001000,"Choco","Quibdo",CO
+27006000,"Choco","Acandi",CO
+27025000,"Choco","Alto Baudo",CO
+27050000,"Choco","Atrato",CO
+27073000,"Choco","Bagado",CO
+27075000,"Choco","Bahia Solano",CO
+27077000,"Choco","Bajo Baudo",CO
+27099000,"Choco","Bojaya",CO
+27135000,"Choco","El Canton Del San Pablo",CO
+27150000,"Choco","Carmen Del Darien",CO
+27160000,"Choco","Certegui",CO
+27205000,"Choco","Condoto",CO
+27245000,"Choco","El Carmen De Atrato",CO
+27250000,"Choco","El Litoral Del San Juan",CO
+27361000,"Choco","Istmina",CO
+27372000,"Choco","Jurado",CO
+27413000,"Choco","Lloro",CO
+27425000,"Choco","Medio Atrato",CO
+27430000,"Choco","Medio Baudo",CO
+27450000,"Choco","Medio San Juan",CO
+27491000,"Choco","Novita",CO
+27495000,"Choco","Nuqui",CO
+27580000,"Choco","Rio Iro",CO
+27600000,"Choco","Rio Quito",CO
+27615000,"Choco","Riosucio",CO
+27660000,"Choco","San Jose Del Palmar",CO
+27745000,"Choco","Sipi",CO
+27787000,"Choco","Tado",CO
+27800000,"Choco","Unguia",CO
+27810000,"Choco","Union Panamericana",CO
+23001000,"Cordoba","Monteria",CO
+23807000,"Cordoba","Tierralta",CO
+23068000,"Cordoba","Ayapel",CO
+23079000,"Cordoba","Buenavista",CO
+23090000,"Cordoba","Canalete",CO
+23162000,"Cordoba","Cerete",CO
+23168000,"Cordoba","Chima",CO
+23182000,"Cordoba","Chinu",CO
+23189000,"Cordoba","Cienaga De Oro",CO
+23300000,"Cordoba","Cotorra",CO
+23350000,"Cordoba","La Apartada",CO
+23417000,"Cordoba","Lorica",CO
+23419000,"Cordoba","Los Cordobas",CO
+23464000,"Cordoba","Momil",CO
+23466000,"Cordoba","Montelibano",CO
+23500000,"Cordoba","Moñitos",CO
+23555000,"Cordoba","Planeta Rica",CO
+23570000,"Cordoba","Pueblo Nuevo",CO
+23574000,"Cordoba","Puerto Escondido",CO
+23580000,"Cordoba","Puerto Libertador",CO
+23586000,"Cordoba","Purisima",CO
+23660000,"Cordoba","Sahagun",CO
+23670000,"Cordoba","San Andres Sotavento",CO
+23672000,"Cordoba","San Antero",CO
+23675000,"Cordoba","San Bernardo Del Viento",CO
+23678000,"Cordoba","San Carlos",CO
+23682000,"Cordoba","San Jose De Ure",CO
+23686000,"Cordoba","San Pelayo",CO
+23815000,"Cordoba","Tuchin",CO
+23855000,"Cordoba","Valencia",CO
+95001000,"Guaviare","San Jose Del Guaviare",CO
+95015000,"Guaviare","Calamar",CO
+95025000,"Guaviare","El Retorno",CO
+95200000,"Guaviare","Miraflores",CO
+25797000,"Cundinamarca","Tena",CO
+25799000,"Cundinamarca","Tenjo",CO
+25805000,"Cundinamarca","Tibacuy",CO
+25807000,"Cundinamarca","Tibirita",CO
+25815000,"Cundinamarca","Tocaima",CO
+25817000,"Cundinamarca","Tocancipa",CO
+25823000,"Cundinamarca","Topaipi",CO
+25839000,"Cundinamarca","Ubala",CO
+25841000,"Cundinamarca","Ubaque",CO
+25843000,"Cundinamarca","Villa De San Diego De Ubate",CO
+25845000,"Cundinamarca","Une",CO
+25851000,"Cundinamarca","Utica",CO
+25862000,"Cundinamarca","Vergara",CO
+25867000,"Cundinamarca","Viani",CO
+25871000,"Cundinamarca","Villagomez",CO
+25873000,"Cundinamarca","Villapinzon",CO
+25875000,"Cundinamarca","Villeta",CO
+25878000,"Cundinamarca","Viota",CO
+25885000,"Cundinamarca","Yacopi",CO
+25898000,"Cundinamarca","Zipacon",CO
+25899000,"Cundinamarca","Zipaquira",CO
+25001000,"Cundinamarca","Agua De Dios",CO
+25019000,"Cundinamarca","Alban",CO
+25035000,"Cundinamarca","Anapoima",CO
+25040000,"Cundinamarca","Anolaima",CO
+25053000,"Cundinamarca","Arbelaez",CO
+25086000,"Cundinamarca","Beltran",CO
+25095000,"Cundinamarca","Bituima",CO
+25099000,"Cundinamarca","Bojaca",CO
+25120000,"Cundinamarca","Cabrera",CO
+25123000,"Cundinamarca","Cachipay",CO
+25126000,"Cundinamarca","Cajica",CO
+25148000,"Cundinamarca","Caparrapi",CO
+25151000,"Cundinamarca","Caqueza",CO
+25154000,"Cundinamarca","Carmen De Carupa",CO
+25168000,"Cundinamarca","Chaguani",CO
+25175000,"Cundinamarca","Chia",CO
+25178000,"Cundinamarca","Chipaque",CO
+25181000,"Cundinamarca","Choachi",CO
+25183000,"Cundinamarca","Choconta",CO
+25200000,"Cundinamarca","Cogua",CO
+25214000,"Cundinamarca","Cota",CO
+25224000,"Cundinamarca","Cucunuba",CO
+25245000,"Cundinamarca","El Colegio",CO
+25258000,"Cundinamarca","El Peñon",CO
+25260000,"Cundinamarca","El Rosal",CO
+25269000,"Cundinamarca","Facatativa",CO
+25279000,"Cundinamarca","Fomeque",CO
+25281000,"Cundinamarca","Fosca",CO
+25286000,"Cundinamarca","Funza",CO
+25288000,"Cundinamarca","Fuquene",CO
+25290000,"Cundinamarca","Fusagasuga",CO
+25293000,"Cundinamarca","Gachala",CO
+25295000,"Cundinamarca","Gachancipa",CO
+25297000,"Cundinamarca","Gacheta",CO
+25299000,"Cundinamarca","Gama",CO
+25307000,"Cundinamarca","Girardot",CO
+25312000,"Cundinamarca","Granada",CO
+25317000,"Cundinamarca","Guacheta",CO
+25320000,"Cundinamarca","Guaduas",CO
+25322000,"Cundinamarca","Guasca",CO
+25324000,"Cundinamarca","Guataqui",CO
+25326000,"Cundinamarca","Guatavita",CO
+25328000,"Cundinamarca","Guayabal De Siquima",CO
+25335000,"Cundinamarca","Guayabetal",CO
+25339000,"Cundinamarca","Gutierrez",CO
+25368000,"Cundinamarca","Jerusalen",CO
+25372000,"Cundinamarca","Junin",CO
+25377000,"Cundinamarca","La Calera",CO
+25386000,"Cundinamarca","La Mesa",CO
+25394000,"Cundinamarca","La Palma",CO
+25398000,"Cundinamarca","La Peña",CO
+25402000,"Cundinamarca","La Vega",CO
+25407000,"Cundinamarca","Lenguazaque",CO
+25426000,"Cundinamarca","Macheta",CO
+25430000,"Cundinamarca","Madrid",CO
+25436000,"Cundinamarca","Manta",CO
+25438000,"Cundinamarca","Medina",CO
+25473000,"Cundinamarca","Mosquera",CO
+25483000,"Cundinamarca","Nariño",CO
+25486000,"Cundinamarca","Nemocon",CO
+25488000,"Cundinamarca","Nilo",CO
+25489000,"Cundinamarca","Nimaima",CO
+25491000,"Cundinamarca","Nocaima",CO
+25506000,"Cundinamarca","Venecia",CO
+25513000,"Cundinamarca","Pacho",CO
+25518000,"Cundinamarca","Paime",CO
+25524000,"Cundinamarca","Pandi",CO
+25530000,"Cundinamarca","Paratebueno",CO
+25535000,"Cundinamarca","Pasca",CO
+25572000,"Cundinamarca","Puerto Salgar",CO
+25580000,"Cundinamarca","Puli",CO
+25592000,"Cundinamarca","Quebradanegra",CO
+25594000,"Cundinamarca","Quetame",CO
+25596000,"Cundinamarca","Quipile",CO
+25599000,"Cundinamarca","Apulo",CO
+25612000,"Cundinamarca","Ricaurte",CO
+25645000,"Cundinamarca","San Antonio Del Tequendama",CO
+25649000,"Cundinamarca","San Bernardo",CO
+25653000,"Cundinamarca","San Cayetano",CO
+25658000,"Cundinamarca","San Francisco",CO
+25662000,"Cundinamarca","San Juan De Rio Seco",CO
+25718000,"Cundinamarca","Sasaima",CO
+25736000,"Cundinamarca","Sesquile",CO
+25740000,"Cundinamarca","Sibate",CO
+25743000,"Cundinamarca","Silvania",CO
+25745000,"Cundinamarca","Simijaca",CO
+25754000,"Cundinamarca","Soacha",CO
+25758000,"Cundinamarca","Sopo",CO
+25769000,"Cundinamarca","Subachoque",CO
+25772000,"Cundinamarca","Suesca",CO
+25777000,"Cundinamarca","Supata",CO
+25779000,"Cundinamarca","Susa",CO
+25781000,"Cundinamarca","Sutatausa",CO
+25785000,"Cundinamarca","Tabio",CO
+25793000,"Cundinamarca","Tausa",CO
+86757000,"Putumayo","La Dorada",CO
+25245001,"Cundinamarca","El Triunfo (el Colegio)",CO
+25662001,"Cundinamarca","Cambao",CO
+17524001,"Caldas","Arauca",CO
+94001000,"Guainia","Inirida",CO
+94343000,"Guainia","Barranco Minas",CO
+94663000,"Guainia","Mapiripana",CO
+94883000,"Guainia","San Felipe",CO
+94884000,"Guainia","Puerto Colombia",CO
+94885000,"Guainia","La Guadalupe",CO
+94886000,"Guainia","Cacahual",CO
+94887000,"Guainia","Pana Pana",CO
+94888000,"Guainia","Morichal",CO
+41001000,"Huila","Neiva",CO
+41006000,"Huila","Acevedo",CO
+41013000,"Huila","Agrado",CO
+41016000,"Huila","Aipe",CO
+41020000,"Huila","Algeciras",CO
+41026000,"Huila","Altamira",CO
+41078000,"Huila","Baraya",CO
+41132000,"Huila","Campoalegre",CO
+41206000,"Huila","Colombia",CO
+41244000,"Huila","Elias",CO
+41298000,"Huila","Garzon",CO
+41306000,"Huila","Gigante",CO
+41319000,"Huila","Guadalupe",CO
+41349000,"Huila","Hobo",CO
+41357000,"Huila","Iquira",CO
+41359000,"Huila","Isnos",CO
+41378000,"Huila","La Argentina",CO
+41396000,"Huila","La Plata",CO
+41483000,"Huila","Nataga",CO
+41503000,"Huila","Oporapa",CO
+41518000,"Huila","Paicol",CO
+41524000,"Huila","Palermo",CO
+41530000,"Huila","Palestina",CO
+41548000,"Huila","Pital",CO
+41551000,"Huila","Pitalito",CO
+41615000,"Huila","Rivera",CO
+41660000,"Huila","Saladoblanco",CO
+41668000,"Huila","San Agustin",CO
+41676000,"Huila","Santa Maria",CO
+41770000,"Huila","Suaza",CO
+41791000,"Huila","Tarqui",CO
+41797000,"Huila","Tesalia",CO
+41799000,"Huila","Tello",CO
+41801000,"Huila","Teruel",CO
+41807000,"Huila","Timana",CO
+41872000,"Huila","Villavieja",CO
+41885000,"Huila","Yaguara",CO
+44001000,"La Guajira","Riohacha",CO
+44035000,"La Guajira","Albania",CO
+44078000,"La Guajira","Barrancas",CO
+44090000,"La Guajira","Dibulla",CO
+44098000,"La Guajira","Distraccion",CO
+44110000,"La Guajira","El Molino",CO
+44279000,"La Guajira","Fonseca",CO
+44378000,"La Guajira","Hatonuevo",CO
+44420000,"La Guajira","La Jagua Del Pilar",CO
+44430000,"La Guajira","Maicao",CO
+44560000,"La Guajira","Manaure",CO
+44650000,"La Guajira","San Juan Del Cesar",CO
+44847000,"La Guajira","Uribia",CO
+44855000,"La Guajira","Urumita",CO
+44874000,"La Guajira","Villanueva",CO
+47001000,"Magdalena","Santa Marta",CO
+47030000,"Magdalena","Algarrobo",CO
+47053000,"Magdalena","Aracataca",CO
+47058000,"Magdalena","Ariguani",CO
+47161000,"Magdalena","Cerro San Antonio",CO
+47170000,"Magdalena","Chivolo",CO
+47189000,"Magdalena","Cienaga",CO
+47205000,"Magdalena","Concordia",CO
+47245000,"Magdalena","El Banco",CO
+47258000,"Magdalena","El Piñon",CO
+47268000,"Magdalena","El Reten",CO
+47288000,"Magdalena","Fundacion",CO
+47318000,"Magdalena","Guamal",CO
+47460000,"Magdalena","Nueva Granada",CO
+47541000,"Magdalena","Pedraza",CO
+47545000,"Magdalena","Pijiño Del Carmen",CO
+47551000,"Magdalena","Pivijay",CO
+47555000,"Magdalena","Plato",CO
+47570000,"Magdalena","Puebloviejo",CO
+47605000,"Magdalena","Remolino",CO
+47660000,"Magdalena","Sabanas De San Angel",CO
+47675000,"Magdalena","Salamina",CO
+47692000,"Magdalena","San Sebastian De Buenavista",CO
+47703000,"Magdalena","San Zenon",CO
+47707000,"Magdalena","Santa Ana",CO
+47720000,"Magdalena","Santa Barbara De Pinto",CO
+47745000,"Magdalena","Sitionuevo",CO
+47798000,"Magdalena","Tenerife",CO
+47960000,"Magdalena","Zapayan",CO
+47980000,"Magdalena","Zona Bananera",CO
+50001000,"Meta","Villavicencio",CO
+50006000,"Meta","Acacias",CO
+50110000,"Meta","Barranca De Upia",CO
+50124000,"Meta","Cabuyaro",CO
+50150000,"Meta","Castilla La Nueva",CO
+50223000,"Meta","Cubarral",CO
+50226000,"Meta","Cumaral",CO
+50245000,"Meta","El Calvario",CO
+50251000,"Meta","El Castillo",CO
+50270000,"Meta","El Dorado",CO
+50287000,"Meta","Fuente De Oro",CO
+50313000,"Meta","Granada",CO
+50318000,"Meta","Guamal",CO
+50325000,"Meta","Mapiripan",CO
+50330000,"Meta","Mesetas",CO
+50350000,"Meta","La Macarena",CO
+50370000,"Meta","Uribe",CO
+50400000,"Meta","Lejanias",CO
+50450000,"Meta","Puerto Concordia",CO
+50568000,"Meta","Puerto Gaitan",CO
+50573000,"Meta","Puerto Lopez",CO
+50577000,"Meta","Puerto Lleras",CO
+50590000,"Meta","Puerto Rico",CO
+50606000,"Meta","Restrepo",CO
+50680000,"Meta","San Carlos De Guaroa",CO
+50683000,"Meta","San Juan De Arama",CO
+50686000,"Meta","San Juanito",CO
+50689000,"Meta","San Martin",CO
+50711000,"Meta","Vistahermosa",CO
+52001000,"Nariño","Pasto",CO
+52019000,"Nariño","Alban",CO
+52022000,"Nariño","Aldana",CO
+52036000,"Nariño","Ancuya",CO
+52051000,"Nariño","Arboleda",CO
+52079000,"Nariño","Barbacoas",CO
+52083000,"Nariño","Belen",CO
+52110000,"Nariño","Buesaco",CO
+52203000,"Nariño","Colon",CO
+52207000,"Nariño","Consaca",CO
+52210000,"Nariño","Contadero",CO
+52215000,"Nariño","Cordoba",CO
+52224000,"Nariño","Cuaspud",CO
+52227000,"Nariño","Cumbal",CO
+52233000,"Nariño","Cumbitara",CO
+52240000,"Nariño","Chachagui",CO
+52250000,"Nariño","El Charco",CO
+52254000,"Nariño","El Peñol",CO
+52256000,"Nariño","El Rosario",CO
+52258000,"Nariño","El Tablon De Gomez",CO
+52260000,"Nariño","El Tambo",CO
+52287000,"Nariño","Funes",CO
+52317000,"Nariño","Guachucal",CO
+52320000,"Nariño","Guaitarilla",CO
+52323000,"Nariño","Gualmatan",CO
+52352000,"Nariño","Iles",CO
+52354000,"Nariño","Imues",CO
+52356000,"Nariño","Ipiales",CO
+52378000,"Nariño","La Cruz",CO
+52381000,"Nariño","La Florida",CO
+52385000,"Nariño","La Llanada",CO
+52390000,"Nariño","La Tola",CO
+52399000,"Nariño","La Union",CO
+52405000,"Nariño","Leiva",CO
+52411000,"Nariño","Linares",CO
+52418000,"Nariño","Los Andes",CO
+52427000,"Nariño","Magui",CO
+52435000,"Nariño","Mallama",CO
+52473000,"Nariño","Mosquera",CO
+52480000,"Nariño","Nariño",CO
+52490000,"Nariño","Olaya Herrera",CO
+52506000,"Nariño","Ospina",CO
+52520000,"Nariño","Francisco Pizarro",CO
+52540000,"Nariño","Policarpa",CO
+52560000,"Nariño","Potosi",CO
+52565000,"Nariño","Providencia",CO
+52573000,"Nariño","Puerres",CO
+52585000,"Nariño","Pupiales",CO
+52612000,"Nariño","Ricaurte",CO
+52621000,"Nariño","Roberto Payan",CO
+52678000,"Nariño","Samaniego",CO
+52683000,"Nariño","Sandona",CO
+52685000,"Nariño","San Bernardo",CO
+52687000,"Nariño","San Lorenzo",CO
+52693000,"Nariño","San Pablo",CO
+52694000,"Nariño","San Pedro De Cartago",CO
+52696000,"Nariño","Santa Barbara",CO
+52699000,"Nariño","Santacruz",CO
+52720000,"Nariño","Sapuyes",CO
+52786000,"Nariño","Taminango",CO
+52788000,"Nariño","Tangua",CO
+52835000,"Nariño","Tumaco",CO
+52838000,"Nariño","Tuquerres",CO
+52885000,"Nariño","Yacuanquer",CO
+54001000,"Norte De Santander","Cucuta",CO
+54003000,"Norte De Santander","Abrego",CO
+54051000,"Norte De Santander","Arboledas",CO
+54099000,"Norte De Santander","Bochalema",CO
+54109000,"Norte De Santander","Bucarasica",CO
+54125000,"Norte De Santander","Cacota",CO
+54128000,"Norte De Santander","Cachira",CO
+54172000,"Norte De Santander","Chinacota",CO
+54174000,"Norte De Santander","Chitaga",CO
+54206000,"Norte De Santander","Convencion",CO
+54223000,"Norte De Santander","Cucutilla",CO
+54239000,"Norte De Santander","Durania",CO
+54245000,"Norte De Santander","El Carmen",CO
+54250000,"Norte De Santander","El Tarra",CO
+54261000,"Norte De Santander","El Zulia",CO
+54313000,"Norte De Santander","Gramalote",CO
+54344000,"Norte De Santander","Hacari",CO
+54347000,"Norte De Santander","Herran",CO
+54377000,"Norte De Santander","Labateca",CO
+54385000,"Norte De Santander","La Esperanza",CO
+54398000,"Norte De Santander","La Playa",CO
+54405000,"Norte De Santander","Los Patios",CO
+54418000,"Norte De Santander","Lourdes",CO
+54480000,"Norte De Santander","Mutiscua",CO
+54498000,"Norte De Santander","Ocaña",CO
+54518000,"Norte De Santander","Pamplona",CO
+54520000,"Norte De Santander","Pamplonita",CO
+54553000,"Norte De Santander","Puerto Santander",CO
+54599000,"Norte De Santander","Ragonvalia",CO
+54660000,"Norte De Santander","Salazar",CO
+54670000,"Norte De Santander","San Calixto",CO
+54673000,"Norte De Santander","San Cayetano",CO
+54680000,"Norte De Santander","Santiago",CO
+54720000,"Norte De Santander","Sardinata",CO
+54743000,"Norte De Santander","Silos",CO
+54800000,"Norte De Santander","Teorama",CO
+54810000,"Norte De Santander","Tibu",CO
+54820000,"Norte De Santander","Toledo",CO
+54871000,"Norte De Santander","Villa Caro",CO
+54874000,"Norte De Santander","Villa Del Rosario",CO
+63001000,"Quindio","Armenia",CO
+63001001,"Quindio","El Caimo",CO
+63001002,"Quindio","Murillo",CO
+63001008,"Quindio","Caserio Santa Helena",CO
+63001009,"Quindio","Condominio El Eden",CO
+63001010,"Quindio","Condominios Las Vegas, Iraka Y Lagos De Iraka",CO
+63001011,"Quindio","Condominio Palo De Agua",CO
+63001012,"Quindio","Condominio Pontevedra",CO
+63001013,"Quindio","Condominio Seniors Club",CO
+63001016,"Quindio","Sector Cenexpo",CO
+63111000,"Quindio","Buenavista",CO
+63111001,"Quindio","Río Verde",CO
+63130000,"Quindio","Calarcá",CO
+63130001,"Quindio","Barcelona",CO
+63130003,"Quindio","La Bella",CO
+63130004,"Quindio","La Virginia",CO
+63130005,"Quindio","Quebradanegra",CO
+63130008,"Quindio","La Pradera",CO
+63130010,"Quindio","La María",CO
+63130013,"Quindio","Barragán",CO
+63130015,"Quindio","Condominio Los Almendros",CO
+63130016,"Quindio","Condominio Valle Del Sol",CO
+63130018,"Quindio","Condominio Agua Bonita",CO
+63130019,"Quindio","Condominio La Micaela",CO
+63190000,"Quindio","Circasia",CO
+63190001,"Quindio","La Pola",CO
+63190002,"Quindio","La Siria",CO
+63190003,"Quindio","Piamonte",CO
+63190004,"Quindio","Santa Rita",CO
+63190007,"Quindio","La Julia",CO
+63190008,"Quindio","La Frontera",CO
+63190009,"Quindio","El Triunfo",CO
+63190010,"Quindio","El Planazo",CO
+63190011,"Quindio","La 18 Guayabal",CO
+63190012,"Quindio","Urbanización El Caney",CO
+63190013,"Quindio","Condominio Bosques De Toscana",CO
+63190014,"Quindio","Condominio La Aldea",CO
+63190016,"Quindio","Condominio Los Abedules Y Yarumos I",CO
+63190017,"Quindio","Condominio Los Robles",CO
+63190018,"Quindio","Condominio Los Rosales",CO
+63190020,"Quindio","Condominio Quintas Del Bosque",CO
+63190022,"Quindio","Villa Ligia",CO
+63190024,"Quindio","La Cabaña",CO
+63190028,"Quindio","Condominio Monterrey",CO
+63190030,"Quindio","Condominio Angeles Del Bosque",CO
+63190031,"Quindio","Condominio Cedro Negro",CO
+63190032,"Quindio","Condominio Reservas Del Bosque",CO
+63190033,"Quindio","El Congal",CO
+63190034,"Quindio","La Cristalina",CO
+63190035,"Quindio","Hacienda Horizontes",CO
+63212000,"Quindio","Córdoba",CO
+63272000,"Quindio","Filandia",CO
+63272002,"Quindio","La India",CO
+63302000,"Quindio","Génova",CO
+63401000,"Quindio","La Tebaida",CO
+63401003,"Quindio","La Silvia",CO
+63401004,"Quindio","Fundación Amanecer",CO
+63401005,"Quindio","Condominio La Estación",CO
+63401006,"Quindio","Condominio Moracawa",CO
+63401007,"Quindio","Murillo",CO
+63470000,"Quindio","Montenegro",CO
+63470001,"Quindio","El Cuzco",CO
+63470003,"Quindio","Pueblo Tapado",CO
+63470004,"Quindio","Once Casas",CO
+63470007,"Quindio","El Castillo",CO
+63470008,"Quindio","El Gigante",CO
+63470009,"Quindio","Baraya",CO
+63470010,"Quindio","La Montaña",CO
+63470013,"Quindio","Calle Larga",CO
+63470014,"Quindio","Condominio La Hacienda",CO
+63548000,"Quindio","Pijao",CO
+63548002,"Quindio","La Mariela",CO
+63594000,"Quindio","Quimbaya",CO
+63594002,"Quindio","El Laurel",CO
+63594003,"Quindio","La Española",CO
+63594005,"Quindio","Pueblo Rico",CO
+63594006,"Quindio","Puerto Alejandría",CO
+63594007,"Quindio","El Naranjal",CO
+63594009,"Quindio","Condominio Campestre Incas Panaca",CO
+63690000,"Quindio","Salento",CO
+63690001,"Quindio","Boquía",CO
+63690005,"Quindio","La Explanación",CO
+63690007,"Quindio","Condominio Las Colinas",CO
+63690009,"Quindio","San Juan De Carolina",CO
+63690010,"Quindio","San Antonio",CO
+63690011,"Quindio","Los Pinos",CO
+66001000,"Risaralda","Pereira",CO
+66045000,"Risaralda","Apia",CO
+66075000,"Risaralda","Balboa",CO
+66088000,"Risaralda","Belen De Umbria",CO
+66170000,"Risaralda","Dosquebradas",CO
+66318000,"Risaralda","Guatica",CO
+66383000,"Risaralda","La Celia",CO
+66400000,"Risaralda","La Virginia",CO
+66440000,"Risaralda","Marsella",CO
+66456000,"Risaralda","Mistrato",CO
+66572000,"Risaralda","Pueblo Rico",CO
+66594000,"Risaralda","Quinchia",CO
+66682000,"Risaralda","Santa Rosa De Cabal",CO
+66687000,"Risaralda","Santuario",CO
+88001000,"San Andres","San Andres Islas",CO
+88564000,"San Andres","Santa Catalina Y Providencia",CO
+68001000,"Santander","Bucaramanga",CO
+68013000,"Santander","Aguada",CO
+68020000,"Santander","Albania",CO
+68051000,"Santander","Aratoca",CO
+68077000,"Santander","Barbosa",CO
+68079000,"Santander","Barichara",CO
+68081000,"Santander","Barrancabermeja",CO
+68092000,"Santander","Betulia",CO
+68101000,"Santander","Bolivar",CO
+68121000,"Santander","Cabrera",CO
+68132000,"Santander","California",CO
+68147000,"Santander","Capitanejo",CO
+68152000,"Santander","Carcasi",CO
+68160000,"Santander","Cepita",CO
+68162000,"Santander","Cerrito",CO
+68167000,"Santander","Charala",CO
+68169000,"Santander","Charta",CO
+68176000,"Santander","Chima",CO
+68179000,"Santander","Chipata",CO
+68190000,"Santander","Cimitarra",CO
+68207000,"Santander","Concepcion",CO
+68209000,"Santander","Confines",CO
+68211000,"Santander","Contratacion",CO
+68217000,"Santander","Coromoro",CO
+68229000,"Santander","Curiti",CO
+68235000,"Santander","El Carmen De Chucuri",CO
+68245000,"Santander","El Guacamayo",CO
+68250000,"Santander","El Peñon",CO
+68255000,"Santander","El Playon",CO
+68264000,"Santander","Encino",CO
+68266000,"Santander","Enciso",CO
+68271000,"Santander","Florian",CO
+68276000,"Santander","Floridablanca",CO
+68296000,"Santander","Galan",CO
+68298000,"Santander","Gambita",CO
+68307000,"Santander","Giron",CO
+68318000,"Santander","Guaca",CO
+68320000,"Santander","Guadalupe",CO
+68322000,"Santander","Guapota",CO
+68324000,"Santander","Guavata",CO
+68327000,"Santander","Guepsa",CO
+68344000,"Santander","Hato",CO
+68368000,"Santander","Jesus Maria",CO
+68370000,"Santander","Jordan",CO
+68377000,"Santander","La Belleza",CO
+68385000,"Santander","Landazuri",CO
+68397000,"Santander","La Paz",CO
+68406000,"Santander","Lebrija",CO
+68418000,"Santander","Los Santos",CO
+68425000,"Santander","Macaravita",CO
+68432000,"Santander","Malaga",CO
+68444000,"Santander","Matanza",CO
+68464000,"Santander","Mogotes",CO
+68468000,"Santander","Molagavita",CO
+68498000,"Santander","Ocamonte",CO
+68500000,"Santander","Oiba",CO
+68502000,"Santander","Onzaga",CO
+68522000,"Santander","Palmar",CO
+68524000,"Santander","Palmas Del Socorro",CO
+68533000,"Santander","Paramo",CO
+68547000,"Santander","Piedecuesta",CO
+68549000,"Santander","Pinchote",CO
+68572000,"Santander","Puente Nacional",CO
+68573000,"Santander","Puerto Parra",CO
+68575000,"Santander","Puerto Wilches",CO
+68615000,"Santander","Rionegro",CO
+68655000,"Santander","Sabana De Torres",CO
+68669000,"Santander","San Andres",CO
+68673000,"Santander","San Benito",CO
+68679000,"Santander","San Gil",CO
+68682000,"Santander","San Joaquin",CO
+68684000,"Santander","San Jose De Miranda",CO
+68686000,"Santander","San Miguel",CO
+68689000,"Santander","San Vicente De Chucuri",CO
+68705000,"Santander","Santa Barbara",CO
+68720000,"Santander","Santa Helena Del Opon",CO
+68745000,"Santander","Simacota",CO
+68755000,"Santander","Socorro",CO
+68770000,"Santander","Suaita",CO
+68773000,"Santander","Sucre",CO
+68780000,"Santander","Surata",CO
+68820000,"Santander","Tona",CO
+68855000,"Santander","Valle De San Jose",CO
+68861000,"Santander","Velez",CO
+68867000,"Santander","Vetas",CO
+68872000,"Santander","Villanueva",CO
+68895000,"Santander","Zapatoca",CO
+70001000,"Sucre","Sincelejo",CO
+70110000,"Sucre","Buenavista",CO
+70124000,"Sucre","Caimito",CO
+70204000,"Sucre","Coloso",CO
+70215000,"Sucre","Corozal",CO
+70221000,"Sucre","Coveñas",CO
+70230000,"Sucre","Chalan",CO
+70233000,"Sucre","El Roble",CO
+70235000,"Sucre","Galeras",CO
+70265000,"Sucre","Guaranda",CO
+70400000,"Sucre","La Union",CO
+70418000,"Sucre","Los Palmitos",CO
+70429000,"Sucre","Majagual",CO
+70473000,"Sucre","Morroa",CO
+70508000,"Sucre","Ovejas",CO
+70523000,"Sucre","Palmito",CO
+70670000,"Sucre","Sampues",CO
+70678000,"Sucre","San Benito Abad",CO
+70702000,"Sucre","San Juan De Betulia",CO
+70708000,"Sucre","San Marcos",CO
+70713000,"Sucre","San Onofre",CO
+70717000,"Sucre","San Pedro",CO
+70742000,"Sucre","San Luis De Since",CO
+70771000,"Sucre","Sucre",CO
+70820000,"Sucre","Santiago De Tolu",CO
+70823000,"Sucre","Tolu Viejo",CO
+73001000,"Tolima","Ibague",CO
+73024000,"Tolima","Alpujarra",CO
+73026000,"Tolima","Alvarado",CO
+73030000,"Tolima","Ambalema",CO
+73043000,"Tolima","Anzoategui",CO
+73055000,"Tolima","Armero",CO
+73067000,"Tolima","Ataco",CO
+73124000,"Tolima","Cajamarca",CO
+73148000,"Tolima","Carmen De Apicala",CO
+73152000,"Tolima","Casabianca",CO
+73168000,"Tolima","Chaparral",CO
+73200000,"Tolima","Coello",CO
+73217000,"Tolima","Coyaima",CO
+73226000,"Tolima","Cunday",CO
+73236000,"Tolima","Dolores",CO
+73268000,"Tolima","Espinal",CO
+73270000,"Tolima","Falan",CO
+73275000,"Tolima","Flandes",CO
+73283000,"Tolima","Fresno",CO
+73319000,"Tolima","Guamo",CO
+73347000,"Tolima","Herveo",CO
+73349000,"Tolima","Honda",CO
+73352000,"Tolima","Icononzo",CO
+73408000,"Tolima","Lerida",CO
+73411000,"Tolima","Libano",CO
+73443000,"Tolima","San Sebastian De Mariquita",CO
+73449000,"Tolima","Melgar",CO
+73461000,"Tolima","Murillo",CO
+73483000,"Tolima","Natagaima",CO
+73504000,"Tolima","Ortega",CO
+73520000,"Tolima","Palocabildo",CO
+73547000,"Tolima","Piedras",CO
+73555000,"Tolima","Planadas",CO
+73563000,"Tolima","Prado",CO
+73585000,"Tolima","Purificacion",CO
+73616000,"Tolima","Rioblanco",CO
+73622000,"Tolima","Roncesvalles",CO
+73624000,"Tolima","Rovira",CO
+73671000,"Tolima","Saldaña",CO
+73675000,"Tolima","San Antonio",CO
+73678000,"Tolima","San Luis",CO
+73686000,"Tolima","Santa Isabel",CO
+73770000,"Tolima","Suarez",CO
+73854000,"Tolima","Valle De San Juan",CO
+73861000,"Tolima","Venadillo",CO
+73870000,"Tolima","Villahermosa",CO
+73873000,"Tolima","Villarrica",CO
+76001000,"Valle Del Cauca","Cali",CO
+76020000,"Valle Del Cauca","Alcala",CO
+76036000,"Valle Del Cauca","Andalucia",CO
+76041000,"Valle Del Cauca","Ansermanuevo",CO
+76054000,"Valle Del Cauca","Argelia",CO
+76100000,"Valle Del Cauca","Bolivar",CO
+76109000,"Valle Del Cauca","Buenaventura",CO
+76111000,"Valle Del Cauca","Guadalajara De Buga",CO
+76113000,"Valle Del Cauca","Bugalagrande",CO
+76122000,"Valle Del Cauca","Caicedonia",CO
+76126000,"Valle Del Cauca","Calima",CO
+76130000,"Valle Del Cauca","Candelaria",CO
+76147000,"Valle Del Cauca","Cartago",CO
+76233000,"Valle Del Cauca","Dagua",CO
+76243000,"Valle Del Cauca","El Aguila",CO
+76246000,"Valle Del Cauca","El Cairo",CO
+76248000,"Valle Del Cauca","El Cerrito",CO
+76250000,"Valle Del Cauca","El Dovio",CO
+76275000,"Valle Del Cauca","Florida",CO
+76306000,"Valle Del Cauca","Ginebra",CO
+76318000,"Valle Del Cauca","Guacari",CO
+76364000,"Valle Del Cauca","Jamundi",CO
+76377000,"Valle Del Cauca","La Cumbre",CO
+76400000,"Valle Del Cauca","La Union",CO
+76403000,"Valle Del Cauca","La Victoria",CO
+76497000,"Valle Del Cauca","Obando",CO
+76520000,"Valle Del Cauca","Palmira",CO
+76563000,"Valle Del Cauca","Pradera",CO
+76606000,"Valle Del Cauca","Restrepo",CO
+76616000,"Valle Del Cauca","Riofrio",CO
+76622000,"Valle Del Cauca","Roldanillo",CO
+76520026,"Valle Del Cauca","Rozo",CO
+76670000,"Valle Del Cauca","San Pedro",CO
+76736000,"Valle Del Cauca","Sevilla",CO
+76823000,"Valle Del Cauca","Toro",CO
+76828000,"Valle Del Cauca","Trujillo",CO
+76834000,"Valle Del Cauca","Tulua",CO
+76845000,"Valle Del Cauca","Ulloa",CO
+76863000,"Valle Del Cauca","Versalles",CO
+76869000,"Valle Del Cauca","Vijes",CO
+76890000,"Valle Del Cauca","Yotoco",CO
+76892000,"Valle Del Cauca","Yumbo",CO
+76895000,"Valle Del Cauca","Zarzal",CO
+97001000,"Vaupes","Mitu",CO
+97161000,"Vaupes","Caruru",CO
+97511000,"Vaupes","Pacoa",CO
+97666000,"Vaupes","Taraira",CO
+97777000,"Vaupes","Papunaua",CO
+97889000,"Vaupes","Yavarate",CO
+99001000,"Vichada","Puerto Carreño",CO
+99524000,"Vichada","La Primavera",CO
+99624000,"Vichada","Santa Rosalia",CO
+99773000,"Vichada","Cumaribo",CO
+20250002,"Cesar","La Loma",CO
+52215002,"Nariño","Llorente",CO
+76130008,"Valle Del Cauca","Villa Gorgona",CO
+81065008,"Arauca","La Esmeralda",CO
+86865000,"Putumayo","La Hormiga",CO
+86885000,"Putumayo","Villagarzón",CO
+86885001,"Putumayo","Puerto Umbria",CO
+86001000,"Putumayo","Mocoa",CO
+86001002,"Putumayo","El Pepino",CO
+86001003,"Putumayo","Pueblo Viejo",CO
+86001004,"Putumayo","Puerto Limón",CO
+86001006,"Putumayo","San Antonio",CO
+86001009,"Putumayo","Yunguillo",CO
+86001014,"Putumayo","La Tebaida",CO
+86001016,"Putumayo","Alto Afan",CO
+86001017,"Putumayo","Brisas Del Sol",CO
+86001018,"Putumayo","Planadas",CO
+86001019,"Putumayo","Rumiyaco",CO
+86001020,"Putumayo","San Antonio 2",CO
+86219000,"Putumayo","Colón",CO
+86219001,"Putumayo","San Pedro",CO
+86219002,"Putumayo","Las Palmas",CO
+86219003,"Putumayo","Michuacan",CO
+86320000,"Putumayo","Orito",CO
+86320001,"Putumayo","Tesalia",CO
+86320004,"Putumayo","Lucitania",CO
+86320008,"Putumayo","Buenos Aires",CO
+86320009,"Putumayo","San Vicente De Luzón",CO
+86320010,"Putumayo","Siberia",CO
+86320011,"Putumayo","Simón Bolívar",CO
+86320013,"Putumayo","El Achiote",CO
+86320014,"Putumayo","El Líbano",CO
+86320015,"Putumayo","El Paraiso",CO
+86320016,"Putumayo","El Yarumo",CO
+86568000,"Putumayo","Puerto Asís",CO
+86569000,"Putumayo","Puerto Caicedo",CO
+86571000,"Putumayo","Puerto Guzmán",CO
+73616001,"Tolima","Herrera",CO
+54810002,"N De Santander","La Gabarra",CO
+50370001,"Meta","La Julia",CO
+05861002,"Antioquia","Bolombo",CO
+25645001,"Cundinamarca","Santandercito",CO
+86760000,"Putumayo","Santiago",CO
+73001032,"Tolima","Alto De Gualanday",CO
+85001002,"Casanare","La Chaparrera",CO
+68770001,"Santander","Olival",CO
+81065017,"Arauca","Panama",CO
+73555002,"Tolima","Gaitania",CO
+44090003,"La Guajira","Mingueo",CO
+86749000,"Putumayo","Sibundoy",CO
+13001004,"Bayunca","Bolívar Cartagena De Indias",CO
+73268001,"Chicoral","Tolima Espina",CO
+86573000,"Puerto Leguízamo","Putumayo Puerto Leguízamo",CO
+73168004,"El Limón","Tolima Chaparral",CO
+66594002,"Irra","Risaralda Quinchía",CO
+05038008,"Llanos De Cuiba","Antioquia Llanos De Cuiba",CO
+25743005,"Cundinamarca","Subia",CO
+73678004,"Payandé","Tolima Payandé",CO
+86755000,"Putumayo","San Francisco",CO
+52786002,"Nariño","El Tablón",CO
+20175016,"Cesar","La Mata",CO
+54810017,"Norte De Santander","Campo Dos",CO
+50573003,"Meta","Pachaquiaro",CO
+13430013,"Bolívar","Juan Arias Magangué",CO
+25530001,"Cundinamarca","Maya Paratebueno",CO
+15204001,"Cundinamarca","Subia",CO
+19698007,"Cauca","Mondomo",CO
+73024001,"Tolima","Arada",CO
