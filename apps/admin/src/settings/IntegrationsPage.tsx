@@ -88,11 +88,17 @@ export function IntegrationsPage() {
               const fields = new FormData(event.currentTarget);
               const phoneNumberId = String(fields.get('phoneNumberId') ?? '').trim();
               const accessToken = String(fields.get('accessToken') ?? '').trim();
-              if (phoneNumberId === '' && accessToken === '') return;
+              const graphApiVersion = String(fields.get('graphApiVersion') ?? '').trim();
+              const appSecret = String(fields.get('appSecret') ?? '').trim();
+              const webhookVerifyToken = String(fields.get('webhookVerifyToken') ?? '').trim();
+              if (phoneNumberId === '' && accessToken === '' && graphApiVersion === '' && appSecret === '' && webhookVerifyToken === '') return;
               save.mutate({
                 whatsapp: {
                   ...(phoneNumberId === '' ? {} : { phoneNumberId }),
                   ...(accessToken === '' ? {} : { accessToken }),
+                  ...(graphApiVersion === '' ? {} : { graphApiVersion }),
+                  ...(appSecret === '' ? {} : { appSecret }),
+                  ...(webhookVerifyToken === '' ? {} : { webhookVerifyToken }),
                 },
               });
             }}
@@ -111,6 +117,18 @@ export function IntegrationsPage() {
               Nuevo token de acceso
               <input name="accessToken" type="password" autoComplete="new-password" placeholder="Se conserva si lo dejas vacío" />
             </label>
+            <label>
+              Versión de Graph API
+              <input name="graphApiVersion" defaultValue={settings.data.whatsapp.graphApiVersion ?? 'v26.0'} />
+            </label>
+            <label>
+              App secret de Meta
+              <input name="appSecret" type="password" autoComplete="new-password" placeholder="Se conserva si lo dejas vacío" />
+            </label>
+            <label>
+              Token de verificación del webhook
+              <input name="webhookVerifyToken" type="password" autoComplete="new-password" placeholder="Se conserva si lo dejas vacío" />
+            </label>
             <button type="submit" disabled={save.isPending}>Guardar conexión</button>
           </form>
           <form
@@ -120,11 +138,15 @@ export function IntegrationsPage() {
               const fields = new FormData(event.currentTarget);
               const accountEmail = String(fields.get('accountEmail') ?? '').trim();
               const password = String(fields.get('password') ?? '').trim();
-              if (accountEmail === '' && password === '') return;
+              const integrationToken = String(fields.get('integrationToken') ?? '').trim();
+              const integrationId = String(fields.get('integrationId') ?? '').trim();
+              if (accountEmail === '' && password === '' && integrationToken === '' && integrationId === '') return;
               save.mutate({
                 shipping: {
                   ...(accountEmail === '' ? {} : { accountEmail }),
                   ...(password === '' ? {} : { password }),
+                  ...(integrationToken === '' ? {} : { integrationToken }),
+                  ...(integrationId === '' ? {} : { integrationId }),
                 },
               });
             }}
@@ -142,6 +164,14 @@ export function IntegrationsPage() {
             <label>
               Nueva contraseña
               <input name="password" type="password" autoComplete="new-password" placeholder="Se conserva si la dejas vacía" />
+            </label>
+            <label>
+              Token de integración (opcional)
+              <input name="integrationToken" type="password" autoComplete="new-password" placeholder="Se conserva si lo dejas vacío" />
+            </label>
+            <label>
+              ID de integración (opcional)
+              <input name="integrationId" defaultValue={settings.data.shipping.integrationId ?? ''} />
             </label>
             <button type="submit" disabled={save.isPending}>Guardar conexión</button>
           </form>
