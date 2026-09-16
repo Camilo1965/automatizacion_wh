@@ -13,7 +13,9 @@ describe('locality repository integration', () => {
 
   beforeAll(async () => runMigrations(testDatabaseUrl));
   beforeEach(async () => {
-    await database.orm.execute('TRUNCATE TABLE shipping_localities');
+    await database.orm.execute(
+      'TRUNCATE TABLE shipping_locality_imports, shipping_localities',
+    );
   });
   afterAll(async () => database.close());
 
@@ -60,5 +62,24 @@ describe('locality repository integration', () => {
     expect(first.nextAfterCode).toBe('001');
     expect(second.items.map((item) => item.carrierCode)).toEqual(['002']);
     expect(second.nextAfterCode).toBeNull();
+  });
+
+  it('keeps a historical locality inactive instead of deleting it on a later import', async () => {
+    await repository.replaceAll({ localities, sourceSha256: 'c'.repeat(64) });
+    await repository.replaceAll({
+      localities: [localities[0]!],
+      sourceSha256: 'd'.repeat(64),
+    });
+
+    await expect(repository.list({ limit: 25 })).resolves.toEqual({
+      items: [localities[0]],
+      nextAfterCode: null,
+    });
+    const [historical] = await database.orm.execute<{
+      active: boolean;
+    }>(
+      "SELECT active FROM shipping_localities WHERE carrier_code = '002'",
+    );
+    expect(historical?.active).toBe(false);
   });
 });

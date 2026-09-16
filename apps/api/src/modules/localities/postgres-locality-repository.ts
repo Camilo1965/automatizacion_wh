@@ -1,6 +1,9 @@
-import { and, asc, eq, gt, ilike, or } from 'drizzle-orm';
+import { and, asc, eq, gt, ilike, or, sql } from 'drizzle-orm';
 import type { PostgresDatabase } from '../../database/client.js';
-import { shippingLocalities } from '../../database/schema.js';
+import {
+  shippingLocalities,
+  shippingLocalityImports,
+} from '../../database/schema.js';
 import type { ColombianLocality } from './locality-import.js';
 import type {
   LocalityListInput,
@@ -14,29 +17,57 @@ export class PostgresLocalityRepository implements LocalityRepository {
   async replaceAll(input: {
     localities: readonly ColombianLocality[];
     sourceSha256: string;
+    sourceType?: 'csv' | '99envios_document';
   }) {
     return this.database.orm.transaction(async (tx) => {
       const [current] = await tx
-        .select({ sourceSha256: shippingLocalities.sourceSha256 })
-        .from(shippingLocalities)
+        .select({ sourceSha256: shippingLocalityImports.sourceSha256 })
+        .from(shippingLocalityImports)
+        .where(eq(shippingLocalityImports.sourceSha256, input.sourceSha256))
         .limit(1);
       if (current?.sourceSha256 === input.sourceSha256)
         return { imported: 0, unchanged: true };
-      await tx.delete(shippingLocalities);
+
+      await tx
+        .update(shippingLocalities)
+        .set({ active: false })
+        .where(eq(shippingLocalities.active, true));
       if (input.localities.length > 0) {
-        await tx.insert(shippingLocalities).values(
-          input.localities.map((item) => ({
-            ...item,
-            sourceSha256: input.sourceSha256,
-          })),
-        );
+        await tx
+          .insert(shippingLocalities)
+          .values(
+            input.localities.map((item) => ({
+              ...item,
+              sourceSha256: input.sourceSha256,
+              active: true,
+            })),
+          )
+          .onConflictDoUpdate({
+            target: shippingLocalities.carrierCode,
+            set: {
+              department: sql`excluded.department`,
+              locality: sql`excluded.locality`,
+              normalizedName: sql`excluded.normalized_name`,
+              country: sql`excluded.country`,
+              sourceSha256: sql`excluded.source_sha256`,
+              active: true,
+              importedAt: sql`now()`,
+            },
+          });
       }
+      await tx.insert(shippingLocalityImports).values({
+        sourceSha256: input.sourceSha256,
+        sourceType: input.sourceType ?? 'csv',
+        importedCount: input.localities.length,
+        issues: [],
+      });
       return { imported: input.localities.length, unchanged: false };
     });
   }
 
   async list(input: LocalityListInput): Promise<LocalityPage> {
     const conditions = [];
+    conditions.push(eq(shippingLocalities.active, true));
     if (input.query)
       conditions.push(
         or(

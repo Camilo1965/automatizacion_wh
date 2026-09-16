@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
 
 import { parseColombianLocalitiesCsv } from './locality-import.js';
+import {
+  parse99EnviosLocalitySource,
+  toColombianLocalities,
+} from './99envios-locality-source.js';
 import type {
   LocalityListInput,
   LocalityRepository,
@@ -52,6 +56,27 @@ export class LocalityService {
     return this.repository.replaceAll({
       localities: parsed.localities,
       sourceSha256: createHash('sha256').update(bytes).digest('hex'),
+      sourceType: 'csv',
+    });
+  }
+
+  async import99EnviosSource(source: string) {
+    const parsed = parse99EnviosLocalitySource(source);
+    if (parsed.issues.length > 0) throw new LocalityImportError(parsed.issues);
+    const localities = toColombianLocalities(parsed.rows);
+    if (localities.length === 0) {
+      throw new LocalityImportError([
+        {
+          row: 1,
+          code: 'empty_dataset',
+          message: 'La fuente no incluye localidades colombianas válidas',
+        },
+      ]);
+    }
+    return this.repository.replaceAll({
+      localities,
+      sourceSha256: createHash('sha256').update(source, 'utf8').digest('hex'),
+      sourceType: '99envios_document',
     });
   }
 

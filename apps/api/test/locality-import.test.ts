@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseColombianLocalitiesCsv } from '../src/modules/localities/locality-import.js';
+import { LocalityImportError, LocalityService } from '../src/modules/localities/locality-service.js';
 
 describe('parseColombianLocalitiesCsv', () => {
   it('keeps carrier codes as text and rejects repeated codes', () => {
@@ -24,5 +25,24 @@ describe('parseColombianLocalitiesCsv', () => {
     expect(result.errors).toEqual([
       expect.objectContaining({ row: 3, code: 'duplicate_carrier_code' }),
     ]);
+  });
+});
+
+describe('LocalityService.import99EnviosSource', () => {
+  it('imports valid official rows and surfaces source data issues before persistence', async () => {
+    const replaceAll = async () => ({ imported: 1, unchanged: false });
+    const service = new LocalityService({ replaceAll, list: async () => ({ items: [], nextAfterCode: null }) });
+
+    await expect(
+      service.import99EnviosSource(
+        '["value" => "05001000", "label" => "MEDELLIN - ANTIOQUIA"],',
+      ),
+    ).resolves.toEqual({ imported: 1, unchanged: false });
+
+    await expect(
+      service.import99EnviosSource(
+        '["value" => "1000001", "label" => "CIUDAD DE MEXICO - MEXICO"],',
+      ),
+    ).rejects.toBeInstanceOf(LocalityImportError);
   });
 });

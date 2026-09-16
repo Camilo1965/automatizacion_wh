@@ -17,6 +17,7 @@ export interface LocalityRepository {
     input: Readonly<{
       localities: readonly ColombianLocality[];
       sourceSha256: string;
+      sourceType?: 'csv' | '99envios_document';
     }>,
   ): Promise<Readonly<{ imported: number; unchanged: boolean }>>;
   list(input: LocalityListInput): Promise<LocalityPage>;

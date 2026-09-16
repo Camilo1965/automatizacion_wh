@@ -244,6 +244,7 @@ export const shippingLocalities = pgTable(
     normalizedName: varchar('normalized_name', { length: 240 }).notNull(),
     country: char('country', { length: 2 }).notNull().default('CO'),
     sourceSha256: char('source_sha256', { length: 64 }).notNull(),
+    active: boolean('active').notNull().default(true),
     importedAt: timestamp('imported_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -257,6 +258,37 @@ export const shippingLocalities = pgTable(
     index('shipping_localities_search_idx').on(
       table.department,
       table.normalizedName,
+    ),
+  ],
+);
+
+export const shippingLocalityImports = pgTable(
+  'shipping_locality_imports',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    sourceSha256: char('source_sha256', { length: 64 }).notNull(),
+    sourceType: varchar('source_type', { length: 24 }).notNull(),
+    importedCount: integer('imported_count').notNull(),
+    issues: jsonb('issues').notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('shipping_locality_imports_source_sha256_unique').on(
+      table.sourceSha256,
+    ),
+    check(
+      'shipping_locality_imports_sha256_format',
+      sql`${table.sourceSha256} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      'shipping_locality_imports_source_type_allowed',
+      sql`${table.sourceType} IN ('csv', '99envios_document')`,
+    ),
+    check(
+      'shipping_locality_imports_imported_count_valid',
+      sql`${table.importedCount} >= 0`,
     ),
   ],
 );
