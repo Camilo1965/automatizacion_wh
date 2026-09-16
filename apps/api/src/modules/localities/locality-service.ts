@@ -62,7 +62,6 @@ export class LocalityService {
 
   async import99EnviosSource(source: string) {
     const parsed = parse99EnviosLocalitySource(source);
-    if (parsed.issues.length > 0) throw new LocalityImportError(parsed.issues);
     const localities = toColombianLocalities(parsed.rows);
     if (localities.length === 0) {
       throw new LocalityImportError([

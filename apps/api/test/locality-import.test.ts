@@ -39,7 +39,10 @@ describe('LocalityService.import99EnviosSource', () => {
 
     await expect(
       service.import99EnviosSource(
-        '["value" => "05001000", "label" => "MEDELLIN - ANTIOQUIA"],',
+        [
+          '["value" => "05001000", "label" => "MEDELLIN - ANTIOQUIA"],',
+          '["value" => "1000001", "label" => "CIUDAD DE MEXICO - MEXICO"],',
+        ].join('\n'),
       ),
     ).resolves.toEqual({ imported: 1, unchanged: false });
 

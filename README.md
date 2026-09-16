@@ -54,6 +54,16 @@ flowchart LR
 
 **Admin** (`apps/admin`): React + Vite, sesión por cookie HttpOnly (`credentials: include`), proxy a `/api/admin` en desarrollo.
 
+### Directorio de municipios de 99envíos
+
+El directorio usa códigos DANE internamente y muestra municipio y departamento en el panel. Para importar una copia descargada del documento de 99envíos, guarda el contenido fuente en UTF-8 y ejecuta:
+
+```powershell
+pnpm --filter @camila/api localities:import -- --input .\99envios-localidades.txt --format=99envios-document
+```
+
+Las filas inválidas de la fuente se excluyen; los destinos válidos se mantienen disponibles y los anteriores se conservan como históricos.
+
 **Contracts** (`packages/contracts`): tipos y contratos compartidos entre API y panel.
 
 Detalle: [docs/architecture.md](docs/architecture.md).

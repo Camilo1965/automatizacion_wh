@@ -9,14 +9,24 @@ import { PostgresLocalityRepository } from '../modules/localities/postgres-local
 async function main() {
   const inputIndex = process.argv.indexOf('--input');
   const inputPath = inputIndex < 0 ? undefined : process.argv[inputIndex + 1];
+  const sourceFormat = process.argv.includes('--format=99envios-document')
+    ? '99envios-document'
+    : 'csv';
   const databaseUrl = process.env.DATABASE_URL;
   if (!inputPath || !databaseUrl)
     throw new Error('Use --input <ruta> y configure DATABASE_URL');
   const database = createPostgresDatabase(databaseUrl);
   try {
-    const result = await new LocalityService(
+    const service = new LocalityService(
       new PostgresLocalityRepository(database),
-    ).importCsv(await readFile(inputPath));
+    );
+    const bytes = await readFile(inputPath);
+    const result =
+      sourceFormat === '99envios-document'
+        ? await service.import99EnviosSource(
+            new TextDecoder('utf-8', { fatal: true }).decode(bytes),
+          )
+        : await service.importCsv(bytes);
     console.info(
       result.unchanged
         ? 'Localidades sin cambios'
