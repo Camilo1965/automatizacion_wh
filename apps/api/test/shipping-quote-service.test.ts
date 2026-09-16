@@ -191,7 +191,7 @@ describe('ShippingQuoteService', () => {
           expect.objectContaining({ insuranceMode: 'none' }),
           expect.objectContaining({ insuranceMode: 'standard' }),
         ]),
-        automaticallySelect: false,
+        automaticallySelect: true,
       }),
     );
   });

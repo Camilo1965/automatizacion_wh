@@ -186,7 +186,9 @@ export class ShippingQuoteService {
       quotes: offers,
       recommendedCarrier,
       recommendedQuotes,
-      automaticallySelect: policy.offerMode !== 'customer_choice',
+      // The store owner configures carrier and insurance policy. Customers never
+      // choose a carrier in WhatsApp, so persist the deterministic recommendation.
+      automaticallySelect: true,
       policy,
       quotedAt,
       expiresAt: new Date(quotedAt.getTime() + 30 * 60 * 1000),

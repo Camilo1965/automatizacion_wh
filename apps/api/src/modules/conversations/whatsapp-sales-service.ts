@@ -145,6 +145,8 @@ function summaryText(summary: OrderSummary): string {
   ].join('\n');
 }
 
+// Retained only to finish conversations that were already waiting for a
+// customer selection before automatic routing was enabled.
 function shippingChoices(
   quotes: readonly ShippingChoice[],
 ): readonly ShippingChoice[] {
@@ -157,25 +159,6 @@ function shippingChoices(
           ? 1
           : 0,
     );
-}
-
-function shippingChoiceText(quotes: readonly ShippingChoice[]): string {
-  return [
-    'Elige cómo quieres recibir tu pedido:',
-    ...quotes.map((quote, index) => {
-      const protectedLabel =
-        quote.insuranceMode === 'none'
-          ? 'Económico'
-          : `Protegido · Seguro 99 ${quote.insuranceMode === 'plus' ? 'Plus' : 'estándar'}`;
-      const total =
-        quote.freightCop +
-        quote.cashOnDeliveryCop +
-        quote.surchargeCop +
-        quote.insuranceCop;
-      return `${index + 1}. ${protectedLabel}\nTransportadora: ${quote.carrier}\nEnvío: ${formatCop(total)}`;
-    }),
-    'Responde 1 o 2 para continuar.',
-  ].join('\n\n');
 }
 
 export class WhatsAppSalesService {
@@ -324,25 +307,7 @@ export class WhatsAppSalesService {
       this.orders?.createSummary !== undefined &&
       this.conversations.setSummaryVersion !== undefined
     ) {
-      const created = await this.shippingQuotes?.createQuotes(
-        result.activeOrderId,
-      );
-      if (Array.isArray(created)) {
-        const choices = shippingChoices(created as ShippingChoice[]);
-        if (choices.length > 1 && !choices.some((quote) => quote.selected)) {
-          await this.conversations.setState?.(
-            result.conversationId,
-            'awaiting_shipping',
-          );
-          await this.queueText(
-            result.conversationId,
-            input,
-            shippingChoiceText(choices),
-            `shipping-options:${result.activeOrderId}`,
-          );
-          return;
-        }
-      }
+      await this.shippingQuotes?.createQuotes(result.activeOrderId);
       const summary = await this.orders.createSummary(result.activeOrderId);
       await this.conversations.setSummaryVersion(
         result.conversationId,

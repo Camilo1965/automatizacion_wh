@@ -378,7 +378,7 @@ describe('WhatsAppSalesService', () => {
     );
   });
 
-  it('asks the customer to choose economy or protected shipping before the summary', async () => {
+  it('uses the owner-configured shipping recommendation before the summary', async () => {
     const quotes = [
       {
         id: 'economy',
@@ -404,9 +404,7 @@ describe('WhatsAppSalesService', () => {
       },
     ];
     const conversations = {
-      receive: vi
-        .fn()
-        .mockResolvedValueOnce({
+      receive: vi.fn().mockResolvedValue({
           duplicate: false,
           conversationId: 'conversation-1',
           state: 'awaiting_confirmation',
@@ -414,15 +412,6 @@ describe('WhatsAppSalesService', () => {
           activeOrderId: 'order-1',
           action: 'collect_notes',
           input: '',
-        })
-        .mockResolvedValueOnce({
-          duplicate: false,
-          conversationId: 'conversation-1',
-          state: 'awaiting_confirmation',
-          reply: null,
-          activeOrderId: 'order-1',
-          action: 'select_shipping',
-          input: '2',
         }),
       returnToSize: vi.fn(),
       setState: vi.fn(),
@@ -461,29 +450,14 @@ describe('WhatsAppSalesService', () => {
       customerPhone: '+573001234567',
       text: 'ninguna',
     });
-    expect(conversations.setState).toHaveBeenCalledWith(
-      'conversation-1',
-      'awaiting_shipping',
-    );
-    expect(orders.createSummary).not.toHaveBeenCalled();
-    expect(outbound.enqueueText).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.stringMatching(
-          /1\. Económico[\s\S]*2\. Protegido[\s\S]*Seguro 99 Plus/,
-        ),
-      }),
-    );
-
-    await service.process({
-      whatsappMessageId: 'wamid.shipping',
-      customerPhone: '+573001234567',
-      text: '2',
-    });
-    expect(shipping.selectQuote).toHaveBeenCalledWith('order-1', 'protected');
     expect(orders.createSummary).toHaveBeenCalledWith('order-1');
     expect(conversations.setSummaryVersion).toHaveBeenCalledWith(
       'conversation-1',
       4,
+    );
+    expect(shipping.selectQuote).not.toHaveBeenCalled();
+    expect(outbound.enqueueText).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.stringContaining('confirmar') }),
     );
   });
 
