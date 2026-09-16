@@ -1,5 +1,6 @@
 import {
   IntegrationHealthResponseSchema,
+  IntegrationSettingsResponseSchema,
   InventoryClosureResponseSchema,
   InventoryClosuresResponseSchema,
   OwnerAlertsResponseSchema,
@@ -10,6 +11,22 @@ export async function getIntegrationHealth() {
   return (
     await apiRequest('/integrations/health', {
       schema: IntegrationHealthResponseSchema,
+    })
+  ).data;
+}
+export async function getIntegrationSettings() {
+  return (
+    await apiRequest('/integrations/settings', {
+      schema: IntegrationSettingsResponseSchema,
+    })
+  ).data;
+}
+export async function updateIntegrationSettings(body: unknown) {
+  return (
+    await apiRequest('/integrations/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+      schema: IntegrationSettingsResponseSchema,
     })
   ).data;
 }

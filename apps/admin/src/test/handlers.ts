@@ -114,6 +114,38 @@ export const handlers = [
       ),
     }),
   ),
+  http.get(`${base}/integrations/settings`, () =>
+    HttpResponse.json({
+      data: {
+        whatsapp: {
+          configured: false,
+          phoneNumberId: null,
+          graphApiVersion: null,
+        },
+        shipping: {
+          configured: false,
+          accountEmail: null,
+          integrationId: null,
+        },
+      },
+    }),
+  ),
+  http.patch(`${base}/integrations/settings`, () =>
+    HttpResponse.json({
+      data: {
+        whatsapp: {
+          configured: true,
+          phoneNumberId: '1339849665872310',
+          graphApiVersion: 'v26.0',
+        },
+        shipping: {
+          configured: true,
+          accountEmail: 'owner@example.com',
+          integrationId: null,
+        },
+      },
+    }),
+  ),
   http.get(`${base}/alerts`, () =>
     HttpResponse.json({ data: { items: [], nextCursor: null } }),
   ),

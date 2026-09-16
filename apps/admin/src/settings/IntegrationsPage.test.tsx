@@ -7,7 +7,7 @@ describe('IntegrationsPage', () => {
   it('shows every operational dependency', async () => {
     renderWithProviders(<IntegrationsPage />);
     expect(await screen.findByText('Base de datos')).toBeVisible();
-    expect(screen.getByText('99envíos')).toBeVisible();
+    expect(screen.getByRole('heading', { name: '99envíos', level: 3 })).toBeVisible();
     expect(screen.getByText('Scheduler')).toBeVisible();
   });
 });
