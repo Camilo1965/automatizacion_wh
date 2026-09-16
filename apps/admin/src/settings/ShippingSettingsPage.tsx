@@ -71,7 +71,7 @@ function PolicyFields({
         <option value="allow">Usar otra transportadora</option>
         <option value="block">Detener y pedir atención</option>
       </select>
-      <label htmlFor={`${prefix}-offer`}>Opciones para el cliente</label>
+      <label htmlFor={`${prefix}-offer`}>Política automática de seguro</label>
       <select
         id={`${prefix}-offer`}
         value={policy.offerMode}
@@ -82,8 +82,8 @@ function PolicyFields({
           })
         }
       >
-        <option value="customer_choice">Económico y protegido</option>
-        <option value="economy_only">Solo económico</option>
+        <option value="customer_choice">Elegir el envío económico</option>
+        <option value="economy_only">Sin seguro adicional</option>
         <option value="protected_only">Siempre protegido</option>
       </select>
       <label htmlFor={`${prefix}-insurance`}>Seguro protegido</label>
@@ -115,9 +115,9 @@ function describePolicy(policy: ShippingPolicy): string {
       : 'se detiene si no está disponible';
   const offer =
     policy.offerMode === 'customer_choice'
-      ? `ofrece económico y protegido con seguro ${policy.protectedInsurance === 'plus' ? 'Plus' : 'estándar'}`
+      ? 'selecciona automáticamente la alternativa económica'
       : policy.offerMode === 'economy_only'
-        ? 'ofrece únicamente envío económico'
+        ? 'envía sin seguro adicional'
         : `exige envío protegido con seguro ${policy.protectedInsurance === 'plus' ? 'Plus' : 'estándar'}`;
   return `Prefiere ${carrier}, ${fallback} y ${offer}.`;
 }
@@ -237,8 +237,8 @@ export function ShippingSettingsPage() {
       <p className="eyebrow">Configuración</p>
       <h2 id="settings-title">Preferencias de envío</h2>
       <p className="muted">
-        Controla qué opciones recibe cada cliente y qué hacer cuando una
-        transportadora no tiene cobertura.
+        Define la transportadora, el seguro y qué hacer cuando una
+        transportadora no tiene cobertura. El cliente no selecciona el envío.
       </p>
       <form
         className="card settings-card"
