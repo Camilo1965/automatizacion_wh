@@ -1245,4 +1245,22 @@ describe('strict public response contracts', () => {
       ShippingPreferencesResponseSchema.safeParse({ data: policy }).success,
     ).toBe(true);
   });
+
+  it('validates department choices without exposing DANE codes in the selector', async () => {
+    const { DepartmentsResponseSchema } = await import('../src/index.js');
+    expect(
+      DepartmentsResponseSchema.safeParse({
+        data: { items: [{ name: 'Antioquia', localityCount: 125 }] },
+      }).success,
+    ).toBe(true);
+    expect(
+      DepartmentsResponseSchema.safeParse({
+        data: {
+          items: [
+            { name: 'Antioquia', localityCount: 125, carrierCode: '05001000' },
+          ],
+        },
+      }).success,
+    ).toBe(false);
+  });
 });

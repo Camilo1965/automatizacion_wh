@@ -965,5 +965,15 @@ describe('admin HTTP API', () => {
         nextAfterCode: null,
       },
     });
+
+    const departments = await app.inject({
+      method: 'GET',
+      url: '/api/admin/localities/departments',
+      headers: { cookie },
+    });
+    expect(departments.statusCode).toBe(200);
+    expect(departments.json()).toEqual({
+      data: { items: [{ name: 'Antioquia', localityCount: 1 }] },
+    });
   });
 });

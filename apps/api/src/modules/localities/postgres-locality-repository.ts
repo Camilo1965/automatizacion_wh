@@ -102,4 +102,16 @@ export class PostgresLocalityRepository implements LocalityRepository {
       nextAfterCode: hasMore ? (items.at(-1)?.carrierCode ?? null) : null,
     };
   }
+
+  async listDepartments() {
+    return this.database.orm
+      .select({
+        name: shippingLocalities.department,
+        localityCount: sql<number>`count(*)::int`,
+      })
+      .from(shippingLocalities)
+      .where(eq(shippingLocalities.active, true))
+      .groupBy(shippingLocalities.department)
+      .orderBy(asc(shippingLocalities.department));
+  }
 }

@@ -592,6 +592,17 @@ export const LocalitiesResponseSchema = dataEnvelopeSchema(
 );
 export type LocalityPublic = z.infer<typeof LocalityPublicSchema>;
 
+export const DepartmentPublicSchema = z
+  .object({
+    name: z.string().min(1).max(100),
+    localityCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export type DepartmentPublic = z.infer<typeof DepartmentPublicSchema>;
+export const DepartmentsResponseSchema = dataEnvelopeSchema(
+  z.object({ items: z.array(DepartmentPublicSchema) }).strict(),
+);
+
 export const OrderPublicSchema = z
   .object({
     id: z.uuid(),

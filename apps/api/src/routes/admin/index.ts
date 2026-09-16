@@ -639,6 +639,13 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
   }
 
   if (localityService !== undefined) {
+    app.get('/localities/departments', async (request, reply) => {
+      await requireAdminSession(request, authService);
+      return reply.status(200).send({
+        data: { items: await localityService.listDepartments() },
+      });
+    });
+
     app.get('/localities', async (request, reply) => {
       await requireAdminSession(request, authService);
       const query = z

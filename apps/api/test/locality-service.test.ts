@@ -8,6 +8,7 @@ describe('LocalityService', () => {
     const repository: LocalityRepository = {
       replaceAll: vi.fn(async () => ({ imported: 1, unchanged: false })),
       list: vi.fn(async () => ({ items: [], nextAfterCode: null })),
+      listDepartments: vi.fn(async () => []),
     };
     const service = new LocalityService(repository);
     const csv = new TextEncoder().encode(
@@ -29,6 +30,7 @@ describe('LocalityService', () => {
     const repository: LocalityRepository = {
       replaceAll: vi.fn(),
       list: vi.fn(async () => ({ items: [], nextAfterCode: null })),
+      listDepartments: vi.fn(async () => []),
     };
     const service = new LocalityService(repository);
 
@@ -45,6 +47,7 @@ describe('LocalityService', () => {
     const repository: LocalityRepository = {
       replaceAll: vi.fn(),
       list,
+      listDepartments: vi.fn(async () => []),
     };
     const service = new LocalityService(repository);
 

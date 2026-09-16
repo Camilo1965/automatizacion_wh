@@ -31,7 +31,11 @@ describe('parseColombianLocalitiesCsv', () => {
 describe('LocalityService.import99EnviosSource', () => {
   it('imports valid official rows and surfaces source data issues before persistence', async () => {
     const replaceAll = async () => ({ imported: 1, unchanged: false });
-    const service = new LocalityService({ replaceAll, list: async () => ({ items: [], nextAfterCode: null }) });
+    const service = new LocalityService({
+      replaceAll,
+      list: async () => ({ items: [], nextAfterCode: null }),
+      listDepartments: async () => [],
+    });
 
     await expect(
       service.import99EnviosSource(

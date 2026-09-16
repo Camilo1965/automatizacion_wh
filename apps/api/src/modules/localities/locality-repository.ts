@@ -12,6 +12,11 @@ export type LocalityPage = Readonly<{
   nextAfterCode: string | null;
 }>;
 
+export type LocalityDepartment = Readonly<{
+  name: string;
+  localityCount: number;
+}>;
+
 export interface LocalityRepository {
   replaceAll(
     input: Readonly<{
@@ -21,4 +26,5 @@ export interface LocalityRepository {
     }>,
   ): Promise<Readonly<{ imported: number; unchanged: boolean }>>;
   list(input: LocalityListInput): Promise<LocalityPage>;
+  listDepartments(): Promise<readonly LocalityDepartment[]>;
 }

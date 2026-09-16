@@ -188,6 +188,11 @@ export const handlers = [
   http.get(`${base}/shipping/carriers`, () =>
     HttpResponse.json({ data: { items: ['envia', 'tcc'] } }),
   ),
+  http.get(`${base}/localities/departments`, () =>
+    HttpResponse.json({
+      data: { items: [{ name: 'Antioquia', localityCount: 125 }] },
+    }),
+  ),
   http.get(`${base}/catalog-readiness`, () => {
     const total = state.references.length;
     const active = state.references.filter((item) => item.active).length;

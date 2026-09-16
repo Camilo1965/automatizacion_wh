@@ -1,5 +1,7 @@
 import {
+  DepartmentsResponseSchema,
   LocalitiesResponseSchema,
+  type DepartmentPublic,
   type LocalityPublic,
 } from '@camila/contracts';
 import { MapPin, Search } from 'lucide-react';
@@ -15,8 +17,20 @@ export function LocalityPicker({
   onChange: (value: LocalityPublic | null) => void;
 }) {
   const [query, setQuery] = useState('');
+  const [department, setDepartment] = useState('');
+  const [departments, setDepartments] = useState<readonly DepartmentPublic[]>(
+    [],
+  );
   const [items, setItems] = useState<readonly LocalityPublic[]>([]);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    void apiRequest('/localities/departments', {
+      schema: DepartmentsResponseSchema,
+    })
+      .then((response) => setDepartments(response.data.items))
+      .catch(() => setDepartments([]));
+  }, []);
 
   useEffect(() => {
     const normalizedQuery = query.trim();
@@ -26,7 +40,11 @@ export function LocalityPicker({
     if (normalizedQuery.length < 2 || normalizedQuery === selectedLabel) return;
     const timer = window.setTimeout(() => {
       void apiRequest(
-        `/localities?query=${encodeURIComponent(normalizedQuery)}&limit=20`,
+        `/localities?query=${encodeURIComponent(normalizedQuery)}&limit=20${
+          department === ''
+            ? ''
+            : `&department=${encodeURIComponent(department)}`
+        }`,
         { schema: LocalitiesResponseSchema },
       )
         .then((response) => {
@@ -38,13 +56,29 @@ export function LocalityPicker({
         );
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [query, value]);
+  }, [department, query, value]);
 
   const showResults = query.trim().length >= 2 && items.length > 0;
 
   return (
     <div className="locality-picker">
       <label htmlFor="locality-search">Departamento y municipio</label>
+      <select
+        aria-label="Departamento"
+        value={department}
+        onChange={(event) => {
+          setDepartment(event.target.value);
+          setItems([]);
+          if (value !== null) onChange(null);
+        }}
+      >
+        <option value="">Todos los departamentos</option>
+        {departments.map((item) => (
+          <option key={item.name} value={item.name}>
+            {item.name} ({item.localityCount})
+          </option>
+        ))}
+      </select>
       <div className="input-with-icon">
         <Search aria-hidden="true" size={18} />
         <input

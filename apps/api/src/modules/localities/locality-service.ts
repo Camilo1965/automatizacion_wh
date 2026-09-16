@@ -94,4 +94,8 @@ export class LocalityService {
           }),
     });
   }
+
+  listDepartments() {
+    return this.repository.listDepartments();
+  }
 }
