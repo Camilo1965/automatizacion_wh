@@ -22,14 +22,14 @@ Diseñada para un negocio de calzado con contraentrega en Colombia. Integra **Wh
 
 ## Qué resuelve
 
-| Capacidad | Descripción |
-| --- | --- |
-| Conversación WhatsApp | Guía al cliente: talla → referencias con foto → datos → envío → confirmación |
+| Capacidad               | Descripción                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------ |
+| Conversación WhatsApp   | Guía al cliente: talla → referencias con foto → datos → envío → confirmación               |
 | Catálogo con stock real | Solo muestra referencias activas, con fotografía y disponibilidad para la talla confirmada |
-| Inventario | Stock por `referencia + talla`, reservas y movimientos auditables |
-| Envíos | Reglas globales o por municipio (código DANE), transportadora, fallback y seguro |
-| Guías | Cotización, creación de guía, PDF y manejo de resultados inciertos |
-| Panel admin | Auth, catálogo, pedidos, conversaciones, alertas, preferencias e integraciones |
+| Inventario              | Stock por `referencia + talla`, reservas y movimientos auditables                          |
+| Envíos                  | Reglas globales o por municipio (código DANE), transportadora, fallback y seguro           |
+| Guías                   | Cotización, creación de guía, PDF y manejo de resultados inciertos                         |
+| Panel admin             | Auth, catálogo, pedidos, conversaciones, alertas, preferencias e integraciones             |
 
 Flujo de disponibilidad obligatorio:
 
@@ -86,14 +86,14 @@ automatizacion_wh/
 
 ## Conceptos de dominio
 
-| Término | Definición |
-| --- | --- |
-| **Referencia** | Combinación concreta de modelo y color (p. ej. `01`). El código puede conservar ceros iniciales. |
-| **Talla** | Entera o media (`36`, `37`, `37.5`). El stock se controla por `referencia + talla`. |
-| **Disponible** | `physicalQuantity - reservedQuantity > 0` para la talla confirmada. |
-| **Lista para publicar** | Referencia activa, con foto válida y al menos una talla disponible. |
-| **Política de envío** | Regla general o excepción por código DANE: transportadora, fallback y modo de seguro. |
-| **Guía incierta** | 99envíos no respondió tras enviar la solicitud. No se reintenta sola; la operadora verifica en 99envíos. |
+| Término                 | Definición                                                                                               |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Referencia**          | Combinación concreta de modelo y color (p. ej. `01`). El código puede conservar ceros iniciales.         |
+| **Talla**               | Entera o media (`36`, `37`, `37.5`). El stock se controla por `referencia + talla`.                      |
+| **Disponible**          | `physicalQuantity - reservedQuantity > 0` para la talla confirmada.                                      |
+| **Lista para publicar** | Referencia activa, con foto válida y al menos una talla disponible.                                      |
+| **Política de envío**   | Regla general o excepción por código DANE: transportadora, fallback y modo de seguro.                    |
+| **Guía incierta**       | 99envíos no respondió tras enviar la solicitud. No se reintenta sola; la operadora verifica en 99envíos. |
 
 ## Inicio rápido
 
@@ -153,12 +153,12 @@ Guía ampliada: [docs/getting-started.md](docs/getting-started.md).
 
 ## URLs locales
 
-| Servicio | URL |
-| --- | --- |
-| API | http://127.0.0.1:3000 |
-| Panel | http://127.0.0.1:5173 |
-| PostgreSQL desarrollo | 127.0.0.1:5432 |
-| PostgreSQL pruebas | 127.0.0.1:5433 |
+| Servicio              | URL                   |
+| --------------------- | --------------------- |
+| API                   | http://127.0.0.1:3000 |
+| Panel                 | http://127.0.0.1:5173 |
+| PostgreSQL desarrollo | 127.0.0.1:5432        |
+| PostgreSQL pruebas    | 127.0.0.1:5433        |
 
 Salud:
 
@@ -173,12 +173,12 @@ curl -s http://127.0.0.1:3000/health/ready
 
 Todas las variables están documentadas en [`.env.example`](.env.example).
 
-| Área | Variables clave |
-| --- | --- |
-| App | `HOST`, `PORT`, `ADMIN_ORIGIN`, `MEDIA_ROOT`, `LOG_LEVEL` |
-| Base de datos | `DATABASE_URL`, `TEST_DATABASE_URL` |
-| WhatsApp | `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` |
-| 99envíos | `NINETYNINE_ENVIOS_EMAIL`, `NINETYNINE_ENVIOS_PASSWORD` (JWT vía `POST /api/integration/v1/login`); headers opcionales `NINETYNINE_ENVIOS_INTEGRATION_*` |
+| Área          | Variables clave                                                                                                                                          |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| App           | `HOST`, `PORT`, `ADMIN_ORIGIN`, `MEDIA_ROOT`, `LOG_LEVEL`                                                                                                |
+| Base de datos | `DATABASE_URL`, `TEST_DATABASE_URL`                                                                                                                      |
+| WhatsApp      | `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`                                              |
+| 99envíos      | `NINETYNINE_ENVIOS_EMAIL`, `NINETYNINE_ENVIOS_PASSWORD` (JWT vía `POST /api/integration/v1/login`); headers opcionales `NINETYNINE_ENVIOS_INTEGRATION_*` |
 
 Sin credenciales completas de 99envíos, las rutas de envío responden `shipping_not_configured` y no llaman al proveedor.
 
@@ -218,13 +218,13 @@ pnpm test:e2e
 
 Índice completo (Diátaxis): **[docs/README.md](docs/README.md)**
 
-| Tipo | Documento |
-| --- | --- |
-| Tutorial | [Inicio local](docs/getting-started.md) |
-| How-to | [Piloto y despliegue](docs/how-to/pilot-and-deploy.md) |
-| Explanation | [Arquitectura](docs/architecture.md) |
-| Reference | [Integraciones 99envíos](docs/integrations/99envios-validation-2026-09-07.md) |
-| Producto | [ROADMAP.md](ROADMAP.md) |
+| Tipo        | Documento                                                                     |
+| ----------- | ----------------------------------------------------------------------------- |
+| Tutorial    | [Inicio local](docs/getting-started.md)                                       |
+| How-to      | [Piloto y despliegue](docs/how-to/pilot-and-deploy.md)                        |
+| Explanation | [Arquitectura](docs/architecture.md)                                          |
+| Reference   | [Integraciones 99envíos](docs/integrations/99envios-validation-2026-09-07.md) |
+| Producto    | [ROADMAP.md](ROADMAP.md)                                                      |
 
 ## Contribuir
 

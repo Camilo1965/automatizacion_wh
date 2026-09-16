@@ -198,10 +198,16 @@ async function main(): Promise<void> {
           graphApiVersion: config.whatsappGraphApiVersion ?? 'v26.0',
         }
       : undefined;
-  if (integrationSettingsService !== undefined || whatsappFallback !== undefined) {
+  if (
+    integrationSettingsService !== undefined ||
+    whatsappFallback !== undefined
+  ) {
     const worker = new OutboxWorker(
       outboundRepository,
-      new ConfiguredWhatsAppClient(integrationSettingsService, whatsappFallback),
+      new ConfiguredWhatsAppClient(
+        integrationSettingsService,
+        whatsappFallback,
+      ),
       photoStorage,
       alertService,
     );

@@ -7,10 +7,12 @@ import {
 
 describe('parse99EnviosLocalitySource', () => {
   it('normalizes documented 99envios labels and preserves eight-digit DANE codes', () => {
-    const result = parse99EnviosLocalitySource([
-      '["value" => "05001000", "label" => "MEDELLIN - ANTIOQUIA"],',
-      '["value" => "05837001", "label" => "CURRULAO - ANTIOQUIA"],',
-    ].join('\n'));
+    const result = parse99EnviosLocalitySource(
+      [
+        '["value" => "05001000", "label" => "MEDELLIN - ANTIOQUIA"],',
+        '["value" => "05837001", "label" => "CURRULAO - ANTIOQUIA"],',
+      ].join('\n'),
+    );
 
     expect(result.rows).toEqual([
       {
@@ -36,11 +38,13 @@ describe('parse99EnviosLocalitySource', () => {
   });
 
   it('reports non-Colombian or malformed provider codes without publishing them', () => {
-    const result = parse99EnviosLocalitySource([
-      '["value" => "1000001", "label" => "Ciudad de Mexico"],',
-      '["value" => "05001000", "label" => "MEDELLIN - ANTIOQUIA"],',
-      '["value" => "05001000", "label" => "MEDELLIN - ANTIOQUIA"],',
-    ].join('\n'));
+    const result = parse99EnviosLocalitySource(
+      [
+        '["value" => "1000001", "label" => "Ciudad de Mexico"],',
+        '["value" => "05001000", "label" => "MEDELLIN - ANTIOQUIA"],',
+        '["value" => "05001000", "label" => "MEDELLIN - ANTIOQUIA"],',
+      ].join('\n'),
+    );
 
     expect(result.rows).toHaveLength(1);
     expect(result.issues).toEqual([

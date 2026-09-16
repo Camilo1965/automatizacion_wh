@@ -32,7 +32,9 @@ export function IntegrationsPage() {
   const save = useMutation({
     mutationFn: updateIntegrationSettings,
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['integration-settings'] });
+      void queryClient.invalidateQueries({
+        queryKey: ['integration-settings'],
+      });
       void queryClient.invalidateQueries({ queryKey: ['integration-health'] });
     },
   });
@@ -86,12 +88,27 @@ export function IntegrationsPage() {
             onSubmit={(event) => {
               event.preventDefault();
               const fields = new FormData(event.currentTarget);
-              const phoneNumberId = String(fields.get('phoneNumberId') ?? '').trim();
-              const accessToken = String(fields.get('accessToken') ?? '').trim();
-              const graphApiVersion = String(fields.get('graphApiVersion') ?? '').trim();
+              const phoneNumberId = String(
+                fields.get('phoneNumberId') ?? '',
+              ).trim();
+              const accessToken = String(
+                fields.get('accessToken') ?? '',
+              ).trim();
+              const graphApiVersion = String(
+                fields.get('graphApiVersion') ?? '',
+              ).trim();
               const appSecret = String(fields.get('appSecret') ?? '').trim();
-              const webhookVerifyToken = String(fields.get('webhookVerifyToken') ?? '').trim();
-              if (phoneNumberId === '' && accessToken === '' && graphApiVersion === '' && appSecret === '' && webhookVerifyToken === '') return;
+              const webhookVerifyToken = String(
+                fields.get('webhookVerifyToken') ?? '',
+              ).trim();
+              if (
+                phoneNumberId === '' &&
+                accessToken === '' &&
+                graphApiVersion === '' &&
+                appSecret === '' &&
+                webhookVerifyToken === ''
+              )
+                return;
               save.mutate({
                 whatsapp: {
                   ...(phoneNumberId === '' ? {} : { phoneNumberId }),
@@ -111,36 +128,71 @@ export function IntegrationsPage() {
             </p>
             <label>
               ID del número
-              <input name="phoneNumberId" defaultValue={settings.data.whatsapp.phoneNumberId ?? ''} />
+              <input
+                name="phoneNumberId"
+                defaultValue={settings.data.whatsapp.phoneNumberId ?? ''}
+              />
             </label>
             <label>
               Nuevo token de acceso
-              <input name="accessToken" type="password" autoComplete="new-password" placeholder="Se conserva si lo dejas vacío" />
+              <input
+                name="accessToken"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Se conserva si lo dejas vacío"
+              />
             </label>
             <label>
               Versión de Graph API
-              <input name="graphApiVersion" defaultValue={settings.data.whatsapp.graphApiVersion ?? 'v26.0'} />
+              <input
+                name="graphApiVersion"
+                defaultValue={settings.data.whatsapp.graphApiVersion ?? 'v26.0'}
+              />
             </label>
             <label>
               App secret de Meta
-              <input name="appSecret" type="password" autoComplete="new-password" placeholder="Se conserva si lo dejas vacío" />
+              <input
+                name="appSecret"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Se conserva si lo dejas vacío"
+              />
             </label>
             <label>
               Token de verificación del webhook
-              <input name="webhookVerifyToken" type="password" autoComplete="new-password" placeholder="Se conserva si lo dejas vacío" />
+              <input
+                name="webhookVerifyToken"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Se conserva si lo dejas vacío"
+              />
             </label>
-            <button type="submit" disabled={save.isPending}>Guardar conexión</button>
+            <button type="submit" disabled={save.isPending}>
+              Guardar conexión
+            </button>
           </form>
           <form
             className="card settings-card"
             onSubmit={(event) => {
               event.preventDefault();
               const fields = new FormData(event.currentTarget);
-              const accountEmail = String(fields.get('accountEmail') ?? '').trim();
+              const accountEmail = String(
+                fields.get('accountEmail') ?? '',
+              ).trim();
               const password = String(fields.get('password') ?? '').trim();
-              const integrationToken = String(fields.get('integrationToken') ?? '').trim();
-              const integrationId = String(fields.get('integrationId') ?? '').trim();
-              if (accountEmail === '' && password === '' && integrationToken === '' && integrationId === '') return;
+              const integrationToken = String(
+                fields.get('integrationToken') ?? '',
+              ).trim();
+              const integrationId = String(
+                fields.get('integrationId') ?? '',
+              ).trim();
+              if (
+                accountEmail === '' &&
+                password === '' &&
+                integrationToken === '' &&
+                integrationId === ''
+              )
+                return;
               save.mutate({
                 shipping: {
                   ...(accountEmail === '' ? {} : { accountEmail }),
@@ -159,21 +211,40 @@ export function IntegrationsPage() {
             </p>
             <label>
               Correo de cuenta
-              <input name="accountEmail" type="email" defaultValue={settings.data.shipping.accountEmail ?? ''} />
+              <input
+                name="accountEmail"
+                type="email"
+                defaultValue={settings.data.shipping.accountEmail ?? ''}
+              />
             </label>
             <label>
               Nueva contraseña
-              <input name="password" type="password" autoComplete="new-password" placeholder="Se conserva si la dejas vacía" />
+              <input
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Se conserva si la dejas vacía"
+              />
             </label>
             <label>
               Token de integración (opcional)
-              <input name="integrationToken" type="password" autoComplete="new-password" placeholder="Se conserva si lo dejas vacío" />
+              <input
+                name="integrationToken"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Se conserva si lo dejas vacío"
+              />
             </label>
             <label>
               ID de integración (opcional)
-              <input name="integrationId" defaultValue={settings.data.shipping.integrationId ?? ''} />
+              <input
+                name="integrationId"
+                defaultValue={settings.data.shipping.integrationId ?? ''}
+              />
             </label>
-            <button type="submit" disabled={save.isPending}>Guardar conexión</button>
+            <button type="submit" disabled={save.isPending}>
+              Guardar conexión
+            </button>
           </form>
         </div>
       ) : null}
@@ -183,7 +254,9 @@ export function IntegrationsPage() {
           INTEGRATION_ENCRYPTION_KEY en el servidor.
         </p>
       ) : null}
-      {save.isError ? <ErrorMessage message="No fue posible guardar la conexión" /> : null}
+      {save.isError ? (
+        <ErrorMessage message="No fue posible guardar la conexión" />
+      ) : null}
     </section>
   );
 }

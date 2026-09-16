@@ -77,9 +77,7 @@ describe('locality repository integration', () => {
     });
     const [historical] = await database.orm.execute<{
       active: boolean;
-    }>(
-      "SELECT active FROM shipping_localities WHERE carrier_code = '002'",
-    );
+    }>("SELECT active FROM shipping_localities WHERE carrier_code = '002'");
     expect(historical?.active).toBe(false);
   });
 

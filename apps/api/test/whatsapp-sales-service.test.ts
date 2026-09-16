@@ -405,14 +405,14 @@ describe('WhatsAppSalesService', () => {
     ];
     const conversations = {
       receive: vi.fn().mockResolvedValue({
-          duplicate: false,
-          conversationId: 'conversation-1',
-          state: 'awaiting_confirmation',
-          reply: null,
-          activeOrderId: 'order-1',
-          action: 'collect_notes',
-          input: '',
-        }),
+        duplicate: false,
+        conversationId: 'conversation-1',
+        state: 'awaiting_confirmation',
+        reply: null,
+        activeOrderId: 'order-1',
+        action: 'collect_notes',
+        input: '',
+      }),
       returnToSize: vi.fn(),
       setState: vi.fn(),
       setSummaryVersion: vi.fn(),

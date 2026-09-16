@@ -13,7 +13,8 @@ describe('IntegrationSettingsService', () => {
     const service = new IntegrationSettingsService(
       {
         get: async (provider) => values.get(provider) ?? null,
-        upsert: async (provider, encrypted) => void values.set(provider, encrypted),
+        upsert: async (provider, encrypted) =>
+          void values.set(provider, encrypted),
       },
       new IntegrationSecretCrypto(randomBytes(32).toString('base64')),
     );
@@ -27,7 +28,9 @@ describe('IntegrationSettingsService', () => {
       shipping: { accountEmail: 'owner@example.com', password: 'private-pass' },
     });
 
-    expect([...values.values()].join(' ')).not.toContain('private-access-token');
+    expect([...values.values()].join(' ')).not.toContain(
+      'private-access-token',
+    );
     await expect(service.getPublic()).resolves.toEqual({
       whatsapp: {
         configured: true,

@@ -187,7 +187,10 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
       } catch (error) {
         if (error instanceof IntegrationSettingsError) {
           return reply.status(400).send({
-            error: { code: 'invalid_integration_settings', message: error.message },
+            error: {
+              code: 'invalid_integration_settings',
+              message: error.message,
+            },
           });
         }
         throw error;

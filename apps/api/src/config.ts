@@ -223,6 +223,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     ...(ninetyNineEnviosIntegrationId === undefined
       ? {}
       : { ninetyNineEnviosIntegrationId }),
-    ...(integrationEncryptionKey === undefined ? {} : { integrationEncryptionKey }),
+    ...(integrationEncryptionKey === undefined
+      ? {}
+      : { integrationEncryptionKey }),
   };
 }

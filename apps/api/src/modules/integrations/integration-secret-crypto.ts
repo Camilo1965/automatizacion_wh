@@ -1,8 +1,4 @@
-import {
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-} from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
 export class IntegrationSecretCryptoError extends Error {
   constructor(message: string) {
@@ -52,7 +48,9 @@ export class IntegrationSecretCrypto {
       encryptedRaw === undefined ||
       extra !== undefined
     ) {
-      throw new IntegrationSecretCryptoError('Encrypted integration secret is invalid');
+      throw new IntegrationSecretCryptoError(
+        'Encrypted integration secret is invalid',
+      );
     }
     try {
       const decipher = createDecipheriv(
@@ -66,7 +64,9 @@ export class IntegrationSecretCrypto {
         decipher.final(),
       ]).toString('utf8');
     } catch {
-      throw new IntegrationSecretCryptoError('Encrypted integration secret is invalid');
+      throw new IntegrationSecretCryptoError(
+        'Encrypted integration secret is invalid',
+      );
     }
   }
 }

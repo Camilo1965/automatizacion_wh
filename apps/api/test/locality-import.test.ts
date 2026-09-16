@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseColombianLocalitiesCsv } from '../src/modules/localities/locality-import.js';
-import { LocalityImportError, LocalityService } from '../src/modules/localities/locality-service.js';
+import {
+  LocalityImportError,
+  LocalityService,
+} from '../src/modules/localities/locality-service.js';
 
 describe('parseColombianLocalitiesCsv', () => {
   it('keeps carrier codes as text and rejects repeated codes', () => {

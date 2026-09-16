@@ -33,29 +33,29 @@ sequenceDiagram
 
 ## Límites del sistema
 
-| Componente | Responsabilidad | No hace |
-| --- | --- | --- |
-| `@camila/api` | Dominio, webhooks, admin API, media, workers/CLI | UI |
-| `@camila/admin` | UX operativa | Reglas de negocio críticas (las ejecuta la API) |
-| `@camila/contracts` | Tipos/contratos compartidos | I/O |
-| PostgreSQL | Estado durable | Archivos de foto (van a `MEDIA_ROOT`) |
-| 99envíos | Cotización y guías | Inventario Camila |
+| Componente          | Responsabilidad                                  | No hace                                         |
+| ------------------- | ------------------------------------------------ | ----------------------------------------------- |
+| `@camila/api`       | Dominio, webhooks, admin API, media, workers/CLI | UI                                              |
+| `@camila/admin`     | UX operativa                                     | Reglas de negocio críticas (las ejecuta la API) |
+| `@camila/contracts` | Tipos/contratos compartidos                      | I/O                                             |
+| PostgreSQL          | Estado durable                                   | Archivos de foto (van a `MEDIA_ROOT`)           |
+| 99envíos            | Cotización y guías                               | Inventario Camila                               |
 
 ## Módulos de la API (`apps/api/src/modules`)
 
-| Módulo | Rol |
-| --- | --- |
-| `whatsapp` | Conexión Cloud API, verificación de webhook, envío de mensajes |
-| `conversations` | Estado del diálogo y toma de control humana |
-| `catalog` | Referencias, fotos, importación CSV |
-| `inventory` | Stock por talla, reservas, movimientos, cierres |
-| `orders` | Pedidos y confirmación |
-| `shipping` | Políticas, cotización, guías, PDF, resultados inciertos |
-| `localities` | Catálogo DANE/localidades para envío |
-| `auth` | Sesión de la propietaria / admin |
-| `dashboard` | Métricas operativas |
-| `alerts` | Alertas operativas |
-| `integrations` | Estado de integraciones externas |
+| Módulo          | Rol                                                            |
+| --------------- | -------------------------------------------------------------- |
+| `whatsapp`      | Conexión Cloud API, verificación de webhook, envío de mensajes |
+| `conversations` | Estado del diálogo y toma de control humana                    |
+| `catalog`       | Referencias, fotos, importación CSV                            |
+| `inventory`     | Stock por talla, reservas, movimientos, cierres                |
+| `orders`        | Pedidos y confirmación                                         |
+| `shipping`      | Políticas, cotización, guías, PDF, resultados inciertos        |
+| `localities`    | Catálogo DANE/localidades para envío                           |
+| `auth`          | Sesión de la propietaria / admin                               |
+| `dashboard`     | Métricas operativas                                            |
+| `alerts`        | Alertas operativas                                             |
+| `integrations`  | Estado de integraciones externas                               |
 
 Rutas HTTP principales (`apps/api/src/routes`):
 
@@ -69,16 +69,16 @@ Arranque: `server.ts` + `app.ts` + `config.ts`. Persistencia: Drizzle bajo `data
 
 Rutas de producto (desde `App.tsx`):
 
-| Ruta | Función |
-| --- | --- |
-| `/` | Dashboard |
-| `/catalog`, `/references/*`, `/catalog-import` | Catálogo e importación |
-| `/orders`, `/orders/new`, `/orders/:id` | Pedidos |
-| `/conversations` | Bandeja de conversaciones |
-| `/settings/shipping`, `/settings/whatsapp`, `/settings/integrations` | Preferencias |
-| `/alerts` | Alertas |
-| `/inventory/closures` | Cierres de inventario |
-| `/more` | Más herramientas |
+| Ruta                                                                 | Función                   |
+| -------------------------------------------------------------------- | ------------------------- |
+| `/`                                                                  | Dashboard                 |
+| `/catalog`, `/references/*`, `/catalog-import`                       | Catálogo e importación    |
+| `/orders`, `/orders/new`, `/orders/:id`                              | Pedidos                   |
+| `/conversations`                                                     | Bandeja de conversaciones |
+| `/settings/shipping`, `/settings/whatsapp`, `/settings/integrations` | Preferencias              |
+| `/alerts`                                                            | Alertas                   |
+| `/inventory/closures`                                                | Cierres de inventario     |
+| `/more`                                                              | Más herramientas          |
 
 Hay un sistema de diseño propio en `apps/admin/src/design` y estilos en `styles.css`.
 
@@ -93,11 +93,11 @@ Hay un sistema de diseño propio en `apps/admin/src/design` y estilos en `styles
 
 ## Entornos
 
-| Entorno | Base de datos | Notas |
-| --- | --- | --- |
-| Desarrollo | `postgres` en Compose | Volumen persistente |
-| Integración / E2E | `postgres-test` (profile `test`) | tmpfs; datos efímeros |
-| Producción | Aprovisionada por el operador | HTTPS, backups y rotación de secretos obligatorios |
+| Entorno           | Base de datos                    | Notas                                              |
+| ----------------- | -------------------------------- | -------------------------------------------------- |
+| Desarrollo        | `postgres` en Compose            | Volumen persistente                                |
+| Integración / E2E | `postgres-test` (profile `test`) | tmpfs; datos efímeros                              |
+| Producción        | Aprovisionada por el operador    | HTTPS, backups y rotación de secretos obligatorios |
 
 ## Decisiones de diseño relevantes
 

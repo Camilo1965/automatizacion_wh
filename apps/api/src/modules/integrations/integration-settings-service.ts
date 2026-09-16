@@ -35,7 +35,11 @@ export class IntegrationSettingsError extends Error {
 function parseObject(value: string): Record<string, unknown> {
   try {
     const parsed: unknown = JSON.parse(value);
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       throw new Error('invalid');
     }
     return parsed as Record<string, unknown>;
@@ -54,7 +58,9 @@ function parseWhatsApp(value: string): WhatsAppSettings {
   const graphApiVersion = stringValue(record.graphApiVersion);
   const accessToken = stringValue(record.accessToken);
   if (!phoneNumberId || !graphApiVersion || !accessToken) {
-    throw new IntegrationSettingsError('La configuración de WhatsApp está incompleta');
+    throw new IntegrationSettingsError(
+      'La configuración de WhatsApp está incompleta',
+    );
   }
   return {
     phoneNumberId,
@@ -74,7 +80,9 @@ function parseShipping(value: string): ShippingSettings {
   const accountEmail = stringValue(record.accountEmail);
   const password = stringValue(record.password);
   if (!accountEmail || !password) {
-    throw new IntegrationSettingsError('La configuración de 99envíos está incompleta');
+    throw new IntegrationSettingsError(
+      'La configuración de 99envíos está incompleta',
+    );
   }
   return {
     accountEmail,
@@ -135,7 +143,9 @@ export class IntegrationSettingsService {
         ...existing,
         ...input.whatsapp,
         graphApiVersion:
-          input.whatsapp.graphApiVersion ?? existing?.graphApiVersion ?? 'v26.0',
+          input.whatsapp.graphApiVersion ??
+          existing?.graphApiVersion ??
+          'v26.0',
       };
       if (!next.phoneNumberId || !next.accessToken) {
         throw new IntegrationSettingsError(

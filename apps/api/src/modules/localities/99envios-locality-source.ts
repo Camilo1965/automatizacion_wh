@@ -55,9 +55,9 @@ function displayName(value: string): string {
     .replace(/(?:^|\s)\S/gu, (letter) => letter.toLocaleUpperCase('es-CO'));
 }
 
-function parseLabel(label: string):
-  | Readonly<{ locality: string; department: string }>
-  | undefined {
+function parseLabel(
+  label: string,
+): Readonly<{ locality: string; department: string }> | undefined {
   const parts = label
     .split(' - ')
     .map((part) => part.trim())
@@ -72,23 +72,39 @@ export function parse99EnviosLocalitySource(
   const rows: NinetyNineEnviosLocalityRow[] = [];
   const issues: NinetyNineEnviosLocalityIssue[] = [];
   const seenCodes = new Set<string>();
-  const entries = [...source.matchAll(/\[\s*["']value["']\s*=>\s*["']([^"']+)["']\s*,\s*["']label["']\s*=>\s*["']([^"']+)["']\s*\]/gu)];
+  const entries = [
+    ...source.matchAll(
+      /\[\s*["']value["']\s*=>\s*["']([^"']+)["']\s*,\s*["']label["']\s*=>\s*["']([^"']+)["']\s*\]/gu,
+    ),
+  ];
 
   for (const [index, entry] of entries.entries()) {
     const row = index + 1;
     const daneCode = entry[1]!.trim();
     const sourceLabel = entry[2]!.trim();
     if (!/^\d{8}$/.test(daneCode)) {
-      issues.push({ row, code: 'invalid_dane', message: 'Código DANE inválido' });
+      issues.push({
+        row,
+        code: 'invalid_dane',
+        message: 'Código DANE inválido',
+      });
       continue;
     }
     if (seenCodes.has(daneCode)) {
-      issues.push({ row, code: 'duplicate_dane', message: 'Código DANE repetido' });
+      issues.push({
+        row,
+        code: 'duplicate_dane',
+        message: 'Código DANE repetido',
+      });
       continue;
     }
     const parsed = parseLabel(sourceLabel);
     if (parsed === undefined) {
-      issues.push({ row, code: 'ambiguous_label', message: 'Etiqueta de localidad ambigua' });
+      issues.push({
+        row,
+        code: 'ambiguous_label',
+        message: 'Etiqueta de localidad ambigua',
+      });
       continue;
     }
     seenCodes.add(daneCode);

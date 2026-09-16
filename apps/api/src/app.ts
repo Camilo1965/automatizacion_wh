@@ -233,7 +233,9 @@ export async function buildApp(
       : { integrationHealthService: dependencies.integrationHealthService }),
     ...(dependencies.integrationSettingsService === undefined
       ? {}
-      : { integrationSettingsService: dependencies.integrationSettingsService }),
+      : {
+          integrationSettingsService: dependencies.integrationSettingsService,
+        }),
     photoStorage: dependencies.photoStorage,
   });
 

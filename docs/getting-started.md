@@ -67,9 +67,9 @@ curl -s http://127.0.0.1:3000/health/ready
 
 ## Problemas frecuentes
 
-| Síntoma | Qué revisar |
-| --- | --- |
-| `ready` falla | Contenedor `postgres`, `DATABASE_URL`, migraciones |
-| Panel no autentica | `ADMIN_ORIGIN`, cookies, API en el puerto 3000 |
-| E2E falla | `postgres-test`, `TEST_DATABASE_URL`, puertos 3100/5174 libres |
-| Envío responde `shipping_not_configured` | Credenciales 99envíos en `.env` |
+| Síntoma                                  | Qué revisar                                                    |
+| ---------------------------------------- | -------------------------------------------------------------- |
+| `ready` falla                            | Contenedor `postgres`, `DATABASE_URL`, migraciones             |
+| Panel no autentica                       | `ADMIN_ORIGIN`, cookies, API en el puerto 3000                 |
+| E2E falla                                | `postgres-test`, `TEST_DATABASE_URL`, puertos 3100/5174 libres |
+| Envío responde `shipping_not_configured` | Credenciales 99envíos en `.env`                                |

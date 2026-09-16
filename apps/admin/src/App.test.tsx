@@ -67,9 +67,7 @@ describe('App shell', () => {
       'block',
     );
     await user.selectOptions(
-      within(municipalityForm).getByLabelText(
-        'Política automática de seguro',
-      ),
+      within(municipalityForm).getByLabelText('Política automática de seguro'),
       'protected_only',
     );
     await user.selectOptions(

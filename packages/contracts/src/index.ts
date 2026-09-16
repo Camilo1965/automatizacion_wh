@@ -609,7 +609,10 @@ export const IntegrationSettingsUpdateSchema = z
     whatsapp: z
       .object({
         phoneNumberId: z.string().trim().min(1).max(64).optional(),
-        graphApiVersion: z.string().regex(/^v\d+\.\d+$/).optional(),
+        graphApiVersion: z
+          .string()
+          .regex(/^v\d+\.\d+$/)
+          .optional(),
         accessToken: optionalSecretSchema,
         appSecret: optionalSecretSchema,
         webhookVerifyToken: optionalSecretSchema,
@@ -627,9 +630,12 @@ export const IntegrationSettingsUpdateSchema = z
       .optional(),
   })
   .strict()
-  .refine((value) => value.whatsapp !== undefined || value.shipping !== undefined, {
-    message: 'Configure al menos una integración',
-  });
+  .refine(
+    (value) => value.whatsapp !== undefined || value.shipping !== undefined,
+    {
+      message: 'Configure al menos una integración',
+    },
+  );
 
 export const IntegrationSettingsResponseSchema = dataEnvelopeSchema(
   z

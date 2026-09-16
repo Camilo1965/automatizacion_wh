@@ -33,7 +33,8 @@ export class ConfiguredWhatsAppClient {
 
   private async client() {
     const current = (await this.settings?.getWhatsApp()) ?? this.fallback;
-    if (current === undefined) throw new IntegrationNotConfiguredError('WhatsApp');
+    if (current === undefined)
+      throw new IntegrationNotConfiguredError('WhatsApp');
     return new MetaWhatsAppClient({
       accessToken: current.accessToken,
       phoneNumberId: current.phoneNumberId,
@@ -51,7 +52,12 @@ export class ConfiguredWhatsAppClient {
     mimeType: 'image/jpeg' | 'image/png',
     caption: string,
   ) {
-    return (await this.client()).sendImage(customerPhone, bytes, mimeType, caption);
+    return (await this.client()).sendImage(
+      customerPhone,
+      bytes,
+      mimeType,
+      caption,
+    );
   }
 }
 
@@ -64,7 +70,8 @@ export class ConfiguredNinetyNineEnviosClient {
   private async client() {
     const saved = await this.settings?.getShipping();
     const current = saved ?? this.fallback;
-    if (current === undefined) throw new IntegrationNotConfiguredError('99envíos');
+    if (current === undefined)
+      throw new IntegrationNotConfiguredError('99envíos');
     return new NinetyNineEnviosClient({
       email: saved?.accountEmail ?? this.fallback!.email,
       password: current.password,
