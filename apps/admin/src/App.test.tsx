@@ -130,7 +130,7 @@ describe('App shell', () => {
     );
   });
 
-  it('renders KAIRO brand landmarks after login', async () => {
+  it('renders Camila brand landmarks after login', async () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { initialEntries: ['/login'] });
 
@@ -139,7 +139,7 @@ describe('App shell', () => {
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'KAIRO',
+        name: 'Camila',
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole('main')).toBeInTheDocument();
@@ -268,7 +268,7 @@ describe('Login and session', () => {
     renderWithProviders(<App />, { initialEntries: ['/catalog'] });
 
     expect(
-      await screen.findByRole('heading', { name: 'Bienvenida a KAIRO' }),
+      await screen.findByRole('heading', { name: 'Bienvenida a Camila' }),
     ).toBeInTheDocument();
   });
 
@@ -716,7 +716,7 @@ describe('Catalog flows', () => {
     await user.click(screen.getByRole('link', { name: /01/ }));
 
     expect(
-      await screen.findByRole('heading', { name: 'Bienvenida a KAIRO' }),
+      await screen.findByRole('heading', { name: 'Bienvenida a Camila' }),
     ).toBeInTheDocument();
   });
 

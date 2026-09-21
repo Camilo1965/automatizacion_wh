@@ -10,6 +10,8 @@ import { LoadingState } from '../components/LoadingState';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
 import { operationalLabel } from '../lib/operational-label';
+import { Button as UiButton } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const views = [
   { id: null, label: 'Todos' },
@@ -50,22 +52,19 @@ export function OrdersListPage() {
   const orders = query.data?.pages.flatMap((page) => page.items) ?? [];
 
   return (
-    <section aria-labelledby="orders-title" className="orders-page">
+    <section aria-labelledby="orders-title" className="space-y-6">
       <PageHeader
         eyebrow="Venta"
         title="Pedidos"
         titleId="orders-title"
         description="Filtra por etapa y abre el pedido que toca atender."
         actions={
-          <Link
-            className="ui-button ui-button--primary control-target"
-            to="/orders/new"
-          >
-            Nuevo pedido
-          </Link>
+          <UiButton asChild className="control-target rounded-[1.125rem]">
+            <Link to="/orders/new">Nuevo pedido</Link>
+          </UiButton>
         }
       />
-      <div className="view-chips" role="tablist" aria-label="Vistas de pedidos">
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Vistas de pedidos">
         {views.map((item) => {
           const active = (item.id === null && !view) || view === item.id;
           return (
@@ -74,7 +73,12 @@ export function OrdersListPage() {
               type="button"
               role="tab"
               aria-selected={active}
-              className={active ? 'view-chip view-chip--active' : 'view-chip'}
+              className={cn(
+                'control-target rounded-[1.125rem] border px-3 py-1.5 text-sm font-medium transition-colors',
+                active
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
+              )}
               onClick={() => {
                 if (item.id === null) setSearchParams({});
                 else setSearchParams({ view: item.id });
@@ -86,8 +90,11 @@ export function OrdersListPage() {
         })}
       </div>
       {view ? (
-        <p className="filter-summary" role="status">
-          Vista: {operationalLabel(view)} · <Link to="/orders">Ver todos</Link>
+        <p className="text-sm text-muted-foreground" role="status">
+          Vista: {operationalLabel(view)} ·{' '}
+          <Link className="underline underline-offset-2" to="/orders">
+            Ver todos
+          </Link>
         </p>
       ) : null}
       {query.isLoading ? <LoadingState label="Cargando pedidos…" /> : null}
@@ -105,22 +112,28 @@ export function OrdersListPage() {
           description="Cambia el filtro o crea un pedido nuevo."
         />
       ) : null}
-      <div className="order-list">
+      <div className="space-y-2">
         {orders.map((order) => (
-          <article className="order-row" key={order.id}>
-            <div className="order-row-main">
-              <Link to={`/orders/${order.id}`} className="order-row-title">
+          <article
+            className="rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-card)]"
+            key={order.id}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                to={`/orders/${order.id}`}
+                className="text-base font-semibold tracking-tight text-foreground underline-offset-2 hover:underline"
+              >
                 {order.orderNumber}
               </Link>
               <StatusBadge tone={statusTone(order.status)}>
                 {operationalLabel(order.status)}
               </StatusBadge>
             </div>
-            <p className="order-row-meta">
+            <p className="mt-1 text-sm text-muted-foreground">
               {order.reference.code} · talla {order.size} · {order.quantity}{' '}
               par(es)
             </p>
-            <p className="order-row-customer">
+            <p className="text-sm text-foreground">
               {order.customer.name ?? 'Cliente pendiente'}
               {order.destination.localityName
                 ? ` · ${order.destination.localityName}`

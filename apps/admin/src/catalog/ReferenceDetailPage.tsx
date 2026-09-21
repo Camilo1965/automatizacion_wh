@@ -9,14 +9,18 @@ import {
   updateReference,
 } from '../api/catalog-api';
 import { getErrorMessage, getFieldError } from '../api/client';
+import { Button } from '../components/Button';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
+import { PageHeader, PageSection } from '../components/PageHeader';
+import { StatusBadge } from '../components/StatusBadge';
 import { parseIntegerDigits } from '../lib/parse-integer-digits';
 import { MovementHistory } from './MovementHistory';
 import { PhotoEditor } from './PhotoEditor';
 import { ReferenceForm, type ReferenceFormValues } from './ReferenceForm';
 import { StockEditor } from './StockEditor';
+import { Button as UiButton } from '@/components/ui/button';
 
 const MAX_PRICE_COP = 2_000_000_000;
 
@@ -120,55 +124,67 @@ export function ReferenceDetailPage() {
   const detail = detailQuery.data;
 
   return (
-    <section aria-labelledby="detail-title">
-      <div className="section-header">
-        <h2 id="detail-title">
-          Referencia <span className="reference-code">{detail.code}</span>
-        </h2>
-        <Link className="button-secondary" to="/catalog">
-          Volver al catálogo
-        </Link>
-      </div>
-
-      <p className="status-pill" role="status">
-        {detail.active ? 'Activa' : 'Inactiva'}
-      </p>
-
-      <ReferenceForm
-        mode="edit"
-        initialValues={{
-          code: detail.code,
-          modelName: detail.modelName,
-          color: detail.color,
-          priceCop: String(detail.priceCop),
-        }}
-        submitting={submitting}
-        errorMessage={errorMessage}
-        {...(fieldError === undefined ? {} : { fieldError })}
-        onSubmit={onSubmit}
+    <section aria-labelledby="detail-title" className="space-y-6">
+      <PageHeader
+        title={`Referencia ${detail.code}`}
+        titleId="detail-title"
+        actions={
+          <UiButton
+            asChild
+            variant="secondary"
+            className="control-target h-11 rounded-[1.125rem]"
+          >
+            <Link to="/catalog">Volver al catálogo</Link>
+          </UiButton>
+        }
       />
 
-      <div className="status-actions">
+      <p role="status">
+        <StatusBadge tone={detail.active ? 'success' : 'neutral'}>
+          {detail.active ? 'Activa' : 'Inactiva'}
+        </StatusBadge>
+      </p>
+
+      <PageSection>
+        <ReferenceForm
+          mode="edit"
+          initialValues={{
+            code: detail.code,
+            modelName: detail.modelName,
+            color: detail.color,
+            priceCop: String(detail.priceCop),
+          }}
+          submitting={submitting}
+          errorMessage={errorMessage}
+          {...(fieldError === undefined ? {} : { fieldError })}
+          onSubmit={onSubmit}
+        />
+      </PageSection>
+
+      <div className="flex flex-wrap items-center gap-3">
         {detail.active ? (
-          <button
+          <Button
             type="button"
-            className="button-danger"
+            variant="danger"
+            className="h-11"
             onClick={() => setConfirmOpen(true)}
             disabled={statusBusy}
+            loading={statusBusy}
           >
             Desactivar
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
             type="button"
-            className="button-primary"
+            className="h-11"
             onClick={() => {
               void onActivate();
             }}
             disabled={statusBusy}
+            loading={statusBusy}
           >
             Reactivar
-          </button>
+          </Button>
         )}
         <ErrorMessage message={statusError} id="status-error" />
       </div>
@@ -179,22 +195,28 @@ export function ReferenceDetailPage() {
         onUploaded={refreshAll}
       />
 
-      <section className="panel-block" aria-labelledby="stock-list-title">
-        <h3 id="stock-list-title">Existencias</h3>
+      <PageSection aria-labelledby="stock-list-title" className="space-y-3">
+        <h3
+          id="stock-list-title"
+          className="text-base font-semibold tracking-tight text-foreground"
+        >
+          Existencias
+        </h3>
         {detail.stock.length === 0 ? (
-          <p className="muted">Sin tallas registradas</p>
+          <p className="text-sm text-muted-foreground">Sin tallas registradas</p>
         ) : (
-          <ul className="stock-list" aria-label="Existencias">
+          <ul className="space-y-2" aria-label="Existencias">
             {detail.stock.map((item) => (
-              <li key={item.size}>
-                Talla {item.size}: {item.physicalQuantity} físicas ·{' '}
-                {item.reservedQuantity} reservadas · {item.availableQuantity}{' '}
-                disponibles · {new Date(item.updatedAt).toLocaleString('es-CO')}
+              <li
+                key={item.size}
+                className="rounded-[1.125rem] border border-border bg-muted px-3 py-2 text-sm text-foreground"
+              >
+                {`Talla ${item.size}: ${item.physicalQuantity} físicas · ${item.reservedQuantity} reservadas · ${item.availableQuantity} disponibles · ${new Date(item.updatedAt).toLocaleString('es-CO')}`}
               </li>
             ))}
           </ul>
         )}
-      </section>
+      </PageSection>
 
       <StockEditor
         referenceId={detail.id}

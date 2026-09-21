@@ -5,8 +5,16 @@ import {
   setConversationControl,
 } from '../api/conversations-api';
 import { getErrorMessage } from '../api/client';
+import { Button } from '../components/Button';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
+import { PageHeader } from '../components/PageHeader';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 
 export function ConversationsListPage() {
   const client = useQueryClient();
@@ -28,11 +36,12 @@ export function ConversationsListPage() {
     },
   });
   return (
-    <section aria-labelledby="conversations-title">
-      <div className="section-header">
-        <h2 id="conversations-title">Conversaciones</h2>
-        <p className="muted">Toma el control para responder personalmente.</p>
-      </div>
+    <section aria-labelledby="conversations-title" className="space-y-6">
+      <PageHeader
+        title="Conversaciones"
+        titleId="conversations-title"
+        description="Toma el control para responder personalmente."
+      />
       {query.isLoading ? (
         <LoadingState label="Cargando conversaciones…" />
       ) : null}
@@ -53,42 +62,54 @@ export function ConversationsListPage() {
         />
       ) : null}
       {!query.isLoading && conversations.length === 0 ? (
-        <p>No hay conversaciones todavía.</p>
+        <p className="text-sm text-muted-foreground">
+          No hay conversaciones todavía.
+        </p>
       ) : null}
-      {conversations.map((conversation) => (
-        <article className="card" key={conversation.id}>
-          <h3>{conversation.customerPhone}</h3>
-          <p>
-            Estado: {conversation.state} · {conversation.pendingOutbound}{' '}
-            mensaje(s) pendientes
-          </p>
-          <p className="muted">
-            Control: {conversation.mode === 'human' ? 'propietaria' : 'bot'}
-          </p>
-          <button
-            type="button"
-            className={
-              conversation.mode === 'human'
-                ? 'button-secondary'
-                : 'button-primary'
-            }
-            disabled={control.isPending}
-            onClick={() =>
-              control.mutate({
-                id: conversation.id,
-                action:
-                  conversation.mode === 'human'
-                    ? 'release-control'
-                    : 'take-control',
-              })
-            }
+      <div className="space-y-3">
+        {conversations.map((conversation) => (
+          <Card
+            className="rounded-3xl border-border shadow-[var(--shadow-card)]"
+            key={conversation.id}
           >
-            {conversation.mode === 'human'
-              ? 'Devolver al bot'
-              : 'Tomar control'}
-          </button>
-        </article>
-      ))}
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-base font-semibold">
+                {conversation.customerPhone}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Estado: {conversation.state} · {conversation.pendingOutbound}{' '}
+                mensaje(s) pendientes
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Control:{' '}
+                {conversation.mode === 'human' ? 'propietaria' : 'bot'}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <Button
+                type="button"
+                variant={
+                  conversation.mode === 'human' ? 'secondary' : 'primary'
+                }
+                loading={control.isPending}
+                onClick={() =>
+                  control.mutate({
+                    id: conversation.id,
+                    action:
+                      conversation.mode === 'human'
+                        ? 'release-control'
+                        : 'take-control',
+                  })
+                }
+              >
+                {conversation.mode === 'human'
+                  ? 'Devolver al bot'
+                  : 'Tomar control'}
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </section>
   );
 }

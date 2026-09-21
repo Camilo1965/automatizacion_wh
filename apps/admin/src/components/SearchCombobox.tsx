@@ -1,6 +1,9 @@
 import { useId, useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 
-import { ChevronDownIcon } from '../design/icons';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 export type ComboboxOption = Readonly<{
   id: string;
@@ -48,10 +51,10 @@ export function SearchCombobox({
   }
 
   return (
-    <div className="combobox">
-      <label htmlFor={inputId}>{label}</label>
-      <div className="combobox-control">
-        <input
+    <div className="relative space-y-2">
+      <Label htmlFor={inputId}>{label}</Label>
+      <div className="relative">
+        <Input
           id={inputId}
           role="combobox"
           aria-autocomplete="list"
@@ -63,6 +66,7 @@ export function SearchCombobox({
           value={query}
           placeholder={placeholder}
           disabled={disabled}
+          className="h-11 rounded-[1.125rem] bg-muted pr-10"
           onChange={(event) => {
             setQuery(event.target.value);
             setOpen(true);
@@ -70,6 +74,9 @@ export function SearchCombobox({
             if (event.target.value === '') onChange(null);
           }}
           onFocus={() => setOpen(true)}
+          onBlur={() => {
+            window.setTimeout(() => setOpen(false), 120);
+          }}
           onKeyDown={(event) => {
             if (event.key === 'ArrowDown') {
               event.preventDefault();
@@ -89,24 +96,40 @@ export function SearchCombobox({
             }
           }}
         />
-        <ChevronDownIcon className="combobox-chevron" />
+        <ChevronDown
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground"
+        />
       </div>
       {open && filtered.length > 0 ? (
-        <ul id={listId} className="combobox-list" role="listbox">
+        <ul
+          id={listId}
+          className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-[1.125rem] border border-border bg-popover p-1 shadow-[var(--shadow-card)]"
+          role="listbox"
+        >
           {filtered.map((option, index) => (
             <li
               id={`${listId}-${index}`}
               key={option.id}
               role="option"
               aria-selected={option.id === value}
-              className={index === activeIndex ? 'active' : ''}
+              className={cn(
+                'cursor-pointer rounded-[0.875rem] px-3 py-2 text-sm',
+                index === activeIndex || option.id === value
+                  ? 'bg-muted text-foreground'
+                  : 'text-foreground hover:bg-muted',
+              )}
               onMouseDown={(event) => {
                 event.preventDefault();
                 selectOption(option);
               }}
             >
-              <span>{option.label}</span>
-              {option.description ? <small>{option.description}</small> : null}
+              <span className="block font-medium">{option.label}</span>
+              {option.description ? (
+                <small className="block text-xs text-muted-foreground">
+                  {option.description}
+                </small>
+              ) : null}
             </li>
           ))}
         </ul>

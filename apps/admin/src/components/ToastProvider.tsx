@@ -1,34 +1,40 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, type ReactNode } from 'react';
+import { toast as sonnerToast, Toaster } from 'sonner';
 
 import { ToastContext } from './toast-context';
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toast, setToast] = useState<{
-    message: string;
-    tone: 'success' | 'danger';
-  } | null>(null);
   const showToast = useCallback(
-    (message: string, tone: 'success' | 'danger' = 'success') =>
-      setToast({ message, tone }),
+    (message: string, tone: 'success' | 'danger' = 'success') => {
+      if (tone === 'danger') {
+        sonnerToast.error(message);
+        return;
+      }
+      sonnerToast.success(message);
+    },
     [],
   );
   const value = useMemo(() => ({ showToast }), [showToast]);
+
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {toast ? (
-        <div className={`toast toast--${toast.tone}`} role="status">
-          <span>{toast.message}</span>
-          <button
-            aria-label="Cerrar notificación"
-            className="toast-close control-target"
-            onClick={() => setToast(null)}
-            type="button"
-          >
-            ×
-          </button>
-        </div>
-      ) : null}
+      <Toaster
+        position="bottom-right"
+        theme="light"
+        richColors={false}
+        closeButton
+        toastOptions={{
+          classNames: {
+            toast:
+              'rounded-[1.125rem] border border-border bg-card text-card-foreground shadow-[var(--shadow-card)]',
+            title: 'text-sm font-medium text-foreground',
+            description: 'text-sm text-muted-foreground',
+            success: 'border-border',
+            error: 'border-destructive/40 text-destructive',
+          },
+        }}
+      />
     </ToastContext.Provider>
   );
 }

@@ -13,6 +13,11 @@ import { getErrorMessage, getFieldError } from '../api/client';
 import { parseIntegerDigits } from '../lib/parse-integer-digits';
 import { ReferenceForm, type ReferenceFormValues } from './ReferenceForm';
 import { FileDropzone } from '../components/FileDropzone';
+import { PageHeader, PageSection } from '../components/PageHeader';
+import { Button as UiButton } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 const MAX_PRICE_COP = 2_000_000_000;
 const MAX_STOCK_QUANTITY = 2_000_000_000;
@@ -124,36 +129,46 @@ export function ReferenceCreatePage() {
   }
 
   return (
-    <section aria-labelledby="create-title" className="catalog-wizard">
-      <div className="section-header">
-        <div>
-          <p className="eyebrow">Catálogo</p>
-          <h2 id="create-title">Nueva referencia</h2>
-        </div>
-        <Link
-          className="ui-button ui-button--secondary control-target"
-          to="/catalog"
-        >
-          Volver
-        </Link>
-      </div>
-      <ol className="wizard-steps" aria-label="Pasos de publicación">
-        <li className="wizard-step wizard-step--active">
-          <span>1</span>
-          Identidad y precio
-        </li>
-        <li className="wizard-step wizard-step--active">
-          <span>2</span>
-          Fotografía
-        </li>
-        <li className="wizard-step wizard-step--active">
-          <span>3</span>
-          Tallas y stock
-        </li>
-        <li className="wizard-step">
-          <span>4</span>
-          Publicar
-        </li>
+    <section aria-labelledby="create-title" className="space-y-6">
+      <PageHeader
+        eyebrow="Catálogo"
+        title="Nueva referencia"
+        titleId="create-title"
+        actions={
+          <UiButton
+            asChild
+            variant="secondary"
+            className="control-target h-11 rounded-[1.125rem]"
+          >
+            <Link to="/catalog">Volver</Link>
+          </UiButton>
+        }
+      />
+      <ol
+        className="flex flex-col gap-2 sm:flex-row sm:flex-wrap"
+        aria-label="Pasos de publicación"
+      >
+        {(
+          [
+            [1, 'Identidad y precio', true],
+            [2, 'Fotografía', true],
+            [3, 'Tallas y stock', true],
+            [4, 'Publicar', false],
+          ] as const
+        ).map(([n, label, active]) => (
+          <li
+            key={n}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-[1.125rem] border px-3 py-2 text-sm',
+              active
+                ? 'border-foreground bg-foreground text-background'
+                : 'border-border bg-card text-muted-foreground',
+            )}
+          >
+            <span className="font-mono text-xs">{n}</span>
+            {label}
+          </li>
+        ))}
       </ol>
       <ReferenceForm
         mode="create"
@@ -168,8 +183,10 @@ export function ReferenceCreatePage() {
         {...(fieldError === undefined ? {} : { fieldError })}
         onSubmit={onSubmit}
       >
-        <div className="wizard-panel">
-          <h3>Fotografía principal</h3>
+        <PageSection className="space-y-3">
+          <h3 className="text-base font-semibold tracking-tight text-foreground">
+            Fotografía principal
+          </h3>
           <FileDropzone
             accept={['image/jpeg', 'image/png']}
             label="Fotografía principal"
@@ -178,21 +195,34 @@ export function ReferenceCreatePage() {
             disabled={submitting}
           />
           {photo ? (
-            <p className="muted">Seleccionada: {photo.name}</p>
+            <p className="text-sm text-muted-foreground">
+              Seleccionada: {photo.name}
+            </p>
           ) : (
-            <p className="muted">JPEG o PNG, máximo 5 MB.</p>
+            <p className="text-sm text-muted-foreground">
+              JPEG o PNG, máximo 5 MB.
+            </p>
           )}
-        </div>
-        <section className="wizard-panel" aria-labelledby="initial-stock-title">
-          <h3 id="initial-stock-title">Tallas y existencias</h3>
-          <p className="muted">
+        </PageSection>
+        <PageSection
+          className="space-y-3"
+          aria-labelledby="initial-stock-title"
+        >
+          <h3
+            id="initial-stock-title"
+            className="text-base font-semibold tracking-tight text-foreground"
+          >
+            Tallas y existencias
+          </h3>
+          <p className="text-sm text-muted-foreground">
             Publicación requiere foto válida y al menos una talla con unidades.
           </p>
-          <div className="stock-size-grid">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {INITIAL_SIZES.map((size) => (
-              <label key={size}>
-                Talla {size}
-                <input
+              <div key={size} className="space-y-2">
+                <Label htmlFor={`stock-${size}`}>Talla {size}</Label>
+                <Input
+                  id={`stock-${size}`}
                   inputMode="numeric"
                   min={0}
                   value={stock[size] ?? ''}
@@ -203,11 +233,12 @@ export function ReferenceCreatePage() {
                     }))
                   }
                   placeholder="0"
+                  className="h-11 rounded-[1.125rem] bg-muted"
                 />
-              </label>
+              </div>
             ))}
           </div>
-        </section>
+        </PageSection>
       </ReferenceForm>
     </section>
   );

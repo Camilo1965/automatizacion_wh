@@ -8,6 +8,8 @@ import { EmptyState } from '../components/EmptyState';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { PageHeader } from '../components/PageHeader';
 import { Skeleton } from '../components/Skeleton';
+import { Button as UiButton } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const OperationalChart = lazy(() =>
   import('./OperationalChart').then((module) => ({
@@ -66,6 +68,13 @@ const money = new Intl.NumberFormat('es-CO', {
   maximumFractionDigits: 0,
 });
 
+const toneRowClass = {
+  danger: 'border-destructive/30 bg-destructive/5 hover:bg-destructive/10',
+  warning: 'border-border bg-secondary hover:bg-muted',
+  success: 'border-border bg-card hover:bg-muted',
+  neutral: 'border-border bg-card hover:bg-muted',
+} as const;
+
 function queueCount(value: number | boolean): number {
   return typeof value === 'boolean' ? (value ? 1 : 0) : value;
 }
@@ -102,21 +111,25 @@ export function DashboardPage() {
         : `${openQueue.reduce((sum, item) => sum + item.count, 0)} pendientes en ${openQueue.length} colas`;
 
   return (
-    <section aria-label="Panel operativo" className="dashboard-page">
-      <header className="home-status-strip">
-        <div>
-          <p className="eyebrow">Operación</p>
-          <p className="home-status-date">{colombiaDate}</p>
-          <p className="home-status-line" role="status">
+    <section aria-label="Panel operativo" className="space-y-6">
+      <header className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-5 shadow-[var(--shadow-card)] sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <p className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+            Operación
+          </p>
+          <p className="text-base font-medium capitalize text-foreground">
+            {colombiaDate}
+          </p>
+          <p className="text-sm text-muted-foreground" role="status">
             {query.data ? statusLine : 'Cargando…'}
           </p>
         </div>
-        <Link
-          className="ui-button ui-button--primary control-target"
-          to="/orders/new"
+        <UiButton
+          asChild
+          className="control-target rounded-[1.125rem]"
         >
-          Nuevo pedido
-        </Link>
+          <Link to="/orders/new">Nuevo pedido</Link>
+        </UiButton>
       </header>
 
       <PageHeader
@@ -127,7 +140,7 @@ export function DashboardPage() {
       />
 
       <div
-        className="dashboard-range"
+        className="flex flex-wrap gap-2"
         role="group"
         aria-label="Periodo de métricas"
       >
@@ -141,7 +154,12 @@ export function DashboardPage() {
           <button
             key={value}
             type="button"
-            className={range === value ? 'active' : ''}
+            className={cn(
+              'control-target rounded-[1.125rem] border px-3 py-1.5 text-sm font-medium transition-colors',
+              range === value
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
             onClick={() => setRange(value)}
             aria-pressed={range === value}
           >
@@ -164,12 +182,14 @@ export function DashboardPage() {
 
       {query.data ? (
         <>
-          <section aria-label="Cola de trabajo" className="work-queue">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Prioridad</p>
-                <h3>Cola de trabajo</h3>
-              </div>
+          <section aria-label="Cola de trabajo" className="space-y-4">
+            <div>
+              <p className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                Prioridad
+              </p>
+              <h3 className="text-lg font-semibold tracking-tight text-foreground">
+                Cola de trabajo
+              </h3>
             </div>
             {openQueue.length === 0 ? (
               <EmptyState
@@ -177,19 +197,31 @@ export function DashboardPage() {
                 description="No hay tareas operativas pendientes en este momento."
               />
             ) : (
-              <ul className="work-queue-list">
+              <ul className="space-y-2">
                 {openQueue.map((item) => (
                   <li key={item.label}>
                     <Link
-                      className={`work-queue-row work-queue-row--${item.tone}`}
+                      className={cn(
+                        'flex items-center gap-4 rounded-3xl border px-4 py-3 shadow-[var(--shadow-card)] transition-colors',
+                        toneRowClass[item.tone],
+                      )}
                       to={item.to}
                     >
-                      <span className="work-queue-count">{item.count}</span>
-                      <span className="work-queue-copy">
-                        <strong>{item.label}</strong>
-                        <small>{item.detail}</small>
+                      <span className="flex size-12 shrink-0 items-center justify-center rounded-[1.125rem] bg-foreground text-lg font-semibold text-background">
+                        {item.count}
                       </span>
-                      <span aria-hidden="true" className="work-queue-arrow">
+                      <span className="min-w-0 flex-1">
+                        <strong className="block text-sm font-semibold text-foreground">
+                          {item.label}
+                        </strong>
+                        <small className="text-xs text-muted-foreground">
+                          {item.detail}
+                        </small>
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className="text-muted-foreground"
+                      >
                         →
                       </span>
                     </Link>
@@ -199,11 +231,19 @@ export function DashboardPage() {
             )}
           </section>
 
-          <section aria-labelledby="today-title" className="today-section">
-            <div className="section-heading">
+          <section
+            aria-labelledby="today-title"
+            className="space-y-4 rounded-3xl border border-border bg-card p-5 shadow-[var(--shadow-card)]"
+          >
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="eyebrow">Rendimiento</p>
-                <h3 id="today-title">
+                <p className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                  Rendimiento
+                </p>
+                <h3
+                  id="today-title"
+                  className="text-lg font-semibold tracking-tight text-foreground"
+                >
                   Resumen de{' '}
                   {range === 'today'
                     ? 'hoy'
@@ -212,7 +252,7 @@ export function DashboardPage() {
                       : 'los últimos 30 días'}
                 </h3>
               </div>
-              <small>
+              <small className="text-xs text-muted-foreground">
                 Actualizado{' '}
                 {new Date(query.data.generatedAt).toLocaleTimeString('es-CO', {
                   hour: '2-digit',
@@ -220,40 +260,36 @@ export function DashboardPage() {
                 })}
               </small>
             </div>
-            <div className="metric-band">
-              <article>
-                <span>Confirmados</span>
-                <strong>{query.data.today.confirmedOrders}</strong>
-              </article>
-              <article>
-                <span>Contraentrega</span>
-                <strong>{money.format(query.data.today.codValueCop)}</strong>
-              </article>
-              <article>
-                <span>Guías creadas</span>
-                <strong>{query.data.today.guidesCreated}</strong>
-              </article>
-              <article>
-                <span>Reservado</span>
-                <strong>{query.data.today.reservedUnits}</strong>
-              </article>
-              <article>
-                <span>Conversaciones</span>
-                <strong>{query.data.today.newConversations}</strong>
-              </article>
-              <article>
-                <span>Despachados</span>
-                <strong>{query.data.today.dispatchedOrders}</strong>
-              </article>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {(
+                [
+                  ['Confirmados', query.data.today.confirmedOrders],
+                  ['Contraentrega', money.format(query.data.today.codValueCop)],
+                  ['Guías creadas', query.data.today.guidesCreated],
+                  ['Reservado', query.data.today.reservedUnits],
+                  ['Conversaciones', query.data.today.newConversations],
+                  ['Despachados', query.data.today.dispatchedOrders],
+                ] as const
+              ).map(([label, value]) => (
+                <article
+                  key={label}
+                  className="rounded-[1.125rem] border border-border bg-muted/60 px-3 py-3"
+                >
+                  <span className="block text-xs text-muted-foreground">
+                    {label}
+                  </span>
+                  <strong className="mt-1 block text-lg font-semibold tracking-tight text-foreground">
+                    {value}
+                  </strong>
+                </article>
+              ))}
             </div>
             <Suspense
               fallback={
                 <Skeleton lines={3} label="Cargando gráfica operativa" />
               }
             >
-              <div className="home-chart-panel">
-                <OperationalChart values={query.data.today} />
-              </div>
+              <OperationalChart values={query.data.today} />
             </Suspense>
           </section>
         </>

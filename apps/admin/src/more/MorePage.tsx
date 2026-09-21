@@ -77,28 +77,34 @@ const groups = [
 
 export function MorePage() {
   return (
-    <section className="more-page">
+    <section className="space-y-8">
       <PageHeader
         eyebrow="Administración"
         title="Más herramientas"
         description="Configuración y tareas operativas agrupadas para celular."
       />
       {groups.map((group) => (
-        <section key={group.title} className="more-group">
-          <h3 className="more-group-title">{group.title}</h3>
-          <div className="more-grid">
+        <section key={group.title} className="space-y-3">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">
+            {group.title}
+          </h3>
+          <div className="grid gap-2 sm:grid-cols-2">
             {group.items.map((item) => (
               <Link
                 aria-label={item.title}
-                className="more-card"
+                className="flex items-center justify-between gap-3 rounded-3xl border border-border bg-card px-4 py-4 shadow-[var(--shadow-card)] transition-colors hover:bg-muted"
                 key={item.to}
                 to={item.to}
               >
-                <span>
-                  <strong>{item.title}</strong>
-                  <small>{item.description}</small>
+                <span className="min-w-0 space-y-1">
+                  <strong className="block text-sm font-semibold text-foreground">
+                    {item.title}
+                  </strong>
+                  <small className="block text-xs text-muted-foreground">
+                    {item.description}
+                  </small>
                 </span>
-                <span aria-hidden="true" className="more-card-arrow">
+                <span aria-hidden="true" className="text-muted-foreground">
                   →
                 </span>
               </Link>

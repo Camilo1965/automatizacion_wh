@@ -2,9 +2,14 @@ import { useState, type FormEvent } from 'react';
 
 import { setStock, type StockAvailability } from '../api/catalog-api';
 import { getErrorMessage, getFieldError } from '../api/client';
+import { Button } from '../components/Button';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { PageSection } from '../components/PageHeader';
 import { parseIntegerDigits } from '../lib/parse-integer-digits';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 const MAX_QUANTITY = 2_000_000_000;
 
@@ -88,54 +93,71 @@ export function StockEditor({ referenceId, stock, onSaved }: StockEditorProps) {
   }
 
   return (
-    <section className="panel-block" aria-labelledby="stock-title">
-      <h3 id="stock-title">Ajuste de stock</h3>
-      <form className="stack-form" onSubmit={onSubmit} noValidate>
-        <label htmlFor="size">Talla</label>
-        <input
-          id="size"
-          name="size"
-          value={size}
-          onChange={(event) => setSize(event.target.value)}
-          required
-          disabled={submitting}
-          aria-invalid={fieldError === 'size'}
-        />
+    <PageSection aria-labelledby="stock-title" className="space-y-4">
+      <h3
+        id="stock-title"
+        className="text-base font-semibold tracking-tight text-foreground"
+      >
+        Ajuste de stock
+      </h3>
+      <form className="space-y-4" onSubmit={onSubmit} noValidate>
+        <div className="space-y-2">
+          <Label htmlFor="size">Talla</Label>
+          <Input
+            id="size"
+            name="size"
+            value={size}
+            onChange={(event) => setSize(event.target.value)}
+            required
+            disabled={submitting}
+            aria-invalid={fieldError === 'size'}
+            className="h-11 rounded-[1.125rem] bg-muted"
+          />
+        </div>
 
-        <p className="stock-balance" role="status">
+        <p
+          className="rounded-[1.125rem] border border-border bg-muted px-3 py-2 text-sm text-foreground"
+          role="status"
+        >
           Físico: {current.physicalQuantity} · Reservado:{' '}
           {current.reservedQuantity} · Disponible: {current.availableQuantity}
         </p>
 
-        <label htmlFor="physicalQuantity">Cantidad física</label>
-        <input
-          id="physicalQuantity"
-          name="physicalQuantity"
-          inputMode="numeric"
-          value={quantity}
-          onChange={(event) => setQuantity(event.target.value)}
-          required
-          disabled={submitting}
-          aria-invalid={fieldError === 'physicalQuantity'}
-        />
+        <div className="space-y-2">
+          <Label htmlFor="physicalQuantity">Cantidad física</Label>
+          <Input
+            id="physicalQuantity"
+            name="physicalQuantity"
+            inputMode="numeric"
+            value={quantity}
+            onChange={(event) => setQuantity(event.target.value)}
+            required
+            disabled={submitting}
+            aria-invalid={fieldError === 'physicalQuantity'}
+            className="h-11 rounded-[1.125rem] bg-muted"
+          />
+        </div>
 
-        <label htmlFor="note">Nota</label>
-        <textarea
-          id="note"
-          name="note"
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          required
-          minLength={3}
-          disabled={submitting}
-          aria-invalid={fieldError === 'note'}
-        />
+        <div className="space-y-2">
+          <Label htmlFor="note">Nota</Label>
+          <Textarea
+            id="note"
+            name="note"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            required
+            minLength={3}
+            disabled={submitting}
+            aria-invalid={fieldError === 'note'}
+            className="min-h-24 rounded-[1.125rem] bg-muted"
+          />
+        </div>
 
         <ErrorMessage message={error} id="stock-error" />
 
-        <button type="submit" className="button-primary" disabled={submitting}>
+        <Button type="submit" className="h-11" loading={submitting}>
           {submitting ? 'Guardando…' : 'Guardar stock'}
-        </button>
+        </Button>
       </form>
 
       <ConfirmDialog
@@ -152,6 +174,6 @@ export function StockEditor({ referenceId, stock, onSaved }: StockEditorProps) {
         }}
         busy={submitting}
       />
-    </section>
+    </PageSection>
   );
 }

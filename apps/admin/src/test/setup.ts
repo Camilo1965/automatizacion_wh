@@ -6,6 +6,16 @@ import '@testing-library/jest-dom/vitest';
 import { resetState } from './handlers';
 import { server } from './server';
 
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = ResizeObserverStub;
+}
+
 beforeAll(() => {
   server.listen({ onUnhandledRequest: 'error' });
 });

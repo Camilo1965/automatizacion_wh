@@ -7,10 +7,26 @@ import {
   botFlowVariablesForStep,
 } from '@camila/contracts';
 import { z } from 'zod';
+
 import { apiRequest, getErrorMessage } from '../api/client';
-import { PageHeader } from '../components/PageHeader';
-import { ErrorMessage } from '../components/ErrorMessage';
-import { ConfirmDialog } from '../components/ConfirmDialog';
+import { PageHeader } from '@/components/PageHeader';
+import { ErrorMessage } from '@/components/ErrorMessage';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { Button } from '@/components/Button';
+import { StatusBadge } from '@/components/StatusBadge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 type Definition = z.infer<typeof BotFlowDefinitionSchema>;
 function recoverDraft(): { definition: Definition; revision: number } | null {
@@ -59,6 +75,9 @@ const SimulationSchema = z.object({
     sideEffects: z.literal(false),
   }),
 });
+
+const selectClassName =
+  'h-11 w-full rounded-[1.125rem] border border-input bg-muted px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50';
 
 export function BotFlowPage() {
   const client = useQueryClient();
@@ -142,339 +161,480 @@ export function BotFlowPage() {
         message={getErrorMessage(query.error, 'No se pudo cargar el flujo.')}
       />
     );
-  if (!definition) return <p role="status">Cargando el flujo…</p>;
+  if (!definition)
+    return (
+      <p role="status" className="text-sm text-muted-foreground">
+        Cargando el flujo…
+      </p>
+    );
   return (
-    <section className="operational-config">
+    <section className="space-y-6">
       <PageHeader
         eyebrow="WhatsApp"
         title="Flujo del bot"
         description="Edita los mensajes, prueba sin enviar WhatsApp y publica para conversaciones nuevas. Los pasos de compra conservan sus validaciones."
       />
-      <div className="card">
-        <p>
-          Versión activa:{' '}
-          {query.data?.data.versions.find(
-            (version) => version.id === query.data?.data.activeVersionId,
-          )?.revision ?? 'flujo inicial'}{' '}
-          · {dirty ? 'Cambios sin guardar' : 'Borrador guardado'}
-        </p>
-        <div className="toolbar">
-          <button
-            type="button"
-            className="ui-button ui-button--secondary control-target"
-            disabled={!dirty || mutation.isPending}
-            onClick={() => mutation.mutate({ publish: false })}
-          >
-            Guardar borrador
-          </button>
-          {dirty && (
-            <button
+      <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <CardTitle className="text-lg">Estado del borrador</CardTitle>
+            <CardDescription>
+              Versión activa:{' '}
+              {query.data?.data.versions.find(
+                (version) => version.id === query.data?.data.activeVersionId,
+              )?.revision ?? 'flujo inicial'}
+            </CardDescription>
+          </div>
+          <StatusBadge tone={dirty ? 'warning' : 'success'}>
+            {dirty ? 'Cambios sin guardar' : 'Borrador guardado'}
+          </StatusBadge>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Button
               type="button"
-              className="ui-button ui-button--ghost control-target"
-              disabled={mutation.isPending}
-              onClick={() => {
-                sessionStorage.removeItem('kairo.bot-flow-draft');
-                setDefinition(null);
-                setRevision(null);
-                setDirty(false);
-              }}
+              variant="secondary"
+              disabled={!dirty || mutation.isPending}
+              loading={mutation.isPending}
+              onClick={() => mutation.mutate({ publish: false })}
             >
-              Descartar cambios locales
-            </button>
-          )}
-          <button
-            type="button"
-            className="ui-button ui-button--primary control-target"
-            disabled={dirty || mutation.isPending}
-            onClick={() => setConfirm(true)}
-          >
-            Publicar flujo
-          </button>
-        </div>
-        {feedback && <p role="status">{feedback}</p>}
-        {mutation.isError && (
-          <ErrorMessage
-            message={getErrorMessage(
-              mutation.error,
-              'No se pudo guardar el flujo.',
-            )}
-          />
-        )}
-      </div>
-      <div className="flow-editor flow-editor--with-phone">
-        <div className="flow-editor-main">
-          <nav className="card" aria-label="Pasos del flujo">
-            {BotFlowStepKeys.map((key, index) => (
-              <button
+              Guardar borrador
+            </Button>
+            {dirty && (
+              <Button
                 type="button"
-                key={key}
-                aria-pressed={step === key}
-                onClick={() => setStep(key)}
+                variant="ghost"
+                disabled={mutation.isPending}
+                onClick={() => {
+                  sessionStorage.removeItem('kairo.bot-flow-draft');
+                  setDefinition(null);
+                  setRevision(null);
+                  setDirty(false);
+                }}
               >
-                {index + 1}. {labels[key]}
-              </button>
-            ))}
-          </nav>
-          <div className="card">
-            <h2>{labels[step]}</h2>
-            <label htmlFor="flow-message">Mensaje para el cliente</label>
-            <textarea
-              id="flow-message"
-              rows={5}
-              maxLength={4096}
-              value={definition.steps[step].message}
-              onChange={(event) =>
-                update({
-                  ...definition,
-                  steps: {
-                    ...definition.steps,
-                    [step]: {
-                      ...definition.steps[step],
-                      message: event.target.value,
-                    },
-                  },
-                })
-              }
-            />
-            <label htmlFor="flow-invalid">
-              Mensaje cuando la respuesta no es válida
-            </label>
-            <textarea
-              id="flow-invalid"
-              rows={3}
-              value={definition.steps[step].invalidMessage ?? ''}
-              onChange={(event) =>
-                update({
-                  ...definition,
-                  steps: {
-                    ...definition.steps,
-                    [step]: {
-                      ...definition.steps[step],
-                      invalidMessage: event.target.value,
-                    },
-                  },
-                })
-              }
-            />
-            <label htmlFor="flow-attempts">
-              Intentos antes de solicitar atención humana
-            </label>
-            <input
-              id="flow-attempts"
-              type="number"
-              min={1}
-              max={10}
-              value={definition.steps[step].maxAttempts ?? 3}
-              onChange={(event) =>
-                update({
-                  ...definition,
-                  steps: {
-                    ...definition.steps,
-                    [step]: {
-                      ...definition.steps[step],
-                      maxAttempts: Number(event.target.value),
-                    },
-                  },
-                })
-              }
-            />
-            <div
-              className="toolbar"
-              role="group"
-              aria-label="Insertar variables disponibles"
-            >
-              {botFlowVariablesForStep(step).map((variable) => (
-                <button
-                  key={variable}
-                  type="button"
-                  onClick={() =>
-                    update({
-                      ...definition,
-                      steps: {
-                        ...definition.steps,
-                        [step]: {
-                          ...definition.steps[step],
-                          message:
-                            definition.steps[step].message + ` {{${variable}}}`,
-                        },
-                      },
-                    })
-                  }
-                >{`Insertar ${variable}`}</button>
-              ))}
-            </div>
-            <p>
-              Solo se ofrecen variables cuyos datos ya existen en este paso.
-            </p>
-          </div>
-        </div>
-        <aside
-          className="bot-phone-preview"
-          aria-label="Vista previa tipo teléfono"
-        >
-          <div className="bot-phone-frame">
-            <p className="bot-phone-label">{labels[step]}</p>
-            <div className="bot-phone-bubble">
-              {definition.steps[step].message || 'Escribe un mensaje…'}
-            </div>
-          </div>
-        </aside>
-      </div>
-      <div className="card">
-        <h2>Comandos y catálogo</h2>
-        {Object.entries(definition.commands).map(([key, value]) => (
-          <label key={key}>
-            {
-              (
-                {
-                  human: 'Pedir ayuda',
-                  reset: 'Reiniciar',
-                  more: 'Más modelos',
-                  confirm: 'Confirmar',
-                  cancel: 'Cancelar',
-                } as Record<string, string>
-              )[key]
-            }
-            <input
-              value={value}
-              maxLength={40}
-              onChange={(event) =>
-                update({
-                  ...definition,
-                  commands: {
-                    ...definition.commands,
-                    [key]: event.target.value,
-                  },
-                })
-              }
-            />
-          </label>
-        ))}
-        <label>
-          Fotos por página
-          <input
-            type="number"
-            min={1}
-            max={10}
-            value={definition.pageSize}
-            onChange={(event) =>
-              update({ ...definition, pageSize: Number(event.target.value) })
-            }
-          />
-        </label>
-      </div>
-      <div className="card">
-        <h2>Simular conversación</h2>
-        <fieldset>
-          <legend>Opciones del flujo</legend>
-          {(
-            ['notes', 'showCarrierInSummary', 'sendGuideToCustomer'] as const
-          ).map((key) => (
-            <label key={key}>
-              <input
-                type="checkbox"
-                checked={definition.optionalSteps[key]}
-                onChange={(event) =>
-                  update({
-                    ...definition,
-                    optionalSteps: {
-                      ...definition.optionalSteps,
-                      [key]: event.target.checked,
-                    },
-                  })
-                }
-              />
-              {
-                {
-                  notes: 'Solicitar indicaciones de entrega',
-                  showCarrierInSummary: 'Mostrar transportadora en el resumen',
-                  sendGuideToCustomer: 'Enviar la guía como PDF al cliente',
-                }[key]
-              }
-            </label>
-          ))}
-        </fieldset>
-        <p>
-          Una respuesta por línea. Esta prueba no reserva inventario ni crea
-          guías.
-        </p>
-        <label htmlFor="flow-scenario">Escenario controlado</label>
-        <select
-          id="flow-scenario"
-          value={scenario}
-          onChange={(event) => setScenario(event.target.value)}
-        >
-          <option value="available">Compra con inventario disponible</option>
-          <option value="out_of_stock">Talla agotada</option>
-          <option value="invalid_locality">Municipio no encontrado</option>
-          <option value="blocked_carrier">
-            Transportadora obligatoria no disponible
-          </option>
-          <option value="fallback">Transportadora alternativa permitida</option>
-          <option value="expired_quote">Cotización vencida</option>
-        </select>
-        <label htmlFor="flow-test">Mensajes del cliente</label>
-        <textarea
-          id="flow-test"
-          rows={5}
-          value={messages}
-          onChange={(event) => setMessages(event.target.value)}
-        />
-        <button
-          type="button"
-          disabled={simulation.isPending}
-          onClick={() => simulation.mutate()}
-        >
-          Probar borrador
-        </button>
-        {simulation.isError && (
-          <ErrorMessage
-            message={getErrorMessage(
-              simulation.error,
-              'No se pudo simular el flujo.',
+                Descartar cambios locales
+              </Button>
             )}
-          />
-        )}
-        {simulation.data?.data.events.map((event, index) => (
-          <div key={index} className="card">
-            <p>Cliente: {event.input}</p>
-            <p>
-              Bot:{' '}
-              {event.reply ??
-                'Acción operativa: ' + (event.action ?? 'continuar')}
-            </p>
-          </div>
-        ))}
-      </div>
-      <div className="card">
-        <h2>Historial de publicaciones</h2>
-        {query.data?.data.versions.map((version) => (
-          <div key={version.id}>
-            <p>
-              Versión {version.revision} ·{' '}
-              {new Date(version.createdAt).toLocaleString('es-CO')} ·{' '}
-              {version.author}
-            </p>
-            <button
+            <Button
               type="button"
               disabled={dirty || mutation.isPending}
-              onClick={() => {
-                if (
-                  window.confirm(
-                    '¿Restaurar esta versión como una publicación nueva?',
-                  )
-                )
-                  mutation.mutate({
-                    publish: true,
-                    restoreVersionId: version.id,
-                  });
-              }}
+              onClick={() => setConfirm(true)}
             >
-              Restaurar versión {version.revision}
-            </button>
+              Publicar flujo
+            </Button>
           </div>
-        ))}
-      </div>
+          {feedback && (
+            <p role="status" className="text-sm text-foreground">
+              {feedback}
+            </p>
+          )}
+          {mutation.isError && (
+            <ErrorMessage
+              message={getErrorMessage(
+                mutation.error,
+                'No se pudo guardar el flujo.',
+              )}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      <Tabs defaultValue="editor" className="gap-4">
+        <TabsList className="h-auto rounded-[1.125rem] p-1">
+          <TabsTrigger value="editor" className="rounded-[0.875rem] px-3 py-2">
+            Editor
+          </TabsTrigger>
+          <TabsTrigger
+            value="simulate"
+            className="rounded-[0.875rem] px-3 py-2"
+          >
+            Simular
+          </TabsTrigger>
+          <TabsTrigger
+            value="history"
+            className="rounded-[0.875rem] px-3 py-2"
+          >
+            Historial
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="editor" className="space-y-4">
+          <div className="grid gap-4 xl:grid-cols-[16rem_minmax(0,1fr)_18rem]">
+            <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
+              <CardHeader>
+                <CardTitle className="text-base">Pasos del flujo</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <nav
+                  className="flex max-h-[28rem] flex-col gap-1 overflow-y-auto"
+                  aria-label="Pasos del flujo"
+                >
+                  {BotFlowStepKeys.map((key, index) => (
+                    <button
+                      type="button"
+                      key={key}
+                      aria-pressed={step === key}
+                      onClick={() => setStep(key)}
+                      className={cn(
+                        'rounded-[1.125rem] px-3 py-2 text-left text-sm transition-colors',
+                        step === key
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-foreground hover:bg-muted',
+                      )}
+                    >
+                      {index + 1}. {labels[key]}
+                    </button>
+                  ))}
+                </nav>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
+              <CardHeader>
+                <CardTitle className="text-lg">{labels[step]}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="flow-message">Mensaje para el cliente</Label>
+                  <Textarea
+                    id="flow-message"
+                    rows={5}
+                    maxLength={4096}
+                    value={definition.steps[step].message}
+                    onChange={(event) =>
+                      update({
+                        ...definition,
+                        steps: {
+                          ...definition.steps,
+                          [step]: {
+                            ...definition.steps[step],
+                            message: event.target.value,
+                          },
+                        },
+                      })
+                    }
+                    className="rounded-[1.125rem] bg-muted"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="flow-invalid">
+                    Mensaje cuando la respuesta no es válida
+                  </Label>
+                  <Textarea
+                    id="flow-invalid"
+                    rows={3}
+                    value={definition.steps[step].invalidMessage ?? ''}
+                    onChange={(event) =>
+                      update({
+                        ...definition,
+                        steps: {
+                          ...definition.steps,
+                          [step]: {
+                            ...definition.steps[step],
+                            invalidMessage: event.target.value,
+                          },
+                        },
+                      })
+                    }
+                    className="rounded-[1.125rem] bg-muted"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="flow-attempts">
+                    Intentos antes de solicitar atención humana
+                  </Label>
+                  <Input
+                    id="flow-attempts"
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={definition.steps[step].maxAttempts ?? 3}
+                    onChange={(event) =>
+                      update({
+                        ...definition,
+                        steps: {
+                          ...definition.steps,
+                          [step]: {
+                            ...definition.steps[step],
+                            maxAttempts: Number(event.target.value),
+                          },
+                        },
+                      })
+                    }
+                    className="h-11 rounded-[1.125rem] bg-muted"
+                  />
+                </div>
+                <div
+                  className="flex flex-wrap gap-2"
+                  role="group"
+                  aria-label="Insertar variables disponibles"
+                >
+                  {botFlowVariablesForStep(step).map((variable) => (
+                    <Button
+                      key={variable}
+                      type="button"
+                      variant="secondary"
+                      onClick={() =>
+                        update({
+                          ...definition,
+                          steps: {
+                            ...definition.steps,
+                            [step]: {
+                              ...definition.steps[step],
+                              message:
+                                definition.steps[step].message +
+                                ` {{${variable}}}`,
+                            },
+                          },
+                        })
+                      }
+                    >{`Insertar ${variable}`}</Button>
+                  ))}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Solo se ofrecen variables cuyos datos ya existen en este paso.
+                </p>
+              </CardContent>
+            </Card>
+
+            <aside
+              className="rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-card)]"
+              aria-label="Vista previa tipo teléfono"
+            >
+              <div className="mx-auto flex min-h-[22rem] w-full max-w-[16rem] flex-col rounded-[1.75rem] border border-border bg-muted/40 p-4">
+                <p className="mb-3 text-center text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                  {labels[step]}
+                </p>
+                <div className="rounded-[1.125rem] bg-background px-3 py-2 text-sm text-foreground shadow-[var(--shadow-card)]">
+                  {definition.steps[step].message || 'Escribe un mensaje…'}
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
+            <CardHeader>
+              <CardTitle className="text-lg">Comandos y catálogo</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              {Object.entries(definition.commands).map(([key, value]) => (
+                <div className="space-y-2" key={key}>
+                  <Label>
+                    {
+                      (
+                        {
+                          human: 'Pedir ayuda',
+                          reset: 'Reiniciar',
+                          more: 'Más modelos',
+                          confirm: 'Confirmar',
+                          cancel: 'Cancelar',
+                        } as Record<string, string>
+                      )[key]
+                    }
+                  </Label>
+                  <Input
+                    value={value}
+                    maxLength={40}
+                    onChange={(event) =>
+                      update({
+                        ...definition,
+                        commands: {
+                          ...definition.commands,
+                          [key]: event.target.value,
+                        },
+                      })
+                    }
+                    className="h-11 rounded-[1.125rem] bg-muted"
+                  />
+                </div>
+              ))}
+              <div className="space-y-2">
+                <Label>Fotos por página</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={definition.pageSize}
+                  onChange={(event) =>
+                    update({
+                      ...definition,
+                      pageSize: Number(event.target.value),
+                    })
+                  }
+                  className="h-11 rounded-[1.125rem] bg-muted"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="simulate" className="space-y-4">
+          <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
+            <CardHeader>
+              <CardTitle className="text-lg">Simular conversación</CardTitle>
+              <CardDescription>
+                Una respuesta por línea. Esta prueba no reserva inventario ni
+                crea guías.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <fieldset className="space-y-3 rounded-[1.125rem] border border-border p-4">
+                <legend className="px-1 text-sm font-medium text-foreground">
+                  Opciones del flujo
+                </legend>
+                {(
+                  [
+                    'notes',
+                    'showCarrierInSummary',
+                    'sendGuideToCustomer',
+                  ] as const
+                ).map((key) => (
+                  <label
+                    key={key}
+                    className="flex items-center justify-between gap-3 text-sm text-foreground"
+                  >
+                    <span>
+                      {
+                        {
+                          notes: 'Solicitar indicaciones de entrega',
+                          showCarrierInSummary:
+                            'Mostrar transportadora en el resumen',
+                          sendGuideToCustomer:
+                            'Enviar la guía como PDF al cliente',
+                        }[key]
+                      }
+                    </span>
+                    <Switch
+                      checked={definition.optionalSteps[key]}
+                      onCheckedChange={(checked) =>
+                        update({
+                          ...definition,
+                          optionalSteps: {
+                            ...definition.optionalSteps,
+                            [key]: checked,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                ))}
+              </fieldset>
+              <div className="space-y-2">
+                <Label htmlFor="flow-scenario">Escenario controlado</Label>
+                <select
+                  id="flow-scenario"
+                  className={selectClassName}
+                  value={scenario}
+                  onChange={(event) => setScenario(event.target.value)}
+                >
+                  <option value="available">
+                    Compra con inventario disponible
+                  </option>
+                  <option value="out_of_stock">Talla agotada</option>
+                  <option value="invalid_locality">
+                    Municipio no encontrado
+                  </option>
+                  <option value="blocked_carrier">
+                    Transportadora obligatoria no disponible
+                  </option>
+                  <option value="fallback">
+                    Transportadora alternativa permitida
+                  </option>
+                  <option value="expired_quote">Cotización vencida</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="flow-test">Mensajes del cliente</Label>
+                <Textarea
+                  id="flow-test"
+                  rows={5}
+                  value={messages}
+                  onChange={(event) => setMessages(event.target.value)}
+                  className="rounded-[1.125rem] bg-muted"
+                />
+              </div>
+              <Button
+                type="button"
+                disabled={simulation.isPending}
+                loading={simulation.isPending}
+                onClick={() => simulation.mutate()}
+              >
+                Probar borrador
+              </Button>
+              {simulation.isError && (
+                <ErrorMessage
+                  message={getErrorMessage(
+                    simulation.error,
+                    'No se pudo simular el flujo.',
+                  )}
+                />
+              )}
+              <div className="space-y-3">
+                {simulation.data?.data.events.map((event, index) => (
+                  <Card
+                    key={index}
+                    className="rounded-[1.125rem] border-border shadow-none"
+                  >
+                    <CardContent className="space-y-1 pt-4">
+                      <p className="text-sm text-foreground">
+                        Cliente: {event.input}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Bot:{' '}
+                        {event.reply ??
+                          'Acción operativa: ' + (event.action ?? 'continuar')}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="history">
+          <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
+            <CardHeader>
+              <CardTitle className="text-lg">
+                Historial de publicaciones
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {query.data?.data.versions.map((version) => (
+                <div
+                  key={version.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-[1.125rem] border border-border p-4"
+                >
+                  <p className="text-sm text-foreground">
+                    Versión {version.revision} ·{' '}
+                    {new Date(version.createdAt).toLocaleString('es-CO')} ·{' '}
+                    {version.author}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={dirty || mutation.isPending}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          '¿Restaurar esta versión como una publicación nueva?',
+                        )
+                      )
+                        mutation.mutate({
+                          publish: true,
+                          restoreVersionId: version.id,
+                        });
+                    }}
+                  >
+                    Restaurar versión {version.revision}
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
       <ConfirmDialog
         open={confirm}
         title="Publicar flujo"

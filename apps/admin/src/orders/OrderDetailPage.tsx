@@ -23,6 +23,14 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { StatusBadge } from '../components/StatusBadge';
 import type { LocalityPublic } from '@camila/contracts';
 import { operationalLabel } from '../lib/operational-label';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 
 type OrderLifecycleAction = 'cancel' | 'dispatch' | 'deliver' | 'return';
 
@@ -168,11 +176,18 @@ export function OrderDetailPage() {
         : null;
 
   return (
-    <section aria-labelledby="order-title" className="order-detail">
-      <header className="order-hero">
-        <div>
-          <p className="eyebrow">Pedido</p>
-          <h2 id="order-title">{order.orderNumber}</h2>
+    <section aria-labelledby="order-title" className="space-y-6">
+      <header className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-5 shadow-[var(--shadow-card)] sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2">
+          <p className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+            Pedido
+          </p>
+          <h2
+            id="order-title"
+            className="text-2xl font-semibold tracking-tight text-foreground"
+          >
+            {order.orderNumber}
+          </h2>
           <StatusBadge
             tone={
               order.status === 'confirmed' || order.status === 'dispatched'
@@ -185,199 +200,263 @@ export function OrderDetailPage() {
             {operationalLabel(order.status)}
           </StatusBadge>
         </div>
-        <strong className="order-hero-qty">
+        <strong className="text-lg font-semibold text-foreground">
           {order.quantity} {order.quantity === 1 ? 'par' : 'pares'}
         </strong>
       </header>
-      <p className="order-product-line">
+      <p className="text-sm text-muted-foreground">
         {order.reference.code} · {order.reference.modelName} ·{' '}
         {order.reference.color} · talla {order.size}
       </p>
       {order.status === 'draft' ? (
-        <form className="card" onSubmit={submit}>
-          <h3>Cliente y destino</h3>
-          <label>
-            Nombre
-            <input
-              required
-              value={name ?? order.customer.name ?? ''}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
-          <label>
-            Teléfono
-            <input
-              required
-              placeholder="3001234567"
-              value={phone ?? order.customer.phone ?? ''}
-              onChange={(event) => setPhone(event.target.value)}
-            />
-          </label>
-          <label>
-            Dirección
-            <input
-              required
-              value={address ?? order.destination.address ?? ''}
-              onChange={(event) => setAddress(event.target.value)}
-            />
-          </label>
-          <LocalityPicker
-            value={pickerLocality}
-            onChange={(value) => {
-              setLocalityEdited(true);
-              setSelectedLocality(value);
-              setLocality(value?.carrierCode ?? '');
-            }}
-          />
-          <button
-            className="button-primary"
-            disabled={save.isPending || pickerLocality === null}
-          >
-            Guardar borrador
-          </button>
-        </form>
+        <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">
+              Cliente y destino
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={submit}>
+              <div className="space-y-2">
+                <Label htmlFor="order-customer-name">Nombre</Label>
+                <Input
+                  id="order-customer-name"
+                  className="h-11 rounded-[1.125rem] bg-muted"
+                  required
+                  value={name ?? order.customer.name ?? ''}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="order-customer-phone">Teléfono</Label>
+                <Input
+                  id="order-customer-phone"
+                  className="h-11 rounded-[1.125rem] bg-muted"
+                  required
+                  placeholder="3001234567"
+                  value={phone ?? order.customer.phone ?? ''}
+                  onChange={(event) => setPhone(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="order-customer-address">Dirección</Label>
+                <Input
+                  id="order-customer-address"
+                  className="h-11 rounded-[1.125rem] bg-muted"
+                  required
+                  value={address ?? order.destination.address ?? ''}
+                  onChange={(event) => setAddress(event.target.value)}
+                />
+              </div>
+              <LocalityPicker
+                value={pickerLocality}
+                onChange={(value) => {
+                  setLocalityEdited(true);
+                  setSelectedLocality(value);
+                  setLocality(value?.carrierCode ?? '');
+                }}
+              />
+              <Button
+                loading={save.isPending}
+                disabled={pickerLocality === null}
+                type="submit"
+              >
+                Guardar borrador
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="card">
-          <p>
-            {order.customer.name} · {order.customer.phone}
-          </p>
-          <p>
-            {order.destination.address} ·{' '}
-            {order.destination.localityName ??
-              order.destination.localityCarrierCode}
-          </p>
-        </div>
+        <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
+          <CardContent className="space-y-1 pt-(--card-spacing)">
+            <p className="text-sm text-foreground">
+              {order.customer.name} · {order.customer.phone}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {order.destination.address} ·{' '}
+              {order.destination.localityName ??
+                order.destination.localityCarrierCode}
+            </p>
+          </CardContent>
+        </Card>
       )}
       {order.status === 'draft' ? (
-        <div className="card">
-          <h3>Envío</h3>
-          <button
-            className="button-secondary"
-            onClick={() => quote.mutate()}
-            disabled={quote.isPending}
-          >
-            Cotizar envío
-          </button>
-          {shipping.data?.quotes.map((item) => (
-            <label key={item.id} className="shipping-option">
-              <input
-                type="radio"
-                name="shipping-quote"
-                checked={item.selected}
-                onChange={() => chooseQuote.mutate(item.id)}
-              />
-              <strong>{item.carrier}</strong> · {money(item.totalShippingCop)}
-              {' · '}
-              {item.insuranceMode === 'none'
-                ? 'Económico'
-                : `Protegido · Seguro 99 ${item.insuranceMode === 'plus' ? 'Plus' : 'estándar'}`}
-              {item.estimatedDays ? ` · ${item.estimatedDays} día(s)` : ''}
-              {item.recommended ? ' · Recomendada' : ''}
-            </label>
-          ))}
-          {selectedQuote ? (
-            <p>
-              Envío seleccionado: {selectedQuote.carrier} ·{' '}
-              {money(selectedQuote.totalShippingCop)}
-            </p>
-          ) : (
-            <p>Selecciona una cotización antes de confirmar.</p>
-          )}
-          <button
-            className="button-secondary"
-            onClick={() => summary.mutate()}
-            disabled={summary.isPending || selectedQuote === undefined}
-          >
-            Generar resumen
-          </button>
-          {summary.data ? (
-            <>
-              <p>
-                Total contra entrega:{' '}
-                {money(summary.data.snapshot.totalCop as number)}
-              </p>
-              <button
-                className="button-primary"
-                onClick={() => confirm.mutate()}
-                disabled={confirm.isPending}
-              >
-                Confirmar y reservar
-              </button>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-      {shipping.data?.guide ? (
-        <div className="card">
-          <h3>Guía de envío</h3>
-          <p>
-            Estado: {shipping.data.guide.status} · {shipping.data.guide.carrier}
-          </p>
-          {shipping.data.guide.preShipmentNumber ? (
-            <p>Número: {shipping.data.guide.preShipmentNumber}</p>
-          ) : null}
-          {shipping.data.guide.status === 'created' ? (
-            <button onClick={() => pdf.mutate()} disabled={pdf.isPending}>
-              Descargar PDF
-            </button>
-          ) : null}
-          {shipping.data.guide.status === 'uncertain' ? (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                review.mutate();
-              }}
-            >
-              <label>
-                Número verificado en 99envíos
-                <input
-                  required
-                  maxLength={64}
-                  value={reviewNumber}
-                  onChange={(event) => setReviewNumber(event.target.value)}
-                />
-              </label>
-              <button disabled={review.isPending}>Registrar revisión</button>
-            </form>
-          ) : null}
-        </div>
-      ) : null}
-      <div className="order-actions card" aria-label="Acciones del pedido">
-        {primaryAction !== null ? (
-          <Button
-            onClick={() => setPendingAction(primaryAction)}
-            disabled={primaryAction === 'dispatch' && !canDispatch}
-            title={
-              primaryAction === 'dispatch' && !canDispatch
-                ? 'Primero debe existir una guía creada para despachar'
-                : undefined
-            }
-          >
-            {primaryAction === 'dispatch' ? 'Despachar' : 'Entregar'}
-          </Button>
-        ) : null}
-        {order.status === 'confirmed' && !canDispatch ? (
-          <p className="muted order-block-reason" role="status">
-            Despacho bloqueado: la guía aún no está creada. Revisa el estado o
-            espera la creación automática.
-          </p>
-        ) : null}
-        <div className="order-actions-secondary">
-          {order.status === 'draft' || order.status === 'confirmed' ? (
-            <Button variant="danger" onClick={() => setPendingAction('cancel')}>
-              Cancelar
-            </Button>
-          ) : null}
-          {order.status === 'delivered' || order.status === 'dispatched' ? (
+        <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">Envío</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <Button
               variant="secondary"
-              onClick={() => setPendingAction('return')}
+              onClick={() => quote.mutate()}
+              loading={quote.isPending}
+              type="button"
             >
-              Registrar devolución
+              Cotizar envío
+            </Button>
+            <div className="space-y-2">
+              {shipping.data?.quotes.map((item) => (
+                <label
+                  key={item.id}
+                  className="flex cursor-pointer items-start gap-3 rounded-[1.125rem] border border-border bg-muted/40 px-3 py-3 text-sm"
+                >
+                  <input
+                    type="radio"
+                    name="shipping-quote"
+                    className="mt-1"
+                    checked={item.selected}
+                    onChange={() => chooseQuote.mutate(item.id)}
+                  />
+                  <span>
+                    <strong>{item.carrier}</strong> ·{' '}
+                    {money(item.totalShippingCop)}
+                    {' · '}
+                    {item.insuranceMode === 'none'
+                      ? 'Económico'
+                      : `Protegido · Seguro 99 ${item.insuranceMode === 'plus' ? 'Plus' : 'estándar'}`}
+                    {item.estimatedDays ? ` · ${item.estimatedDays} día(s)` : ''}
+                    {item.recommended ? ' · Recomendada' : ''}
+                  </span>
+                </label>
+              ))}
+            </div>
+            {selectedQuote ? (
+              <p className="text-sm text-foreground">
+                Envío seleccionado: {selectedQuote.carrier} ·{' '}
+                {money(selectedQuote.totalShippingCop)}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Selecciona una cotización antes de confirmar.
+              </p>
+            )}
+            <Button
+              variant="secondary"
+              onClick={() => summary.mutate()}
+              loading={summary.isPending}
+              disabled={selectedQuote === undefined}
+              type="button"
+            >
+              Generar resumen
+            </Button>
+            {summary.data ? (
+              <div className="space-y-3">
+                <p className="text-sm text-foreground">
+                  Total contra entrega:{' '}
+                  {money(summary.data.snapshot.totalCop as number)}
+                </p>
+                <Button
+                  onClick={() => confirm.mutate()}
+                  loading={confirm.isPending}
+                  type="button"
+                >
+                  Confirmar y reservar
+                </Button>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+      {shipping.data?.guide ? (
+        <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">
+              Guía de envío
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-foreground">
+              Estado: {shipping.data.guide.status} ·{' '}
+              {shipping.data.guide.carrier}
+            </p>
+            {shipping.data.guide.preShipmentNumber ? (
+              <p className="text-sm text-muted-foreground">
+                Número: {shipping.data.guide.preShipmentNumber}
+              </p>
+            ) : null}
+            {shipping.data.guide.status === 'created' ? (
+              <Button
+                variant="secondary"
+                onClick={() => pdf.mutate()}
+                loading={pdf.isPending}
+                type="button"
+              >
+                Descargar PDF
+              </Button>
+            ) : null}
+            {shipping.data.guide.status === 'uncertain' ? (
+              <form
+                className="space-y-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  review.mutate();
+                }}
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="guide-review-number">
+                    Número verificado en 99envíos
+                  </Label>
+                  <Input
+                    id="guide-review-number"
+                    className="h-11 rounded-[1.125rem] bg-muted"
+                    required
+                    maxLength={64}
+                    value={reviewNumber}
+                    onChange={(event) => setReviewNumber(event.target.value)}
+                  />
+                </div>
+                <Button loading={review.isPending} type="submit">
+                  Registrar revisión
+                </Button>
+              </form>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+      <Card
+        className="rounded-3xl border-border shadow-[var(--shadow-card)]"
+        aria-label="Acciones del pedido"
+      >
+        <CardContent className="space-y-3 pt-(--card-spacing)">
+          {primaryAction !== null ? (
+            <Button
+              onClick={() => setPendingAction(primaryAction)}
+              disabled={primaryAction === 'dispatch' && !canDispatch}
+              title={
+                primaryAction === 'dispatch' && !canDispatch
+                  ? 'Primero debe existir una guía creada para despachar'
+                  : undefined
+              }
+            >
+              {primaryAction === 'dispatch' ? 'Despachar' : 'Entregar'}
             </Button>
           ) : null}
-        </div>
-      </div>
+          {order.status === 'confirmed' && !canDispatch ? (
+            <p className="text-sm text-muted-foreground" role="status">
+              Despacho bloqueado: la guía aún no está creada. Revisa el estado o
+              espera la creación automática.
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            {order.status === 'draft' || order.status === 'confirmed' ? (
+              <Button
+                variant="danger"
+                onClick={() => setPendingAction('cancel')}
+              >
+                Cancelar
+              </Button>
+            ) : null}
+            {order.status === 'delivered' || order.status === 'dispatched' ? (
+              <Button
+                variant="secondary"
+                onClick={() => setPendingAction('return')}
+              >
+                Registrar devolución
+              </Button>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
       <ConfirmDialog
         open={pendingActionCopy !== null}
         title={pendingActionCopy?.title ?? ''}

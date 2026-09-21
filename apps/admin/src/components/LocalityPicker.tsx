@@ -9,6 +9,11 @@ import { Link } from 'react-router-dom';
 import { useEffect, useId, useState } from 'react';
 
 import { apiRequest, getErrorMessage } from '../api/client';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+
+const selectClassName =
+  'h-11 w-full rounded-[1.125rem] border border-input bg-muted px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50';
 
 async function loadMunicipalities(
   department: string,
@@ -93,68 +98,91 @@ export function LocalityPicker({
   }, [department]);
 
   return (
-    <div className="locality-picker locality-picker--cascade">
-      <p className="locality-picker-label">Departamento y municipio</p>
+    <div className="space-y-4 rounded-3xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
+      <p className="text-sm font-medium text-foreground">
+        Departamento y municipio
+      </p>
       {catalogEmpty ? (
-        <p className="locality-empty" role="status">
+        <p
+          className="rounded-[1.125rem] border border-dashed border-border bg-muted px-4 py-3 text-sm text-muted-foreground"
+          role="status"
+        >
           No hay catálogo de municipios publicado.{' '}
-          <Link to="/settings/localities">
+          <Link
+            className="font-medium text-foreground underline underline-offset-4"
+            to="/settings/localities"
+          >
             Publicar departamentos y municipios
           </Link>{' '}
           para poder elegir destinos.
         </p>
       ) : null}
-      <label htmlFor={`${id}-department`}>Departamento</label>
-      <select
-        id={`${id}-department`}
-        aria-label="Departamento"
-        value={department}
-        disabled={catalogEmpty}
-        onChange={(event) => {
-          setDepartment(event.target.value);
-          if (value !== null) onChange(null);
-        }}
-      >
-        <option value="">Selecciona un departamento</option>
-        {departments.map((item) => (
-          <option key={item.name} value={item.name}>
-            {item.name} ({item.localityCount})
+      <div className="space-y-2">
+        <Label htmlFor={`${id}-department`}>Departamento</Label>
+        <select
+          id={`${id}-department`}
+          aria-label="Departamento"
+          value={department}
+          disabled={catalogEmpty}
+          className={selectClassName}
+          onChange={(event) => {
+            setDepartment(event.target.value);
+            if (value !== null) onChange(null);
+          }}
+        >
+          <option value="">Selecciona un departamento</option>
+          {departments.map((item) => (
+            <option key={item.name} value={item.name}>
+              {item.name} ({item.localityCount})
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`${id}-municipality`}>Municipio</Label>
+        <select
+          id={`${id}-municipality`}
+          aria-label="Municipio"
+          value={value?.carrierCode ?? ''}
+          disabled={department === '' || loadingMunicipalities || catalogEmpty}
+          className={selectClassName}
+          onChange={(event) => {
+            const next = municipalities.find(
+              (item) => item.carrierCode === event.target.value,
+            );
+            onChange(next ?? null);
+          }}
+        >
+          <option value="">
+            {loadingMunicipalities
+              ? 'Cargando municipios…'
+              : department === ''
+                ? 'Primero elige un departamento'
+                : municipalities.length === 0
+                  ? 'Sin municipios en este departamento'
+                  : 'Selecciona un municipio'}
           </option>
-        ))}
-      </select>
-      <label htmlFor={`${id}-municipality`}>Municipio</label>
-      <select
-        id={`${id}-municipality`}
-        aria-label="Municipio"
-        value={value?.carrierCode ?? ''}
-        disabled={department === '' || loadingMunicipalities || catalogEmpty}
-        onChange={(event) => {
-          const next = municipalities.find(
-            (item) => item.carrierCode === event.target.value,
-          );
-          onChange(next ?? null);
-        }}
-      >
-        <option value="">
-          {loadingMunicipalities
-            ? 'Cargando municipios…'
-            : department === ''
-              ? 'Primero elige un departamento'
-              : municipalities.length === 0
-                ? 'Sin municipios en este departamento'
-                : 'Selecciona un municipio'}
-        </option>
-        {municipalities.map((item) => (
-          <option key={item.carrierCode} value={item.carrierCode}>
-            {item.locality}
-          </option>
-        ))}
-      </select>
-      {error ? <p role="alert">{error}</p> : null}
+          {municipalities.map((item) => (
+            <option key={item.carrierCode} value={item.carrierCode}>
+              {item.locality}
+            </option>
+          ))}
+        </select>
+      </div>
+      {error ? (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
       {value ? (
-        <p className="selected-locality">
-          <MapPin aria-hidden="true" size={16} /> Seleccionado:{' '}
-          <strong>
+        <p
+          className={cn(
+            'flex items-center gap-2 rounded-[1.125rem] border border-border bg-muted px-3 py-2 text-sm text-foreground',
+          )}
+        >
+          <MapPin aria-hidden="true" className="size-4 shrink-0" />
+          Seleccionado:{' '}
+          <strong className="font-medium">
             {value.locality}, {value.department}
           </strong>
         </p>

@@ -4,11 +4,19 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiRequest, getErrorMessage } from '../api/client';
 import { getAlerts } from '../api/operations-api';
+import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 export function AlertsPage() {
   const client = useQueryClient();
@@ -53,7 +61,7 @@ export function AlertsPage() {
     return statusMatches && severityMatches;
   });
   return (
-    <section>
+    <section className="space-y-6">
       <PageHeader
         title="Alertas"
         description="Incidencias que requieren una decisión de la propietaria."
@@ -66,7 +74,7 @@ export function AlertsPage() {
           )}
         />
       )}
-      <div className="view-chips" role="group" aria-label="Filtros de alertas">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Filtros de alertas">
         {(
           [
             ['actionable', 'Pendientes'],
@@ -79,11 +87,12 @@ export function AlertsPage() {
           <button
             key={value}
             type="button"
-            className={
+            className={cn(
+              'control-target rounded-[1.125rem] border px-3 py-1.5 text-sm font-medium transition-colors',
               statusFilter === value
-                ? 'view-chip view-chip--active'
-                : 'view-chip'
-            }
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
             aria-pressed={statusFilter === value}
             onClick={() => setStatusFilter(value)}
           >
@@ -91,7 +100,7 @@ export function AlertsPage() {
           </button>
         ))}
       </div>
-      <div className="view-chips" role="group" aria-label="Prioridad">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Prioridad">
         {(
           [
             ['all', 'Toda prioridad'],
@@ -103,11 +112,12 @@ export function AlertsPage() {
           <button
             key={value}
             type="button"
-            className={
+            className={cn(
+              'control-target rounded-[1.125rem] border px-3 py-1.5 text-sm font-medium transition-colors',
               severityFilter === value
-                ? 'view-chip view-chip--active'
-                : 'view-chip'
-            }
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
             aria-pressed={severityFilter === value}
             onClick={() => setSeverityFilter(value)}
           >
@@ -115,7 +125,7 @@ export function AlertsPage() {
           </button>
         ))}
       </div>
-      <p className="filter-summary" role="status">
+      <p className="text-sm text-muted-foreground" role="status">
         {visibleAlerts.length} de {query.data.items.length} alerta(s) visibles.
       </p>
       {visibleAlerts.length === 0 ? (
@@ -124,14 +134,19 @@ export function AlertsPage() {
           description="Ajusta estado o prioridad para revisar el historial."
         />
       ) : (
-        <div className="stack alert-center">
+        <div className="space-y-3">
           {visibleAlerts.map((alert) => (
-            <article
-              className={`card alert-card alert-card--${alert.severity}`}
+            <Card
+              className={cn(
+                'rounded-3xl border-border shadow-[var(--shadow-card)]',
+                alert.severity === 'critical' && 'border-destructive/40',
+              )}
               key={alert.id}
             >
-              <div className="section-header">
-                <h3>{alert.title}</h3>
+              <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+                <CardTitle className="text-base font-semibold">
+                  {alert.title}
+                </CardTitle>
                 <StatusBadge
                   tone={alert.severity === 'critical' ? 'danger' : 'warning'}
                 >
@@ -143,44 +158,52 @@ export function AlertsPage() {
                     }[alert.severity]
                   }
                 </StatusBadge>
-              </div>
-              <p>{alert.detail}</p>
-              <Link to={alert.entityUrl}>Abrir caso</Link>
-              <p className="muted">
-                {alert.notificationStatus
-                  ? {
-                      processing: 'Notificación de WhatsApp en proceso',
-                      sent: 'Notificación enviada a la propietaria',
-                      uncertain:
-                        'Envío no confirmado: revisar antes de reenviar',
-                    }[alert.notificationStatus]
-                  : 'Disponible en el panel'}
-              </p>
-              <div className="button-row">
-                {alert.status === 'open' && (
-                  <button
-                    type="button"
-                    disabled={action.isPending}
-                    onClick={() =>
-                      action.mutate({ id: alert.id, operation: 'read' })
-                    }
-                  >
-                    Marcar leída
-                  </button>
-                )}
-                {alert.status !== 'resolved' && (
-                  <button
-                    type="button"
-                    disabled={action.isPending}
-                    onClick={() =>
-                      action.mutate({ id: alert.id, operation: 'resolve' })
-                    }
-                  >
-                    Resolver alerta
-                  </button>
-                )}
-              </div>
-            </article>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-foreground">{alert.detail}</p>
+                <Link
+                  className="text-sm font-medium underline underline-offset-2"
+                  to={alert.entityUrl}
+                >
+                  Abrir caso
+                </Link>
+                <p className="text-sm text-muted-foreground">
+                  {alert.notificationStatus
+                    ? {
+                        processing: 'Notificación de WhatsApp en proceso',
+                        sent: 'Notificación enviada a la propietaria',
+                        uncertain:
+                          'Envío no confirmado: revisar antes de reenviar',
+                      }[alert.notificationStatus]
+                    : 'Disponible en el panel'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {alert.status === 'open' && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      loading={action.isPending}
+                      onClick={() =>
+                        action.mutate({ id: alert.id, operation: 'read' })
+                      }
+                    >
+                      Marcar leída
+                    </Button>
+                  )}
+                  {alert.status !== 'resolved' && (
+                    <Button
+                      type="button"
+                      loading={action.isPending}
+                      onClick={() =>
+                        action.mutate({ id: alert.id, operation: 'resolve' })
+                      }
+                    >
+                      Resolver alerta
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

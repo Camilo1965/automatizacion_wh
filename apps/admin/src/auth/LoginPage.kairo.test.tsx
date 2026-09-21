@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { App } from '../App';
 import { renderWithProviders } from '../test/render';
 
-describe('KAIRO login', () => {
-  it('presents the centered KAIRO access experience and a usable password control', async () => {
+describe('Camila login', () => {
+  it('presents the access experience and a usable password control', async () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { initialEntries: ['/login'] });
 
@@ -19,7 +19,7 @@ describe('KAIRO login', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Bienvenida a KAIRO' }),
+      screen.getByRole('heading', { name: 'Bienvenida a Camila' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveClass('auth-shell');
     expect(

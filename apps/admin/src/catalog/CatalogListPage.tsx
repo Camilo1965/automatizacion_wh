@@ -4,10 +4,16 @@ import { Link } from 'react-router-dom';
 
 import { listReferences, type ReferenceSummary } from '../api/catalog-api';
 import { getErrorMessage } from '../api/client';
+import { Button } from '../components/Button';
+import { EmptyState } from '../components/EmptyState';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
 import { PageHeader } from '../components/PageHeader';
+import { StatusBadge } from '../components/StatusBadge';
 import { getCatalogReadiness } from '../api/catalog-import-api';
+import { Button as UiButton } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 type StatusFilter = 'active' | 'inactive' | 'all';
 
@@ -36,68 +42,74 @@ export function CatalogListPage() {
   }
 
   return (
-    <section aria-labelledby="catalog-title" className="catalog-page">
+    <section aria-labelledby="catalog-title" className="space-y-6">
       <PageHeader
         eyebrow="Producto"
         title="Catálogo"
         titleId="catalog-title"
         description="Referencias listas para WhatsApp: foto, tallas y disponibilidad."
         actions={
-          <Link
-            className="ui-button ui-button--primary control-target"
-            to="/references/new"
+          <UiButton
+            asChild
+            className="control-target h-11 rounded-[1.125rem]"
           >
-            Nueva referencia
-          </Link>
+            <Link to="/references/new">Nueva referencia</Link>
+          </UiButton>
         }
       />
       {readinessQuery.data ? (
         <section
           aria-label="Preparación del piloto"
-          className="readiness-strip"
+          className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
         >
-          <article>
-            <span>Total</span>
-            <strong>{readinessQuery.data.total}</strong>
-          </article>
-          <article>
-            <span>Activas</span>
-            <strong>{readinessQuery.data.active}</strong>
-          </article>
-          <article>
-            <span>Sin foto</span>
-            <strong>{readinessQuery.data.withoutPhoto}</strong>
-          </article>
-          <article>
-            <span>Sin stock</span>
-            <strong>{readinessQuery.data.withoutAvailableStock}</strong>
-          </article>
-          <article>
-            <span>Listas</span>
-            <strong>{readinessQuery.data.ready}</strong>
-          </article>
+          {(
+            [
+              ['Total', readinessQuery.data.total],
+              ['Activas', readinessQuery.data.active],
+              ['Sin foto', readinessQuery.data.withoutPhoto],
+              ['Sin stock', readinessQuery.data.withoutAvailableStock],
+              ['Listas', readinessQuery.data.ready],
+            ] as const
+          ).map(([label, value]) => (
+            <article
+              key={label}
+              className="rounded-3xl border border-border bg-card px-4 py-3 shadow-[var(--shadow-card)]"
+            >
+              <span className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                {label}
+              </span>
+              <strong className="mt-1 block text-2xl font-semibold tracking-tight text-foreground">
+                {value}
+              </strong>
+            </article>
+          ))}
         </section>
       ) : null}
 
-      <form className="catalog-search" onSubmit={onSearch}>
+      <form
+        className="flex flex-col gap-2 sm:flex-row sm:items-center"
+        onSubmit={onSearch}
+      >
         <label className="sr-only" htmlFor="search">
           Buscar
         </label>
-        <input
+        <Input
           id="search"
           name="search"
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
           placeholder="Código, modelo o color"
+          className="h-11 rounded-[1.125rem] bg-muted sm:max-w-md"
         />
-        <button
-          type="submit"
-          className="ui-button ui-button--secondary control-target"
-        >
+        <Button type="submit" variant="secondary" className="h-11">
           Buscar
-        </button>
+        </Button>
       </form>
-      <div className="view-chips" role="group" aria-label="Estado del catálogo">
+      <div
+        className="flex flex-wrap gap-2"
+        role="group"
+        aria-label="Estado del catálogo"
+      >
         {(
           [
             ['active', 'Activas'],
@@ -108,9 +120,12 @@ export function CatalogListPage() {
           <button
             key={value}
             type="button"
-            className={
-              status === value ? 'view-chip view-chip--active' : 'view-chip'
-            }
+            className={cn(
+              'control-target inline-flex h-9 items-center rounded-[1.125rem] border px-3 text-sm font-medium transition-colors',
+              status === value
+                ? 'border-foreground bg-foreground text-background'
+                : 'border-border bg-card text-foreground hover:bg-muted',
+            )}
             aria-pressed={status === value}
             onClick={() => setStatus(value)}
           >
@@ -130,9 +145,10 @@ export function CatalogListPage() {
       ) : null}
 
       {listQuery.isSuccess && listQuery.data.items.length === 0 ? (
-        <p className="muted" role="status">
-          No hay referencias con estos filtros
-        </p>
+        <EmptyState
+          title="No hay referencias con estos filtros"
+          description="Prueba otra búsqueda o cambia el estado del catálogo."
+        />
       ) : null}
 
       {listQuery.isSuccess && listQuery.data.items.length > 0 ? (
@@ -187,40 +203,51 @@ function CatalogPagedList({
   }
 
   return (
-    <>
-      <ul className="reference-list reference-list--rows">
+    <div className="space-y-4">
+      <ul className="space-y-3">
         {items.map((item) => (
           <li key={item.id}>
-            <Link to={`/references/${item.id}`} className="reference-row">
+            <Link
+              to={`/references/${item.id}`}
+              className="flex gap-4 rounded-3xl border border-border bg-card p-3 shadow-[var(--shadow-card)] transition-colors hover:bg-muted/40"
+            >
               {item.photo !== null ? (
                 <img
-                  className="reference-thumb"
+                  className="size-16 shrink-0 rounded-[1.125rem] object-cover"
                   src={item.photo.url}
                   alt={`Fotografía de ${item.code} ${item.modelName}`}
                 />
               ) : (
                 <span
-                  className="reference-thumb reference-thumb--empty"
+                  className="flex size-16 shrink-0 items-center justify-center rounded-[1.125rem] border border-dashed border-border bg-muted text-center text-[0.65rem] text-muted-foreground"
                   aria-hidden="true"
                 >
                   Sin foto
                 </span>
               )}
-              <span className="reference-row-body">
-                <span className="reference-row-title">
-                  <strong className="reference-code">{item.code}</strong>
-                  <span>{item.modelName}</span>
-                  <span className="muted">{item.color}</span>
+              <span className="min-w-0 flex-1 space-y-2">
+                <span className="flex flex-wrap items-center gap-2">
+                  <strong className="font-mono text-sm font-semibold tracking-tight text-foreground">
+                    {item.code}
+                  </strong>
+                  <span className="text-sm text-foreground">
+                    {item.modelName}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {item.color}
+                  </span>
+                  <StatusBadge tone={item.active ? 'success' : 'neutral'}>
+                    {item.active ? 'Activa' : 'Inactiva'}
+                  </StatusBadge>
                 </span>
-                <span className="reference-row-meta">
+                <span className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span>{item.priceCop.toLocaleString('es-CO')} COP</span>
-                  <span>{item.active ? 'Activa' : 'Inactiva'}</span>
                   <span>
                     {item.availableSizes.length > 0
                       ? `Tallas ${item.availableSizes.join(', ')}`
                       : 'Sin tallas disponibles'}
                   </span>
-                  <span className="muted">
+                  <span>
                     {new Date(item.updatedAt).toLocaleString('es-CO')}
                   </span>
                 </span>
@@ -231,17 +258,18 @@ function CatalogPagedList({
       </ul>
       <ErrorMessage message={error} />
       {nextAfterCode !== null ? (
-        <button
+        <Button
           type="button"
-          className="ui-button ui-button--secondary control-target"
+          variant="secondary"
+          className="h-11"
           onClick={() => {
             void loadMore();
           }}
-          disabled={loadingMore}
+          loading={loadingMore}
         >
           {loadingMore ? 'Cargando…' : 'Ver más'}
-        </button>
+        </Button>
       ) : null}
-    </>
+    </div>
   );
 }

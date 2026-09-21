@@ -1,5 +1,15 @@
 import type { ReactNode } from 'react';
 
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
 export type DataColumn<T> = {
   key: string;
   header: string;
@@ -21,30 +31,39 @@ export function ResponsiveDataList<T>({
 }) {
   return (
     <>
-      <div className="desktop-data-table">
-        <table>
-          <caption className="sr-only">{caption}</caption>
-          <thead>
-            <tr>
+      <div className="hidden overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)] md:block">
+        <Table>
+          <TableCaption className="sr-only">{caption}</TableCaption>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
               {columns.map((column) => (
-                <th key={column.key}>{column.header}</th>
+                <TableHead key={column.key} className="px-4">
+                  {column.header}
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {items.map((item) => (
-              <tr key={itemKey(item)}>
+              <TableRow key={itemKey(item)}>
                 {columns.map((column) => (
-                  <td key={column.key}>{column.render(item)}</td>
+                  <TableCell key={column.key} className="px-4 whitespace-normal">
+                    {column.render(item)}
+                  </TableCell>
                 ))}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
-      <div className="mobile-card-list">
+      <div className="flex flex-col gap-3 md:hidden">
         {items.map((item) => (
-          <div key={itemKey(item)}>{renderCard(item)}</div>
+          <div
+            key={itemKey(item)}
+            className="rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-card)]"
+          >
+            {renderCard(item)}
+          </div>
         ))}
       </div>
     </>

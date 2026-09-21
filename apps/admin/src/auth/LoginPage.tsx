@@ -1,16 +1,20 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Eye,
-  EyeOff,
-  LoaderCircle,
-  LockKeyhole,
-  UserRound,
-} from 'lucide-react';
+import { Eye, EyeOff, LockKeyhole, UserRound } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 
 import { ApiClientError } from '../api/client';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { Button } from '../components/Button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { AuthShell } from './AuthShell';
 import { useAuth } from './AuthProvider';
 
@@ -18,7 +22,7 @@ const INVALID_CREDENTIALS_MESSAGE = 'Credenciales inválidas';
 const RATE_LIMIT_MESSAGE =
   'Demasiados intentos. Espera unos minutos antes de volver a probar.';
 const TEMPORARY_ERROR_MESSAGE =
-  'No se pudo conectar con KAIRO. Revisa la conexión e intenta de nuevo.';
+  'No se pudo conectar. Revisa la conexión e intenta de nuevo.';
 
 export function LoginPage() {
   const { user, loading, login } = useAuth();
@@ -74,126 +78,143 @@ export function LoginPage() {
 
   return (
     <AuthShell>
-      <div className="login-layout">
+      <div className="grid gap-6 lg:grid-cols-2 lg:gap-10">
         <motion.section
-          className="login-brand-panel"
           aria-labelledby="login-title"
-          initial={reduceMotion ? false : { opacity: 0, x: -24 }}
+          className="login-brand-panel flex flex-col justify-center gap-4"
+          initial={reduceMotion ? false : { opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.24, ease: 'easeOut' }}
         >
-          <div className="login-brand-content">
-            <img
-              src="/brand/kairo-logo.png"
-              alt="KAIRO"
-              className="login-logo"
-            />
-            <p className="eyebrow">Boutique · Operación en tiempo real</p>
-            <h1 id="login-title">Tu negocio, organizado en un solo lugar</h1>
-            <p>
-              Gestiona conversaciones, pedidos, catálogo, envíos e inventario
-              desde una sola operación.
-            </p>
-          </div>
-        </motion.section>
-        <div className="login-form-panel">
-          <motion.section
-            className="login-card"
-            aria-labelledby="access-title"
-            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.24, delay: reduceMotion ? 0 : 0.08 }}
+          <img
+            src="/brand/kairo-logo.png"
+            alt="KAIRO"
+            className="size-12 rounded-[1.125rem] object-contain lg:size-14"
+          />
+          <p className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+            Operación en tiempo real
+          </p>
+          <h1
+            id="login-title"
+            className="max-w-md text-3xl font-semibold tracking-[-0.05em] text-foreground sm:text-4xl lg:text-5xl lg:leading-[1.1]"
           >
-            <div className="login-card-heading">
-              <p className="eyebrow">Acceso privado</p>
-              <h2 id="access-title">Bienvenida a KAIRO</h2>
-              <p className="muted">
-                Ingresa para continuar con la operación de hoy.
+            Tu negocio, organizado en un solo lugar
+          </h1>
+          <p className="max-w-md text-sm text-muted-foreground sm:text-base">
+            Gestiona conversaciones, pedidos, catálogo, envíos e inventario
+            desde una sola operación.
+          </p>
+        </motion.section>
+
+        <motion.div
+          className="login-card"
+          initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, delay: reduceMotion ? 0 : 0.06 }}
+        >
+          <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
+            <CardHeader className="space-y-1">
+              <p className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                Acceso privado
               </p>
-            </div>
-            <form
-              className="stack-form login-form"
-              onSubmit={onSubmit}
-              noValidate
-            >
-              <label htmlFor="username">Usuario</label>
-              <div className="input-with-icon">
-                <UserRound aria-hidden="true" size={19} />
-                <input
-                  id="username"
-                  name="username"
-                  autoComplete="username"
-                  value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                  required
-                />
-              </div>
-
-              <label htmlFor="password">Contraseña</label>
-              <div className="input-with-icon password-field">
-                <LockKeyhole aria-hidden="true" size={19} />
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  onKeyUp={(event) =>
-                    setCapsLock(event.getModifierState('CapsLock'))
-                  }
-                  onKeyDown={(event) =>
-                    setCapsLock(event.getModifierState('CapsLock'))
-                  }
-                  required
-                />
-                <button
-                  type="button"
-                  className="password-toggle"
-                  aria-label={
-                    showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'
-                  }
-                  onClick={() => setShowPassword((value) => !value)}
-                >
-                  {showPassword ? (
-                    <EyeOff aria-hidden="true" />
-                  ) : (
-                    <Eye aria-hidden="true" />
-                  )}
-                </button>
-              </div>
-              {capsLock ? (
-                <p className="field-hint field-hint--warning">
-                  Bloq Mayús está activado
-                </p>
-              ) : null}
-
-              <ErrorMessage message={error} />
-
-              <button
-                type="submit"
-                className="button-primary login-submit"
-                disabled={submitting}
+              <CardTitle
+                id="access-title"
+                className="text-2xl font-semibold tracking-tight"
               >
-                {submitting ? (
-                  <>
-                    <LoaderCircle
-                      className="login-spinner"
+                <h2 className="text-2xl font-semibold tracking-tight">
+                  Bienvenida a Camila
+                </h2>
+              </CardTitle>
+              <CardDescription>
+                Ingresa para continuar con la operación de hoy.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4" onSubmit={onSubmit} noValidate>
+                <div className="space-y-2">
+                  <Label htmlFor="username">Usuario</Label>
+                  <div className="relative">
+                    <UserRound
                       aria-hidden="true"
+                      className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
                     />
-                    Entrando…
-                  </>
-                ) : (
-                  'Entrar al panel'
-                )}
-              </button>
-            </form>
-            <p className="login-security">
-              <LockKeyhole aria-hidden="true" size={15} /> Sesión protegida y
-              acceso exclusivo.
-            </p>
-          </motion.section>
-        </div>
+                    <Input
+                      id="username"
+                      name="username"
+                      autoComplete="username"
+                      value={username}
+                      onChange={(event) => setUsername(event.target.value)}
+                      required
+                      className="h-11 rounded-[1.125rem] bg-muted pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">Contraseña</Label>
+                  <div className="relative">
+                    <LockKeyhole
+                      aria-hidden="true"
+                      className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      onKeyUp={(event) =>
+                        setCapsLock(event.getModifierState('CapsLock'))
+                      }
+                      onKeyDown={(event) =>
+                        setCapsLock(event.getModifierState('CapsLock'))
+                      }
+                      required
+                      className="h-11 rounded-[1.125rem] bg-muted pr-11 pl-10"
+                    />
+                    <button
+                      type="button"
+                      className="absolute top-1/2 right-2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-[0.75rem] text-muted-foreground hover:text-foreground"
+                      aria-label={
+                        showPassword
+                          ? 'Ocultar contraseña'
+                          : 'Mostrar contraseña'
+                      }
+                      onClick={() => setShowPassword((value) => !value)}
+                    >
+                      {showPassword ? (
+                        <EyeOff aria-hidden="true" className="size-4" />
+                      ) : (
+                        <Eye aria-hidden="true" className="size-4" />
+                      )}
+                    </button>
+                  </div>
+                  {capsLock ? (
+                    <p className="text-xs text-muted-foreground">
+                      Bloq Mayús está activado
+                    </p>
+                  ) : null}
+                </div>
+
+                <ErrorMessage message={error} />
+
+                <Button
+                  type="submit"
+                  className="h-11 w-full"
+                  disabled={submitting}
+                  loading={submitting}
+                >
+                  {submitting ? 'Entrando…' : 'Entrar al panel'}
+                </Button>
+              </form>
+              <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                <LockKeyhole aria-hidden="true" className="size-3.5" />
+                Sesión protegida y acceso exclusivo.
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
     </AuthShell>
   );

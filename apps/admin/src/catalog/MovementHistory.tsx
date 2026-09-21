@@ -5,8 +5,11 @@ import {
   type InventoryMovementPublic,
 } from '../api/catalog-api';
 import { getErrorMessage } from '../api/client';
+import { Button } from '../components/Button';
+import { EmptyState } from '../components/EmptyState';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
+import { PageSection } from '../components/PageHeader';
 
 type MovementHistoryProps = {
   referenceId: string;
@@ -71,25 +74,34 @@ export function MovementHistory({
   const hasNextPage = query.hasNextPage === true;
 
   return (
-    <section className="panel-block" aria-labelledby="movements-title">
-      <h3 id="movements-title">Historial de movimientos</h3>
+    <PageSection aria-labelledby="movements-title" className="space-y-4">
+      <h3
+        id="movements-title"
+        className="text-base font-semibold tracking-tight text-foreground"
+      >
+        Historial de movimientos
+      </h3>
       {items.length === 0 ? (
-        <p className="muted" role="status">
-          Sin movimientos registrados
-        </p>
+        <EmptyState
+          title="Sin movimientos registrados"
+          description="Los ajustes de stock y reservas aparecerán aquí."
+        />
       ) : (
-        <ul className="movement-list">
+        <ul className="space-y-2">
           {items.map((item) => (
-            <li key={item.id}>
-              <strong>
+            <li
+              key={item.id}
+              className="rounded-[1.125rem] border border-border bg-muted px-3 py-2 text-sm"
+            >
+              <strong className="font-medium text-foreground">
                 Talla {item.size}: {item.previousQuantity}→{item.newQuantity} (
                 {formatSignedDelta(item.delta)})
               </strong>
-              <span className="muted"> — {item.reason}</span>
+              <span className="text-muted-foreground"> — {item.reason}</span>
               {item.note !== null && item.note !== '' ? (
-                <span className="muted"> — {item.note}</span>
+                <span className="text-muted-foreground"> — {item.note}</span>
               ) : null}
-              <div className="muted">
+              <div className="mt-1 text-xs text-muted-foreground">
                 {new Date(item.createdAt).toLocaleString('es-ES')}
               </div>
             </li>
@@ -102,17 +114,18 @@ export function MovementHistory({
         />
       ) : null}
       {hasNextPage ? (
-        <button
+        <Button
           type="button"
-          className="button-secondary"
+          variant="secondary"
+          className="h-11"
           onClick={() => {
             void query.fetchNextPage();
           }}
-          disabled={query.isFetchingNextPage}
+          loading={query.isFetchingNextPage}
         >
           {query.isFetchingNextPage ? 'Cargando…' : 'Cargar más'}
-        </button>
+        </Button>
       ) : null}
-    </section>
+    </PageSection>
   );
 }

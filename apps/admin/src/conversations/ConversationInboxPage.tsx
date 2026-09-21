@@ -23,6 +23,7 @@ import { ConversationTimeline } from './ConversationTimeline';
 import { MessageComposer } from './MessageComposer';
 import { operationalLabel } from '../lib/operational-label';
 import { useSearchParams } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 export function ConversationInboxPage() {
   const client = useQueryClient();
@@ -99,7 +100,7 @@ export function ConversationInboxPage() {
   });
 
   return (
-    <section className="conversation-inbox" aria-label="Bandeja de WhatsApp">
+    <section className="space-y-6" aria-label="Bandeja de WhatsApp">
       <PageHeader
         eyebrow="WhatsApp Business"
         title="Conversaciones"
@@ -124,9 +125,14 @@ export function ConversationInboxPage() {
       ) : null}
       {visibleConversations.length > 0 ? (
         <div
-          className={`inbox-layout inbox-layout--triple${mobileThreadOpen ? ' inbox-layout--thread' : ' inbox-layout--list'}`}
+          className={cn(
+            'grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_minmax(0,16rem)]',
+            mobileThreadOpen
+              ? 'max-lg:[&>[data-inbox-list]]:hidden'
+              : 'max-lg:[&>[data-inbox-thread]]:hidden max-lg:[&>[data-inbox-context]]:hidden',
+          )}
         >
-          <div className="inbox-list-column">
+          <div data-inbox-list className="space-y-3">
             <ConversationList
               items={visibleConversations}
               selectedId={effectiveSelectedId}
@@ -143,20 +149,23 @@ export function ConversationInboxPage() {
             ) : null}
           </div>
           <section
-            className="conversation-panel"
+            data-inbox-thread
+            className="flex min-h-[28rem] flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)]"
             aria-label="Conversación seleccionada"
           >
-            <header className="conversation-panel-header">
-              <div>
+            <header className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
                 <Button
-                  className="inbox-back"
+                  className="mb-1 lg:hidden"
                   variant="secondary"
                   onClick={() => setMobileThreadOpen(false)}
                 >
                   Conversaciones
                 </Button>
-                <strong>{selected?.customerPhone}</strong>
-                <small>
+                <strong className="block text-sm font-semibold text-foreground">
+                  {selected?.customerPhone}
+                </strong>
+                <small className="text-xs text-muted-foreground">
                   El bot espera: {operationalLabel(selected?.state)}
                 </small>
               </div>
@@ -176,94 +185,120 @@ export function ConversationInboxPage() {
                   : 'Tomar control'}
               </Button>
             </header>
-            {messages.isLoading ? (
-              <Skeleton lines={4} label="Cargando mensajes" />
-            ) : null}
-            {messages.isError ? (
-              <ErrorMessage
-                message={getErrorMessage(
-                  messages.error,
-                  'No se pudieron cargar los mensajes',
-                )}
-              />
-            ) : null}
-            {messages.data ? (
-              <>
-                {messages.hasNextPage ? (
-                  <div className="conversation-history-control">
-                    <Button
-                      loading={messages.isFetchingNextPage}
-                      onClick={() => void messages.fetchNextPage()}
-                      variant="secondary"
-                    >
-                      Cargar mensajes anteriores
-                    </Button>
-                  </div>
-                ) : null}
-                <ConversationTimeline
-                  messages={messages.data.pages
-                    .slice()
-                    .reverse()
-                    .flatMap((page) => page.items)}
+            <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
+              {messages.isLoading ? (
+                <Skeleton lines={4} label="Cargando mensajes" />
+              ) : null}
+              {messages.isError ? (
+                <ErrorMessage
+                  message={getErrorMessage(
+                    messages.error,
+                    'No se pudieron cargar los mensajes',
+                  )}
                 />
-              </>
-            ) : null}
-            {send.isError ? (
-              <ErrorMessage
-                message={getErrorMessage(
-                  send.error,
-                  'No se pudo enviar el mensaje',
-                )}
+              ) : null}
+              {messages.data ? (
+                <>
+                  {messages.hasNextPage ? (
+                    <div>
+                      <Button
+                        loading={messages.isFetchingNextPage}
+                        onClick={() => void messages.fetchNextPage()}
+                        variant="secondary"
+                      >
+                        Cargar mensajes anteriores
+                      </Button>
+                    </div>
+                  ) : null}
+                  <ConversationTimeline
+                    messages={messages.data.pages
+                      .slice()
+                      .reverse()
+                      .flatMap((page) => page.items)}
+                  />
+                </>
+              ) : null}
+              {send.isError ? (
+                <ErrorMessage
+                  message={getErrorMessage(
+                    send.error,
+                    'No se pudo enviar el mensaje',
+                  )}
+                />
+              ) : null}
+              <MessageComposer
+                enabled={selected?.mode === 'human'}
+                pending={send.isPending}
+                text={activeDraft}
+                onTextChange={(next) => {
+                  if (effectiveSelectedId === null) return;
+                  setDrafts((current) => ({
+                    ...current,
+                    [effectiveSelectedId]: next,
+                  }));
+                }}
+                onSend={async (text) => {
+                  if (effectiveSelectedId === null) return;
+                  await send.mutateAsync({
+                    conversationId: effectiveSelectedId,
+                    text,
+                  });
+                }}
               />
-            ) : null}
-            <MessageComposer
-              enabled={selected?.mode === 'human'}
-              pending={send.isPending}
-              text={activeDraft}
-              onTextChange={(next) => {
-                if (effectiveSelectedId === null) return;
-                setDrafts((current) => ({
-                  ...current,
-                  [effectiveSelectedId]: next,
-                }));
-              }}
-              onSend={async (text) => {
-                if (effectiveSelectedId === null) return;
-                await send.mutateAsync({
-                  conversationId: effectiveSelectedId,
-                  text,
-                });
-              }}
-            />
+            </div>
           </section>
           <aside
-            className="conversation-context"
+            data-inbox-context
+            className="rounded-3xl border border-border bg-card p-5 shadow-[var(--shadow-card)]"
             aria-label="Contexto del cliente"
           >
-            <h3>Contexto</h3>
+            <h3 className="text-base font-semibold tracking-tight text-foreground">
+              Contexto
+            </h3>
             {selected ? (
-              <dl className="context-dl">
+              <dl className="mt-4 space-y-3">
                 <div>
-                  <dt>Teléfono</dt>
-                  <dd>{selected.customerPhone}</dd>
+                  <dt className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                    Teléfono
+                  </dt>
+                  <dd className="text-sm text-foreground">
+                    {selected.customerPhone}
+                  </dd>
                 </div>
                 <div>
-                  <dt>Modo</dt>
-                  <dd>{selected.mode === 'human' ? 'Propietaria' : 'Bot'}</dd>
+                  <dt className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                    Modo
+                  </dt>
+                  <dd className="text-sm text-foreground">
+                    {selected.mode === 'human' ? 'Propietaria' : 'Bot'}
+                  </dd>
                 </div>
                 <div>
-                  <dt>Etapa</dt>
-                  <dd>{operationalLabel(selected.state)}</dd>
+                  <dt className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                    Etapa
+                  </dt>
+                  <dd className="text-sm text-foreground">
+                    {operationalLabel(selected.state)}
+                  </dd>
                 </div>
                 <div>
-                  <dt>Talla</dt>
-                  <dd>{selected.selectedSize ?? 'Sin confirmar'}</dd>
+                  <dt className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                    Talla
+                  </dt>
+                  <dd className="text-sm text-foreground">
+                    {selected.selectedSize ?? 'Sin confirmar'}
+                  </dd>
                 </div>
                 <div>
-                  <dt>Pedido activo</dt>
-                  <dd>
+                  <dt className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                    Pedido activo
+                  </dt>
+                  <dd className="text-sm text-foreground">
                     {selected.activeOrderId ? (
-                      <a href={`/orders/${selected.activeOrderId}`}>
+                      <a
+                        className="underline underline-offset-2"
+                        href={`/orders/${selected.activeOrderId}`}
+                      >
                         Abrir pedido
                       </a>
                     ) : (
@@ -272,12 +307,18 @@ export function ConversationInboxPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt>Mensajes en cola</dt>
-                  <dd>{selected.pendingOutbound}</dd>
+                  <dt className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                    Mensajes en cola
+                  </dt>
+                  <dd className="text-sm text-foreground">
+                    {selected.pendingOutbound}
+                  </dd>
                 </div>
               </dl>
             ) : (
-              <p className="muted">Selecciona una conversación.</p>
+              <p className="mt-4 text-sm text-muted-foreground">
+                Selecciona una conversación.
+              </p>
             )}
           </aside>
         </div>

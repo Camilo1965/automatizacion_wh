@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
 
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+
 type FormFieldProps = {
   label: string;
   htmlFor: string;
@@ -7,6 +10,7 @@ type FormFieldProps = {
   error?: string;
   required?: boolean;
   children: ReactNode;
+  className?: string;
 };
 
 export function FormField({
@@ -16,19 +20,25 @@ export function FormField({
   error,
   required,
   children,
+  className,
 }: FormFieldProps) {
   return (
-    <div className="form-field">
-      <label htmlFor={htmlFor}>
-        {label} {required ? <span aria-hidden="true">*</span> : null}
-      </label>
+    <div className={cn('space-y-2', className)}>
+      <Label htmlFor={htmlFor}>
+        {label}{' '}
+        {required ? (
+          <span aria-hidden="true" className="text-destructive">
+            *
+          </span>
+        ) : null}
+      </Label>
       {children}
       {error ? (
-        <p className="field-error" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {error}
         </p>
       ) : hint ? (
-        <p className="field-hint">{hint}</p>
+        <p className="text-xs text-muted-foreground">{hint}</p>
       ) : null}
     </div>
   );

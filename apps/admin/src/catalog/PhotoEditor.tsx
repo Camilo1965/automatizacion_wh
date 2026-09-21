@@ -2,8 +2,13 @@ import { useEffect, useState, type ChangeEvent } from 'react';
 
 import { uploadReferencePhoto } from '../api/catalog-api';
 import { getErrorMessage } from '../api/client';
+import { Button } from '../components/Button';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { PageSection } from '../components/PageHeader';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -102,42 +107,59 @@ export function PhotoEditor({
   const shownUrl = previewUrl ?? currentPhotoUrl;
 
   return (
-    <section className="panel-block" aria-labelledby="photo-title">
-      <h3 id="photo-title">Fotografía</h3>
+    <PageSection aria-labelledby="photo-title" className="space-y-4">
+      <h3
+        id="photo-title"
+        className="text-base font-semibold tracking-tight text-foreground"
+      >
+        Fotografía
+      </h3>
       {shownUrl !== null ? (
         <img
-          className="photo-preview"
+          className="max-h-72 w-full max-w-md rounded-[1.125rem] border border-border object-cover shadow-[var(--shadow-card)]"
           src={shownUrl}
           alt="Vista previa de la referencia"
         />
       ) : (
-        <p className="muted">Sin fotografía</p>
+        <p className="text-sm text-muted-foreground">Sin fotografía</p>
       )}
-      <label htmlFor="photo">Subir JPEG o PNG (máx. 5 MiB)</label>
-      <input
-        id="photo"
-        name="photo"
-        type="file"
-        accept="image/jpeg,image/png"
-        onChange={onFileChange}
-        disabled={uploading}
-      />
-      <button
+      <div className="space-y-2">
+        <Label htmlFor="photo">Subir JPEG o PNG (máx. 5 MiB)</Label>
+        <Input
+          id="photo"
+          name="photo"
+          type="file"
+          accept="image/jpeg,image/png"
+          onChange={onFileChange}
+          disabled={uploading}
+          className="h-11 rounded-[1.125rem] bg-muted file:mr-3 file:rounded-lg file:border-0 file:bg-secondary file:px-3 file:py-1 file:text-sm"
+        />
+      </div>
+      <Button
         type="button"
-        className="button-primary"
+        className="h-11"
         onClick={onSaveClick}
         disabled={pendingFile === null || uploading}
+        loading={uploading}
       >
         {uploading ? 'Subiendo…' : 'Guardar fotografía'}
-      </button>
+      </Button>
       <ErrorMessage message={error} id="photo-error" />
       {warning !== '' ? (
-        <p className="warning-message" role="status" aria-live="polite">
-          {warning}
-        </p>
+        <Alert
+          role="status"
+          aria-live="polite"
+          className="rounded-[1.125rem]"
+        >
+          <AlertDescription>{warning}</AlertDescription>
+        </Alert>
       ) : null}
       {uploading ? (
-        <p className="loading-state" role="status" aria-live="polite">
+        <p
+          className="text-sm text-muted-foreground"
+          role="status"
+          aria-live="polite"
+        >
           Subiendo foto…
         </p>
       ) : null}
@@ -155,6 +177,6 @@ export function PhotoEditor({
         onCancel={() => setConfirmOpen(false)}
         busy={uploading}
       />
-    </section>
+    </PageSection>
   );
 }

@@ -6,6 +6,8 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { AuthProvider } from './auth/AuthProvider';
 import { ToastProvider } from './components/ToastProvider';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import './index.css';
 import './design/tokens.css';
 import './styles.css';
 
@@ -29,9 +31,11 @@ createRoot(rootElement).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <ToastProvider>
-            <App />
-          </ToastProvider>
+          <TooltipProvider>
+            <ToastProvider>
+              <App />
+            </ToastProvider>
+          </TooltipProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

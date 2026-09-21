@@ -8,9 +8,11 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { Link } from 'react-router-dom';
+
 import { listReferences } from '../api/catalog-api';
 import { listConversations } from '../api/conversations-api';
 import { listOrders } from '../api/orders-api';
+import { Input } from '@/components/ui/input';
 
 export function GlobalSearch({ onClose }: { onClose: () => void }) {
   const dialogRef = useRef<HTMLElement>(null);
@@ -76,9 +78,9 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
         : null;
     const background = [
       document.querySelector('main'),
-      document.querySelector('.app-sidebar'),
-      document.querySelector('.mobile-nav'),
-      document.querySelector('.global-header'),
+      document.querySelector('aside'),
+      document.querySelector('[aria-label="Accesos móviles"]'),
+      document.querySelector('header'),
     ].filter(
       (element): element is HTMLElement => element instanceof HTMLElement,
     );
@@ -138,45 +140,66 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
             .slice(0, 12),
     [source.data, needle],
   );
+
   return (
-    <div className="search-backdrop">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-foreground/20 p-4 pt-[12vh] backdrop-blur-sm">
       <section
         ref={dialogRef}
-        className="global-search-dialog"
+        className="w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)]"
         role="dialog"
         aria-modal="true"
         aria-label="Búsqueda global"
         onKeyDown={trapFocus}
       >
-        <header>
-          <Search aria-hidden="true" />
-          <input
+        <header className="flex items-center gap-2 border-b border-border px-3 py-2">
+          <Search aria-hidden="true" className="size-4 text-muted-foreground" />
+          <Input
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Cliente, teléfono, pedido o referencia"
-            aria-label="Buscar en KAIRO"
+            aria-label="Buscar en Camila"
+            className="h-10 border-0 bg-transparent shadow-none focus-visible:ring-0"
           />
-          <button type="button" aria-label="Cerrar búsqueda" onClick={onClose}>
-            <X aria-hidden="true" />
+          <button
+            type="button"
+            aria-label="Cerrar búsqueda"
+            onClick={onClose}
+            className="inline-flex size-8 items-center justify-center rounded-[0.75rem] text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <X aria-hidden="true" className="size-4" />
           </button>
         </header>
-        {needle.length < 2 ? (
-          <p className="muted">Escribe al menos dos caracteres.</p>
-        ) : results.length ? (
-          <ul>
-            {results.map((x) => (
-              <li key={`${x.kind}-${x.key}`}>
-                <Link to={x.to} onClick={onClose}>
-                  <small>{x.kind}</small>
-                  <strong>{x.label}</strong>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="muted">No encontramos resultados.</p>
-        )}
+        <div className="max-h-80 overflow-y-auto p-3">
+          {needle.length < 2 ? (
+            <p className="text-sm text-muted-foreground">
+              Escribe al menos dos caracteres.
+            </p>
+          ) : results.length ? (
+            <ul className="space-y-1">
+              {results.map((x) => (
+                <li key={`${x.kind}-${x.key}`}>
+                  <Link
+                    to={x.to}
+                    onClick={onClose}
+                    className="flex flex-col gap-0.5 rounded-[1.125rem] px-3 py-2 hover:bg-muted"
+                  >
+                    <small className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                      {x.kind}
+                    </small>
+                    <strong className="text-sm font-medium text-foreground">
+                      {x.label}
+                    </strong>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No encontramos resultados.
+            </p>
+          )}
+        </div>
       </section>
     </div>
   );

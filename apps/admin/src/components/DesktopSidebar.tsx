@@ -13,6 +13,8 @@ import {
   History,
 } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
+
 const primaryItems = [
   { to: '/', label: 'Inicio', icon: House, end: true },
   { to: '/conversations', label: 'Conversaciones', icon: MessageCircle },
@@ -55,43 +57,84 @@ function NavItem({
   end?: boolean;
 }) {
   return (
-    <NavLink {...(end === true ? { end: true } : {})} to={to}>
-      <Icon aria-hidden="true" />
-      <span>{label}</span>
+    <NavLink
+      {...(end === true ? { end: true } : {})}
+      to={to}
+      className={({ isActive }) =>
+        cn(
+          'flex items-center gap-2 rounded-[1.125rem] px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+          isActive &&
+            'bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground',
+        )
+      }
+    >
+      <Icon aria-hidden="true" className="size-4 shrink-0" />
+      <span className="truncate">{label}</span>
     </NavLink>
+  );
+}
+
+function NavGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="px-3 pt-3 pb-1 text-[11px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
+        {label}
+      </p>
+      {children}
+    </div>
   );
 }
 
 export function DesktopSidebar() {
   return (
-    <aside className="app-sidebar">
-      <Link className="brand" to="/" aria-label="KAIRO, inicio">
-        <img src="/brand/kairo-logo.png" alt="" className="sidebar-logo" />
-        <span className="brand-copy">
-          <strong>KAIRO</strong>
-          <small>Boutique operativa</small>
+    <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 py-4 md:flex">
+      <Link
+        className="mb-6 flex items-center gap-3 rounded-[1.125rem] px-2 py-1.5"
+        to="/"
+        aria-label="Camila, inicio"
+      >
+        <img
+          src="/brand/kairo-logo.png"
+          alt=""
+          className="size-9 rounded-[0.75rem] object-contain"
+        />
+        <span className="flex min-w-0 flex-col">
+          <h1 className="text-sm font-semibold tracking-tight text-sidebar-foreground">
+            Camila
+          </h1>
+          <small className="text-xs text-muted-foreground">Operaciones</small>
         </span>
       </Link>
-      <nav aria-label="Principal" className="desktop-nav">
-        <p className="nav-label">Operación</p>
-        {primaryItems.map((item) => (
-          <NavItem key={item.to} {...item} />
-        ))}
-
-        <p className="nav-label">Inventario</p>
-        {inventoryItems.map((item) => (
-          <NavItem key={item.to} {...item} />
-        ))}
-
-        <p className="nav-label">Envíos</p>
-        {shippingItems.map((item) => (
-          <NavItem key={item.to} {...item} />
-        ))}
-
-        <p className="nav-label">Configuración</p>
-        {configItems.map((item) => (
-          <NavItem key={item.to} {...item} />
-        ))}
+      <nav
+        aria-label="Principal"
+        className="flex flex-1 flex-col gap-2 overflow-y-auto pb-4"
+      >
+        <NavGroup label="Operación">
+          {primaryItems.map((item) => (
+            <NavItem key={item.to} {...item} />
+          ))}
+        </NavGroup>
+        <NavGroup label="Inventario">
+          {inventoryItems.map((item) => (
+            <NavItem key={item.to} {...item} />
+          ))}
+        </NavGroup>
+        <NavGroup label="Envíos">
+          {shippingItems.map((item) => (
+            <NavItem key={item.to} {...item} />
+          ))}
+        </NavGroup>
+        <NavGroup label="Configuración">
+          {configItems.map((item) => (
+            <NavItem key={item.to} {...item} />
+          ))}
+        </NavGroup>
       </nav>
     </aside>
   );

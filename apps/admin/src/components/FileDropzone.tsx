@@ -1,6 +1,7 @@
 import { useId, useState, type ChangeEvent, type DragEvent } from 'react';
+import { Upload } from 'lucide-react';
 
-import { UploadIcon } from '../design/icons';
+import { cn } from '@/lib/utils';
 
 type FileDropzoneProps = {
   label: string;
@@ -19,6 +20,7 @@ export function FileDropzone({
 }: FileDropzoneProps) {
   const id = useId();
   const [error, setError] = useState('');
+  const [dragging, setDragging] = useState(false);
 
   function validate(file: File | undefined) {
     if (!file) return;
@@ -40,20 +42,36 @@ export function FileDropzone({
 
   function handleDrop(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
+    setDragging(false);
     if (!disabled) validate(event.dataTransfer.files[0]);
   }
 
   return (
-    <div className="file-dropzone-wrap">
+    <div className="space-y-2">
       <label
-        className={`file-dropzone ${disabled ? 'disabled' : ''}`}
+        className={cn(
+          'flex cursor-pointer flex-col items-center gap-2 rounded-3xl border border-dashed border-border bg-card px-6 py-10 text-center shadow-[var(--shadow-card)] transition-colors',
+          dragging && 'border-foreground bg-muted',
+          disabled && 'pointer-events-none opacity-50',
+        )}
         htmlFor={id}
-        onDragOver={(event) => event.preventDefault()}
+        onDragOver={(event) => {
+          event.preventDefault();
+          if (!disabled) setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
       >
-        <UploadIcon />
-        <strong>{label}</strong>
-        <span>Arrastra una imagen o selecciónala desde tu dispositivo</span>
+        <span
+          className="flex size-10 items-center justify-center rounded-[1.125rem] border border-border bg-muted text-muted-foreground"
+          aria-hidden="true"
+        >
+          <Upload className="size-4" />
+        </span>
+        <strong className="text-sm font-medium text-foreground">{label}</strong>
+        <span className="text-xs text-muted-foreground">
+          Arrastra una imagen o selecciónala desde tu dispositivo
+        </span>
         <input
           id={id}
           aria-label={label}
@@ -61,10 +79,11 @@ export function FileDropzone({
           accept={accept.join(',')}
           disabled={disabled}
           onChange={handleChange}
+          className="sr-only"
         />
       </label>
       {error ? (
-        <p className="field-error" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {error}
         </p>
       ) : null}

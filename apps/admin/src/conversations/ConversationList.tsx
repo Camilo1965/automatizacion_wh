@@ -1,5 +1,6 @@
 import type { ConversationPublic } from '../api/conversations-api';
 import { StatusBadge } from '../components/StatusBadge';
+import { cn } from '@/lib/utils';
 
 export function ConversationList({
   items,
@@ -11,21 +12,48 @@ export function ConversationList({
   onSelect: (id: string) => void;
 }) {
   return (
-    <div className="inbox-list" aria-label="Lista de conversaciones">
+    <div
+      className="space-y-2 rounded-3xl border border-border bg-card p-2 shadow-[var(--shadow-card)]"
+      aria-label="Lista de conversaciones"
+    >
       {items.map((conversation) => (
         <button
-          className="conversation-row"
+          className={cn(
+            'control-target flex w-full items-center gap-3 rounded-[1.125rem] border px-3 py-3 text-left transition-colors',
+            conversation.id === selectedId
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-transparent bg-transparent hover:bg-muted',
+          )}
           data-selected={conversation.id === selectedId}
           key={conversation.id}
           onClick={() => onSelect(conversation.id)}
           type="button"
         >
-          <span className="conversation-avatar" aria-hidden="true">
+          <span
+            className={cn(
+              'flex size-10 shrink-0 items-center justify-center rounded-[1.125rem] text-xs font-semibold',
+              conversation.id === selectedId
+                ? 'bg-primary-foreground/15 text-primary-foreground'
+                : 'bg-muted text-muted-foreground',
+            )}
+            aria-hidden="true"
+          >
             {conversation.customerPhone.slice(-2)}
           </span>
-          <span className="conversation-row-copy">
-            <strong>{conversation.customerPhone}</strong>
-            <small>{conversation.state.replaceAll('_', ' ')}</small>
+          <span className="min-w-0 flex-1">
+            <strong className="block truncate text-sm font-semibold">
+              {conversation.customerPhone}
+            </strong>
+            <small
+              className={cn(
+                'block truncate text-xs',
+                conversation.id === selectedId
+                  ? 'text-primary-foreground/80'
+                  : 'text-muted-foreground',
+              )}
+            >
+              {conversation.state.replaceAll('_', ' ')}
+            </small>
           </span>
           <StatusBadge
             tone={conversation.mode === 'human' ? 'info' : 'success'}

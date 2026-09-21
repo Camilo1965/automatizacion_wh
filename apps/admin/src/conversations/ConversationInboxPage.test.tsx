@@ -100,9 +100,7 @@ describe('ConversationInboxPage', () => {
     await user.click(screen.getByRole('button', { name: 'Enviar mensaje' }));
 
     expect(sent).toMatchObject({ text: 'Sí, tenemos disponibilidad.' });
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Mensaje en cola',
-    );
+    expect(await screen.findByText('Mensaje en cola')).toBeVisible();
   });
 
   it('keeps separate reply drafts when switching conversations', async () => {

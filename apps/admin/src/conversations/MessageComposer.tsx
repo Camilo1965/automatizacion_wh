@@ -1,4 +1,5 @@
 import { Button } from '../components/Button';
+import { Textarea } from '@/components/ui/textarea';
 
 export function MessageComposer({
   enabled,
@@ -15,7 +16,7 @@ export function MessageComposer({
 }) {
   return (
     <form
-      className="message-composer"
+      className="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-end"
       onSubmit={(event) => {
         event.preventDefault();
         const value = text.trim();
@@ -26,8 +27,9 @@ export function MessageComposer({
       <label className="sr-only" htmlFor="whatsapp-reply">
         Responder por WhatsApp
       </label>
-      <textarea
+      <Textarea
         id="whatsapp-reply"
+        className="min-h-20 flex-1 rounded-[1.125rem] bg-muted"
         disabled={!enabled || pending}
         onChange={(event) => onTextChange(event.target.value)}
         placeholder={

@@ -1,3 +1,5 @@
+import { Skeleton as UiSkeleton } from '@/components/ui/skeleton';
+
 export function Skeleton({
   lines = 3,
   label = 'Cargando',
@@ -6,9 +8,13 @@ export function Skeleton({
   label?: string;
 }) {
   return (
-    <div className="skeleton" role="status" aria-label={label}>
+    <div className="space-y-2" role="status" aria-label={label}>
       {Array.from({ length: lines }, (_, index) => (
-        <span key={index} />
+        <UiSkeleton
+          key={index}
+          className="h-3 w-full rounded-full"
+          style={{ width: `${100 - index * 12}%` }}
+        />
       ))}
     </div>
   );

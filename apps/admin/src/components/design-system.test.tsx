@@ -75,6 +75,6 @@ describe('premium design system', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Show' }));
 
-    expect(screen.getByRole('status')).toHaveTextContent('Cambios guardados');
+    expect(await screen.findByText('Cambios guardados')).toBeVisible();
   });
 });

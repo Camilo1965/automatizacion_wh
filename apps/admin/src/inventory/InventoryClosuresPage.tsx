@@ -5,12 +5,22 @@ import {
   getInventoryClosures,
   reopenInventoryClosure,
 } from '../api/operations-api';
+import { Button } from '../components/Button';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
+import { Button as UiButton } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 
 type ClosureAction = 'acknowledge' | 'reopen';
 
@@ -58,7 +68,7 @@ export function InventoryClosuresPage() {
           label: 'Reabrir cierre',
         };
   return (
-    <section>
+    <section className="space-y-6">
       <PageHeader
         title="Cierres diarios de Treinta"
         description="Descarga el ajuste y reconócelo después de aplicarlo manualmente en Treinta."
@@ -69,16 +79,19 @@ export function InventoryClosuresPage() {
           description="El sistema generará el cierre después de las 19:00, hora de Colombia."
         />
       ) : (
-        <div className="stack">
+        <div className="space-y-3">
           {query.data.items.map((closure) => (
-            <article className="card" key={closure.id}>
-              <div className="section-header">
-                <h3>
+            <Card
+              className="rounded-3xl border-border shadow-[var(--shadow-card)]"
+              key={closure.id}
+            >
+              <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+                <CardTitle className="text-base font-semibold">
                   {new Intl.DateTimeFormat('es-CO', {
                     dateStyle: 'long',
                     timeZone: 'UTC',
                   }).format(new Date(`${closure.businessDate}T12:00:00Z`))}
-                </h3>
+                </CardTitle>
                 <StatusBadge
                   tone={
                     closure.status === 'acknowledged' ? 'success' : 'warning'
@@ -86,54 +99,60 @@ export function InventoryClosuresPage() {
                 >
                   {closure.status === 'acknowledged' ? 'Aplicado' : 'Pendiente'}
                 </StatusBadge>
-              </div>
-              <p>
-                {closure.movementCount} movimientos · {closure.totalUnits}{' '}
-                unidades · versión {closure.version}
-              </p>
-              {closure.movementCount === 0 ? (
-                <p className="muted closure-zero-note">
-                  0 movimientos = día sin ajustes. El archivo no trae cambios de
-                  inventario.
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-foreground">
+                  {closure.movementCount} movimientos · {closure.totalUnits}{' '}
+                  unidades · versión {closure.version}
                 </p>
-              ) : null}
-              <div className="action-row">
-                <a
-                  className="ui-button ui-button--secondary control-target"
-                  href={`/api/admin/inventory/closures/${closure.id}/download`}
-                >
-                  Descargar CSV
-                </a>
-                {closure.status === 'generated' ? (
-                  <button
-                    type="button"
-                    className="ui-button ui-button--primary control-target"
-                    disabled={pending}
-                    onClick={() =>
-                      setConfirmation({
-                        id: closure.id,
-                        action: 'acknowledge',
-                      })
-                    }
-                  >
-                    Marcar como aplicado en Treinta
-                  </button>
+                {closure.movementCount === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    0 movimientos = día sin ajustes. El archivo no trae cambios
+                    de inventario.
+                  </p>
                 ) : null}
-                {closure.status === 'acknowledged' ? (
-                  <button
-                    type="button"
-                    className="ui-button ui-button--secondary control-target"
-                    disabled={pending}
-                    onClick={() => {
-                      setReopenReason('');
-                      setConfirmation({ id: closure.id, action: 'reopen' });
-                    }}
+                <div className="flex flex-wrap gap-2">
+                  <UiButton
+                    asChild
+                    variant="secondary"
+                    className="control-target rounded-[1.125rem]"
                   >
-                    Reabrir cierre
-                  </button>
-                ) : null}
-              </div>
-            </article>
+                    <a
+                      href={`/api/admin/inventory/closures/${closure.id}/download`}
+                    >
+                      Descargar CSV
+                    </a>
+                  </UiButton>
+                  {closure.status === 'generated' ? (
+                    <Button
+                      type="button"
+                      disabled={pending}
+                      onClick={() =>
+                        setConfirmation({
+                          id: closure.id,
+                          action: 'acknowledge',
+                        })
+                      }
+                    >
+                      Marcar como aplicado en Treinta
+                    </Button>
+                  ) : null}
+                  {closure.status === 'acknowledged' ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={pending}
+                      onClick={() => {
+                        setReopenReason('');
+                        setConfirmation({ id: closure.id, action: 'reopen' });
+                      }}
+                    >
+                      Reabrir cierre
+                    </Button>
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
@@ -159,16 +178,17 @@ export function InventoryClosuresPage() {
         }}
       >
         {confirmation?.action === 'reopen' ? (
-          <label className="dialog-field" htmlFor="closure-reopen-reason">
-            Motivo de reapertura
-            <textarea
+          <div className="space-y-2">
+            <Label htmlFor="closure-reopen-reason">Motivo de reapertura</Label>
+            <Textarea
               id="closure-reopen-reason"
+              className="rounded-[1.125rem] bg-muted"
               rows={3}
               maxLength={250}
               value={reopenReason}
               onChange={(event) => setReopenReason(event.target.value)}
             />
-          </label>
+          </div>
         ) : null}
       </ConfirmDialog>
     </section>
