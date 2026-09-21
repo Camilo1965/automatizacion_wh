@@ -9,6 +9,25 @@ import { ToastProvider } from '../components/ToastProvider';
 import { ConversationInboxPage } from './ConversationInboxPage';
 
 const conversationId = '11111111-1111-4111-8111-111111111111';
+const secondConversationId = '33333333-3333-4333-8333-333333333333';
+
+function conversationFixture(
+  id: string,
+  customerPhone: string,
+  state = 'awaiting_size',
+) {
+  return {
+    id,
+    customerPhone,
+    state,
+    mode: 'human',
+    selectedSize: null,
+    activeOrderId: null,
+    pendingOutbound: 0,
+    lastInboundMessageAt: '2026-09-10T12:00:00.000Z',
+    updatedAt: '2026-09-10T12:00:00.000Z',
+  };
+}
 
 describe('ConversationInboxPage', () => {
   it('shows the WhatsApp transcript and sends an owner reply', async () => {
@@ -31,6 +50,7 @@ describe('ConversationInboxPage', () => {
                 updatedAt: '2026-09-10T12:00:00.000Z',
               },
             ],
+            nextCursor: null,
           },
         }),
       ),
@@ -83,5 +103,42 @@ describe('ConversationInboxPage', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Mensaje en cola',
     );
+  });
+
+  it('keeps separate reply drafts when switching conversations', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/admin/conversations', () =>
+        HttpResponse.json({
+          data: {
+            items: [
+              conversationFixture(conversationId, '+573001234567'),
+              conversationFixture(secondConversationId, '+573009876543'),
+            ],
+            nextCursor: null,
+          },
+        }),
+      ),
+      http.get('/api/admin/conversations/:conversationId/messages', () =>
+        HttpResponse.json({ data: { items: [], nextCursor: null } }),
+      ),
+    );
+
+    renderWithProviders(
+      <ToastProvider>
+        <ConversationInboxPage />
+      </ToastProvider>,
+    );
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Responder por WhatsApp',
+    });
+    await user.type(textbox, 'Mensaje para Ana');
+    await user.click(screen.getByText('+573009876543'));
+    expect(textbox).toHaveValue('');
+    await user.type(textbox, 'Mensaje para Bea');
+    await user.click(screen.getByText('+573001234567'));
+    expect(textbox).toHaveValue('Mensaje para Ana');
+    await user.click(screen.getByText('+573009876543'));
+    expect(textbox).toHaveValue('Mensaje para Bea');
   });
 });

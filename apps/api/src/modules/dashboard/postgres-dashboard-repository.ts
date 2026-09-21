@@ -11,6 +11,7 @@ type DashboardRow = {
   guide_incidents: number;
   ready_to_dispatch: number;
   awaiting_confirmation: number;
+  closure_pending: boolean;
   low_stock_references: number;
   new_conversations: number;
   confirmed_orders: number;
@@ -44,6 +45,11 @@ export class PostgresDashboardRepository implements DashboardRepository {
           FROM sales_orders
           WHERE status = 'draft' AND latest_summary_version > 0
         ) AS awaiting_confirmation,
+        EXISTS (
+          SELECT 1
+          FROM inventory_closures
+          WHERE status = 'generated' AND acknowledged_at IS NULL
+        ) AS closure_pending,
         (
           SELECT count(*)::int
           FROM (
@@ -93,7 +99,7 @@ export class PostgresDashboardRepository implements DashboardRepository {
         guideIncidents: row.guide_incidents,
         readyToDispatch: row.ready_to_dispatch,
         awaitingConfirmation: row.awaiting_confirmation,
-        closurePending: false,
+        closurePending: row.closure_pending,
         lowStockReferences: row.low_stock_references,
         integrationFailures: 0,
       },

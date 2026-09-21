@@ -8,9 +8,9 @@ describe('MorePage', () => {
     renderWithProviders(<MorePage />);
     for (const name of [
       'Importar desde Treinta',
-      'Cierres de Treinta',
+      'Cierres diarios',
       'Alertas',
-      'Preferencias de envío',
+      'Políticas de envío',
       'WhatsApp Business',
       'Integraciones',
     ]) {

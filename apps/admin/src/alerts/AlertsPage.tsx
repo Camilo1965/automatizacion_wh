@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { dataEnvelopeSchema, OwnerAlertSchema } from '@camila/contracts';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { apiRequest, getErrorMessage } from '../api/client';
 import { getAlerts } from '../api/operations-api';
 import { EmptyState } from '../components/EmptyState';
@@ -10,6 +12,12 @@ import { StatusBadge } from '../components/StatusBadge';
 
 export function AlertsPage() {
   const client = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState<
+    'actionable' | 'open' | 'read' | 'resolved' | 'all'
+  >('actionable');
+  const [severityFilter, setSeverityFilter] = useState<
+    'all' | 'critical' | 'warning' | 'info'
+  >('all');
   const action = useMutation({
     mutationFn: ({
       id,
@@ -34,6 +42,16 @@ export function AlertsPage() {
   if (query.isPending) return <LoadingState label="Cargando alertas…" />;
   if (query.isError)
     return <ErrorMessage message="No se pudieron cargar las alertas" />;
+  const visibleAlerts = query.data.items.filter((alert) => {
+    const statusMatches =
+      statusFilter === 'all' ||
+      (statusFilter === 'actionable'
+        ? alert.status !== 'resolved'
+        : alert.status === statusFilter);
+    const severityMatches =
+      severityFilter === 'all' || alert.severity === severityFilter;
+    return statusMatches && severityMatches;
+  });
   return (
     <section>
       <PageHeader
@@ -48,14 +66,66 @@ export function AlertsPage() {
           )}
         />
       )}
-      {query.data.items.length === 0 ? (
+      <div className="view-chips" role="group" aria-label="Filtros de alertas">
+        {(
+          [
+            ['actionable', 'Pendientes'],
+            ['open', 'Abiertas'],
+            ['read', 'Leídas'],
+            ['resolved', 'Resueltas'],
+            ['all', 'Todas'],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={
+              statusFilter === value
+                ? 'view-chip view-chip--active'
+                : 'view-chip'
+            }
+            aria-pressed={statusFilter === value}
+            onClick={() => setStatusFilter(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="view-chips" role="group" aria-label="Prioridad">
+        {(
+          [
+            ['all', 'Toda prioridad'],
+            ['critical', 'Urgentes'],
+            ['warning', 'Revisar'],
+            ['info', 'Info'],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={
+              severityFilter === value
+                ? 'view-chip view-chip--active'
+                : 'view-chip'
+            }
+            aria-pressed={severityFilter === value}
+            onClick={() => setSeverityFilter(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="filter-summary" role="status">
+        {visibleAlerts.length} de {query.data.items.length} alerta(s) visibles.
+      </p>
+      {visibleAlerts.length === 0 ? (
         <EmptyState
-          title="No hay alertas pendientes"
-          description="Las fallas de mensajes, guías e inventario aparecerán aquí."
+          title="No hay alertas para estos filtros"
+          description="Ajusta estado o prioridad para revisar el historial."
         />
       ) : (
         <div className="stack alert-center">
-          {query.data.items.map((alert) => (
+          {visibleAlerts.map((alert) => (
             <article
               className={`card alert-card alert-card--${alert.severity}`}
               key={alert.id}
@@ -75,7 +145,7 @@ export function AlertsPage() {
                 </StatusBadge>
               </div>
               <p>{alert.detail}</p>
-              <a href={alert.entityUrl}>Abrir caso</a>
+              <Link to={alert.entityUrl}>Abrir caso</Link>
               <p className="muted">
                 {alert.notificationStatus
                   ? {

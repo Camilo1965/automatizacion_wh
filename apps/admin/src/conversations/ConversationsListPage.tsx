@@ -12,8 +12,9 @@ export function ConversationsListPage() {
   const client = useQueryClient();
   const query = useQuery({
     queryKey: ['conversations'],
-    queryFn: listConversations,
+    queryFn: () => listConversations(),
   });
+  const conversations = query.data?.items ?? [];
   const control = useMutation({
     mutationFn: ({
       id,
@@ -51,8 +52,10 @@ export function ConversationsListPage() {
           )}
         />
       ) : null}
-      {query.data?.length === 0 ? <p>No hay conversaciones todavía.</p> : null}
-      {query.data?.map((conversation) => (
+      {!query.isLoading && conversations.length === 0 ? (
+        <p>No hay conversaciones todavía.</p>
+      ) : null}
+      {conversations.map((conversation) => (
         <article className="card" key={conversation.id}>
           <h3>{conversation.customerPhone}</h3>
           <p>

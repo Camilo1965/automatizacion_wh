@@ -347,7 +347,17 @@ function describePolicy(policy: ShippingPolicy): string {
       : policy.offerMode === 'economy_only'
         ? 'envía sin seguro adicional'
         : `exige envío protegido con seguro ${policy.protectedInsurance === 'plus' ? 'Plus' : 'estándar'}`;
-  return `Prefiere ${carrierName(carrier)}, ${fallback} y ${offer}.`;
+  return `Prefiere ${carrier}, ${fallback} y ${offer}.`;
+}
+
+function policyModeLabel(policy: ShippingPolicy): string {
+  if (policy.offerMode === 'economy_only') {
+    return 'Sin seguro adicional';
+  }
+  if (policy.offerMode === 'protected_only') {
+    return `Protegido ${policy.protectedInsurance === 'plus' ? 'Plus' : 'estándar'}`;
+  }
+  return 'Económico automático';
 }
 
 export function ShippingSettingsPage() {
@@ -473,6 +483,20 @@ export function ShippingSettingsPage() {
         Define la transportadora, el seguro y qué hacer cuando una
         transportadora no tiene cobertura. El cliente no selecciona el envío.
       </p>
+      <dl className="settings-overview" aria-label="Resumen de envío">
+        <div>
+          <dt>Regla general</dt>
+          <dd>{describePolicy(globalPolicy)}</dd>
+        </div>
+        <div>
+          <dt>Seguro</dt>
+          <dd>{policyModeLabel(globalPolicy)}</dd>
+        </div>
+        <div>
+          <dt>Excepciones activas</dt>
+          <dd>{rules.filter((rule) => rule.active).length}</dd>
+        </div>
+      </dl>
       <form
         className="card settings-card"
         onSubmit={(event) => void saveGlobal(event)}
@@ -481,13 +505,16 @@ export function ShippingSettingsPage() {
           <p className="eyebrow">Regla general</p>
           <h3>Municipios sin una regla propia</h3>
         </div>
-        <PolicyFields
-          prefix="global"
-          policy={globalPolicy}
-          carriers={carriers}
-          onChange={setGlobalPolicy}
-        />
         <p className="policy-explanation">{describePolicy(globalPolicy)}</p>
+        <details className="settings-disclosure">
+          <summary>Editar transportadora, seguro y paquete</summary>
+          <PolicyFields
+            prefix="global"
+            policy={globalPolicy}
+            carriers={carriers}
+            onChange={setGlobalPolicy}
+          />
+        </details>
         <button className="button-secondary" disabled={pending} type="submit">
           Guardar preferencia general
         </button>
@@ -508,13 +535,16 @@ export function ShippingSettingsPage() {
             setLocalityCarrierCode(locality?.carrierCode ?? '');
           }}
         />
-        <PolicyFields
-          prefix="municipal"
-          policy={municipalPolicy}
-          carriers={carriers}
-          onChange={setMunicipalPolicy}
-        />
         <p className="policy-explanation">{describePolicy(municipalPolicy)}</p>
+        <details className="settings-disclosure">
+          <summary>Editar excepción municipal</summary>
+          <PolicyFields
+            prefix="municipal"
+            policy={municipalPolicy}
+            carriers={carriers}
+            onChange={setMunicipalPolicy}
+          />
+        </details>
         {invalidBlockedRule ? (
           <ErrorMessage message="Elige una transportadora antes de bloquear el fallback." />
         ) : null}

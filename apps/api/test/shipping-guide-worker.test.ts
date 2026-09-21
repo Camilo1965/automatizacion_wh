@@ -19,6 +19,7 @@ describe('ShippingGuideWorker', () => {
     };
     const orders = {
       get: vi.fn().mockResolvedValue({
+        status: 'confirmed',
         referenceModelName: 'Tenis',
         referenceCode: '01',
         unitPriceCop: 120000,
@@ -62,6 +63,7 @@ describe('ShippingGuideWorker', () => {
     };
     const orders = {
       get: vi.fn().mockResolvedValue({
+        status: 'confirmed',
         referenceModelName: 'Tenis Camila',
         referenceCode: '01',
         unitPriceCop: 120000,
@@ -99,6 +101,45 @@ describe('ShippingGuideWorker', () => {
       'job-1',
       '954101306101',
       11596,
+    );
+  });
+
+  it('fails a claimed job when the order is no longer confirmed', async () => {
+    const jobs = {
+      claimNext: vi.fn().mockResolvedValue({
+        id: 'job-1',
+        orderId: 'order-1',
+        carrier: 'envia',
+        insuranceMode: 'standard',
+        collectionValueCop: 120000,
+      }),
+      markCreated: vi.fn(),
+      markUncertain: vi.fn(),
+      markFailed: vi.fn(),
+    };
+    const orders = {
+      get: vi.fn().mockResolvedValue({
+        status: 'cancelled',
+        referenceModelName: 'Tenis Camila',
+        referenceCode: '01',
+        unitPriceCop: 120000,
+        size: '37',
+        quantity: 1,
+        customer: { name: 'Ana Ruiz', phone: '+573001234567' },
+        destination: {
+          address: 'Calle 1',
+          localityCarrierCode: '05001000',
+          deliveryNotes: null,
+        },
+      }),
+    };
+    const client = { createPreShipment: vi.fn() };
+    const worker = new ShippingGuideWorker(jobs, orders, client);
+    await expect(worker.runOnce()).resolves.toBe(true);
+    expect(client.createPreShipment).not.toHaveBeenCalled();
+    expect(jobs.markFailed).toHaveBeenCalledWith(
+      'job-1',
+      'order_not_confirmed',
     );
   });
 });

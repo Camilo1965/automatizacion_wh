@@ -1,7 +1,9 @@
+import { useQuery } from '@tanstack/react-query';
 import { Bell, LogOut, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { getWhatsAppConnection } from '../api/whatsapp-api';
 import { Button } from './Button';
 import { StatusBadge } from './StatusBadge';
 import { GlobalSearch } from './GlobalSearch';
@@ -14,6 +16,16 @@ export function GlobalHeader({
   onLogout: () => void;
 }) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const connection = useQuery({
+    queryKey: ['whatsapp-connection'],
+    queryFn: getWhatsAppConnection,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const whatsappReady =
+    connection.isSuccess &&
+    connection.data.phoneNumberId !== null &&
+    connection.data.webhookConfigured;
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
@@ -49,9 +61,11 @@ export function GlobalHeader({
           <Link
             to="/settings/whatsapp"
             className="connection-link"
-            aria-label="Abrir configuración de integraciones"
+            aria-label="Abrir configuración de WhatsApp"
           >
-            <StatusBadge tone="warning">WhatsApp por validar</StatusBadge>
+            <StatusBadge tone={whatsappReady ? 'success' : 'warning'}>
+              {whatsappReady ? 'WhatsApp listo' : 'WhatsApp por validar'}
+            </StatusBadge>
           </Link>
           <Link className="icon-link" to="/alerts" aria-label="Ver alertas">
             <Bell aria-hidden="true" />

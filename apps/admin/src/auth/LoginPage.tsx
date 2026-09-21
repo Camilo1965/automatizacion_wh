@@ -15,6 +15,10 @@ import { AuthShell } from './AuthShell';
 import { useAuth } from './AuthProvider';
 
 const INVALID_CREDENTIALS_MESSAGE = 'Credenciales inválidas';
+const RATE_LIMIT_MESSAGE =
+  'Demasiados intentos. Espera unos minutos antes de volver a probar.';
+const TEMPORARY_ERROR_MESSAGE =
+  'No se pudo conectar con KAIRO. Revisa la conexión e intenta de nuevo.';
 
 export function LoginPage() {
   const { user, loading, login } = useAuth();
@@ -56,8 +60,12 @@ export function LoginPage() {
     } catch (err) {
       if (err instanceof ApiClientError && err.code === 'invalid_credentials') {
         setError(INVALID_CREDENTIALS_MESSAGE);
+      } else if (err instanceof ApiClientError && err.status === 429) {
+        setError(RATE_LIMIT_MESSAGE);
+      } else if (err instanceof ApiClientError) {
+        setError(err.message);
       } else {
-        setError(INVALID_CREDENTIALS_MESSAGE);
+        setError(TEMPORARY_ERROR_MESSAGE);
       }
     } finally {
       setSubmitting(false);

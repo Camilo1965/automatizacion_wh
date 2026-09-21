@@ -88,17 +88,17 @@ export class PostgresConversationTranscriptRepository implements ConversationTra
       WHERE conversation_id = ${conversationId}
         AND (
           ${decoded?.occurredAt ?? null}::timestamptz IS NULL
-          OR (occurred_at, id) > (${decoded?.occurredAt ?? null}::timestamptz, ${decoded?.id ?? null}::uuid)
+          OR (occurred_at, id) < (${decoded?.occurredAt ?? null}::timestamptz, ${decoded?.id ?? null}::uuid)
         )
-      ORDER BY occurred_at, id
+      ORDER BY occurred_at DESC, id DESC
       LIMIT ${safeLimit + 1}
     `);
-    const items = rows.slice(0, safeLimit).map(mapMessage);
+    const items = rows.slice(0, safeLimit).map(mapMessage).reverse();
     return {
       items,
       nextCursor:
         rows.length > safeLimit && items.length > 0
-          ? encodeCursor(items[items.length - 1]!)
+          ? encodeCursor(items[0]!)
           : null,
     };
   }

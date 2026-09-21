@@ -10,6 +10,7 @@ import {
   Truck,
   Store,
   Webhook,
+  History,
 } from 'lucide-react';
 
 const primaryItems = [
@@ -17,7 +18,49 @@ const primaryItems = [
   { to: '/conversations', label: 'Conversaciones', icon: MessageCircle },
   { to: '/orders', label: 'Pedidos', icon: ClipboardList },
   { to: '/catalog', label: 'Catálogo', icon: Store },
+  { to: '/alerts', label: 'Alertas', icon: Bell },
 ] as const;
+
+const inventoryItems = [
+  { to: '/catalog-import', label: 'Importación', icon: FileSpreadsheet },
+  { to: '/inventory/closures', label: 'Cierres diarios', icon: Boxes },
+] as const;
+
+const shippingItems = [
+  { to: '/settings/shipping', label: 'Envíos', icon: Truck },
+  { to: '/shipping/incidents', label: 'Novedades', icon: Truck },
+  {
+    to: '/settings/localities',
+    label: 'Departamentos y municipios',
+    icon: Truck,
+  },
+] as const;
+
+const configItems = [
+  { to: '/settings/whatsapp', label: 'WhatsApp', icon: Webhook },
+  { to: '/settings/bot-flow', label: 'Mensajes / bot', icon: MessageCircle },
+  { to: '/settings/integrations', label: 'Integraciones', icon: PackageSearch },
+  { to: '/settings/audit', label: 'Historial', icon: History },
+] as const;
+
+function NavItem({
+  to,
+  label,
+  icon: Icon,
+  end,
+}: {
+  to: string;
+  label: string;
+  icon: typeof House;
+  end?: boolean;
+}) {
+  return (
+    <NavLink {...(end === true ? { end: true } : {})} to={to}>
+      <Icon aria-hidden="true" />
+      <span>{label}</span>
+    </NavLink>
+  );
+}
 
 export function DesktopSidebar() {
   return (
@@ -26,59 +69,29 @@ export function DesktopSidebar() {
         <img src="/brand/kairo-logo.png" alt="" className="sidebar-logo" />
         <span className="brand-copy">
           <strong>KAIRO</strong>
-          <small>Centro de operaciones</small>
+          <small>Boutique operativa</small>
         </span>
       </Link>
       <nav aria-label="Principal" className="desktop-nav">
         <p className="nav-label">Operación</p>
-        {primaryItems.map(({ icon: Icon, ...item }) => (
-          <NavLink key={item.to} end={'end' in item && item.end} to={item.to}>
-            <Icon aria-hidden="true" />
-            {item.label}
-          </NavLink>
+        {primaryItems.map((item) => (
+          <NavItem key={item.to} {...item} />
         ))}
+
         <p className="nav-label">Inventario</p>
-        <NavLink to="/catalog-import">
-          <FileSpreadsheet aria-hidden="true" />
-          Importar desde Treinta
-        </NavLink>
-        <NavLink to="/inventory/closures">
-          <Boxes aria-hidden="true" />
-          Cierres diarios
-        </NavLink>
+        {inventoryItems.map((item) => (
+          <NavItem key={item.to} {...item} />
+        ))}
+
+        <p className="nav-label">Envíos</p>
+        {shippingItems.map((item) => (
+          <NavItem key={item.to} {...item} />
+        ))}
+
         <p className="nav-label">Configuración</p>
-        <NavLink to="/settings/audit">
-          <ClipboardList aria-hidden="true" />
-          Historial de cambios
-        </NavLink>
-        <NavLink to="/settings/bot-flow">
-          <MessageCircle aria-hidden="true" />
-          Flujo del bot
-        </NavLink>
-        <NavLink to="/settings/localities">
-          <Truck aria-hidden="true" />
-          Departamentos y municipios
-        </NavLink>
-        <NavLink to="/shipping/incidents">
-          <Truck aria-hidden="true" />
-          Novedades de entrega
-        </NavLink>
-        <NavLink to="/settings/shipping">
-          <Truck aria-hidden="true" />
-          Envíos
-        </NavLink>
-        <NavLink to="/settings/whatsapp">
-          <Webhook aria-hidden="true" />
-          WhatsApp
-        </NavLink>
-        <NavLink to="/settings/integrations">
-          <PackageSearch aria-hidden="true" />
-          Integraciones
-        </NavLink>
-        <NavLink to="/alerts">
-          <Bell aria-hidden="true" />
-          Alertas
-        </NavLink>
+        {configItems.map((item) => (
+          <NavItem key={item.to} {...item} />
+        ))}
       </nav>
     </aside>
   );

@@ -49,3 +49,16 @@ export async function acknowledgeInventoryClosure(id: string) {
     })
   ).data;
 }
+
+export async function reopenInventoryClosure(input: {
+  id: string;
+  reason: string;
+}) {
+  return (
+    await apiRequest(`/inventory/closures/${input.id}/reopen`, {
+      method: 'POST',
+      body: { reason: input.reason },
+      schema: InventoryClosureResponseSchema,
+    })
+  ).data;
+}

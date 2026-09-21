@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 
 import { getDashboardSummary } from '../api/dashboard-api';
 import { getErrorMessage } from '../api/client';
@@ -8,6 +8,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { PageHeader } from '../components/PageHeader';
 import { Skeleton } from '../components/Skeleton';
+
 const OperationalChart = lazy(() =>
   import('./OperationalChart').then((module) => ({
     default: module.OperationalChart,
@@ -43,6 +44,20 @@ const priorityDefinitions = [
     field: 'awaitingConfirmation',
     tone: 'neutral',
   },
+  {
+    label: 'Cierre pendiente',
+    detail: 'Reconoce o revisa el cierre generado para Treinta.',
+    to: '/inventory/closures',
+    field: 'closurePending',
+    tone: 'warning',
+  },
+  {
+    label: 'Integraciones',
+    detail: 'Servicios configurados con fallas o sin verificación.',
+    to: '/settings/integrations',
+    field: 'integrationFailures',
+    tone: 'danger',
+  },
 ] as const;
 
 const money = new Intl.NumberFormat('es-CO', {
@@ -51,6 +66,10 @@ const money = new Intl.NumberFormat('es-CO', {
   maximumFractionDigits: 0,
 });
 
+function queueCount(value: number | boolean): number {
+  return typeof value === 'boolean' ? (value ? 1 : 0) : value;
+}
+
 export function DashboardPage() {
   const [range, setRange] = useState<'today' | '7d' | '30d'>('today');
   const query = useQuery({
@@ -58,21 +77,55 @@ export function DashboardPage() {
     queryFn: () => getDashboardSummary(range),
   });
 
+  const openQueue = useMemo(() => {
+    if (!query.data) return [];
+    return priorityDefinitions
+      .map((priority) => ({
+        ...priority,
+        count: queueCount(query.data.queues[priority.field]),
+      }))
+      .filter((item) => item.count > 0);
+  }, [query.data]);
+
+  const colombiaDate = new Intl.DateTimeFormat('es-CO', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'America/Bogota',
+  }).format(new Date());
+
+  const statusLine =
+    openQueue.length === 0
+      ? 'Todo al día'
+      : openQueue.length === 1
+        ? `1 tarea: ${openQueue[0]!.label.toLowerCase()}`
+        : `${openQueue.reduce((sum, item) => sum + item.count, 0)} pendientes en ${openQueue.length} colas`;
+
   return (
     <section aria-label="Panel operativo" className="dashboard-page">
+      <header className="home-status-strip">
+        <div>
+          <p className="eyebrow">Operación</p>
+          <p className="home-status-date">{colombiaDate}</p>
+          <p className="home-status-line" role="status">
+            {query.data ? statusLine : 'Cargando…'}
+          </p>
+        </div>
+        <Link
+          className="ui-button ui-button--primary control-target"
+          to="/orders/new"
+        >
+          Nuevo pedido
+        </Link>
+      </header>
+
       <PageHeader
-        eyebrow="Operación de hoy"
+        eyebrow="Centro de atención"
         title="Inicio"
-        description="Empieza por lo que requiere tu atención y revisa cómo avanza el día."
-        actions={
-          <Link
-            className="ui-button ui-button--primary control-target"
-            to="/orders/new"
-          >
-            Nuevo pedido
-          </Link>
-        }
+        titleId="home-title"
+        description="Atiende primero lo que tiene número. Las métricas quedan debajo."
       />
+
       <div
         className="dashboard-range"
         role="group"
@@ -111,23 +164,39 @@ export function DashboardPage() {
 
       {query.data ? (
         <>
-          <section aria-label="Prioridades" className="priority-grid">
-            {priorityDefinitions.map((priority) => (
-              <Link
-                className={`priority-card priority-card--${priority.tone}`}
-                key={priority.label}
-                to={priority.to}
-              >
-                <span className="priority-count">
-                  {query.data.queues[priority.field]}
-                </span>
-                <span className="priority-card-arrow" aria-hidden="true">
-                  →
-                </span>
-                <h3>{priority.label}</h3>
-                <p>{priority.detail}</p>
-              </Link>
-            ))}
+          <section aria-label="Cola de trabajo" className="work-queue">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Prioridad</p>
+                <h3>Cola de trabajo</h3>
+              </div>
+            </div>
+            {openQueue.length === 0 ? (
+              <EmptyState
+                title="Todo al día"
+                description="No hay tareas operativas pendientes en este momento."
+              />
+            ) : (
+              <ul className="work-queue-list">
+                {openQueue.map((item) => (
+                  <li key={item.label}>
+                    <Link
+                      className={`work-queue-row work-queue-row--${item.tone}`}
+                      to={item.to}
+                    >
+                      <span className="work-queue-count">{item.count}</span>
+                      <span className="work-queue-copy">
+                        <strong>{item.label}</strong>
+                        <small>{item.detail}</small>
+                      </span>
+                      <span aria-hidden="true" className="work-queue-arrow">
+                        →
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <section aria-labelledby="today-title" className="today-section">
@@ -151,30 +220,30 @@ export function DashboardPage() {
                 })}
               </small>
             </div>
-            <div className="metric-grid">
-              <article className="metric-card">
-                <span>Conversaciones nuevas</span>
-                <strong>{query.data.today.newConversations}</strong>
-              </article>
-              <article className="metric-card">
-                <span>Pedidos confirmados</span>
+            <div className="metric-band">
+              <article>
+                <span>Confirmados</span>
                 <strong>{query.data.today.confirmedOrders}</strong>
               </article>
-              <article className="metric-card">
-                <span>Pedidos despachados</span>
-                <strong>{query.data.today.dispatchedOrders}</strong>
-              </article>
-              <article className="metric-card metric-card--money">
-                <span>Valor contraentrega</span>
+              <article>
+                <span>Contraentrega</span>
                 <strong>{money.format(query.data.today.codValueCop)}</strong>
               </article>
-              <article className="metric-card">
+              <article>
                 <span>Guías creadas</span>
                 <strong>{query.data.today.guidesCreated}</strong>
               </article>
-              <article className="metric-card">
-                <span>Unidades reservadas</span>
+              <article>
+                <span>Reservado</span>
                 <strong>{query.data.today.reservedUnits}</strong>
+              </article>
+              <article>
+                <span>Conversaciones</span>
+                <strong>{query.data.today.newConversations}</strong>
+              </article>
+              <article>
+                <span>Despachados</span>
+                <strong>{query.data.today.dispatchedOrders}</strong>
               </article>
             </div>
             <Suspense
@@ -182,18 +251,11 @@ export function DashboardPage() {
                 <Skeleton lines={3} label="Cargando gráfica operativa" />
               }
             >
-              <OperationalChart values={query.data.today} />
+              <div className="home-chart-panel">
+                <OperationalChart values={query.data.today} />
+              </div>
             </Suspense>
           </section>
-
-          {Object.values(query.data.queues).every(
-            (value) => value === 0 || value === false,
-          ) ? (
-            <EmptyState
-              title="Todo al día"
-              description="No hay tareas operativas pendientes en este momento."
-            />
-          ) : null}
         </>
       ) : null}
     </section>

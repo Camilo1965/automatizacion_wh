@@ -52,6 +52,7 @@ export class PostgresShippingGuideJobRepository {
         JOIN catalog_references AS reference ON reference.id = orders.reference_id
         LEFT JOIN shipping_quotes AS quote ON quote.id = job.quote_id
         WHERE job.status = 'pending'
+          AND orders.status = 'confirmed'
         ORDER BY job.created_at, job.id
         FOR UPDATE OF job SKIP LOCKED
         LIMIT 1

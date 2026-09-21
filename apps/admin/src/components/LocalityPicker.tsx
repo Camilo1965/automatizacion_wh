@@ -4,10 +4,32 @@ import {
   type DepartmentPublic,
   type LocalityPublic,
 } from '@camila/contracts';
-import { MapPin, Search } from 'lucide-react';
+import { MapPin } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useEffect, useId, useState } from 'react';
 
 import { apiRequest, getErrorMessage } from '../api/client';
+
+async function loadMunicipalities(
+  department: string,
+): Promise<readonly LocalityPublic[]> {
+  const collected: LocalityPublic[] = [];
+  let afterCode: string | undefined;
+  for (let page = 0; page < 20; page += 1) {
+    const query = new URLSearchParams({
+      department,
+      limit: '100',
+    });
+    if (afterCode) query.set('afterCode', afterCode);
+    const response = await apiRequest(`/localities?${query}`, {
+      schema: LocalitiesResponseSchema,
+    });
+    collected.push(...response.data.items);
+    if (!response.data.nextAfterCode) break;
+    afterCode = response.data.nextAfterCode;
+  }
+  return collected;
+}
 
 export function LocalityPicker({
   value,
@@ -17,22 +39,27 @@ export function LocalityPicker({
   onChange: (value: LocalityPublic | null) => void;
 }) {
   const id = useId();
-  const [search, setQuery] = useState<string | null>(null);
-  const query =
-    search ?? (value ? `${value.locality}, ${value.department}` : '');
   const [chosenDepartment, setDepartment] = useState<string | null>(null);
   const department = chosenDepartment ?? value?.department ?? '';
   const [departments, setDepartments] = useState<readonly DepartmentPublic[]>(
     [],
   );
-  const [items, setItems] = useState<readonly LocalityPublic[]>([]);
+  const [municipalities, setMunicipalities] = useState<
+    readonly LocalityPublic[]
+  >([]);
+  const [loadingMunicipalities, setLoadingMunicipalities] = useState(false);
   const [error, setError] = useState('');
+  const [catalogEmpty, setCatalogEmpty] = useState(false);
 
   useEffect(() => {
     void apiRequest('/localities/departments', {
       schema: DepartmentsResponseSchema,
     })
-      .then((response) => setDepartments(response.data.items))
+      .then((response) => {
+        setDepartments(response.data.items);
+        setCatalogEmpty(response.data.items.length === 0);
+        setError('');
+      })
       .catch(() =>
         setError(
           'No fue posible cargar los departamentos. Vuelve a abrir esta sección.',
@@ -41,112 +68,89 @@ export function LocalityPicker({
   }, []);
 
   useEffect(() => {
-    const normalizedQuery = query.trim();
-    const selectedLabel = value
-      ? `${value.locality}, ${value.department}`
-      : null;
-    if (normalizedQuery.length < 2 || normalizedQuery === selectedLabel) return;
+    if (department === '') {
+      setMunicipalities([]);
+      return;
+    }
     const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      void apiRequest(
-        `/localities?query=${encodeURIComponent(normalizedQuery)}&limit=20${
-          department === ''
-            ? ''
-            : `&department=${encodeURIComponent(department)}`
-        }`,
-        { schema: LocalitiesResponseSchema, signal: controller.signal },
-      )
-        .then((response) => {
-          if (controller.signal.aborted) return;
-          setItems(response.data.items);
-          setError('');
-        })
-        .catch((caught) => {
-          if (!controller.signal.aborted)
-            setError(
-              getErrorMessage(caught, 'No fue posible buscar municipios'),
-            );
-        });
-    }, 250);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [department, query, value]);
-
-  const showResults = query.trim().length >= 2 && items.length > 0;
+    setLoadingMunicipalities(true);
+    void loadMunicipalities(department)
+      .then((items) => {
+        if (controller.signal.aborted) return;
+        setMunicipalities(items);
+        setError('');
+      })
+      .catch((caught) => {
+        if (!controller.signal.aborted)
+          setError(
+            getErrorMessage(caught, 'No fue posible cargar los municipios'),
+          );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingMunicipalities(false);
+      });
+    return () => controller.abort();
+  }, [department]);
 
   return (
-    <div className="locality-picker">
-      <label htmlFor={`${id}-search`}>Departamento y municipio</label>
+    <div className="locality-picker locality-picker--cascade">
+      <p className="locality-picker-label">Departamento y municipio</p>
+      {catalogEmpty ? (
+        <p className="locality-empty" role="status">
+          No hay catálogo de municipios publicado.{' '}
+          <Link to="/settings/localities">
+            Publicar departamentos y municipios
+          </Link>{' '}
+          para poder elegir destinos.
+        </p>
+      ) : null}
+      <label htmlFor={`${id}-department`}>Departamento</label>
       <select
+        id={`${id}-department`}
         aria-label="Departamento"
         value={department}
+        disabled={catalogEmpty}
         onChange={(event) => {
           setDepartment(event.target.value);
-          setQuery('');
-          setItems([]);
           if (value !== null) onChange(null);
         }}
       >
-        <option value="">Todos los departamentos</option>
+        <option value="">Selecciona un departamento</option>
         {departments.map((item) => (
           <option key={item.name} value={item.name}>
             {item.name} ({item.localityCount})
           </option>
         ))}
       </select>
-      <div className="input-with-icon">
-        <Search aria-hidden="true" size={18} />
-        <input
-          id={`${id}-search`}
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setItems([]);
-            if (value !== null) onChange(null);
-          }}
-          placeholder="Busca Medellín, Antioquia…"
-          autoComplete="off"
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowDown') {
-              event.preventDefault();
-              document
-                .getElementById(`${id}-results`)
-                ?.querySelector<HTMLButtonElement>('button')
-                ?.focus();
-            }
-            if (event.key === 'Escape') setItems([]);
-          }}
-        />
-      </div>
+      <label htmlFor={`${id}-municipality`}>Municipio</label>
+      <select
+        id={`${id}-municipality`}
+        aria-label="Municipio"
+        value={value?.carrierCode ?? ''}
+        disabled={department === '' || loadingMunicipalities || catalogEmpty}
+        onChange={(event) => {
+          const next = municipalities.find(
+            (item) => item.carrierCode === event.target.value,
+          );
+          onChange(next ?? null);
+        }}
+      >
+        <option value="">
+          {loadingMunicipalities
+            ? 'Cargando municipios…'
+            : department === ''
+              ? 'Primero elige un departamento'
+              : municipalities.length === 0
+                ? 'Sin municipios en este departamento'
+                : 'Selecciona un municipio'}
+        </option>
+        {municipalities.map((item) => (
+          <option key={item.carrierCode} value={item.carrierCode}>
+            {item.locality}
+          </option>
+        ))}
+      </select>
       {error ? <p role="alert">{error}</p> : null}
-      {showResults ? (
-        <ul
-          id={`${id}-results`}
-          className="locality-results"
-          aria-label="Municipios encontrados"
-        >
-          {items.map((item) => (
-            <li key={item.carrierCode}>
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(item);
-                  setQuery(null);
-                  setItems([]);
-                }}
-              >
-                <MapPin aria-hidden="true" />
-                <span>
-                  <strong>{item.locality}</strong>
-                  <small>{item.department}</small>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
       {value ? (
         <p className="selected-locality">
           <MapPin aria-hidden="true" size={16} /> Seleccionado:{' '}

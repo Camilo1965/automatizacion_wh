@@ -51,11 +51,13 @@ export function CatalogImportPage() {
       <PageHeader
         eyebrow="Inventario"
         title="Importar desde Treinta"
-        description="Revisa todos los cambios antes de actualizar las existencias de KAIRO."
+        description="Revisa altas y actualizaciones antes de cambiar las existencias de KAIRO."
       />
       <p className="page-intro">
         Carga el archivo de inventario, revisa cada fila y confirma solo cuando
-        los datos sean correctos. La vista previa nunca modifica existencias.
+        los datos sean correctos. La vista previa nunca modifica existencias:
+        las referencias nuevas quedan inactivas y las existentes actualizan
+        precio y stock con movimientos auditables.
       </p>
       <ol className="workflow-steps" aria-label="Progreso de importación">
         <li data-active={step === 1}>1. Cargar archivo</li>
@@ -201,7 +203,7 @@ export function CatalogImportPage() {
       <ConfirmDialog
         open={confirming}
         title="Confirmar importación"
-        message="Se crearán referencias inactivas y existencias iniciales."
+        message="Se crearán referencias nuevas inactivas y se actualizarán las referencias existentes con movimientos de inventario."
         confirmLabel="Importar catálogo"
         busy={busy}
         onCancel={() => setConfirming(false)}

@@ -49,6 +49,7 @@ export function ShippingSimulator() {
       />
       <button
         type="button"
+        className="ui-button ui-button--primary control-target"
         disabled={!locality || Number(value) <= 0 || mutation.isPending}
         onClick={() => mutation.mutate()}
       >

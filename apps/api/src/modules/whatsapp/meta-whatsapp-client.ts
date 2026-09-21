@@ -134,8 +134,19 @@ export class MetaWhatsAppClient {
       },
     );
     if (!response.ok) {
+      let detail = '';
+      try {
+        const failed = (await response.json()) as {
+          error?: { message?: string; code?: number; error_data?: unknown };
+        };
+        detail = failed.error?.message
+          ? `: ${failed.error.message}`
+          : `: ${JSON.stringify(failed).slice(0, 240)}`;
+      } catch {
+        detail = '';
+      }
       throw new Error(
-        `WhatsApp text send failed with status ${response.status}`,
+        `WhatsApp text send failed with status ${response.status}${detail}`,
       );
     }
     const parsed = sendResponseSchema.safeParse(await response.json());

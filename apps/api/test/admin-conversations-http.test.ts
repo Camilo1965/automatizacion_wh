@@ -23,15 +23,18 @@ describe('admin conversation HTTP API', () => {
   it('requires the owner session and allows taking control', async () => {
     const takeControl = vi.fn().mockResolvedValue(undefined);
     const repository = {
-      list: vi.fn().mockResolvedValue([
-        {
-          id: '11111111-1111-4111-8111-111111111111',
-          customerPhone: '+573001234567',
-          mode: 'bot',
-          state: 'awaiting_size',
-          pendingOutbound: 1,
-        },
-      ]),
+      list: vi.fn().mockResolvedValue({
+        items: [
+          {
+            id: '11111111-1111-4111-8111-111111111111',
+            customerPhone: '+573001234567',
+            mode: 'bot',
+            state: 'awaiting_size',
+            pendingOutbound: 1,
+          },
+        ],
+        nextCursor: null,
+      }),
       get: vi.fn().mockResolvedValue({
         id: '11111111-1111-4111-8111-111111111111',
         customerPhone: '+573001234567',
@@ -75,6 +78,7 @@ describe('admin conversation HTTP API', () => {
     });
     expect(list.statusCode).toBe(200);
     expect(list.json().data.items).toHaveLength(1);
+    expect(list.json().data.nextCursor).toBeNull();
     const take = await app.inject({
       method: 'POST',
       url: '/api/admin/conversations/11111111-1111-4111-8111-111111111111/take-control',

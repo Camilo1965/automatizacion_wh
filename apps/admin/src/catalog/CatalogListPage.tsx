@@ -6,6 +6,7 @@ import { listReferences, type ReferenceSummary } from '../api/catalog-api';
 import { getErrorMessage } from '../api/client';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
+import { PageHeader } from '../components/PageHeader';
 import { getCatalogReadiness } from '../api/catalog-import-api';
 
 type StatusFilter = 'active' | 'inactive' | 'all';
@@ -34,33 +35,54 @@ export function CatalogListPage() {
     setQuery(searchInput.trim());
   }
 
-  function onStatusChange(next: StatusFilter) {
-    setStatus(next);
-  }
-
   return (
-    <section aria-labelledby="catalog-title">
-      <div className="section-header">
-        <h2 id="catalog-title">Catálogo</h2>
-        <Link className="button-primary" to="/references/new">
-          Nueva referencia
-        </Link>
-      </div>
+    <section aria-labelledby="catalog-title" className="catalog-page">
+      <PageHeader
+        eyebrow="Producto"
+        title="Catálogo"
+        titleId="catalog-title"
+        description="Referencias listas para WhatsApp: foto, tallas y disponibilidad."
+        actions={
+          <Link
+            className="ui-button ui-button--primary control-target"
+            to="/references/new"
+          >
+            Nueva referencia
+          </Link>
+        }
+      />
       {readinessQuery.data ? (
-        <section aria-label="Preparación del piloto" className="card">
-          <h3>Preparación del piloto</h3>
-          <p>
-            Total: {readinessQuery.data.total} · Activas:{' '}
-            {readinessQuery.data.active} · Sin foto:{' '}
-            {readinessQuery.data.withoutPhoto} · Sin stock:{' '}
-            {readinessQuery.data.withoutAvailableStock} · Listas:{' '}
-            {readinessQuery.data.ready}
-          </p>
+        <section
+          aria-label="Preparación del piloto"
+          className="readiness-strip"
+        >
+          <article>
+            <span>Total</span>
+            <strong>{readinessQuery.data.total}</strong>
+          </article>
+          <article>
+            <span>Activas</span>
+            <strong>{readinessQuery.data.active}</strong>
+          </article>
+          <article>
+            <span>Sin foto</span>
+            <strong>{readinessQuery.data.withoutPhoto}</strong>
+          </article>
+          <article>
+            <span>Sin stock</span>
+            <strong>{readinessQuery.data.withoutAvailableStock}</strong>
+          </article>
+          <article>
+            <span>Listas</span>
+            <strong>{readinessQuery.data.ready}</strong>
+          </article>
         </section>
       ) : null}
 
-      <form className="filters" onSubmit={onSearch}>
-        <label htmlFor="search">Buscar</label>
+      <form className="catalog-search" onSubmit={onSearch}>
+        <label className="sr-only" htmlFor="search">
+          Buscar
+        </label>
         <input
           id="search"
           name="search"
@@ -68,24 +90,34 @@ export function CatalogListPage() {
           onChange={(event) => setSearchInput(event.target.value)}
           placeholder="Código, modelo o color"
         />
-        <button type="submit" className="button-secondary">
+        <button
+          type="submit"
+          className="ui-button ui-button--secondary control-target"
+        >
           Buscar
         </button>
-
-        <label htmlFor="status">Estado</label>
-        <select
-          id="status"
-          name="status"
-          value={status}
-          onChange={(event) =>
-            onStatusChange(event.target.value as StatusFilter)
-          }
-        >
-          <option value="active">Activas</option>
-          <option value="inactive">Inactivas</option>
-          <option value="all">Todas</option>
-        </select>
       </form>
+      <div className="view-chips" role="group" aria-label="Estado del catálogo">
+        {(
+          [
+            ['active', 'Activas'],
+            ['inactive', 'Inactivas'],
+            ['all', 'Todas'],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={
+              status === value ? 'view-chip view-chip--active' : 'view-chip'
+            }
+            aria-pressed={status === value}
+            onClick={() => setStatus(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {listQuery.isLoading ? <LoadingState /> : null}
       {listQuery.isError ? (
@@ -156,10 +188,10 @@ function CatalogPagedList({
 
   return (
     <>
-      <ul className="reference-list">
+      <ul className="reference-list reference-list--rows">
         {items.map((item) => (
           <li key={item.id}>
-            <Link to={`/references/${item.id}`}>
+            <Link to={`/references/${item.id}`} className="reference-row">
               {item.photo !== null ? (
                 <img
                   className="reference-thumb"
@@ -167,24 +199,31 @@ function CatalogPagedList({
                   alt={`Fotografía de ${item.code} ${item.modelName}`}
                 />
               ) : (
-                <span className="muted">Sin fotografía</span>
+                <span
+                  className="reference-thumb reference-thumb--empty"
+                  aria-hidden="true"
+                >
+                  Sin foto
+                </span>
               )}
-              <span className="reference-code">{item.code}</span>
-              <span>{item.modelName}</span>
-              <span>{item.color}</span>
-              <span className="muted">
-                {item.priceCop.toLocaleString('es-CO')} COP
-              </span>
-              <span className="muted">
-                {item.active ? 'Activa' : 'Inactiva'}
-              </span>
-              <span className="muted">
-                {item.availableSizes.length > 0
-                  ? `Tallas: ${item.availableSizes.join(', ')}`
-                  : 'Sin tallas disponibles'}
-              </span>
-              <span className="muted">
-                {new Date(item.updatedAt).toLocaleString('es-CO')}
+              <span className="reference-row-body">
+                <span className="reference-row-title">
+                  <strong className="reference-code">{item.code}</strong>
+                  <span>{item.modelName}</span>
+                  <span className="muted">{item.color}</span>
+                </span>
+                <span className="reference-row-meta">
+                  <span>{item.priceCop.toLocaleString('es-CO')} COP</span>
+                  <span>{item.active ? 'Activa' : 'Inactiva'}</span>
+                  <span>
+                    {item.availableSizes.length > 0
+                      ? `Tallas ${item.availableSizes.join(', ')}`
+                      : 'Sin tallas disponibles'}
+                  </span>
+                  <span className="muted">
+                    {new Date(item.updatedAt).toLocaleString('es-CO')}
+                  </span>
+                </span>
               </span>
             </Link>
           </li>
@@ -194,7 +233,7 @@ function CatalogPagedList({
       {nextAfterCode !== null ? (
         <button
           type="button"
-          className="button-secondary"
+          className="ui-button ui-button--secondary control-target"
           onClick={() => {
             void loadMore();
           }}

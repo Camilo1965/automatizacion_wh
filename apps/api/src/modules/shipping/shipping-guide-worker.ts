@@ -29,6 +29,7 @@ type JobPort = Readonly<{
 
 type OrderPort = Readonly<{
   get(orderId: string): Promise<Readonly<{
+    status?: string;
     referenceModelName: string;
     referenceCode: string;
     unitPriceCop: number;
@@ -92,12 +93,18 @@ export class ShippingGuideWorker {
       const order = await this.orders.get(job.orderId);
       if (
         order === null ||
+        order.status !== 'confirmed' ||
         order.customer.name === null ||
         order.customer.phone === null ||
         order.destination.address === null ||
         order.destination.localityCarrierCode === null
       ) {
-        await this.jobs.markFailed(job.id, 'incomplete_order');
+        await this.jobs.markFailed(
+          job.id,
+          order?.status !== 'confirmed'
+            ? 'order_not_confirmed'
+            : 'incomplete_order',
+        );
         return true;
       }
       const name = recipientName(order.customer.name);

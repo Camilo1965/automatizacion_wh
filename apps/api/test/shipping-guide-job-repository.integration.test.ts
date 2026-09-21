@@ -79,4 +79,24 @@ describe('shipping guide jobs', () => {
       await database.close();
     }
   });
+
+  it('does not claim pending jobs when the order is not confirmed', async () => {
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      await sql`
+        INSERT INTO shipping_guide_jobs (order_id, carrier)
+        VALUES ('11111111-1111-4111-8111-111111111111', 'envia')
+      `;
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+    const database = createPostgresDatabase(databaseUrl);
+    try {
+      await expect(
+        new PostgresShippingGuideJobRepository(database).claimNext(),
+      ).resolves.toBeNull();
+    } finally {
+      await database.close();
+    }
+  });
 });

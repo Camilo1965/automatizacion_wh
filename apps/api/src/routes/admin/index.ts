@@ -119,6 +119,30 @@ function toPublicClosure(value: unknown) {
   };
 }
 
+function encodeConversationCursor(cursor: {
+  updatedAt: Date;
+  id: string;
+}): string {
+  return Buffer.from(
+    JSON.stringify({
+      updatedAt: cursor.updatedAt.toISOString(),
+      id: cursor.id,
+    }),
+    'utf8',
+  ).toString('base64url');
+}
+
+function decodeConversationCursor(cursor: string): {
+  updatedAt: Date;
+  id: string;
+} {
+  const parsed = z
+    .object({ updatedAt: z.string().datetime(), id: z.uuid() })
+    .strict()
+    .parse(JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')));
+  return { updatedAt: new Date(parsed.updatedAt), id: parsed.id };
+}
+
 async function requireAdminSession(
   request: FastifyRequest,
   authService: AuthService,
@@ -666,11 +690,38 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     app.get('/conversations', async (request, reply) => {
       await requireAdminSession(request, authService);
       const query = z
-        .object({ limit: z.coerce.number().int().min(1).max(100).default(50) })
+        .object({
+          limit: z.coerce.number().int().min(1).max(100).default(50),
+          cursor: z.string().min(1).optional(),
+        })
         .strict()
         .parse(request.query);
+      let after: { updatedAt: Date; id: string } | undefined;
+      if (query.cursor !== undefined) {
+        try {
+          after = decodeConversationCursor(query.cursor);
+        } catch {
+          return reply.status(400).send({
+            error: {
+              code: 'invalid_cursor',
+              message: 'Conversation cursor is invalid',
+              field: 'cursor',
+            },
+          });
+        }
+      }
+      const page = await conversationAdminRepository.list({
+        limit: query.limit,
+        ...(after === undefined ? {} : { after }),
+      });
       return reply.status(200).send({
-        data: { items: await conversationAdminRepository.list(query.limit) },
+        data: {
+          items: page.items,
+          nextCursor:
+            page.nextCursor === null
+              ? null
+              : encodeConversationCursor(page.nextCursor),
+        },
       });
     });
     app.get('/conversations/:conversationId', async (request, reply) => {
@@ -1220,14 +1271,32 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
           view: z
             .enum(['incidents', 'ready_to_dispatch', 'awaiting_confirmation'])
             .optional(),
+          cursorCreatedAt: z.string().datetime().optional(),
+          cursorId: z.uuid().optional(),
           limit: z.coerce.number().int().min(1).max(100).default(25),
         })
         .strict()
+        .refine(
+          (value) =>
+            (value.cursorCreatedAt === undefined) ===
+            (value.cursorId === undefined),
+          {
+            message: 'Both cursorCreatedAt and cursorId are required',
+          },
+        )
         .parse(request.query);
       const page = await orderService.list({
         limit: query.limit,
         ...(query.status === undefined ? {} : { status: query.status }),
         ...(query.view === undefined ? {} : { view: query.view }),
+        ...(query.cursorCreatedAt === undefined
+          ? {}
+          : {
+              after: {
+                createdAt: new Date(query.cursorCreatedAt),
+                id: query.cursorId!,
+              },
+            }),
       });
       return reply.status(200).send({
         data: {

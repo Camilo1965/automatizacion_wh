@@ -516,10 +516,39 @@ export class PostgresOrderRepository implements OrderRepository {
       } else if (input.action === 'cancel' && order.status === 'confirmed') {
         await this.releaseReservation(tx, order, 'cancelled');
         await tx
+          .update(shippingGuideJobs)
+          .set({
+            status: 'failed',
+            errorCode: 'order_cancelled',
+            updatedAt: sql`clock_timestamp()`,
+          })
+          .where(
+            and(
+              eq(shippingGuideJobs.orderId, order.id),
+              eq(shippingGuideJobs.status, 'pending'),
+            ),
+          );
+        await tx
           .update(salesOrders)
           .set({ status: next, updatedAt: sql`clock_timestamp()` })
           .where(eq(salesOrders.id, order.id));
       } else if (input.action === 'dispatch') {
+        const [guide] = await tx
+          .select({ id: shippingGuideJobs.id })
+          .from(shippingGuideJobs)
+          .where(
+            and(
+              eq(shippingGuideJobs.orderId, order.id),
+              eq(shippingGuideJobs.status, 'created'),
+            ),
+          )
+          .limit(1)
+          .for('update');
+        if (guide === undefined)
+          throw new OrderConflictError(
+            'shipping_guide_required',
+            'Create the shipping guide before dispatching the order',
+          );
         const [stock] = await tx
           .select()
           .from(catalogStock)

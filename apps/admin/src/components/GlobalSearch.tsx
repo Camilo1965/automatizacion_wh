@@ -18,25 +18,52 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState('');
   const source = useQuery({
     queryKey: ['global-search-source'],
+    staleTime: 60_000,
     queryFn: async () => {
-      const references = [] as Awaited<
-        ReturnType<typeof listReferences>
-      >['items'][number][];
-      let afterCode: string | undefined;
-      for (let page = 0; page < 10; page += 1) {
-        const next = await listReferences({
-          limit: 100,
-          status: 'all',
-          ...(afterCode === undefined ? {} : { afterCode }),
-        });
-        references.push(...next.items);
-        if (!next.nextAfterCode) break;
-        afterCode = next.nextAfterCode;
+      const [referencesPage, ordersPage, conversationsPage] = await Promise.all(
+        [
+          listReferences({ limit: 100, status: 'all' }),
+          listOrders(),
+          listConversations(),
+        ],
+      );
+      const references = [...referencesPage.items];
+      const orders = [...ordersPage.items];
+      const conversations = [...conversationsPage.items];
+      let afterCode = referencesPage.nextAfterCode;
+      let orderCursor = ordersPage.nextCursor;
+      let conversationCursor = conversationsPage.nextCursor;
+      for (let page = 0; page < 9; page += 1) {
+        if (!afterCode && !orderCursor && !conversationCursor) break;
+        const [nextReferences, nextOrders, nextConversations] =
+          await Promise.all([
+            afterCode
+              ? listReferences({
+                  limit: 100,
+                  status: 'all',
+                  afterCode,
+                })
+              : Promise.resolve(null),
+            orderCursor
+              ? listOrders(undefined, undefined, orderCursor)
+              : Promise.resolve(null),
+            conversationCursor
+              ? listConversations(conversationCursor)
+              : Promise.resolve(null),
+          ]);
+        if (nextReferences) {
+          references.push(...nextReferences.items);
+          afterCode = nextReferences.nextAfterCode;
+        }
+        if (nextOrders) {
+          orders.push(...nextOrders.items);
+          orderCursor = nextOrders.nextCursor;
+        }
+        if (nextConversations) {
+          conversations.push(...nextConversations.items);
+          conversationCursor = nextConversations.nextCursor;
+        }
       }
-      const [orders, conversations] = await Promise.all([
-        listOrders(),
-        listConversations(),
-      ]);
       return { orders, conversations, references };
     },
   });

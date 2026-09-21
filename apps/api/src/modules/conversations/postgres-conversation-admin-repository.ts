@@ -1,4 +1,4 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import { whatsappConversations } from '../../database/schema.js';
@@ -16,7 +16,13 @@ export type AdminConversation = Readonly<{
 }>;
 
 export interface ConversationAdminRepository {
-  list(limit?: number): Promise<readonly AdminConversation[]>;
+  list(input?: {
+    limit?: number;
+    after?: Readonly<{ updatedAt: Date; id: string }>;
+  }): Promise<{
+    items: readonly AdminConversation[];
+    nextCursor: Readonly<{ updatedAt: Date; id: string }> | null;
+  }>;
   get(conversationId: string): Promise<AdminConversation | null>;
   takeControl(conversationId: string): Promise<void>;
   releaseControl(conversationId: string): Promise<void>;
@@ -47,7 +53,26 @@ function mapConversation(
 export class PostgresConversationAdminRepository implements ConversationAdminRepository {
   constructor(private readonly database: PostgresDatabase) {}
 
-  async list(limit = 50): Promise<readonly AdminConversation[]> {
+  async list(
+    input: {
+      limit?: number;
+      after?: Readonly<{ updatedAt: Date; id: string }>;
+    } = {},
+  ): Promise<{
+    items: readonly AdminConversation[];
+    nextCursor: Readonly<{ updatedAt: Date; id: string }> | null;
+  }> {
+    const limit = input.limit ?? 50;
+    const conditions =
+      input.after === undefined
+        ? undefined
+        : or(
+            lt(whatsappConversations.updatedAt, input.after.updatedAt),
+            and(
+              eq(whatsappConversations.updatedAt, input.after.updatedAt),
+              lt(whatsappConversations.id, input.after.id),
+            ),
+          );
     const rows = await this.database.orm
       .select({
         conversation: whatsappConversations,
@@ -59,11 +84,23 @@ export class PostgresConversationAdminRepository implements ConversationAdminRep
         )`,
       })
       .from(whatsappConversations)
-      .orderBy(desc(whatsappConversations.updatedAt))
-      .limit(limit);
-    return rows.map((row) =>
-      mapConversation(row.conversation, row.pendingOutbound),
-    );
+      .where(conditions)
+      .orderBy(
+        desc(whatsappConversations.updatedAt),
+        desc(whatsappConversations.id),
+      )
+      .limit(limit + 1);
+    const pageRows = rows.slice(0, limit);
+    const last = pageRows.at(-1)?.conversation;
+    return {
+      items: pageRows.map((row) =>
+        mapConversation(row.conversation, row.pendingOutbound),
+      ),
+      nextCursor:
+        rows.length > limit && last !== undefined
+          ? { updatedAt: last.updatedAt, id: last.id }
+          : null,
+    };
   }
 
   async get(conversationId: string): Promise<AdminConversation | null> {

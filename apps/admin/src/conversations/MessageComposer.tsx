@@ -1,17 +1,18 @@
-import { useState } from 'react';
-
 import { Button } from '../components/Button';
 
 export function MessageComposer({
   enabled,
   pending,
+  text,
+  onTextChange,
   onSend,
 }: {
   enabled: boolean;
   pending: boolean;
+  text: string;
+  onTextChange: (text: string) => void;
   onSend: (text: string) => Promise<void>;
 }) {
-  const [text, setText] = useState('');
   return (
     <form
       className="message-composer"
@@ -19,9 +20,7 @@ export function MessageComposer({
         event.preventDefault();
         const value = text.trim();
         if (!value) return;
-        void onSend(value)
-          .then(() => setText(''))
-          .catch(() => undefined);
+        void onSend(value).catch(() => undefined);
       }}
     >
       <label className="sr-only" htmlFor="whatsapp-reply">
@@ -30,7 +29,7 @@ export function MessageComposer({
       <textarea
         id="whatsapp-reply"
         disabled={!enabled || pending}
-        onChange={(event) => setText(event.target.value)}
+        onChange={(event) => onTextChange(event.target.value)}
         placeholder={
           enabled ? 'Escribe una respuesta…' : 'Toma el control para responder'
         }

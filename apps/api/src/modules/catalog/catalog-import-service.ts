@@ -31,19 +31,10 @@ export class CatalogImportService {
       );
     }
     const parsed = parseCatalogImportCsv(csv);
-    const existingCodes = await this.repository.findExistingCodes(
-      parsed.references.map((reference) => reference.code),
-    );
-    const existingErrors = existingCodes.map((code) => ({
-      row: parsed.referenceRows.get(code) ?? 2,
-      field: 'reference_code',
-      code: 'reference_exists',
-      message: `La referencia ${code} ya existe en el catálogo`,
-    }));
     return this.repository.createPreview({
       sha256: createHash('sha256').update(bytes).digest('hex'),
       references: parsed.references,
-      errors: [...parsed.errors, ...existingErrors],
+      errors: parsed.errors,
     });
   }
 

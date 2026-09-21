@@ -2,86 +2,110 @@ import { Link } from 'react-router-dom';
 
 import { PageHeader } from '../components/PageHeader';
 
-const sections = [
+const groups = [
   {
-    to: '/settings/audit',
-    title: 'Historial de cambios',
-    description: 'Consulta publicaciones, conexiones y acciones registradas.',
+    title: 'Inventario',
+    items: [
+      {
+        to: '/catalog-import',
+        title: 'Importar desde Treinta',
+        description: 'Carga inicial o conciliación de existencias.',
+      },
+      {
+        to: '/inventory/closures',
+        title: 'Cierres diarios',
+        description: 'Descarga, reconoce y reabre cierres de Treinta.',
+      },
+    ],
   },
   {
-    to: '/shipping/incidents',
-    title: 'Novedades de entrega',
-    description: 'Consulta y responde las incidencias de 99envíos.',
+    title: 'Envíos',
+    items: [
+      {
+        to: '/settings/shipping',
+        title: 'Políticas de envío',
+        description: 'Transportadora y seguro los define la propietaria.',
+      },
+      {
+        to: '/shipping/incidents',
+        title: 'Novedades de entrega',
+        description: 'Incidencias reportadas por 99envíos.',
+      },
+      {
+        to: '/settings/localities',
+        title: 'Departamentos y municipios',
+        description: 'Catálogo publicado de destinos.',
+      },
+    ],
   },
   {
-    to: '/settings/localities',
-    title: 'Departamentos y municipios',
-    description: 'Revisa y publica el listado de destinos de 99envíos.',
+    title: 'Canal y automatización',
+    items: [
+      {
+        to: '/settings/whatsapp',
+        title: 'WhatsApp Business',
+        description: 'Número comercial y capacidades verificadas.',
+      },
+      {
+        to: '/settings/bot-flow',
+        title: 'Mensajes del bot',
+        description: 'Borrador, simulación y publicación.',
+      },
+      {
+        to: '/alerts',
+        title: 'Alertas',
+        description: 'Prioridad, lectura y resolución.',
+      },
+    ],
   },
   {
-    to: '/settings/bot-flow',
-    title: 'Flujo del bot',
-    description: 'Edita, prueba y publica los mensajes de WhatsApp.',
-  },
-  {
-    to: '/catalog-import',
-    title: 'Importar desde Treinta',
-    description:
-      'Carga y valida referencias y existencias antes de aplicarlas.',
-  },
-  {
-    to: '/inventory/closures',
-    title: 'Cierres de Treinta',
-    description: 'Genera, descarga y confirma el archivo diario de inventario.',
-  },
-  {
-    to: '/alerts',
-    title: 'Alertas',
-    description: 'Revisa incidencias de guías, mensajes y tareas pendientes.',
-  },
-  {
-    to: '/settings/shipping',
-    title: 'Preferencias de envío',
-    description: 'Configura transportadoras, seguros y reglas por municipio.',
-  },
-  {
-    to: '/settings/whatsapp',
-    title: 'WhatsApp Business',
-    description: 'Consulta la capacidad y configuración del canal de ventas.',
-  },
-  {
-    to: '/settings/integrations',
-    title: 'Integraciones',
-    description: 'Comprueba WhatsApp, 99envíos, archivos y tareas automáticas.',
+    title: 'Sistema',
+    items: [
+      {
+        to: '/settings/integrations',
+        title: 'Integraciones',
+        description: 'Configurado · Verificado · Activo · Incidencia.',
+      },
+      {
+        to: '/settings/audit',
+        title: 'Historial de cambios',
+        description: 'Publicaciones y acciones sin secretos.',
+      },
+    ],
   },
 ] as const;
 
 export function MorePage() {
   return (
-    <section>
+    <section className="more-page">
       <PageHeader
         eyebrow="Administración"
         title="Más herramientas"
-        description="Accede a la configuración y a las tareas operativas desde el celular."
+        description="Configuración y tareas operativas agrupadas para celular."
       />
-      <div className="more-grid">
-        {sections.map((item) => (
-          <Link
-            aria-label={item.title}
-            className="card more-card"
-            key={item.to}
-            to={item.to}
-          >
-            <span>
-              <strong>{item.title}</strong>
-              <small>{item.description}</small>
-            </span>
-            <span aria-hidden="true" className="more-card-arrow">
-              →
-            </span>
-          </Link>
-        ))}
-      </div>
+      {groups.map((group) => (
+        <section key={group.title} className="more-group">
+          <h3 className="more-group-title">{group.title}</h3>
+          <div className="more-grid">
+            {group.items.map((item) => (
+              <Link
+                aria-label={item.title}
+                className="more-card"
+                key={item.to}
+                to={item.to}
+              >
+                <span>
+                  <strong>{item.title}</strong>
+                  <small>{item.description}</small>
+                </span>
+                <span aria-hidden="true" className="more-card-arrow">
+                  →
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ))}
     </section>
   );
 }

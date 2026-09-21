@@ -157,7 +157,9 @@ export const handlers = [
   }),
   http.get(`${base}/conversations`, () => {
     const authError = requireAuth();
-    return authError ?? HttpResponse.json({ data: { items: [] } });
+    return (
+      authError ?? HttpResponse.json({ data: { items: [], nextCursor: null } })
+    );
   }),
   http.get(`${base}/inventory/closures`, () =>
     HttpResponse.json({
@@ -176,6 +178,38 @@ export const handlers = [
             acknowledgedAt: null,
           },
         ],
+      },
+    }),
+  ),
+  http.post(`${base}/inventory/closures/:id/acknowledge`, () =>
+    HttpResponse.json({
+      data: {
+        id: '11111111-1111-4111-8111-111111111111',
+        businessDate: '2026-09-10',
+        version: 1,
+        profile: 'adjustments',
+        status: 'acknowledged',
+        movementCount: 2,
+        totalUnits: -2,
+        checksum: 'a'.repeat(64),
+        createdAt: '2026-09-10T19:00:00.000Z',
+        acknowledgedAt: '2026-09-10T19:30:00.000Z',
+      },
+    }),
+  ),
+  http.post(`${base}/inventory/closures/:id/reopen`, () =>
+    HttpResponse.json({
+      data: {
+        id: '11111111-1111-4111-8111-111111111111',
+        businessDate: '2026-09-10',
+        version: 1,
+        profile: 'adjustments',
+        status: 'generated',
+        movementCount: 2,
+        totalUnits: -2,
+        checksum: 'a'.repeat(64),
+        createdAt: '2026-09-10T19:00:00.000Z',
+        acknowledgedAt: null,
       },
     }),
   ),
@@ -223,6 +257,22 @@ export const handlers = [
   http.get(`${base}/localities/departments`, () =>
     HttpResponse.json({
       data: { items: [{ name: 'Antioquia', localityCount: 125 }] },
+    }),
+  ),
+  http.get(`${base}/localities`, () =>
+    HttpResponse.json({
+      data: {
+        items: [
+          {
+            carrierCode: '05001000',
+            department: 'Antioquia',
+            locality: 'Medellín',
+            country: 'CO',
+            normalizedName: 'medellin antioquia',
+          },
+        ],
+        nextAfterCode: null,
+      },
     }),
   ),
   http.get(`${base}/catalog-readiness`, () => {

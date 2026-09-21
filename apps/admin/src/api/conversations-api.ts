@@ -18,29 +18,44 @@ const conversationSchema = z
   .strict();
 
 const listSchema = z
-  .object({ data: z.object({ items: z.array(conversationSchema) }).strict() })
+  .object({
+    data: z
+      .object({
+        items: z.array(conversationSchema),
+        nextCursor: z.string().nullable(),
+      })
+      .strict(),
+  })
   .strict();
 const detailSchema = z.object({ data: conversationSchema.nullable() }).strict();
 
 export type ConversationPublic = z.infer<typeof conversationSchema>;
+export type ConversationListPage = z.infer<typeof listSchema>['data'];
 export type ConversationMessagePublic = z.infer<
   typeof ConversationMessagesPageSchema
 >['items'][number];
 
-export async function listConversations(): Promise<
-  readonly ConversationPublic[]
-> {
-  return (await apiRequest('/conversations', { schema: listSchema })).data
-    .items;
+export async function listConversations(
+  cursor?: string | null,
+): Promise<ConversationListPage> {
+  const query = new URLSearchParams({ limit: '50' });
+  if (cursor) query.set('cursor', cursor);
+  return (await apiRequest(`/conversations?${query}`, { schema: listSchema }))
+    .data;
 }
 
 const messagesResponseSchema = z
   .object({ data: ConversationMessagesPageSchema })
   .strict();
 
-export async function listConversationMessages(conversationId: string) {
+export async function listConversationMessages(
+  conversationId: string,
+  cursor?: string | null,
+) {
+  const query = new URLSearchParams({ limit: '50' });
+  if (cursor) query.set('cursor', cursor);
   return (
-    await apiRequest(`/conversations/${conversationId}/messages`, {
+    await apiRequest(`/conversations/${conversationId}/messages?${query}`, {
       schema: messagesResponseSchema,
     })
   ).data;

@@ -73,6 +73,16 @@ describe('order lifecycle', () => {
         adminUserId: adminId,
       });
       expect(replay.status).toBe('confirmed');
+      const guideSql = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        await guideSql`
+          INSERT INTO shipping_guide_jobs
+            (order_id, carrier, status, pre_shipment_number)
+          VALUES (${draft.id}, 'envia', 'created', '954101306101')
+        `;
+      } finally {
+        await guideSql.end({ timeout: 5 });
+      }
       const dispatched = await service.transition({
         orderId: draft.id,
         action: 'dispatch',
@@ -93,6 +103,115 @@ describe('order lifecycle', () => {
         expect(stock).toEqual({ physical_quantity: 3, reserved_quantity: 0 });
       } finally {
         await sql.end({ timeout: 5 });
+      }
+    } finally {
+      await database.close();
+    }
+  });
+
+  it('blocks dispatch until a shipping guide has been created', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresOrderRepository(database);
+    const service = new OrderService(repository, async () => ({
+      id: '22222222-2222-4222-8222-222222222222',
+      code: '01',
+      modelName: 'Ballerina',
+      color: 'Negro',
+      priceCop: 120000,
+      active: true,
+      photo: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+    try {
+      const draft = await service.create({
+        referenceId: '22222222-2222-4222-8222-222222222222',
+        size: '37',
+        quantity: 1,
+        customerName: 'Ana Gómez',
+        customerPhone: '3001234567',
+        address: 'Calle 1 # 2-3',
+        localityCarrierCode: '11001',
+        adminUserId: adminId,
+      });
+      const summary = await service.createSummary(draft.id);
+      await service.transition({
+        orderId: draft.id,
+        action: 'confirm',
+        summaryVersion: summary.version,
+        idempotencyKey: 'confirm-order-no-guide',
+        adminUserId: adminId,
+      });
+      await expect(
+        service.transition({
+          orderId: draft.id,
+          action: 'dispatch',
+          adminUserId: adminId,
+        }),
+      ).rejects.toMatchObject({ code: 'shipping_guide_required' });
+    } finally {
+      await database.close();
+    }
+  });
+
+  it('invalidates a pending shipping guide job when a confirmed order is cancelled', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresOrderRepository(database);
+    const service = new OrderService(repository, async () => ({
+      id: '22222222-2222-4222-8222-222222222222',
+      code: '01',
+      modelName: 'Ballerina',
+      color: 'Negro',
+      priceCop: 120000,
+      active: true,
+      photo: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+    try {
+      const draft = await service.create({
+        referenceId: '22222222-2222-4222-8222-222222222222',
+        size: '37',
+        quantity: 1,
+        customerName: 'Ana Gómez',
+        customerPhone: '3001234567',
+        address: 'Calle 1 # 2-3',
+        localityCarrierCode: '11001',
+        adminUserId: adminId,
+      });
+      const summary = await service.createSummary(draft.id);
+      await service.transition({
+        orderId: draft.id,
+        action: 'confirm',
+        summaryVersion: summary.version,
+        idempotencyKey: 'confirm-order-cancel-guide',
+        adminUserId: adminId,
+      });
+      const seedSql = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        await seedSql`
+          INSERT INTO shipping_guide_jobs (order_id, carrier)
+          VALUES (${draft.id}, 'envia')
+        `;
+      } finally {
+        await seedSql.end({ timeout: 5 });
+      }
+      await service.transition({
+        orderId: draft.id,
+        action: 'cancel',
+        adminUserId: adminId,
+      });
+      const checkSql = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        const [job] = await checkSql<
+          { status: string; error_code: string | null }[]
+        >`SELECT status, error_code FROM shipping_guide_jobs WHERE order_id = ${draft.id}`;
+        expect(job).toEqual({
+          status: 'failed',
+          error_code: 'order_cancelled',
+        });
+      } finally {
+        await checkSql.end({ timeout: 5 });
       }
     } finally {
       await database.close();

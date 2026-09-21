@@ -3,6 +3,7 @@ import {
   useId,
   useRef,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
 } from 'react';
 
 type ConfirmDialogProps = {
@@ -14,6 +15,8 @@ type ConfirmDialogProps = {
   onConfirm: () => void;
   onCancel: () => void;
   busy?: boolean;
+  confirmDisabled?: boolean;
+  children?: ReactNode;
 };
 
 const FOCUSABLE_SELECTOR =
@@ -28,6 +31,8 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   busy = false,
+  confirmDisabled = false,
+  children,
 }: ConfirmDialogProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -132,6 +137,7 @@ export function ConfirmDialog({
       >
         <h2 id={titleId}>{title}</h2>
         <p id={descriptionId}>{message}</p>
+        {children}
         <div className="dialog-actions">
           <button
             type="button"
@@ -145,7 +151,7 @@ export function ConfirmDialog({
             type="button"
             className="button-danger"
             onClick={onConfirm}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
           >
             {confirmLabel}
           </button>

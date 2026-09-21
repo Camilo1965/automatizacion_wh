@@ -97,7 +97,7 @@ export function BotFlowPage() {
           : { revision, definition },
         schema: BotFlowStateResponseSchema,
       }),
-    onSuccess: (response) => {
+    onSuccess: (response, variables) => {
       sessionStorage.removeItem('kairo.bot-flow-draft');
       setDirty(false);
       setDefinition(response.data.definition);
@@ -105,7 +105,9 @@ export function BotFlowPage() {
       client.setQueryData(['bot-flow'], response);
       setConfirm(false);
       setFeedback(
-        'Cambio guardado. Las conversaciones existentes conservan su versión.',
+        variables.publish
+          ? 'Publicado. Las conversaciones nuevas usan esta versión; las abiertas conservan la suya hasta reiniciar.'
+          : 'Borrador guardado. Las conversaciones existentes conservan su versión.',
       );
     },
   });
@@ -159,6 +161,7 @@ export function BotFlowPage() {
         <div className="toolbar">
           <button
             type="button"
+            className="ui-button ui-button--secondary control-target"
             disabled={!dirty || mutation.isPending}
             onClick={() => mutation.mutate({ publish: false })}
           >
@@ -167,6 +170,7 @@ export function BotFlowPage() {
           {dirty && (
             <button
               type="button"
+              className="ui-button ui-button--ghost control-target"
               disabled={mutation.isPending}
               onClick={() => {
                 sessionStorage.removeItem('kairo.bot-flow-draft');
@@ -180,6 +184,7 @@ export function BotFlowPage() {
           )}
           <button
             type="button"
+            className="ui-button ui-button--primary control-target"
             disabled={dirty || mutation.isPending}
             onClick={() => setConfirm(true)}
           >
@@ -196,115 +201,124 @@ export function BotFlowPage() {
           />
         )}
       </div>
-      <div className="flow-editor">
-        <nav className="card" aria-label="Pasos del flujo">
-          {BotFlowStepKeys.map((key, index) => (
-            <button
-              type="button"
-              key={key}
-              aria-pressed={step === key}
-              onClick={() => setStep(key)}
-            >
-              {index + 1}. {labels[key]}
-            </button>
-          ))}
-        </nav>
-        <div className="card">
-          <h2>{labels[step]}</h2>
-          <label htmlFor="flow-message">Mensaje para el cliente</label>
-          <textarea
-            id="flow-message"
-            rows={5}
-            maxLength={4096}
-            value={definition.steps[step].message}
-            onChange={(event) =>
-              update({
-                ...definition,
-                steps: {
-                  ...definition.steps,
-                  [step]: {
-                    ...definition.steps[step],
-                    message: event.target.value,
-                  },
-                },
-              })
-            }
-          />
-          <label htmlFor="flow-invalid">
-            Mensaje cuando la respuesta no es válida
-          </label>
-          <textarea
-            id="flow-invalid"
-            rows={3}
-            value={definition.steps[step].invalidMessage ?? ''}
-            onChange={(event) =>
-              update({
-                ...definition,
-                steps: {
-                  ...definition.steps,
-                  [step]: {
-                    ...definition.steps[step],
-                    invalidMessage: event.target.value,
-                  },
-                },
-              })
-            }
-          />
-          <label htmlFor="flow-attempts">
-            Intentos antes de solicitar atención humana
-          </label>
-          <input
-            id="flow-attempts"
-            type="number"
-            min={1}
-            max={10}
-            value={definition.steps[step].maxAttempts ?? 3}
-            onChange={(event) =>
-              update({
-                ...definition,
-                steps: {
-                  ...definition.steps,
-                  [step]: {
-                    ...definition.steps[step],
-                    maxAttempts: Number(event.target.value),
-                  },
-                },
-              })
-            }
-          />
-          <div
-            className="toolbar"
-            role="group"
-            aria-label="Insertar variables disponibles"
-          >
-            {botFlowVariablesForStep(step).map((variable) => (
+      <div className="flow-editor flow-editor--with-phone">
+        <div className="flow-editor-main">
+          <nav className="card" aria-label="Pasos del flujo">
+            {BotFlowStepKeys.map((key, index) => (
               <button
-                key={variable}
                 type="button"
-                onClick={() =>
-                  update({
-                    ...definition,
-                    steps: {
-                      ...definition.steps,
-                      [step]: {
-                        ...definition.steps[step],
-                        message:
-                          definition.steps[step].message + ` {{${variable}}}`,
-                      },
-                    },
-                  })
-                }
-              >{`Insertar ${variable}`}</button>
+                key={key}
+                aria-pressed={step === key}
+                onClick={() => setStep(key)}
+              >
+                {index + 1}. {labels[key]}
+              </button>
             ))}
-          </div>
-          <p>Solo se ofrecen variables cuyos datos ya existen en este paso.</p>
+          </nav>
           <div className="card">
-            <h3>Vista previa del mensaje</h3>
-            <p className="flow-message-preview">
-              {definition.steps[step].message}
+            <h2>{labels[step]}</h2>
+            <label htmlFor="flow-message">Mensaje para el cliente</label>
+            <textarea
+              id="flow-message"
+              rows={5}
+              maxLength={4096}
+              value={definition.steps[step].message}
+              onChange={(event) =>
+                update({
+                  ...definition,
+                  steps: {
+                    ...definition.steps,
+                    [step]: {
+                      ...definition.steps[step],
+                      message: event.target.value,
+                    },
+                  },
+                })
+              }
+            />
+            <label htmlFor="flow-invalid">
+              Mensaje cuando la respuesta no es válida
+            </label>
+            <textarea
+              id="flow-invalid"
+              rows={3}
+              value={definition.steps[step].invalidMessage ?? ''}
+              onChange={(event) =>
+                update({
+                  ...definition,
+                  steps: {
+                    ...definition.steps,
+                    [step]: {
+                      ...definition.steps[step],
+                      invalidMessage: event.target.value,
+                    },
+                  },
+                })
+              }
+            />
+            <label htmlFor="flow-attempts">
+              Intentos antes de solicitar atención humana
+            </label>
+            <input
+              id="flow-attempts"
+              type="number"
+              min={1}
+              max={10}
+              value={definition.steps[step].maxAttempts ?? 3}
+              onChange={(event) =>
+                update({
+                  ...definition,
+                  steps: {
+                    ...definition.steps,
+                    [step]: {
+                      ...definition.steps[step],
+                      maxAttempts: Number(event.target.value),
+                    },
+                  },
+                })
+              }
+            />
+            <div
+              className="toolbar"
+              role="group"
+              aria-label="Insertar variables disponibles"
+            >
+              {botFlowVariablesForStep(step).map((variable) => (
+                <button
+                  key={variable}
+                  type="button"
+                  onClick={() =>
+                    update({
+                      ...definition,
+                      steps: {
+                        ...definition.steps,
+                        [step]: {
+                          ...definition.steps[step],
+                          message:
+                            definition.steps[step].message + ` {{${variable}}}`,
+                        },
+                      },
+                    })
+                  }
+                >{`Insertar ${variable}`}</button>
+              ))}
+            </div>
+            <p>
+              Solo se ofrecen variables cuyos datos ya existen en este paso.
             </p>
           </div>
         </div>
+        <aside
+          className="bot-phone-preview"
+          aria-label="Vista previa tipo teléfono"
+        >
+          <div className="bot-phone-frame">
+            <p className="bot-phone-label">{labels[step]}</p>
+            <div className="bot-phone-bubble">
+              {definition.steps[step].message || 'Escribe un mensaje…'}
+            </div>
+          </div>
+        </aside>
       </div>
       <div className="card">
         <h2>Comandos y catálogo</h2>
@@ -464,7 +478,7 @@ export function BotFlowPage() {
       <ConfirmDialog
         open={confirm}
         title="Publicar flujo"
-        message="Se aplicará a nuevas conversaciones. Los pedidos actuales conservarán sus mensajes y validaciones."
+        message="Las conversaciones nuevas usarán esta versión. Las abiertas conservan la suya hasta reiniciar o completar el pedido."
         confirmLabel="Publicar"
         busy={mutation.isPending}
         onConfirm={() => mutation.mutate({ publish: true })}

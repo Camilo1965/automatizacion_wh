@@ -15,11 +15,45 @@ import {
   selectShippingQuote,
 } from '../api/orders-api';
 import { getErrorMessage } from '../api/client';
+import { Button } from '../components/Button';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
 import { LocalityPicker } from '../components/LocalityPicker';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { StatusBadge } from '../components/StatusBadge';
 import type { LocalityPublic } from '@camila/contracts';
 import { operationalLabel } from '../lib/operational-label';
+
+type OrderLifecycleAction = 'cancel' | 'dispatch' | 'deliver' | 'return';
+
+const actionCopy: Record<
+  OrderLifecycleAction,
+  { title: string; message: string; confirmLabel: string }
+> = {
+  cancel: {
+    title: 'Cancelar pedido',
+    message:
+      'Se liberará la reserva. Si la guía ya fue creada, quedará pendiente de conciliación externa.',
+    confirmLabel: 'Cancelar pedido',
+  },
+  dispatch: {
+    title: 'Despachar pedido',
+    message:
+      'Se descontará el inventario físico y se marcará el pedido como despachado.',
+    confirmLabel: 'Despachar',
+  },
+  deliver: {
+    title: 'Marcar como entregado',
+    message: 'El pedido quedará cerrado como entregado.',
+    confirmLabel: 'Marcar entregado',
+  },
+  return: {
+    title: 'Registrar devolución',
+    message:
+      'Se devolverá la unidad al inventario físico si el pedido ya había sido despachado.',
+    confirmLabel: 'Registrar devolución',
+  },
+};
 
 export function OrderDetailPage() {
   const { orderId = '' } = useParams();
@@ -82,14 +116,18 @@ export function OrderDetailPage() {
     onSuccess: refresh,
   });
   const [reviewNumber, setReviewNumber] = useState('');
+  const [pendingAction, setPendingAction] =
+    useState<OrderLifecycleAction | null>(null);
   const review = useMutation({
     mutationFn: () => reviewUncertainGuide(orderId, reviewNumber),
     onSuccess: refresh,
   });
   const action = useMutation({
-    mutationFn: (value: 'cancel' | 'dispatch' | 'deliver' | 'return') =>
-      orderAction(orderId, value),
-    onSuccess: refresh,
+    mutationFn: (value: OrderLifecycleAction) => orderAction(orderId, value),
+    onSuccess: async () => {
+      setPendingAction(null);
+      await refresh();
+    },
   });
   const confirm = useMutation({
     mutationFn: () => {
@@ -118,21 +156,42 @@ export function OrderDetailPage() {
       maximumFractionDigits: 0,
     }).format(value);
   const selectedQuote = shipping.data?.quotes.find((item) => item.selected);
+  const guide = shipping.data?.guide;
+  const canDispatch = guide?.status === 'created';
+  const pendingActionCopy =
+    pendingAction === null ? null : actionCopy[pendingAction];
+  const primaryAction: OrderLifecycleAction | null =
+    order.status === 'confirmed'
+      ? 'dispatch'
+      : order.status === 'dispatched'
+        ? 'deliver'
+        : null;
+
   return (
     <section aria-labelledby="order-title" className="order-detail">
       <header className="order-hero">
         <div>
           <p className="eyebrow">Pedido</p>
           <h2 id="order-title">{order.orderNumber}</h2>
-          <p className="status-pill">{operationalLabel(order.status)}</p>
+          <StatusBadge
+            tone={
+              order.status === 'confirmed' || order.status === 'dispatched'
+                ? 'success'
+                : order.status === 'cancelled'
+                  ? 'danger'
+                  : 'warning'
+            }
+          >
+            {operationalLabel(order.status)}
+          </StatusBadge>
         </div>
-        <strong>
+        <strong className="order-hero-qty">
           {order.quantity} {order.quantity === 1 ? 'par' : 'pares'}
         </strong>
       </header>
-      <p>
-        {order.reference.code} · {order.reference.modelName} · talla{' '}
-        {order.size} · {order.quantity} par(es)
+      <p className="order-product-line">
+        {order.reference.code} · {order.reference.modelName} ·{' '}
+        {order.reference.color} · talla {order.size}
       </p>
       {order.status === 'draft' ? (
         <form className="card" onSubmit={submit}>
@@ -283,22 +342,53 @@ export function OrderDetailPage() {
           ) : null}
         </div>
       ) : null}
-      <div className="card">
-        {order.status === 'draft' || order.status === 'confirmed' ? (
-          <button onClick={() => action.mutate('cancel')}>Cancelar</button>
+      <div className="order-actions card" aria-label="Acciones del pedido">
+        {primaryAction !== null ? (
+          <Button
+            onClick={() => setPendingAction(primaryAction)}
+            disabled={primaryAction === 'dispatch' && !canDispatch}
+            title={
+              primaryAction === 'dispatch' && !canDispatch
+                ? 'Primero debe existir una guía creada para despachar'
+                : undefined
+            }
+          >
+            {primaryAction === 'dispatch' ? 'Despachar' : 'Entregar'}
+          </Button>
         ) : null}
-        {order.status === 'confirmed' ? (
-          <button onClick={() => action.mutate('dispatch')}>Despachar</button>
+        {order.status === 'confirmed' && !canDispatch ? (
+          <p className="muted order-block-reason" role="status">
+            Despacho bloqueado: la guía aún no está creada. Revisa el estado o
+            espera la creación automática.
+          </p>
         ) : null}
-        {order.status === 'dispatched' ? (
-          <button onClick={() => action.mutate('deliver')}>Entregar</button>
-        ) : null}
-        {order.status === 'delivered' || order.status === 'dispatched' ? (
-          <button onClick={() => action.mutate('return')}>
-            Registrar devolución
-          </button>
-        ) : null}
+        <div className="order-actions-secondary">
+          {order.status === 'draft' || order.status === 'confirmed' ? (
+            <Button variant="danger" onClick={() => setPendingAction('cancel')}>
+              Cancelar
+            </Button>
+          ) : null}
+          {order.status === 'delivered' || order.status === 'dispatched' ? (
+            <Button
+              variant="secondary"
+              onClick={() => setPendingAction('return')}
+            >
+              Registrar devolución
+            </Button>
+          ) : null}
+        </div>
       </div>
+      <ConfirmDialog
+        open={pendingActionCopy !== null}
+        title={pendingActionCopy?.title ?? ''}
+        message={pendingActionCopy?.message ?? ''}
+        confirmLabel={pendingActionCopy?.confirmLabel ?? 'Confirmar'}
+        busy={action.isPending}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => {
+          if (pendingAction !== null) action.mutate(pendingAction);
+        }}
+      />
       {save.isError ||
       summary.isError ||
       action.isError ||

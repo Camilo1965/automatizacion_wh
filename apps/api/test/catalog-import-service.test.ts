@@ -29,15 +29,19 @@ describe('CatalogImportService', () => {
     expect(repository.confirm).not.toHaveBeenCalled();
   });
 
-  it('marks references already present in the catalog during preview', async () => {
+  it('allows existing references to be reconciled during confirmation', async () => {
+    const findExistingCodes = vi.fn(async () => ['01']);
     const createPreview = vi.fn(async (input) => ({
       id: '11111111-1111-4111-8111-111111111111',
-      status: 'invalid' as const,
+      status:
+        input.errors.length === 0
+          ? ('previewed' as const)
+          : ('invalid' as const),
       createdAt: new Date('2026-09-06T00:00:00.000Z'),
       ...input,
     }));
     const repository: CatalogImportRepository = {
-      findExistingCodes: vi.fn(async () => ['01']),
+      findExistingCodes,
       createPreview,
       confirm: vi.fn(),
     };
@@ -49,13 +53,9 @@ describe('CatalogImportService', () => {
       ),
     );
 
-    expect(preview.status).toBe('invalid');
-    expect(preview.errors).toContainEqual({
-      row: 2,
-      field: 'reference_code',
-      code: 'reference_exists',
-      message: 'La referencia 01 ya existe en el catálogo',
-    });
+    expect(preview.status).toBe('previewed');
+    expect(preview.errors).toEqual([]);
+    expect(findExistingCodes).not.toHaveBeenCalled();
     expect(createPreview).toHaveBeenCalledOnce();
   });
 });

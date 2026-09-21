@@ -27,8 +27,17 @@ describe('App shell', () => {
     state.authenticated = true;
     let saved: unknown;
     server.use(
-      http.get('/api/admin/localities', () =>
+      http.get('/api/admin/localities/departments', () =>
         HttpResponse.json({
+          data: { items: [{ name: 'Antioquia', localityCount: 125 }] },
+        }),
+      ),
+      http.get('/api/admin/localities', ({ request }) => {
+        const { pathname } = new URL(request.url);
+        if (pathname !== '/api/admin/localities') {
+          return HttpResponse.json({ data: { items: [] } }, { status: 404 });
+        }
+        return HttpResponse.json({
           data: {
             items: [
               {
@@ -41,8 +50,8 @@ describe('App shell', () => {
             ],
             nextAfterCode: null,
           },
-        }),
-      ),
+        });
+      }),
       http.post('/api/admin/shipping/rules', async ({ request }) => {
         saved = await request.json();
         return new HttpResponse(null, { status: 204 });
@@ -53,11 +62,18 @@ describe('App shell', () => {
     const municipalityForm = (
       await screen.findByRole('heading', { name: 'Nueva regla municipal' })
     ).closest('form')!;
-    await user.type(
-      within(municipalityForm).getByLabelText('Departamento y municipio'),
-      'Medellín',
+    await within(municipalityForm).findByRole('option', {
+      name: /Antioquia/,
+    });
+    await user.selectOptions(
+      within(municipalityForm).getByLabelText('Departamento'),
+      'Antioquia',
     );
-    await user.click(await screen.findByRole('button', { name: /Medellín/ }));
+    await within(municipalityForm).findByRole('option', { name: /Medellín/ });
+    await user.selectOptions(
+      within(municipalityForm).getByLabelText('Municipio'),
+      '05001000',
+    );
     await user.selectOptions(
       within(municipalityForm).getByLabelText('Transportadora preferida'),
       'tcc',
@@ -135,11 +151,11 @@ describe('App shell', () => {
 
   it('opens the global operations search from the header', async () => {
     const user = userEvent.setup();
-    state.authenticated = false;
-    renderWithProviders(<App />, { initialEntries: ['/login'] });
-    await loginAsAdmin(user);
+    state.authenticated = true;
+    renderWithProviders(<App />, { initialEntries: ['/'] });
+    await screen.findByRole('heading', { name: 'Inicio' });
     await user.click(
-      await screen.findByRole('button', { name: 'Abrir búsqueda global' }),
+      screen.getByRole('button', { name: 'Abrir búsqueda global' }),
     );
     expect(
       screen.getByRole('dialog', { name: 'Búsqueda global' }),
@@ -285,7 +301,7 @@ describe('Catalog flows', () => {
     expect(item).toHaveTextContent('Activa');
     expect(item).toHaveTextContent(/120\.?000|120000/);
     expect(item).toHaveTextContent(/37/);
-    expect(item).toHaveTextContent(/Sin fotografía|fotografía/i);
+    expect(item).toHaveTextContent(/Sin foto|fotografía/i);
     expect(item).toHaveTextContent(
       new Date('2026-09-06T12:00:00.000Z').toLocaleString('es-CO'),
     );
@@ -301,10 +317,7 @@ describe('Catalog flows', () => {
       await screen.findByText('No hay referencias con estos filtros'),
     ).toBeInTheDocument();
 
-    await user.selectOptions(
-      await screen.findByLabelText('Estado'),
-      'inactive',
-    );
+    await user.click(screen.getByRole('button', { name: 'Inactivas' }));
     expect(await screen.findByText('01')).toBeInTheDocument();
   });
 
@@ -321,12 +334,14 @@ describe('Catalog flows', () => {
       screen.getByLabelText('Fotografía principal'),
       tinyPngFile(),
     );
+    await user.type(screen.getByLabelText('Talla 37'), '2');
     await user.click(screen.getByRole('button', { name: 'Crear referencia' }));
 
     expect(
       await screen.findByRole('heading', { name: /Referencia/ }),
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue('01')).toBeInTheDocument();
+    expect(screen.getByText(/Talla 37: 2 físicas/)).toBeInTheDocument();
   });
 
   it('rejects decimal price without silent truncation', async () => {

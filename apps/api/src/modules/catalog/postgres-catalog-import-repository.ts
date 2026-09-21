@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import {
@@ -83,35 +83,58 @@ export class PostgresCatalogImportRepository implements CatalogImportRepository 
 
       const references = importRow.referencesData;
       const codes = references.map((reference) => reference.code);
-      const existing =
+      const existingReferences =
         codes.length === 0
           ? []
           : await tx
-              .select({ code: catalogReferences.code })
+              .select({
+                id: catalogReferences.id,
+                code: catalogReferences.code,
+              })
               .from(catalogReferences)
-              .where(inArray(catalogReferences.code, codes));
-      if (existing.length > 0) {
-        throw new CatalogConflictError(
-          'catalog_import_reference_exists',
-          'A catalog reference already exists',
-        );
+              .where(inArray(catalogReferences.code, codes))
+              .for('update');
+      const idByCode = new Map(
+        existingReferences.map((reference) => [reference.code, reference.id]),
+      );
+      const newReferences = references.filter(
+        (reference) => !idByCode.has(reference.code),
+      );
+      if (newReferences.length > 0) {
+        const insertedReferences = await tx
+          .insert(catalogReferences)
+          .values(
+            newReferences.map((reference) => ({
+              code: reference.code,
+              modelName: reference.modelName,
+              color: reference.color,
+              priceCop: reference.priceCop,
+              active: false,
+            })),
+          )
+          .returning({
+            id: catalogReferences.id,
+            code: catalogReferences.code,
+          });
+        for (const reference of insertedReferences) {
+          idByCode.set(reference.code, reference.id);
+        }
       }
-
-      const insertedReferences = await tx
-        .insert(catalogReferences)
-        .values(
-          references.map((reference) => ({
-            code: reference.code,
+      const newCodes = new Set(
+        newReferences.map((reference) => reference.code),
+      );
+      for (const reference of references) {
+        if (newCodes.has(reference.code)) continue;
+        await tx
+          .update(catalogReferences)
+          .set({
             modelName: reference.modelName,
             color: reference.color,
             priceCop: reference.priceCop,
-            active: false,
-          })),
-        )
-        .returning({ id: catalogReferences.id, code: catalogReferences.code });
-      const idByCode = new Map(
-        insertedReferences.map((reference) => [reference.code, reference.id]),
-      );
+            updatedAt: sql`clock_timestamp()`,
+          })
+          .where(eq(catalogReferences.code, reference.code));
+      }
 
       const stockRows = references.flatMap((reference) => {
         const referenceId = idByCode.get(reference.code);
@@ -126,19 +149,79 @@ export class PostgresCatalogImportRepository implements CatalogImportRepository 
         }));
       });
       if (stockRows.length > 0) {
-        await tx.insert(catalogStock).values(stockRows);
-        await tx.insert(inventoryMovements).values(
-          stockRows.map((stock) => ({
+        const referenceIds = [
+          ...new Set(stockRows.map((stock) => stock.referenceId)),
+        ];
+        const existingStockRows = await tx
+          .select({
+            referenceId: catalogStock.referenceId,
+            size: catalogStock.size,
+            physicalQuantity: catalogStock.physicalQuantity,
+            reservedQuantity: catalogStock.reservedQuantity,
+          })
+          .from(catalogStock)
+          .where(inArray(catalogStock.referenceId, referenceIds))
+          .for('update');
+        const existingStock = new Map(
+          existingStockRows.map((row) => [
+            `${row.referenceId}:${String(row.size)}`,
+            row,
+          ]),
+        );
+        const newStockRows = stockRows.filter(
+          (stock) => !existingStock.has(`${stock.referenceId}:${stock.size}`),
+        );
+        if (newStockRows.length > 0) {
+          await tx.insert(catalogStock).values(newStockRows);
+        }
+        const stockMovements = newStockRows.map((stock) => ({
+          referenceId: stock.referenceId,
+          size: stock.size,
+          previousQuantity: 0,
+          newQuantity: stock.physicalQuantity,
+          delta: stock.physicalQuantity,
+          reason: 'initial',
+          note: 'Importación de catálogo',
+          createdAt: sql`clock_timestamp()`,
+        }));
+        for (const stock of stockRows) {
+          const existing = existingStock.get(
+            `${stock.referenceId}:${stock.size}`,
+          );
+          if (existing === undefined) continue;
+          if (stock.physicalQuantity < existing.reservedQuantity) {
+            throw new CatalogConflictError(
+              'catalog_import_reserved_exceeds_physical',
+              'Imported quantity cannot be lower than reserved stock',
+            );
+          }
+          if (stock.physicalQuantity === existing.physicalQuantity) continue;
+          await tx
+            .update(catalogStock)
+            .set({
+              physicalQuantity: stock.physicalQuantity,
+              updatedAt: sql`clock_timestamp()`,
+            })
+            .where(
+              and(
+                eq(catalogStock.referenceId, stock.referenceId),
+                eq(catalogStock.size, stock.size),
+              ),
+            );
+          stockMovements.push({
             referenceId: stock.referenceId,
             size: stock.size,
-            previousQuantity: 0,
+            previousQuantity: existing.physicalQuantity,
             newQuantity: stock.physicalQuantity,
-            delta: stock.physicalQuantity,
-            reason: 'initial',
+            delta: stock.physicalQuantity - existing.physicalQuantity,
+            reason: 'manual_adjustment',
             note: 'Importación de catálogo',
             createdAt: sql`clock_timestamp()`,
-          })),
-        );
+          });
+        }
+        if (stockMovements.length > 0) {
+          await tx.insert(inventoryMovements).values(stockMovements);
+        }
       }
 
       const [committed] = await tx

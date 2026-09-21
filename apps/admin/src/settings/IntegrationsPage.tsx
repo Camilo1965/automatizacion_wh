@@ -81,15 +81,23 @@ export function IntegrationsPage() {
                 }
               >
                 {check.status === 'up'
-                  ? 'Disponible'
+                  ? 'Activo'
                   : check.status === 'down'
-                    ? 'Caído'
-                    : 'Pendiente'}
+                    ? 'Incidencia'
+                    : 'Sin verificar'}
               </StatusBadge>
             </div>
             <p className="muted">
-              {check.detail ??
-                `Última revisión: ${new Date(check.checkedAt).toLocaleString('es-CO')}`}
+              {check.status === 'up'
+                ? `Último éxito: ${new Date(check.checkedAt).toLocaleString('es-CO')}`
+                : check.status === 'down'
+                  ? `Último fallo: ${new Date(check.checkedAt).toLocaleString('es-CO')}`
+                  : `Última revisión: ${new Date(check.checkedAt).toLocaleString('es-CO')}`}
+            </p>
+            {check.detail ? <p className="muted">{check.detail}</p> : null}
+            <p className="integration-state-hint muted">
+              Guardar credenciales solo marca Configurado. Probar marca
+              Verificado. Activar pone el canal en operación.
             </p>
           </article>
         ))}

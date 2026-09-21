@@ -46,6 +46,12 @@ export function LocalityCatalogPage() {
       void client.invalidateQueries({ queryKey: ['localities'] });
     },
   });
+  const versions = query.data?.data.versions ?? [];
+  const activeVersion =
+    versions.find((version) => version.status === 'active') ?? null;
+  const previewCount = versions.filter(
+    (version) => version.status === 'preview',
+  ).length;
   return (
     <section className="operational-config">
       <PageHeader
@@ -53,6 +59,31 @@ export function LocalityCatalogPage() {
         title="Departamentos y municipios"
         description="Importa el listado de 99envíos, revisa los municipios y publica una versión. Los pedidos existentes se conservan."
       />
+      <dl className="settings-overview" aria-label="Resumen de localidades">
+        <div>
+          <dt>Listado activo</dt>
+          <dd>
+            {activeVersion
+              ? `${activeVersion.rowCount} localidades`
+              : 'Sin publicar'}
+          </dd>
+        </div>
+        <div>
+          <dt>Vistas previas</dt>
+          <dd>{previewCount}</dd>
+        </div>
+        <div>
+          <dt>Última actividad</dt>
+          <dd>
+            {versions[0]
+              ? new Date(versions[0].createdAt).toLocaleString('es-CO')
+              : 'Sin historial'}
+          </dd>
+        </div>
+      </dl>
+      {!query.isPending && activeVersion === null ? (
+        <ErrorMessage message="No hay un listado activo de municipios. Publica o restaura una versión antes de depender del selector de envíos." />
+      ) : null}
       <div className="card">
         <h2>Importar listado</h2>
         <button
@@ -206,7 +237,12 @@ export function LocalityCatalogPage() {
         {query.isError && (
           <ErrorMessage message="No se pudo cargar el historial." />
         )}
-        {query.data?.data.versions.map((version) => (
+        {versions.length === 0 ? (
+          <p className="muted">
+            No hay versiones publicadas ni vistas previas guardadas.
+          </p>
+        ) : null}
+        {versions.map((version) => (
           <article key={version.id}>
             <h3>
               {version.status === 'active'

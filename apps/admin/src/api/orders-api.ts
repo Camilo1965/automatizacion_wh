@@ -14,16 +14,27 @@ import { apiDownload, apiRequest, apiRequestNoContent } from './client';
 
 export type { OrderPublic, OrderSummaryPublic };
 
+export type OrderListCursor = Readonly<{ createdAt: string; id: string }>;
+export type OrderListPage = Readonly<{
+  items: readonly OrderPublic[];
+  nextCursor: OrderListCursor | null;
+}>;
+
 export async function listOrders(
   status?: OrderPublic['status'],
   view?: 'incidents' | 'ready_to_dispatch' | 'awaiting_confirmation',
-): Promise<readonly OrderPublic[]> {
+  cursor?: OrderListCursor | null,
+): Promise<OrderListPage> {
   const query = new URLSearchParams({ limit: '100' });
   if (status) query.set('status', status);
   if (view) query.set('view', view);
+  if (cursor) {
+    query.set('cursorCreatedAt', cursor.createdAt);
+    query.set('cursorId', cursor.id);
+  }
   return (
     await apiRequest(`/orders?${query}`, { schema: ListOrdersResponseSchema })
-  ).data.items;
+  ).data;
 }
 export async function createOrder(body: CreateOrderBody): Promise<OrderPublic> {
   return (

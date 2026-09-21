@@ -1,29 +1,117 @@
+import { lazy, Suspense } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 
 import { useAuth } from './auth/AuthProvider';
 import { LoginPage } from './auth/LoginPage';
 import { ProtectedRoute } from './auth/ProtectedRoute';
-import { CatalogListPage } from './catalog/CatalogListPage';
-import { ReferenceCreatePage } from './catalog/ReferenceCreatePage';
-import { ReferenceDetailPage } from './catalog/ReferenceDetailPage';
-import { CatalogImportPage } from './catalog/CatalogImportPage';
 import { AppShell } from './components/AppShell';
 import { LoadingState } from './components/LoadingState';
-import { OrdersListPage } from './orders/OrdersListPage';
-import { OrderCreatePage } from './orders/OrderCreatePage';
-import { OrderDetailPage } from './orders/OrderDetailPage';
-import { ConversationInboxPage } from './conversations/ConversationInboxPage';
-import { DashboardPage } from './dashboard/DashboardPage';
-import { ShippingSettingsPage } from './settings/ShippingSettingsPage';
-import { WhatsAppSettingsPage } from './settings/WhatsAppSettingsPage';
-import { IntegrationsPage } from './settings/IntegrationsPage';
-import { AlertsPage } from './alerts/AlertsPage';
-import { InventoryClosuresPage } from './inventory/InventoryClosuresPage';
-import { MorePage } from './more/MorePage';
-import { BotFlowPage } from './settings/BotFlowPage';
-import { LocalityCatalogPage } from './settings/LocalityCatalogPage';
-import { ShippingIncidentsPage } from './settings/ShippingIncidentsPage';
-import { ConfigurationAuditPage } from './settings/ConfigurationAuditPage';
+
+const AlertsPage = lazy(() =>
+  import('./alerts/AlertsPage').then(({ AlertsPage }) => ({
+    default: AlertsPage,
+  })),
+);
+const CatalogImportPage = lazy(() =>
+  import('./catalog/CatalogImportPage').then(({ CatalogImportPage }) => ({
+    default: CatalogImportPage,
+  })),
+);
+const CatalogListPage = lazy(() =>
+  import('./catalog/CatalogListPage').then(({ CatalogListPage }) => ({
+    default: CatalogListPage,
+  })),
+);
+const ReferenceCreatePage = lazy(() =>
+  import('./catalog/ReferenceCreatePage').then(({ ReferenceCreatePage }) => ({
+    default: ReferenceCreatePage,
+  })),
+);
+const ReferenceDetailPage = lazy(() =>
+  import('./catalog/ReferenceDetailPage').then(({ ReferenceDetailPage }) => ({
+    default: ReferenceDetailPage,
+  })),
+);
+const ConversationInboxPage = lazy(() =>
+  import('./conversations/ConversationInboxPage').then(
+    ({ ConversationInboxPage }) => ({
+      default: ConversationInboxPage,
+    }),
+  ),
+);
+const DashboardPage = lazy(() =>
+  import('./dashboard/DashboardPage').then(({ DashboardPage }) => ({
+    default: DashboardPage,
+  })),
+);
+const InventoryClosuresPage = lazy(() =>
+  import('./inventory/InventoryClosuresPage').then(
+    ({ InventoryClosuresPage }) => ({
+      default: InventoryClosuresPage,
+    }),
+  ),
+);
+const MorePage = lazy(() =>
+  import('./more/MorePage').then(({ MorePage }) => ({ default: MorePage })),
+);
+const OrderCreatePage = lazy(() =>
+  import('./orders/OrderCreatePage').then(({ OrderCreatePage }) => ({
+    default: OrderCreatePage,
+  })),
+);
+const OrderDetailPage = lazy(() =>
+  import('./orders/OrderDetailPage').then(({ OrderDetailPage }) => ({
+    default: OrderDetailPage,
+  })),
+);
+const OrdersListPage = lazy(() =>
+  import('./orders/OrdersListPage').then(({ OrdersListPage }) => ({
+    default: OrdersListPage,
+  })),
+);
+const BotFlowPage = lazy(() =>
+  import('./settings/BotFlowPage').then(({ BotFlowPage }) => ({
+    default: BotFlowPage,
+  })),
+);
+const ConfigurationAuditPage = lazy(() =>
+  import('./settings/ConfigurationAuditPage').then(
+    ({ ConfigurationAuditPage }) => ({
+      default: ConfigurationAuditPage,
+    }),
+  ),
+);
+const IntegrationsPage = lazy(() =>
+  import('./settings/IntegrationsPage').then(({ IntegrationsPage }) => ({
+    default: IntegrationsPage,
+  })),
+);
+const LocalityCatalogPage = lazy(() =>
+  import('./settings/LocalityCatalogPage').then(({ LocalityCatalogPage }) => ({
+    default: LocalityCatalogPage,
+  })),
+);
+const ShippingIncidentsPage = lazy(() =>
+  import('./settings/ShippingIncidentsPage').then(
+    ({ ShippingIncidentsPage }) => ({
+      default: ShippingIncidentsPage,
+    }),
+  ),
+);
+const ShippingSettingsPage = lazy(() =>
+  import('./settings/ShippingSettingsPage').then(
+    ({ ShippingSettingsPage }) => ({
+      default: ShippingSettingsPage,
+    }),
+  ),
+);
+const WhatsAppSettingsPage = lazy(() =>
+  import('./settings/WhatsAppSettingsPage').then(
+    ({ WhatsAppSettingsPage }) => ({
+      default: WhatsAppSettingsPage,
+    }),
+  ),
+);
 
 function AuthenticatedShell() {
   const { user, logout } = useAuth();
@@ -39,7 +127,9 @@ function AuthenticatedShell() {
             },
           })}
     >
-      <Outlet />
+      <Suspense fallback={<LoadingState label="Cargando sección…" />}>
+        <Outlet />
+      </Suspense>
     </AppShell>
   );
 }
