@@ -8,7 +8,7 @@ Ambiente: ________ · Fecha propuesta: ________
 
 | Criterio                                         | Estado                                                     | Tipo     |
 | ------------------------------------------------ | ---------------------------------------------------------- | -------- |
-| `pnpm verify:release` local en commit de release | pendiente de verificación final tras este cierre           | auto     |
+| `pnpm verify:release` local en commit de release | `verified` en `deddd48`; revalidar en SHA de despliegue    | auto     |
 | Migraciones aplicadas (`0030`–`0034`+)           | `verified` en staging local; **prod apply** `[HUMANO]`     | mixed    |
 | Backup externo ensayado (restore drill)          | auto staging OK; **destino prod** **BLOCKING** `[HUMANO]`  | BLOCKING |
 | API + worker independientes en staging           | `verified` (`production:smoke`)                            | auto     |

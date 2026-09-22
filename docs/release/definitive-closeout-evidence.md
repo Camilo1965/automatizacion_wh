@@ -646,3 +646,32 @@ Trivy image/FS scans: run through local Docker containers; fresh results appear 
 **Recommendation remains NO-GO** — open P0/P1 `[HUMANO]` gates above.
 
 ---
+
+## Independent local closeout — 2026-09-22
+
+**Verified commit:** `deddd48` on `cursor/kairo-definitive-closeout`. This is local staging evidence, not production acceptance. The unused GitHub workflow is removed; `git ls-files .github` returns no files. No push, merge, or deploy was performed.
+
+| Gate                             | Result    | Evidence                                                                                                                                                                                                                                                                     |
+| -------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm verify:release`            | exit 0    | frozen install, functional suite, coverage, dependency audit, production config, Gitleaks, Trivy filesystem, staging smoke, four image scans                                                                                                                                 |
+| Unit tests                       | exit 0    | contracts 70, API 307, admin 61                                                                                                                                                                                                                                              |
+| Integration tests                | exit 0    | API 140 passed; one file skipped by environment condition                                                                                                                                                                                                                    |
+| Browser E2E                      | exit 0    | Chromium 30 passed, 1 skipped                                                                                                                                                                                                                                                |
+| Combined API coverage run        | exit 0    | 447 passed; 9 critical files individually ≥90% lines and branches; 13 modified non-critical domain files individually ≥80% lines and branches; no exceptions                                                                                                                 |
+| Overall coverage (informational) | measured  | API 74.25% lines / 69.73% branches; admin 54.85% / 48.32%; contracts 95.33% / 68.83%. These are not global 90% claims.                                                                                                                                                       |
+| Security scans                   | exit 0    | Gitleaks v8.30.1 full history; Trivy v0.74.0 committed filesystem and four final images, no blocking HIGH/CRITICAL findings under `--ignore-unfixed` and `.trivyignore`                                                                                                      |
+| `pnpm production:smoke`          | exit 0    | `docker-available → env-written → compose-config → compose-build → compose-up → health → admin-bootstrap → login → routes → auth-session → storage-s3 → backup-upload → backup-verify → restore-drill → backup-heartbeat → compose-services → separate-processes → shutdown` |
+| Critical concurrency suite       | exit 0 ×3 | 10/10 passed in each consecutive run against `postgres-test`                                                                                                                                                                                                                 |
+
+The staging smoke used separate media and backup S3 credentials and an isolated restoration database. It found and fixed a PostgreSQL client/server version mismatch and empty backup streaming before the final passing run. Staging resources were shut down and removed; `.env.staging` was not retained.
+
+### Scanned local image digests
+
+| Image                 | SHA-256 digest                                                     |
+| --------------------- | ------------------------------------------------------------------ |
+| `camila-api:local`    | `973a8235176e6f1fe6ff2d192758d11c05494df7681ee758067895d1b4a70d08` |
+| `camila-worker:local` | `fca746113e718c3c33a89918ccc30b8eb7b3161c8db66e8bcb82f64558c12ef3` |
+| `camila-admin:local`  | `6b46bf3bdbb963c92b08426bb1d04982609387bf53719e4830d6b2629d37eaaf` |
+| `camila-backup:local` | `4f20f8be0815cadcc8a6214f7e4b13d6ea26aa42af0000eaeedbbc554028f42e` |
+
+**Decision: NO-GO.** P0/P1 `[HUMANO]` gates remain open: real production HTTPS/DNS, external S3 destination and recovery targets, external alert receipt, live Meta and 99envíos transactions, business reconciliation, owner sign-off, and production migration/deployment approval. A local green gate does not prove 100% functionality with real providers or authorize launch.
