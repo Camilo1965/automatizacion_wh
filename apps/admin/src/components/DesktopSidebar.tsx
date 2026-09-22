@@ -97,7 +97,7 @@ export function DesktopSidebar() {
       <Link
         className="mb-6 flex items-center gap-3 rounded-[1.125rem] px-2 py-1.5"
         to="/"
-        aria-label="Camila, inicio"
+        aria-label="KAIRO Operaciones, inicio"
       >
         <img
           src="/brand/kairo-logo.png"
@@ -106,7 +106,7 @@ export function DesktopSidebar() {
         />
         <span className="flex min-w-0 flex-col">
           <h1 className="text-sm font-semibold tracking-tight text-sidebar-foreground">
-            Camila
+            KAIRO
           </h1>
           <small className="text-xs text-muted-foreground">Operaciones</small>
         </span>

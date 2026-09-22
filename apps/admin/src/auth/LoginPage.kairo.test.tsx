@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { App } from '../App';
 import { renderWithProviders } from '../test/render';
 
-describe('Camila login', () => {
+describe('KAIRO login', () => {
   it('presents the access experience and a usable password control', async () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { initialEntries: ['/login'] });

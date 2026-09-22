@@ -49,8 +49,8 @@ export function GlobalHeader({
             className="size-8 rounded-[0.75rem] object-contain"
           />
           <div>
-            <p className="text-sm font-semibold tracking-tight">Camila</p>
-            <p className="text-[11px] text-muted-foreground">Entorno local</p>
+            <p className="text-sm font-semibold tracking-tight">KAIRO</p>
+            <p className="text-[11px] text-muted-foreground">Operaciones</p>
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">

@@ -158,7 +158,7 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Cliente, teléfono, pedido o referencia"
-            aria-label="Buscar en Camila"
+            aria-label="Buscar en KAIRO"
             className="h-10 border-0 bg-transparent shadow-none focus-visible:ring-0"
           />
           <button

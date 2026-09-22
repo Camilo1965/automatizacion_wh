@@ -10,7 +10,7 @@ const toneClass: Record<
   neutral: 'border-border bg-muted text-muted-foreground',
   success: 'border-border bg-secondary text-foreground',
   warning: 'border-border bg-secondary text-secondary-foreground',
-  danger: 'border-destructive/30 bg-destructive/10 text-destructive',
+  danger: 'border-destructive bg-destructive text-white',
   info: 'border-border bg-muted text-foreground',
 };
 

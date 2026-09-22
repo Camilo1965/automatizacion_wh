@@ -130,7 +130,7 @@ describe('App shell', () => {
     );
   });
 
-  it('renders Camila brand landmarks after login', async () => {
+  it('renders KAIRO brand landmarks after login', async () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { initialEntries: ['/login'] });
 
@@ -139,11 +139,14 @@ describe('App shell', () => {
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'Camila',
+        name: 'KAIRO',
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'KAIRO Operaciones, inicio' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('main')).toBeInTheDocument();
-    expect(screen.getByText('Entorno local')).toBeInTheDocument();
+    expect(screen.getAllByText('Operaciones').length).toBeGreaterThan(0);
     expect(
       await screen.findByRole('heading', { name: 'Inicio' }),
     ).toBeInTheDocument();

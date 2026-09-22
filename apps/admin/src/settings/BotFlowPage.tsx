@@ -416,7 +416,7 @@ export function BotFlowPage() {
             <CardContent className="grid gap-4 sm:grid-cols-2">
               {Object.entries(definition.commands).map(([key, value]) => (
                 <div className="space-y-2" key={key}>
-                  <Label>
+                  <Label htmlFor={`flow-command-${key}`}>
                     {
                       (
                         {
@@ -430,6 +430,7 @@ export function BotFlowPage() {
                     }
                   </Label>
                   <Input
+                    id={`flow-command-${key}`}
                     value={value}
                     maxLength={40}
                     onChange={(event) =>
@@ -446,8 +447,9 @@ export function BotFlowPage() {
                 </div>
               ))}
               <div className="space-y-2">
-                <Label>Fotos por página</Label>
+                <Label htmlFor="flow-page-size">Fotos por página</Label>
                 <Input
+                  id="flow-page-size"
                   type="number"
                   min={1}
                   max={10}

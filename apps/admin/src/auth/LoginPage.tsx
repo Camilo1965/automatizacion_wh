@@ -114,7 +114,7 @@ export function LoginPage() {
         >
           <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
             <CardHeader className="space-y-1">
-              <p className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+              <p className="text-xs font-medium tracking-[0.05em] text-foreground/70 uppercase">
                 Acceso privado
               </p>
               <CardTitle
