@@ -116,6 +116,9 @@ for (const viewport of [
       '/shipping/incidents',
       '/settings/whatsapp',
       '/settings/integrations',
+      '/settings/audit',
+      '/settings/security',
+      '/settings/privacy',
       '/alerts',
       '/inventory/closures',
       '/more',
@@ -133,7 +136,7 @@ for (const viewport of [
   });
 }
 
-test('has no serious accessibility violations in critical operations', async ({
+test('has no serious accessibility violations on principal routes', async ({
   page,
 }) => {
   await login(page);
@@ -148,11 +151,17 @@ test('has no serious accessibility violations in critical operations', async ({
     '/shipping/incidents',
     '/alerts',
     '/settings/integrations',
+    '/settings/whatsapp',
+    '/settings/audit',
+    '/settings/security',
+    '/settings/privacy',
+    '/inventory/closures',
+    '/more',
   ]) {
     await page.goto(route);
     await expect(page.locator('main')).toBeVisible();
     const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
       .analyze();
     const seriousViolations = results.violations
       .filter((violation) =>
@@ -167,4 +176,42 @@ test('has no serious accessibility violations in critical operations', async ({
       [],
     );
   }
+});
+
+test('keeps keyboard order, 44px targets and reduced motion on shell', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page);
+  await page.goto('/settings/integrations');
+  await expect(
+    page.getByRole('heading', { name: 'Integraciones' }),
+  ).toBeVisible();
+  const undersized = await page.evaluate(() => {
+    const targets = [
+      ...document.querySelectorAll('a.control-target, button.control-target'),
+    ];
+    return targets
+      .filter((element) => {
+        const box = element.getBoundingClientRect();
+        return box.width > 0 && box.height > 0 && (box.width < 44 || box.height < 44);
+      })
+      .map((element) => element.textContent?.trim() || element.getAttribute('aria-label') || element.tagName)
+      .slice(0, 8);
+  });
+  expect(undersized).toEqual([]);
+  await page.keyboard.press('Tab');
+  const activeTag = await page.evaluate(() => document.activeElement?.tagName ?? '');
+  expect(['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA']).toContain(activeTag);
+  await page.getByRole('link', { name: 'Más' }).focus();
+  await expect(page.getByRole('link', { name: 'Más' })).toBeFocused();
+  await page.getByRole('link', { name: 'Más' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Más herramientas' }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(
+    page.getByRole('heading', { name: 'Integraciones' }),
+  ).toBeVisible();
 });

@@ -252,3 +252,40 @@ Raw client IP is not captured. Failed login/MFA metadata is sanitized (no passwo
 ### [HUMANO]
 
 Colombia legal retention durations and matrix approval — do not invent approved durations in production policy activation until owner signs matrix.
+
+---
+
+## Task 6 — Frontend architecture and operational UX (2026-09-22)
+
+### Behavior
+
+- Integrations split into `settings/integrations/*` panels; Shipping into `settings/shipping/*` sections
+- Internal services (DB / media / scheduler): status-specific diagnostics — never “Guardar credenciales”
+- WhatsApp + 99envíos: four-step lifecycle (credenciales → prueba segura → activación → verificación operativa) with persistent outcome + next step
+- Shipping regions: política general, excepciones, simulador, incidencias/estado; simulator recoverable retry
+- Fast Refresh: variants/hooks extracted from badge/button/tabs/sidebar → **0 warnings**
+- `styles.css` slimmed to reset + documented primitives; feature CSS removed
+- Bundle budget: `scripts/check-admin-bundle-budget.mjs` + `settings-heavy` / `charts` manual chunks; lazy routes retained/extended
+- E2E axe/viewport extended to principal routes incl. security/privacy/audit; keyboard/44px/reduced-motion checks
+
+### TDD evidence
+
+| Step | Command | Result |
+| --- | --- | --- |
+| RED | Integrations + Shipping section/lifecycle tests authored first | 5 failed before implementation |
+| GREEN unit | `pnpm --filter @camila/admin exec vitest run src/settings/IntegrationsPage.test.tsx src/settings/ShippingSettingsPage.test.tsx` | 5 passed |
+| Fast Refresh | eslint badge/button/tabs/sidebar | **0** Fast Refresh warnings (was 4) |
+| Typecheck | admin `tsc -p tsconfig.app.json --noEmit` | pass |
+| Build + budget | `pnpm --filter @camila/admin build` + `node scripts/check-admin-bundle-budget.mjs` | pass |
+
+### Design ledger updates
+
+| Requirement | Status |
+| --- | --- |
+| Integrations/Shipping UX lifecycle | `verified` (unit + structure; full E2E on CI) |
+| Fast Refresh warnings = 0 | `verified` |
+| A11y principal routes @ viewports | `in_progress` → covered by extended E2E specs |
+
+### [HUMANO]
+
+Visual spot-check of screenshots under `apps/admin/test-results/` after full E2E run on the machine.

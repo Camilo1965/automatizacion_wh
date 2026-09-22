@@ -69,11 +69,10 @@ export function SecuritySettingsPage() {
   });
 
   useEffect(() => {
-    let cancelled = false;
     if (setupUri === null) {
-      setQrDataUrl(null);
       return;
     }
+    let cancelled = false;
     void QRCode.toDataURL(setupUri, { width: 192, margin: 1 }).then((url) => {
       if (!cancelled) {
         setQrDataUrl(url);

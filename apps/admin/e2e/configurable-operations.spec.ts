@@ -105,15 +105,24 @@ test('owner publishes localities, edits the bot and configures a municipal insur
   ]) {
     await page.setViewportSize(viewport);
     for (const route of [
+      '/',
+      '/conversations',
+      '/catalog',
+      '/orders',
       '/settings/bot-flow',
       '/settings/localities',
       '/settings/shipping',
       '/shipping/incidents',
       '/settings/integrations',
+      '/settings/whatsapp',
       '/settings/audit',
+      '/settings/security',
+      '/settings/privacy',
+      '/alerts',
+      '/more',
     ]) {
       await page.goto(route);
-      await expect(page.locator('main h2').first()).toBeVisible();
+      await expect(page.locator('main h2, main h1').first()).toBeVisible();
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
         .analyze();
@@ -127,9 +136,13 @@ test('owner publishes localities, edits the bot and configures a municipal insur
           () => document.documentElement.scrollWidth <= innerWidth,
         ),
       ).toBe(true);
-      if (route === '/settings/bot-flow' || route === '/settings/shipping')
+      if (
+        route === '/settings/bot-flow' ||
+        route === '/settings/shipping' ||
+        route === '/settings/integrations'
+      )
         await page.screenshot({
-          path: `test-results/${route.endsWith('bot-flow') ? 'bot-flow' : 'shipping-rules'}-${viewport.width}.png`,
+          path: `test-results/${route.split('/').pop()}-${viewport.width}.png`,
           fullPage: true,
         });
     }

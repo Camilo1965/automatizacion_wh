@@ -16,11 +16,24 @@ export default defineConfig({
     },
   },
   build: {
+    chunkSizeWarningLimit: 450,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes('node_modules/recharts')) {
             return 'charts';
+          }
+          if (
+            id.includes('/settings/BotFlowPage') ||
+            id.includes('/settings/shipping/') ||
+            id.includes('/settings/integrations/') ||
+            id.includes('/settings/ShippingSettingsPage') ||
+            id.includes('/settings/IntegrationsPage') ||
+            id.includes('/settings/ConfigurationAuditPage') ||
+            id.includes('/settings/SecuritySettingsPage') ||
+            id.includes('/settings/PrivacySettingsPage')
+          ) {
+            return 'settings-heavy';
           }
           if (
             id.includes('node_modules/react') ||
