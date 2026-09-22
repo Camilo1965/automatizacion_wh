@@ -60,7 +60,9 @@ import {
 import type { ShippingQuoteOperations } from '../../modules/shipping/shipping-quote-service.js';
 import type { ShippingGuideOperations } from '../../modules/shipping/shipping-guide-service.js';
 import type { DashboardService } from '../../modules/dashboard/dashboard-service.js';
+import type { GlobalSearchService } from '../../modules/search/global-search-service.js';
 import { registerDashboardRoute } from './dashboard.js';
+import { registerGlobalSearchRoute } from './search.js';
 import { CARRIER_CATALOG } from '../../modules/shipping/carrier-catalog.js';
 import type { ConnectionCapabilityService } from '../../modules/whatsapp/connection-capability-service.js';
 import type { AlertService } from '../../modules/alerts/alert-service.js';
@@ -177,6 +179,7 @@ export type AdminRoutesDependencies = Readonly<{
   shippingQuoteService?: ShippingQuoteOperations;
   shippingGuideService?: ShippingGuideOperations;
   dashboardService?: DashboardService;
+  globalSearchService?: GlobalSearchService;
   connectionCapabilityService?: ConnectionCapabilityService;
   alertService?: AlertService;
   inventoryClosureService?: InventoryClosureService;
@@ -441,6 +444,12 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
   if (dashboardService !== undefined) {
     await registerDashboardRoute(app, {
       dashboardService,
+      authenticate: (request) => requireAdminSession(request, authService),
+    });
+  }
+  if (dependencies.globalSearchService !== undefined) {
+    await registerGlobalSearchRoute(app, {
+      globalSearchService: dependencies.globalSearchService,
       authenticate: (request) => requireAdminSession(request, authService),
     });
   }

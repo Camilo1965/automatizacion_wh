@@ -28,6 +28,7 @@ import type { ConversationAdminRepository } from './modules/conversations/postgr
 import type { ConversationTranscriptRepository } from './modules/conversations/conversation-transcript-repository.js';
 import type { ManualMessageService } from './modules/conversations/manual-message-service.js';
 import type { DashboardService } from './modules/dashboard/dashboard-service.js';
+import type { GlobalSearchService } from './modules/search/global-search-service.js';
 import type { ShippingQuoteOperations } from './modules/shipping/shipping-quote-service.js';
 import type { ShippingGuideOperations } from './modules/shipping/shipping-guide-service.js';
 import type { ConnectionCapabilityService } from './modules/whatsapp/connection-capability-service.js';
@@ -62,6 +63,7 @@ export type AppDependencies = Readonly<{
   shippingQuoteService?: ShippingQuoteOperations;
   shippingGuideService?: ShippingGuideOperations;
   dashboardService?: DashboardService;
+  globalSearchService?: GlobalSearchService;
   connectionCapabilityService?: ConnectionCapabilityService;
   alertService?: AlertService;
   inventoryClosureService?: InventoryClosureService;
@@ -226,6 +228,9 @@ export async function buildApp(
     ...(dependencies.dashboardService === undefined
       ? {}
       : { dashboardService: dependencies.dashboardService }),
+    ...(dependencies.globalSearchService === undefined
+      ? {}
+      : { globalSearchService: dependencies.globalSearchService }),
     ...(dependencies.connectionCapabilityService === undefined
       ? {}
       : {

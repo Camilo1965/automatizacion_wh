@@ -33,6 +33,7 @@ import { ShippingGuideService } from './modules/shipping/shipping-guide-service.
 import { LocalGuidePdfStorage } from './modules/shipping/local-guide-pdf-storage.js';
 import { DashboardService } from './modules/dashboard/dashboard-service.js';
 import { PostgresDashboardRepository } from './modules/dashboard/postgres-dashboard-repository.js';
+import { GlobalSearchService } from './modules/search/global-search-service.js';
 import { ConnectionCapabilityService } from './modules/whatsapp/connection-capability-service.js';
 import { AlertService } from './modules/alerts/alert-service.js';
 import { PostgresAlertRepository } from './modules/alerts/postgres-alert-repository.js';
@@ -164,6 +165,7 @@ async function main(): Promise<void> {
     dashboardService: new DashboardService(
       new PostgresDashboardRepository(database),
     ),
+    globalSearchService: new GlobalSearchService(database),
     connectionCapabilityService: new ConnectionCapabilityService({
       ...(config.whatsappPhoneNumberId === undefined
         ? {}

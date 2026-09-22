@@ -161,6 +161,34 @@ export const handlers = [
       authError ?? HttpResponse.json({ data: { items: [], nextCursor: null } })
     );
   }),
+  http.get(`${base}/search`, ({ request }) => {
+    const authError = requireAuth();
+    if (authError) return authError;
+    const q = new URL(request.url).searchParams.get('q') ?? '';
+    if (q.trim().length < 2) {
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'validation_error',
+            message: 'Query too short',
+          },
+        },
+        { status: 400 },
+      );
+    }
+    return HttpResponse.json({
+      data: {
+        items: [
+          {
+            kind: 'reference',
+            id: '22222222-2222-4222-8222-222222222222',
+            label: '01 · Tenis · Negro',
+            href: '/references/22222222-2222-4222-8222-222222222222',
+          },
+        ],
+      },
+    });
+  }),
   http.get(`${base}/inventory/closures`, () =>
     HttpResponse.json({
       data: {

@@ -168,6 +168,11 @@ describe('App shell', () => {
         'Cliente, teléfono, pedido o referencia',
       ),
     ).toHaveFocus();
+    const searchBox = screen.getByPlaceholderText(
+      'Cliente, teléfono, pedido o referencia',
+    );
+    await user.type(searchBox, 'Te');
+    expect(await screen.findByText('01 · Tenis · Negro')).toBeInTheDocument();
   }, 15_000);
 });
 

@@ -4,6 +4,7 @@ export * from './dashboard.js';
 export * from './conversations.js';
 export * from './whatsapp-connection.js';
 export * from './operations.js';
+export * from './global-search.js';
 
 export const ApiErrorSchema = z
   .object({
