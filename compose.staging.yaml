@@ -65,6 +65,8 @@ services:
       BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-3600}
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
       BACKUP_HEARTBEAT_URL: ${BACKUP_HEARTBEAT_URL:-}
+    # Keep the service present without racing the explicit one-shot smoke drill.
+    command: ['node', '-e', 'setInterval(() => {}, 2147483647)']
     depends_on:
       postgres:
         condition: service_healthy
@@ -112,12 +114,18 @@ services:
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
       S3_BUCKET: ${S3_BUCKET}
       BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-kairo-backups-staging}
+      BACKUP_S3_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID}
+      BACKUP_S3_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY}
     entrypoint: >
       /bin/sh -c "
+      set -eu;
       until mc alias set local http://minio:9000 \"$$S3_ACCESS_KEY_ID\" \"$$S3_SECRET_ACCESS_KEY\"; do sleep 1; done;
       mc mb --ignore-existing \"local/$$S3_BUCKET\";
       mc mb --ignore-existing \"local/$$BACKUP_S3_BUCKET\";
-      exit 0;
+      printf '%s' '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:ListBucket\",\"s3:GetBucketLocation\"],\"Resource\":[\"arn:aws:s3:::'\"$$BACKUP_S3_BUCKET\"'\"]},{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\"],\"Resource\":[\"arn:aws:s3:::'\"$$BACKUP_S3_BUCKET\"'/*\"]}]}' > /tmp/backup-policy.json;
+      mc admin user add local \"$$BACKUP_S3_ACCESS_KEY_ID\" \"$$BACKUP_S3_SECRET_ACCESS_KEY\";
+      mc admin policy create local kairo-backup-staging /tmp/backup-policy.json;
+      mc admin policy attach local kairo-backup-staging --user \"$$BACKUP_S3_ACCESS_KEY_ID\";
       "
     networks:
       - internal

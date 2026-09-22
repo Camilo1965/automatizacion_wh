@@ -65,13 +65,7 @@ export async function dumpPostgresCustom(databaseUrl, env = process.env) {
   const conn = parseDatabaseUrl(databaseUrl);
   const result = await runCaptured(
     'pg_dump',
-    [
-      ...connArgs(conn),
-      '--format=custom',
-      '--no-owner',
-      '--no-acl',
-      '--file=-',
-    ],
+    [...connArgs(conn), '--format=custom', '--no-owner', '--no-acl'],
     pgEnv(conn, env),
   );
   if (result.code !== 0) {

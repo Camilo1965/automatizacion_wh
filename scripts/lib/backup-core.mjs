@@ -218,6 +218,7 @@ export async function runEncryptedBackup(deps, env) {
   try {
     plaintext = await deps.dumpPostgres();
   } catch (err) {
+    if (err instanceof BackupError) throw err;
     throw new BackupError('dump_failed', 'pg_dump failed', err);
   }
   if (!plaintext?.length) {

@@ -87,6 +87,28 @@ describe('backup-core dump/upload failures', () => {
     ).rejects.toMatchObject({ code: 'dump_failed' });
   });
 
+  it('preserves safe pg_dump diagnostics from the database adapter', async () => {
+    const diagnostic = new BackupError(
+      'dump_failed',
+      'pg_dump exit 1: server version mismatch',
+    );
+
+    await expect(
+      runEncryptedBackup(
+        {
+          dumpPostgres: async () => {
+            throw diagnostic;
+          },
+          readSchemaVersion: async () => 'abc',
+          uploadObject: async () => {},
+          listObjectKeys: async () => [],
+          deleteObject: async () => {},
+        },
+        baseEnv(),
+      ),
+    ).rejects.toBe(diagnostic);
+  });
+
   it('maps upload failure to upload_failed after successful dump+encrypt', async () => {
     await expect(
       runEncryptedBackup(
