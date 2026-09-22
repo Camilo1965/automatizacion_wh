@@ -75,7 +75,16 @@ export async function createRuntime(
   const localityCatalogService = new LocalityCatalogService(database);
   await localityCatalogService.bootstrap();
   const authRepository = new PostgresAdminAuthRepository(database);
-  const authService = new AuthService(authRepository);
+  const authService = new AuthService(authRepository, {
+    ...(config.integrationEncryptionKey === undefined
+      ? {}
+      : {
+          mfaCrypto: new IntegrationSecretCrypto(
+            config.integrationEncryptionKey,
+          ),
+          mfaSigningKeyBase64: config.integrationEncryptionKey,
+        }),
+  });
   const catalogRepository = new PostgresCatalogRepository(database);
   const photoStorage = new LocalPhotoStorage(config.mediaRoot);
   const catalogService = new DefaultCatalogService(
@@ -269,12 +278,21 @@ export async function createRuntime(
           timers.push(timer);
         }
 
-        const closureTimer = setInterval(() => {
+        let purgingSessions = false;
+        const maintenanceTimer = setInterval(() => {
           if (stopped) return;
           void closureScheduler.tick(new Date());
+          if (purgingSessions) return;
+          purgingSessions = true;
+          void authService
+            .purgeExpiredSessions()
+            .catch((error: unknown) => onError('Session purge failed', error))
+            .finally(() => {
+              purgingSessions = false;
+            });
         }, 60_000);
-        closureTimer.unref();
-        timers.push(closureTimer);
+        maintenanceTimer.unref();
+        timers.push(maintenanceTimer);
         void closureScheduler.tick(new Date());
 
         if (

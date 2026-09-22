@@ -85,7 +85,11 @@ describe('admin create and reset password CLI logic', () => {
     try {
       const repository = new PostgresAdminAuthRepository(database);
       const authService = new AuthService(repository);
-      const login = await authService.login('camila', 'password1234');
+      const loginResult = await authService.login('camila', 'password1234');
+      if (loginResult.kind !== 'session') {
+        throw new Error('expected session login');
+      }
+      const login = loginResult;
 
       const sql = postgres(testDatabaseUrl, { max: 1, prepare: false });
       try {

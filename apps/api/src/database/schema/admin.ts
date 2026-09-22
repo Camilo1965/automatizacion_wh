@@ -35,6 +35,36 @@ export const adminUsers = pgTable(
   ],
 );
 
+export const adminMfaSecrets = pgTable('admin_mfa_secrets', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => adminUsers.id, { onDelete: 'cascade' }),
+  encryptedSecret: text('encrypted_secret').notNull(),
+  enabled: boolean('enabled').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const adminMfaRecoveryCodes = pgTable(
+  'admin_mfa_recovery_codes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => adminUsers.id, { onDelete: 'cascade' }),
+    codeHash: char('code_hash', { length: 64 }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('admin_mfa_recovery_codes_user_id_idx').on(table.userId),
+    unique('admin_mfa_recovery_codes_code_hash_unique').on(table.codeHash),
+  ],
+);
+
 export const adminSessions = pgTable(
   'admin_sessions',
   {

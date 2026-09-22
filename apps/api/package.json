@@ -17,7 +17,8 @@
     "admin:create": "tsx --env-file=../../.env src/cli/admin-create.ts",
     "admin:reset-password": "tsx --env-file=../../.env src/cli/admin-reset-password.ts",
     "localities:import": "tsx --env-file=../../.env src/cli/localities-import.ts",
-    "shipping:acceptance": "tsx --env-file=../../.env src/cli/controlled-shipping-acceptance.ts"
+    "shipping:acceptance": "tsx --env-file=../../.env src/cli/controlled-shipping-acceptance.ts",
+    "retention:simulate": "tsx --env-file=../../.env src/cli/retention-simulate.ts"
   },
   "dependencies": {
     "@camila/contracts": "workspace:*",

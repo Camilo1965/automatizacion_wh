@@ -35,11 +35,15 @@ Entiende el porqué y el diseño.
 
 Hechos y contratos concretos.
 
-| Documento                                                               | Contenido                              |
-| ----------------------------------------------------------------------- | -------------------------------------- |
-| [`.env.example`](../.env.example)                                       | Variables de entorno                   |
-| [Validación 99envíos](./integrations/99envios-validation-2026-09-07.md) | Evidencia de aceptación del adaptador  |
-| Scripts root                                                            | `package.json` en la raíz del monorepo |
+| Documento                                                                                       | Contenido                              |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------- |
+| [Hardening KAIRO (planes)](./superpowers/plans/2026-09-21-kairo-production-hardening-master.md) | Fases 1–10 y puertas `[HUMANO]`        |
+| [Matriz funcional](./acceptance/kairo-functional-matrix.md)                                     | Aceptación automatizable               |
+| [Runbooks](./runbooks/incident-response.md)                                                     | Incidentes, backup, Meta, 99envíos     |
+| [Piloto go/no-go](./pilot/go-no-go-checklist.md)                                                | Firma humana previa al piloto          |
+| [`.env.example`](../.env.example)                                                               | Variables de entorno                   |
+| [Validación 99envíos](./integrations/99envios-validation-2026-09-07.md)                         | Evidencia de aceptación del adaptador  |
+| Scripts root                                                                                    | `package.json` en la raíz del monorepo |
 
 ## Historial técnico
 

@@ -54,3 +54,32 @@ export class AuthenticationRequiredError extends Error {
     this.name = 'AuthenticationRequiredError';
   }
 }
+
+export class MfaEncryptionRequiredError extends Error {
+  readonly code = 'mfa_encryption_required';
+
+  constructor(
+    message = 'MFA requires INTEGRATION_ENCRYPTION_KEY to be configured',
+  ) {
+    super(message);
+    this.name = 'MfaEncryptionRequiredError';
+  }
+}
+
+export class InvalidMfaCodeError extends Error {
+  readonly code = 'invalid_mfa_code';
+
+  constructor(message = 'Código de verificación inválido') {
+    super(message);
+    this.name = 'InvalidMfaCodeError';
+  }
+}
+
+export class MfaNotConfiguredError extends Error {
+  readonly code = 'mfa_not_configured';
+
+  constructor(message = 'MFA is not configured for this account') {
+    super(message);
+    this.name = 'MfaNotConfiguredError';
+  }
+}

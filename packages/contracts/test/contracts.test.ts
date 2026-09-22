@@ -578,6 +578,13 @@ describe('SessionResponseSchema and LoginResponseSchema', () => {
   it('accepts session and login envelopes', () => {
     expect(SessionResponseSchema.parse(valid)).toEqual(valid);
     expect(LoginResponseSchema.parse(valid)).toEqual(valid);
+    expect(
+      LoginResponseSchema.parse({
+        data: { mfaRequired: true, mfaToken: 'mfa-token-value' },
+      }),
+    ).toEqual({
+      data: { mfaRequired: true, mfaToken: 'mfa-token-value' },
+    });
   });
 
   it('rejects unknown fields and invalid nested uuid', () => {

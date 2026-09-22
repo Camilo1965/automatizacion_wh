@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { AuthService } from '../src/modules/auth/auth-service.js';
 import type {
   AdminAuthRepository,
+  AdminMfaRecoveryCodeRecord,
+  AdminMfaSecretRecord,
   AdminSessionRecord,
   AdminUserRecord,
   SessionWithUser,
@@ -19,6 +21,8 @@ import { hashSessionToken } from '../src/modules/auth/session-token.js';
 class MemoryAdminAuthRepository implements AdminAuthRepository {
   users = new Map<string, AdminUserRecord>();
   sessions = new Map<string, AdminSessionRecord>();
+  mfaSecrets = new Map<string, AdminMfaSecretRecord>();
+  recoveryCodes = new Map<string, AdminMfaRecoveryCodeRecord>();
 
   async findUserByUsername(username: string): Promise<AdminUserRecord | null> {
     for (const user of this.users.values()) {
@@ -119,6 +123,100 @@ class MemoryAdminAuthRepository implements AdminAuthRepository {
     }
     this.sessions.set(sessionId, { ...session, revokedAt });
   }
+
+  async purgeExpiredSessions(now: Date): Promise<number> {
+    let removed = 0;
+    for (const [id, session] of this.sessions) {
+      if (session.expiresAt.getTime() <= now.getTime()) {
+        this.sessions.delete(id);
+        removed += 1;
+      }
+    }
+    return removed;
+  }
+
+  async findMfaSecretByUserId(
+    userId: string,
+  ): Promise<AdminMfaSecretRecord | null> {
+    return this.mfaSecrets.get(userId) ?? null;
+  }
+
+  async upsertMfaSecret(input: {
+    userId: string;
+    encryptedSecret: string;
+    enabled: boolean;
+    createdAt: Date;
+  }): Promise<AdminMfaSecretRecord> {
+    const record: AdminMfaSecretRecord = {
+      userId: input.userId,
+      encryptedSecret: input.encryptedSecret,
+      enabled: input.enabled,
+      createdAt: input.createdAt,
+    };
+    this.mfaSecrets.set(input.userId, record);
+    return record;
+  }
+
+  async setMfaEnabled(userId: string, enabled: boolean): Promise<void> {
+    const current = this.mfaSecrets.get(userId);
+    if (current !== undefined) {
+      this.mfaSecrets.set(userId, { ...current, enabled });
+    }
+  }
+
+  async deleteMfaForUser(userId: string): Promise<void> {
+    this.mfaSecrets.delete(userId);
+    for (const [id, code] of this.recoveryCodes) {
+      if (code.userId === userId) {
+        this.recoveryCodes.delete(id);
+      }
+    }
+  }
+
+  async replaceMfaRecoveryCodes(input: {
+    userId: string;
+    codeHashes: readonly string[];
+    createdAt: Date;
+  }): Promise<void> {
+    for (const [id, code] of this.recoveryCodes) {
+      if (code.userId === input.userId) {
+        this.recoveryCodes.delete(id);
+      }
+    }
+    for (const codeHash of input.codeHashes) {
+      const id = crypto.randomUUID();
+      this.recoveryCodes.set(id, {
+        id,
+        userId: input.userId,
+        codeHash,
+        usedAt: null,
+        createdAt: input.createdAt,
+      });
+    }
+  }
+
+  async findUnusedRecoveryCode(
+    userId: string,
+    codeHash: string,
+  ): Promise<AdminMfaRecoveryCodeRecord | null> {
+    for (const code of this.recoveryCodes.values()) {
+      if (
+        code.userId === userId &&
+        code.codeHash === codeHash &&
+        code.usedAt === null
+      ) {
+        return code;
+      }
+    }
+    return null;
+  }
+
+  async markRecoveryCodeUsed(id: string, usedAt: Date): Promise<void> {
+    const code = this.recoveryCodes.get(id);
+    if (code !== undefined) {
+      this.recoveryCodes.set(id, { ...code, usedAt });
+    }
+  }
 }
 
 describe('AuthService', () => {
@@ -161,6 +259,10 @@ describe('AuthService', () => {
 
     await service.createUser('camila', 'password1234', 'password1234');
     const result = await service.login('Camila', 'password1234');
+    expect(result.kind).toBe('session');
+    if (result.kind !== 'session') {
+      throw new Error('expected session login');
+    }
 
     expect(result.user.username).toBe('camila');
     expect(result.token).toBe('fixed-session-token-value-32b!!!!');
@@ -201,7 +303,11 @@ describe('AuthService', () => {
     });
 
     await service.createUser('camila', 'password1234', 'password1234');
-    const { token } = await service.login('camila', 'password1234');
+    const loginResult = await service.login('camila', 'password1234');
+    if (loginResult.kind !== 'session') {
+      throw new Error('expected session login');
+    }
+    const { token } = loginResult;
     await expect(service.getSession(token)).resolves.toEqual({
       id: expect.any(String),
       username: 'camila',
@@ -216,7 +322,11 @@ describe('AuthService', () => {
       now: () => now,
       createToken: () => 'session-token-bbbbbbbbbbbbbbbbbbb',
     });
-    const login = await second.login('camila', 'password1234');
+    const loginAttempt = await second.login('camila', 'password1234');
+    if (loginAttempt.kind !== 'session') {
+      throw new Error('expected session login');
+    }
+    const login = loginAttempt;
     now = new Date('2026-09-07T12:01:00.000Z');
     await expect(second.getSession(login.token)).rejects.toBeInstanceOf(
       AuthenticationRequiredError,
@@ -230,7 +340,11 @@ describe('AuthService', () => {
     });
 
     await service.createUser('camila', 'password1234', 'password1234');
-    const { token } = await service.login('camila', 'password1234');
+    const loginResult = await service.login('camila', 'password1234');
+    if (loginResult.kind !== 'session') {
+      throw new Error('expected session login');
+    }
+    const { token } = loginResult;
 
     await service.resetPassword('camila', 'new-password-99', 'new-password-99');
 

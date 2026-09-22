@@ -1,9 +1,16 @@
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull, lte } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
-import { adminSessions, adminUsers } from '../../database/schema/index.js';
+import {
+  adminMfaRecoveryCodes,
+  adminMfaSecrets,
+  adminSessions,
+  adminUsers,
+} from '../../database/schema/index.js';
 import type {
   AdminAuthRepository,
+  AdminMfaRecoveryCodeRecord,
+  AdminMfaSecretRecord,
   AdminSessionRecord,
   AdminUserRecord,
   SessionWithUser,
@@ -189,5 +196,142 @@ export class PostgresAdminAuthRepository implements AdminAuthRepository {
       .where(
         and(eq(adminSessions.id, sessionId), isNull(adminSessions.revokedAt)),
       );
+  }
+
+  async purgeExpiredSessions(now: Date): Promise<number> {
+    const removed = await this.database.orm
+      .delete(adminSessions)
+      .where(lte(adminSessions.expiresAt, now))
+      .returning({ id: adminSessions.id });
+    return removed.length;
+  }
+
+  async findMfaSecretByUserId(
+    userId: string,
+  ): Promise<AdminMfaSecretRecord | null> {
+    const rows = await this.database.orm
+      .select()
+      .from(adminMfaSecrets)
+      .where(eq(adminMfaSecrets.userId, userId))
+      .limit(1);
+    const row = rows[0];
+    if (row === undefined) {
+      return null;
+    }
+    return {
+      userId: row.userId,
+      encryptedSecret: row.encryptedSecret,
+      enabled: row.enabled,
+      createdAt: row.createdAt,
+    };
+  }
+
+  async upsertMfaSecret(input: {
+    userId: string;
+    encryptedSecret: string;
+    enabled: boolean;
+    createdAt: Date;
+  }): Promise<AdminMfaSecretRecord> {
+    const rows = await this.database.orm
+      .insert(adminMfaSecrets)
+      .values({
+        userId: input.userId,
+        encryptedSecret: input.encryptedSecret,
+        enabled: input.enabled,
+        createdAt: input.createdAt,
+      })
+      .onConflictDoUpdate({
+        target: adminMfaSecrets.userId,
+        set: {
+          encryptedSecret: input.encryptedSecret,
+          enabled: input.enabled,
+        },
+      })
+      .returning();
+    const row = rows[0];
+    if (row === undefined) {
+      throw new Error('Failed to upsert MFA secret');
+    }
+    return {
+      userId: row.userId,
+      encryptedSecret: row.encryptedSecret,
+      enabled: row.enabled,
+      createdAt: row.createdAt,
+    };
+  }
+
+  async setMfaEnabled(userId: string, enabled: boolean): Promise<void> {
+    await this.database.orm
+      .update(adminMfaSecrets)
+      .set({ enabled })
+      .where(eq(adminMfaSecrets.userId, userId));
+  }
+
+  async deleteMfaForUser(userId: string): Promise<void> {
+    await this.database.orm.transaction(async (tx) => {
+      await tx
+        .delete(adminMfaRecoveryCodes)
+        .where(eq(adminMfaRecoveryCodes.userId, userId));
+      await tx
+        .delete(adminMfaSecrets)
+        .where(eq(adminMfaSecrets.userId, userId));
+    });
+  }
+
+  async replaceMfaRecoveryCodes(input: {
+    userId: string;
+    codeHashes: readonly string[];
+    createdAt: Date;
+  }): Promise<void> {
+    await this.database.orm.transaction(async (tx) => {
+      await tx
+        .delete(adminMfaRecoveryCodes)
+        .where(eq(adminMfaRecoveryCodes.userId, input.userId));
+      if (input.codeHashes.length === 0) {
+        return;
+      }
+      await tx.insert(adminMfaRecoveryCodes).values(
+        input.codeHashes.map((codeHash) => ({
+          userId: input.userId,
+          codeHash,
+          createdAt: input.createdAt,
+        })),
+      );
+    });
+  }
+
+  async findUnusedRecoveryCode(
+    userId: string,
+    codeHash: string,
+  ): Promise<AdminMfaRecoveryCodeRecord | null> {
+    const rows = await this.database.orm
+      .select()
+      .from(adminMfaRecoveryCodes)
+      .where(
+        and(
+          eq(adminMfaRecoveryCodes.userId, userId),
+          eq(adminMfaRecoveryCodes.codeHash, codeHash),
+          isNull(adminMfaRecoveryCodes.usedAt),
+        ),
+      )
+      .limit(1);
+    const row = rows[0];
+    if (row === undefined) {
+      return null;
+    }
+    return {
+      id: row.id,
+      userId: row.userId,
+      codeHash: row.codeHash,
+      usedAt: row.usedAt,
+      createdAt: row.createdAt,
+    };
+  }
+
+  async markRecoveryCodeUsed(id: string, usedAt: Date): Promise<void> {
+    await this.database.orm
+      .update(adminMfaRecoveryCodes)
+      .set({ usedAt })
+      .where(eq(adminMfaRecoveryCodes.id, id));
   }
 }

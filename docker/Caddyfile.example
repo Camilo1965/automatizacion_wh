@@ -1,0 +1,32 @@
+# Copy to docker/Caddyfile and set CAMILA_DOMAIN in compose / env.
+# [HUMANO] DNS must point to this host before enabling HTTPS blocks.
+
+{
+  # email you@example.com
+}
+
+:80 {
+  encode gzip
+
+  handle /api/* {
+    reverse_proxy api:3000
+  }
+
+  handle {
+    reverse_proxy admin:80
+  }
+}
+
+# [HUMANO] Uncomment after DNS + TLS strategy is chosen (automatic ACME or manual certs).
+#
+# {$CAMILA_DOMAIN} {
+#   encode gzip
+#
+#   handle /api/* {
+#     reverse_proxy api:3000
+#   }
+#
+#   handle {
+#     reverse_proxy admin:80
+#   }
+# }

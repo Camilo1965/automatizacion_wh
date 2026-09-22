@@ -6,7 +6,12 @@ export * from './whatsapp.js';
 export * from './shipping.js';
 export * from './ops.js';
 
-import { adminSessions, adminUsers } from './admin.js';
+import {
+  adminMfaRecoveryCodes,
+  adminMfaSecrets,
+  adminSessions,
+  adminUsers,
+} from './admin.js';
 import {
   catalogImports,
   catalogReferences,
@@ -58,6 +63,8 @@ export const schema = {
   botFlowVersions,
   botFlowDrafts,
   adminUsers,
+  adminMfaSecrets,
+  adminMfaRecoveryCodes,
   adminSessions,
   catalogReferences,
   catalogStock,

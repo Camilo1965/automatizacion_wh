@@ -15,7 +15,8 @@ import { setUnauthorizedHandler } from '../api/client';
 type AuthContextValue = {
   user: AdminUserPublic | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<authApi.LoginResult>;
+  completeMfaLogin: (mfaToken: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   clearSession: () => void;
 };
@@ -63,9 +64,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
-    const nextUser = await authApi.login(username, password);
-    setUser(nextUser);
+    const result = await authApi.login(username, password);
+    if (result.kind === 'session') {
+      setUser(result.user);
+    }
+    return result;
   }, []);
+
+  const completeMfaLogin = useCallback(
+    async (mfaToken: string, code: string) => {
+      const nextUser = await authApi.verifyMfaLogin(mfaToken, code);
+      setUser(nextUser);
+    },
+    [],
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -80,10 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       login,
+      completeMfaLogin,
       logout,
       clearSession,
     }),
-    [user, loading, login, logout, clearSession],
+    [user, loading, login, completeMfaLogin, logout, clearSession],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

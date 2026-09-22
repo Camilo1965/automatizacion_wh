@@ -25,7 +25,7 @@ const TEMPORARY_ERROR_MESSAGE =
   'No se pudo conectar. Revisa la conexión e intenta de nuevo.';
 
 export function LoginPage() {
-  const { user, loading, login } = useAuth();
+  const { user, loading, login, completeMfaLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [username, setUsername] = useState('');
@@ -34,6 +34,8 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
   const reduceMotion = useReducedMotion();
 
   if (!loading && user !== null) {
@@ -47,23 +49,42 @@ export function LoginPage() {
     return <Navigate to={from} replace />;
   }
 
+  function redirectAfterLogin() {
+    const from =
+      typeof location.state === 'object' &&
+      location.state !== null &&
+      'from' in location.state &&
+      typeof (location.state as { from: unknown }).from === 'string'
+        ? (location.state as { from: string }).from
+        : '/';
+    void navigate(from, { replace: true });
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
     setSubmitting(true);
     try {
-      await login(username, password);
-      const from =
-        typeof location.state === 'object' &&
-        location.state !== null &&
-        'from' in location.state &&
-        typeof (location.state as { from: unknown }).from === 'string'
-          ? (location.state as { from: string }).from
-          : '/';
-      void navigate(from, { replace: true });
+      if (mfaToken !== null) {
+        await completeMfaLogin(mfaToken, mfaCode.trim());
+        redirectAfterLogin();
+        return;
+      }
+      const result = await login(username, password);
+      if (result.kind === 'mfa_required') {
+        setMfaToken(result.mfaToken);
+        setMfaCode('');
+        return;
+      }
+      redirectAfterLogin();
     } catch (err) {
       if (err instanceof ApiClientError && err.code === 'invalid_credentials') {
         setError(INVALID_CREDENTIALS_MESSAGE);
+      } else if (
+        err instanceof ApiClientError &&
+        err.code === 'invalid_mfa_code'
+      ) {
+        setError('Código de verificación inválido');
       } else if (err instanceof ApiClientError && err.status === 429) {
         setError(RATE_LIMIT_MESSAGE);
       } else if (err instanceof ApiClientError) {
@@ -197,6 +218,40 @@ export function LoginPage() {
                   ) : null}
                 </div>
 
+                {mfaToken !== null ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="mfa-code">Código de verificación</Label>
+                    <Input
+                      id="mfa-code"
+                      name="mfa-code"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      aria-describedby="mfa-code-help"
+                      value={mfaCode}
+                      onChange={(event) => setMfaCode(event.target.value)}
+                      required
+                      className="h-11 rounded-[1.125rem] bg-muted"
+                    />
+                    <p
+                      id="mfa-code-help"
+                      className="text-xs text-muted-foreground"
+                    >
+                      Ingresa el código de tu app de autenticación.
+                    </p>
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                      onClick={() => {
+                        setMfaToken(null);
+                        setMfaCode('');
+                        setError('');
+                      }}
+                    >
+                      Volver a usuario y contraseña
+                    </button>
+                  </div>
+                ) : null}
+
                 <ErrorMessage message={error} />
 
                 <Button
@@ -205,7 +260,11 @@ export function LoginPage() {
                   disabled={submitting}
                   loading={submitting}
                 >
-                  {submitting ? 'Entrando…' : 'Entrar al panel'}
+                  {submitting
+                    ? 'Entrando…'
+                    : mfaToken !== null
+                      ? 'Verificar código'
+                      : 'Entrar al panel'}
                 </Button>
               </form>
               <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">

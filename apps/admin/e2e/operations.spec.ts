@@ -21,6 +21,7 @@ async function login(page: Page) {
   await expect(
     page.getByRole('button', { name: 'Cerrar sesión' }),
   ).toBeVisible();
+  await expect(page.locator('main')).toBeVisible();
 }
 
 test.describe.configure({ mode: 'serial' });

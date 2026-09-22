@@ -4,6 +4,9 @@ import { ZodError } from 'zod';
 import {
   AuthenticationRequiredError,
   InvalidCredentialsError,
+  InvalidMfaCodeError,
+  MfaEncryptionRequiredError,
+  MfaNotConfiguredError,
   PasswordMismatchError,
   UsernameConflictError,
   UserNotFoundError,
@@ -57,6 +60,18 @@ export function mapDomainError(
 
   if (error instanceof AuthenticationRequiredError) {
     return sendApiError(reply, 401, error.code, error.message);
+  }
+
+  if (error instanceof InvalidMfaCodeError) {
+    return sendApiError(reply, 401, error.code, error.message);
+  }
+
+  if (error instanceof MfaNotConfiguredError) {
+    return sendApiError(reply, 400, error.code, error.message);
+  }
+
+  if (error instanceof MfaEncryptionRequiredError) {
+    return sendApiError(reply, 503, error.code, error.message);
   }
 
   if (error instanceof UsernameValidationError) {
