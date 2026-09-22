@@ -1,4 +1,5 @@
-# Stub scrape config for Task 8→10 handoff. Task 10 adds API metrics targets.
+# Prometheus scrapes KAIRO on the internal Docker network only.
+# Do not publish :9090 or API/worker /metrics on the public internet.
 
 global:
   scrape_interval: 30s
@@ -7,12 +8,38 @@ global:
 rule_files:
   - /etc/prometheus/alerts.yml
 
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
 scrape_configs:
   - job_name: prometheus
     static_configs:
       - targets: ['localhost:9090']
 
-  # Task 10: scrape KAIRO API metrics on the internal network once exposed.
-  # - job_name: kairo-api
+  - job_name: kairo-api
+    metrics_path: /metrics
+    # Optional: set METRICS_TOKEN and pass bearer via authorization (operator-managed).
+    # authorization:
+    #   type: Bearer
+    #   credentials_file: /etc/prometheus/metrics_token
+    static_configs:
+      - targets: ['api:3000']
+        labels:
+          service: api
+
+  - job_name: kairo-worker
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['worker:9091']
+        labels:
+          service: worker
+
+  # Optional host exporters for disk pressure / TLS cert expiry ([HUMANO] enable on VPS).
+  # - job_name: node
   #   static_configs:
-  #     - targets: ['api:3000']
+  #     - targets: ['node-exporter:9100']
+  # - job_name: caddy
+  #   static_configs:
+  #     - targets: ['caddy:2019']

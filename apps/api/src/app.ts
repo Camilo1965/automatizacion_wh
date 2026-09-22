@@ -38,13 +38,25 @@ import type { RetentionService } from './modules/privacy/retention-service.js';
 import type { InventoryClosureService } from './modules/inventory/inventory-closure-service.js';
 import type { IntegrationHealthService } from './modules/integrations/integration-health-service.js';
 import type { IntegrationSettingsOperations } from './modules/integrations/integration-settings-service.js';
+import { refreshOperationalGauges } from './modules/observability/collect-gauges.js';
+import type { ErrorReporter } from './modules/observability/error-reporter.js';
+import {
+  classifyRoute,
+  CORRELATION_HEADER,
+  MetricsRegistry,
+  normalizeCorrelationId,
+} from './modules/observability/metrics.js';
+import { OrderConflictError } from './modules/orders/order-errors.js';
 import { adminRoutes } from './routes/admin/index.js';
 import { healthRoutes } from './routes/health.js';
 import { whatsappRoutes } from './routes/whatsapp.js';
+import { randomUUID } from 'node:crypto';
 
 export type AppDependencies = Readonly<{
   config: AppConfig;
   database: PostgresDatabase;
+  metrics?: MetricsRegistry;
+  errorReporter?: ErrorReporter;
   authService: AuthService;
   auditService?: AuditService;
   retentionService?: RetentionService;
@@ -81,6 +93,7 @@ export type AppDependencies = Readonly<{
 declare module 'fastify' {
   interface FastifyInstance {
     database: PostgresDatabase;
+    metrics: MetricsRegistry;
   }
 }
 
@@ -115,8 +128,16 @@ function requireAdminOrigin(
 export async function buildApp(
   dependencies: AppDependencies,
 ): Promise<FastifyInstance> {
+  const metrics = dependencies.metrics ?? new MetricsRegistry();
+  const metricsEnabled = dependencies.config.metricsEnabled !== false;
+
   const app = Fastify({
     bodyLimit: 1024 * 1024,
+    genReqId(req) {
+      return (
+        normalizeCorrelationId(req.headers[CORRELATION_HEADER]) ?? randomUUID()
+      );
+    },
     logger: {
       level: dependencies.config.logLevel,
       redact: {
@@ -148,6 +169,7 @@ export async function buildApp(
   });
 
   app.decorate('database', dependencies.database);
+  app.decorate('metrics', metrics);
 
   await app.register(helmet);
   await app.register(cookie);
@@ -173,6 +195,28 @@ export async function buildApp(
     runFirst: true,
   });
 
+  app.addHook('onRequest', async (request, reply) => {
+    reply.header(CORRELATION_HEADER, request.id);
+    (request as FastifyRequest & { metricsStartedAt?: bigint }).metricsStartedAt =
+      process.hrtime.bigint();
+  });
+
+  app.addHook('onResponse', async (request, reply) => {
+    const started = (
+      request as FastifyRequest & { metricsStartedAt?: bigint }
+    ).metricsStartedAt;
+    const durationSeconds =
+      started === undefined
+        ? 0
+        : Number(process.hrtime.bigint() - started) / 1e9;
+    metrics.recordHttpRequest({
+      method: request.method,
+      routeGroup: classifyRoute(request.url),
+      statusCode: reply.statusCode,
+      durationSeconds,
+    });
+  });
+
   app.addHook('preHandler', async (request, reply) => {
     const rejected = requireAdminOrigin(
       request,
@@ -185,8 +229,56 @@ export async function buildApp(
   });
 
   app.setErrorHandler((error: FastifyError, request, reply) => {
-    return mapDomainError(error, request, reply);
+    if (
+      error instanceof OrderConflictError &&
+      error.code === 'insufficient_stock'
+    ) {
+      metrics.recordInventoryConflict('insufficient_stock');
+    }
+    const mapped = mapDomainError(error, request, reply);
+    if (mapped === null || reply.statusCode >= 500) {
+      void dependencies.errorReporter?.report(error, {
+        correlationId: request.id,
+        tags: { surface: 'http' },
+      });
+    }
+    return mapped;
   });
+
+  if (metricsEnabled) {
+    app.get('/metrics', async (request, reply) => {
+      const token = dependencies.config.metricsToken;
+      if (token !== undefined) {
+        const auth = request.headers.authorization;
+        const bearer =
+          typeof auth === 'string' && auth.startsWith('Bearer ')
+            ? auth.slice('Bearer '.length)
+            : undefined;
+        const queryToken =
+          typeof request.query === 'object' &&
+          request.query !== null &&
+          'token' in request.query &&
+          typeof (request.query as { token?: unknown }).token === 'string'
+            ? (request.query as { token: string }).token
+            : undefined;
+        if (bearer !== token && queryToken !== token) {
+          return reply.status(401).send({ error: 'unauthorized' });
+        }
+      }
+
+      await refreshOperationalGauges({
+        metrics,
+        database: dependencies.database,
+        ...(dependencies.config.backupMetricsPath === undefined
+          ? {}
+          : { backupMetricsPath: dependencies.config.backupMetricsPath }),
+      });
+
+      return reply
+        .type('text/plain; version=0.0.4; charset=utf-8')
+        .send(metrics.renderPrometheus());
+    });
+  }
 
   await app.register(healthRoutes);
   await app.register(whatsappRoutes, {

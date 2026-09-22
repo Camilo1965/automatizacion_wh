@@ -1,15 +1,44 @@
-# Alertmanager stub. [HUMANO] Task 10: set a real receiver webhook; never commit its secret.
+# Alertmanager example. Copy to a server-local file and inject the webhook URL
+# from a secret store — NEVER commit the real webhook or token.
+#
+#   cp infra/alertmanager/alertmanager.yml.example /etc/kairo/alertmanager.yml
+#   # edit receiver URL from vault / env — not from git
+#   # then mount that file in compose instead of this example
+#
+# [HUMANO] Supply ALERT_WEBHOOK_URL (Slack/Discord/PagerDuty/hosted monitor).
+# External receipt evidence stays [HUMANO] until a real destination is set.
 
 route:
-  receiver: blackhole
-  group_by: ['alertname']
+  receiver: default
+  group_by: ['alertname', 'severity']
   group_wait: 30s
   group_interval: 5m
-  repeat_interval: 12h
+  repeat_interval: 4h
+  routes:
+    - matchers:
+        - severity = critical
+      receiver: critical
+      continue: true
 
 receivers:
-  - name: blackhole
-    # [HUMANO] Example after secrets are supplied out-of-band:
+  - name: default
+    # Black-hole until [HUMANO] wires a destination.
+    webhook_configs: []
+
+  - name: critical
+    webhook_configs: []
+    # Example after secrets are supplied out-of-band (do not commit):
     # webhook_configs:
-    #   - url: 'https://hooks.example.com/...'
+    #   - url: 'https://hooks.example.com/services/REPLACE_ME'
     #     send_resolved: true
+    #     http_config:
+    #       authorization:
+    #         type: Bearer
+    #         credentials: 'REPLACE_ME_TOKEN'
+
+inhibit_rules:
+  - source_matchers:
+      - severity = critical
+    target_matchers:
+      - severity = warning
+    equal: ['alertname']

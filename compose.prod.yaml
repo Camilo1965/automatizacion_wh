@@ -93,6 +93,10 @@ services:
     environment:
       HOST: 0.0.0.0
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      BACKUP_METRICS_PATH: /backups/heartbeat.json
+      KAIRO_RELEASE_SHA: ${KAIRO_RELEASE_SHA:-}
+      ERROR_TRACKING_DSN: ${ERROR_TRACKING_DSN:-}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,6 +105,8 @@ services:
     volumes:
       # Local migration source / emergency fallback. Runtime media uses STORAGE_DRIVER=s3.
       - media_data:/data/media
+      # Read-only backup heartbeat for metrics gauges (Task 10).
+      - backup_data:/backups:ro
     expose:
       - '3000'
     cpus: 1.0
@@ -132,6 +138,11 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       WORKER_HEALTH_FILE: /tmp/kairo-worker-health.json
+      WORKER_METRICS_PORT: '9091'
+      BACKUP_METRICS_PATH: /backups/heartbeat.json
+      KAIRO_RELEASE_SHA: ${KAIRO_RELEASE_SHA:-}
+      ERROR_TRACKING_DSN: ${ERROR_TRACKING_DSN:-}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -140,6 +151,9 @@ services:
     volumes:
       # Local migration source / emergency fallback. Runtime media uses STORAGE_DRIVER=s3.
       - media_data:/data/media
+      - backup_data:/backups:ro
+    expose:
+      - '9091'
     cpus: 1.0
     mem_limit: 768m
     networks:
@@ -283,6 +297,10 @@ services:
     depends_on:
       api:
         condition: service_healthy
+      worker:
+        condition: service_started
+      alertmanager:
+        condition: service_started
     read_only: true
     tmpfs:
       - /tmp
@@ -294,7 +312,7 @@ services:
     mem_limit: 512m
     networks:
       - internal
-    # Task 10 expands scrape targets + alert rules.
+    # Internal only — do not publish 9090 on the host.
 
   alertmanager:
     image: prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
@@ -303,6 +321,7 @@ services:
       - --config.file=/etc/alertmanager/alertmanager.yml
       - --storage.path=/alertmanager
     volumes:
+      # [HUMANO] Replace with server-local config that injects webhook URL; never commit secrets.
       - ./infra/alertmanager/alertmanager.yml.example:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager_data:/alertmanager
     expose:
@@ -318,7 +337,7 @@ services:
     mem_limit: 128m
     networks:
       - internal
-    # [HUMANO] Task 10: wire external webhook receiver; never commit its secret.
+    # [HUMANO] Wire external webhook receiver; never commit its secret.
 
 volumes:
   postgres_data:

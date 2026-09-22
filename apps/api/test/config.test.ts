@@ -29,6 +29,8 @@ describe('loadConfig', () => {
       sessionIdleTtlMinutes: 720,
       sessionLastSeenThrottleSeconds: 300,
       retentionExecutionEnabled: false,
+      metricsEnabled: true,
+      workerMetricsPort: 9091,
     });
   });
 

@@ -4,7 +4,8 @@ export class DailyClosureScheduler {
   private lastGeneratedDate: string | null = null;
   constructor(private readonly closures: ClosureGenerator) {}
 
-  async tick(now: Date): Promise<void> {
+  /** @returns true when a closure was generated this tick */
+  async tick(now: Date): Promise<boolean> {
     const parts = Object.fromEntries(
       new Intl.DateTimeFormat('en-CA', {
         timeZone: 'America/Bogota',
@@ -20,8 +21,9 @@ export class DailyClosureScheduler {
     );
     const businessDate = `${parts.year}-${parts.month}-${parts.day}`;
     if (Number(parts.hour) < 19 || this.lastGeneratedDate === businessDate)
-      return;
+      return false;
     await this.closures.generate(businessDate);
     this.lastGeneratedDate = businessDate;
+    return true;
   }
 }

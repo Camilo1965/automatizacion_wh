@@ -1,12 +1,136 @@
-# Stub alert rules for Task 8→10 handoff. Task 10 fills real expressions.
-
 groups:
-  - name: kairo-stubs
+  - name: kairo-availability
     rules:
-      - alert: KairoPlaceholderAlwaysSilent
-        expr: vector(0)
+      - alert: KairoApiDown
+        expr: up{job="kairo-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: KAIRO API scrape target is down
+          runbook: docs/runbooks/monitoring-alerts.md#kairoapidown
+
+      - alert: KairoWorkerDown
+        expr: up{job="kairo-worker"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: KAIRO worker scrape target is down
+          runbook: docs/runbooks/monitoring-alerts.md#kairoworkerdown
+
+      - alert: KairoWorkerHeartbeatStale
+        expr: kairo_worker_heartbeat_age_seconds > 90
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Worker heartbeat older than 90s
+
+      - alert: KairoDatabaseNotReady
+        expr: kairo_db_ready == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Database readiness gauge is down
+
+  - name: kairo-queues
+    rules:
+      - alert: KairoQueueDepthHigh
+        expr: kairo_queue_depth > 50
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Queue {{ $labels.queue }} depth is high
+
+      - alert: KairoQueueOldestAge
+        expr: kairo_queue_oldest_age_seconds > 900
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Oldest job in {{ $labels.queue }} is older than 15m
+
+  - name: kairo-providers
+    rules:
+      - alert: KairoProviderFailuresRepeated
+        expr: increase(kairo_provider_failures_total[15m]) >= 5
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: Repeated {{ $labels.provider }} provider failures
+
+      - alert: KairoGuideUncertain
+        expr: increase(kairo_guide_outcomes_total{outcome="uncertain"}[30m]) >= 1
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: Uncertain shipping guide outcome detected
+
+      - alert: KairoWhatsAppSendFailures
+        expr: increase(kairo_whatsapp_send_total{outcome="failed"}[15m]) >= 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Multiple WhatsApp send failures
+
+  - name: kairo-backup
+    rules:
+      - alert: KairoBackupTooOld
+        expr: kairo_last_backup_age_seconds > 93600
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: Last successful backup older than 26h (RPO check)
+
+      - alert: KairoBackupFailed
+        expr: kairo_last_backup_ok == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Last backup marked not OK
+
+      - alert: KairoRestoreDrillFailed
+        expr: kairo_last_restore_drill_ok == 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Last restore drill reported failure
+
+  - name: kairo-synthetic
+    rules:
+      - alert: KairoSyntheticFailure
+        expr: increase(kairo_synthetic_failures_total[10m]) >= 1
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Synthetic staging failure recorded (alert-path drill)
+
+  - name: kairo-host-optional
+    rules:
+      # Requires node_exporter ([HUMANO] enable on VPS). Silent when metric absent.
+      - alert: KairoDiskPressure
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes) < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Filesystem below 15% free
+
+      # Requires Caddy admin metrics or blackbox/x509 exporter ([HUMANO]).
+      - alert: KairoCertificateExpiring
+        expr: (probe_ssl_earliest_cert_expiry - time()) < 86400 * 14
         for: 1h
         labels:
-          severity: info
+          severity: warning
         annotations:
-          summary: Placeholder rule so alerts.yml parses; replaced in Task 10.
+          summary: TLS certificate expires within 14 days

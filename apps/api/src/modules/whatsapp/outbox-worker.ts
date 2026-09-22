@@ -73,11 +73,23 @@ export class OutboxWorker {
     private readonly photoStorage?: OutboxPhotoStorage,
     private readonly incidents?: IncidentSink,
     private readonly documentStorage?: OutboxPhotoStorage,
+    private readonly metrics?: Readonly<{
+      recordJob(input: {
+        queue: 'whatsapp_outbound';
+        outcome: 'attempt' | 'failure';
+      }): void;
+      recordWhatsAppSend(outcome: 'sent' | 'failed'): void;
+      recordProviderFailure(provider: 'whatsapp'): void;
+    }>,
   ) {}
 
   async runOnce(): Promise<boolean> {
     const message = await this.repository.claimNext();
     if (message === null) return false;
+    this.metrics?.recordJob({
+      queue: 'whatsapp_outbound',
+      outcome: 'attempt',
+    });
     try {
       const sent =
         message.messageType === 'text'
@@ -91,9 +103,16 @@ export class OutboxWorker {
                 message.textBody,
               );
       await this.repository.markSent(message.id, sent.whatsappMessageId);
+      this.metrics?.recordWhatsAppSend('sent');
     } catch (error) {
       const code = error instanceof Error ? error.name : 'UnknownError';
       await this.repository.markFailed(message.id, code);
+      this.metrics?.recordWhatsAppSend('failed');
+      this.metrics?.recordJob({
+        queue: 'whatsapp_outbound',
+        outcome: 'failure',
+      });
+      this.metrics?.recordProviderFailure('whatsapp');
       await this.incidents?.open({
         type: 'whatsapp_send_failed',
         severity: 'critical',

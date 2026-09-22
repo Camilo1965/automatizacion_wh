@@ -94,7 +94,7 @@ Docker image manifest lists (this machine, after build):
 | Hardened non-root containers | `verified` | Task 8: unprivileged admin, read_only/tmpfs/cap_drop, digests |
 | Productive HTTPS (Caddy + domain) | `[HUMANO]` | Needs domain/DNS/VPS; staging uses loopback + tls internal |
 | Encrypted off-server backup + restore drill | `verified` (auto) / `[HUMANO]` dest | Task 9: encrypted dump+upload+drill; prod bucket/RPO/RTO `[HUMANO]` |
-| Metrics + correlation IDs + external alerts | `failed` / `[HUMANO]` webhook | Task 10 stubs present (prometheus/alertmanager) |
+| Metrics + correlation IDs + external alerts | `verified` (auto) / `[HUMANO]` webhook | Task 10: metrics + alerts wired; external receipt `[HUMANO]` |
 | CI coverage/secret/fs/image/smoke gates | `failed` | Task 11 |
 | Real idempotency/concurrency tests | `failed` | Schema-name assertions insufficient |
 | Staging reproducible smoke | `verified` | Task 8: `pnpm production:smoke` PASS |
@@ -379,5 +379,36 @@ Provision external S3-compatible bucket + credentials for production (not MinIO-
 - Production backup bucket + credentials + bucket policy
 - Approved RPO / RTO / retention / alert (`BACKUP_HEARTBEAT_URL`) destination
 - Full Docker+MinIO staging drill against live Postgres when `.env.staging` supplied
+
+---
+
+## Task 10 — Metrics, error tracking, external alerts (2026-09-22)
+
+### Behavior
+
+- Lightweight Prometheus exposition (`MetricsRegistry`) — no new deps; bounded labels only
+- API `GET /metrics` (internal network; optional `METRICS_TOKEN`); worker `:9091/metrics`
+- Correlation ID via `x-correlation-id` on HTTP; sanitized error reports + optional `ERROR_TRACKING_DSN` + `KAIRO_RELEASE_SHA`
+- Counters/gauges: HTTP, DB ready, worker heartbeat, queue depth/age, jobs, WhatsApp, guides (incl. uncertain), inventory conflicts, backup, scheduler
+- Prometheus scrapes `api:3000` + `worker:9091`; Alertmanager example with blackhole until `[HUMANO]` webhook
+- Alert rules: API/worker down, queues, provider failures, uncertain guides, backup age/failure, disk/cert (optional exporters), synthetic drill
+- Runbook: `docs/runbooks/monitoring-alerts.md`
+
+### Verification
+
+| Step | Result |
+| --- | --- |
+| `vitest run --project unit test/metrics.test.ts` | 9 passed |
+| Related unit (config/health/entrypoints/…) | 42 passed (batch) |
+| `pnpm --filter @camila/api typecheck` | pass |
+| `docker compose … compose.prod.yaml config --quiet` | pass |
+| Synthetic failure series in metrics text | `kairo_synthetic_failures_total` present |
+| External alert receipt | `[HUMANO]` — webhook not supplied |
+
+### [HUMANO]
+
+- Supply Alertmanager webhook / hosted monitor URL (server-local config; never commit secret)
+- Record one real external receipt after synthetic staging drill
+- Optional: `ERROR_TRACKING_DSN`, node_exporter, TLS cert probe for disk/cert alerts
 
 ---

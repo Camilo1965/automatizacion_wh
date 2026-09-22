@@ -43,6 +43,18 @@ export type AppConfig = Readonly<{
    * Dry-run always allowed for owners with security:manage.
    */
   retentionExecutionEnabled?: boolean;
+  /** When false, /metrics returns 404. Default true. */
+  metricsEnabled?: boolean;
+  /** Optional bearer token protecting /metrics (internal network still required). */
+  metricsToken?: string;
+  /** Worker-only metrics listen port (internal network). Default 9091. */
+  workerMetricsPort?: number;
+  /** Optional error-tracking DSN URL. Never commit the real value. */
+  errorTrackingDsn?: string;
+  /** Release / git SHA attached to sanitized error reports. */
+  releaseSha?: string;
+  /** Path to backup heartbeat JSON for metrics gauges. */
+  backupMetricsPath?: string;
 }>;
 
 export class ConfigurationError extends Error {
@@ -417,6 +429,54 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
   const retentionExecutionEnabled =
     environment.RETENTION_EXECUTION_ENABLED === 'true';
 
+  const metricsEnabled =
+    environment.METRICS_ENABLED === undefined ||
+    environment.METRICS_ENABLED.trim() === '' ||
+    environment.METRICS_ENABLED.trim().toLowerCase() === 'true';
+  if (
+    environment.METRICS_ENABLED !== undefined &&
+    environment.METRICS_ENABLED.trim() !== '' &&
+    !['true', 'false'].includes(environment.METRICS_ENABLED.trim().toLowerCase())
+  ) {
+    issues.push('METRICS_ENABLED');
+  }
+
+  const metricsToken = environment.METRICS_TOKEN?.trim() || undefined;
+  if (metricsToken !== undefined && looksLikeExampleSecret(metricsToken)) {
+    issues.push('METRICS_TOKEN');
+  }
+
+  let workerMetricsPort = 9091;
+  if (environment.WORKER_METRICS_PORT !== undefined) {
+    const parsed = parsePort(environment.WORKER_METRICS_PORT);
+    if (parsed === undefined) {
+      issues.push('WORKER_METRICS_PORT');
+    } else {
+      workerMetricsPort = parsed;
+    }
+  }
+
+  const errorTrackingDsn = environment.ERROR_TRACKING_DSN?.trim() || undefined;
+  if (errorTrackingDsn !== undefined) {
+    try {
+      const url = new URL(errorTrackingDsn);
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+        issues.push('ERROR_TRACKING_DSN');
+      }
+    } catch {
+      issues.push('ERROR_TRACKING_DSN');
+    }
+  }
+
+  const releaseSha =
+    environment.KAIRO_RELEASE_SHA?.trim() ||
+    environment.GIT_SHA?.trim() ||
+    environment.SOURCE_COMMIT?.trim() ||
+    undefined;
+
+  const backupMetricsPath =
+    environment.BACKUP_METRICS_PATH?.trim() || undefined;
+
   if (
     issues.length > 0 ||
     !nodeEnvResult.success ||
@@ -443,6 +503,12 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     sessionIdleTtlMinutes,
     sessionLastSeenThrottleSeconds,
     retentionExecutionEnabled,
+    metricsEnabled,
+    workerMetricsPort,
+    ...(metricsToken === undefined ? {} : { metricsToken }),
+    ...(errorTrackingDsn === undefined ? {} : { errorTrackingDsn }),
+    ...(releaseSha === undefined ? {} : { releaseSha }),
+    ...(backupMetricsPath === undefined ? {} : { backupMetricsPath }),
     ...(whatsappWebhookVerifyToken === undefined
       ? {}
       : { whatsappWebhookVerifyToken }),

@@ -84,11 +84,22 @@ export class ShippingGuideWorker {
     private readonly orders: OrderPort,
     private readonly client: ShippingClient,
     private readonly incidents?: IncidentSink,
+    private readonly metrics?: Readonly<{
+      recordJob(input: {
+        queue: 'shipping_guide';
+        outcome: 'attempt' | 'failure';
+      }): void;
+      recordGuideOutcome(
+        outcome: 'created' | 'uncertain' | 'failed' | 'skipped',
+      ): void;
+      recordProviderFailure(provider: 'shipping'): void;
+    }>,
   ) {}
 
   async runOnce(): Promise<boolean> {
     const job = await this.jobs.claimNext();
     if (job === null) return false;
+    this.metrics?.recordJob({ queue: 'shipping_guide', outcome: 'attempt' });
     try {
       const order = await this.orders.get(job.orderId);
       if (
@@ -105,6 +116,11 @@ export class ShippingGuideWorker {
             ? 'order_not_confirmed'
             : 'incomplete_order',
         );
+        this.metrics?.recordGuideOutcome('failed');
+        this.metrics?.recordJob({
+          queue: 'shipping_guide',
+          outcome: 'failure',
+        });
         return true;
       }
       const name = recipientName(order.customer.name);
@@ -135,6 +151,7 @@ export class ShippingGuideWorker {
         guide.preShipmentNumber,
         guide.freightCop,
       );
+      this.metrics?.recordGuideOutcome('created');
       await this.incidents
         ?.open({
           type: 'guide_created',
@@ -149,6 +166,8 @@ export class ShippingGuideWorker {
     } catch (error) {
       if (error instanceof ShippingUncertainError) {
         await this.jobs.markUncertain(job.id);
+        this.metrics?.recordGuideOutcome('uncertain');
+        this.metrics?.recordProviderFailure('shipping');
         await this.incidents?.open({
           type: 'guide_uncertain',
           severity: 'critical',
@@ -164,6 +183,12 @@ export class ShippingGuideWorker {
           job.id,
           error instanceof Error ? error.name : 'unknown',
         );
+        this.metrics?.recordGuideOutcome('failed');
+        this.metrics?.recordJob({
+          queue: 'shipping_guide',
+          outcome: 'failure',
+        });
+        this.metrics?.recordProviderFailure('shipping');
         await this.incidents?.open({
           type: 'guide_failed',
           severity: 'critical',

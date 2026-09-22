@@ -47,6 +47,7 @@ Desarrollo local: `pnpm db:migrate`.
 | API liveness | `GET /health/live` |
 | API readiness | `GET /health/ready` (DB ping) |
 | Worker | archivo `/tmp/kairo-worker-health.json` + CLI `dist/modules/health/worker-health-cli.js` (DB + scheduler init + heartbeat ≤90s) |
+| Metrics | API `GET /metrics` + worker `:9091/metrics` (internal network only; see `monitoring-alerts.md`) |
 | Admin | `GET http://admin:8080/` |
 | Caddy | espera upstreams healthy (`health_uri`) |
 
@@ -71,4 +72,4 @@ Ver `.env.prod.example`. `loadConfig` en `NODE_ENV=production` rechaza:
 ## `[HUMANO]`
 
 - Ventana de despliegue y rollback.
-- Canal de alertas si health falla de forma sostenida (Task 10).
+- Canal de alertas externas (webhook Alertmanager) — ver `monitoring-alerts.md`.

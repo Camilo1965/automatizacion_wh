@@ -60,10 +60,14 @@ import { OutboxWorker } from './modules/whatsapp/outbox-worker.js';
 import { PostgresOutboundRepository } from './modules/whatsapp/postgres-outbound-repository.js';
 import { PostgresWhatsAppInboundRepository } from './modules/whatsapp/postgres-whatsapp-inbound-repository.js';
 import type { AppDependencies } from './app.js';
+import { ErrorReporter } from './modules/observability/error-reporter.js';
+import { MetricsRegistry } from './modules/observability/metrics.js';
 
 export type AppRuntime = Readonly<{
   config: AppConfig;
   database: PostgresDatabase;
+  metrics: MetricsRegistry;
+  errorReporter: ErrorReporter;
   appDependencies: AppDependencies;
   workers: Readonly<{
     start(
@@ -81,6 +85,14 @@ export async function createRuntime(
 ): Promise<AppRuntime> {
   const config = loadConfig(env);
   const database = createPostgresDatabase(config.databaseUrl);
+  const metrics = new MetricsRegistry();
+  const errorReporter = new ErrorReporter({
+    ...(config.errorTrackingDsn === undefined
+      ? {}
+      : { dsn: config.errorTrackingDsn }),
+    ...(config.releaseSha === undefined ? {} : { releaseSha: config.releaseSha }),
+    environment: config.nodeEnv,
+  });
   const botFlowService = new BotFlowService(database);
   await botFlowService.bootstrap();
   const localityCatalogService = new LocalityCatalogService(database);
@@ -223,6 +235,8 @@ export async function createRuntime(
   const appDependencies: AppDependencies = {
     config,
     database,
+    metrics,
+    errorReporter,
     authService,
     auditService,
     retentionService,
@@ -292,6 +306,8 @@ export async function createRuntime(
   return {
     config,
     database,
+    metrics,
+    errorReporter,
     appDependencies,
     workers: {
       start(onError, options) {
@@ -313,9 +329,24 @@ export async function createRuntime(
             notifying = true;
             void alertWorker
               .runOnce()
-              .catch((error: unknown) =>
-                onError('Owner notification failed', error),
-              )
+              .then((worked) => {
+                if (worked) {
+                  metrics.recordJob({
+                    queue: 'owner_alert',
+                    outcome: 'attempt',
+                  });
+                }
+              })
+              .catch((error: unknown) => {
+                metrics.recordJob({
+                  queue: 'owner_alert',
+                  outcome: 'failure',
+                });
+                onError('Owner notification failed', error);
+                void errorReporter.report(error, {
+                  tags: { surface: 'worker', queue: 'owner_alert' },
+                });
+              })
               .finally(() => {
                 notifying = false;
               });
@@ -328,7 +359,18 @@ export async function createRuntime(
         const maintenanceTimer = setInterval(() => {
           if (stopped) return;
           options?.onLoopHeartbeat?.();
-          void closureScheduler.tick(new Date());
+          void closureScheduler
+            .tick(new Date())
+            .then((generated) => {
+              if (generated) metrics.recordSchedulerSuccess(true);
+            })
+            .catch((error: unknown) => {
+              metrics.recordSchedulerSuccess(false);
+              onError('Daily closure scheduler failed', error);
+              void errorReporter.report(error, {
+                tags: { surface: 'worker', queue: 'scheduler' },
+              });
+            });
           if (purgingSessions) return;
           purgingSessions = true;
           void authService
@@ -341,7 +383,15 @@ export async function createRuntime(
         maintenanceTimer.unref();
         timers.push(maintenanceTimer);
         options?.onLoopHeartbeat?.();
-        void closureScheduler.tick(new Date());
+        void closureScheduler
+          .tick(new Date())
+          .then((generated) => {
+            if (generated) metrics.recordSchedulerSuccess(true);
+          })
+          .catch((error: unknown) => {
+            metrics.recordSchedulerSuccess(false);
+            onError('Daily closure scheduler failed', error);
+          });
 
         if (
           integrationSettingsService !== undefined ||
@@ -356,6 +406,7 @@ export async function createRuntime(
             photoStorage,
             alertService,
             guidePdfStorage,
+            metrics,
           );
           let running = false;
           const timer = setInterval(() => {
@@ -370,9 +421,17 @@ export async function createRuntime(
               }
               await worker.runOnce();
             })()
-              .catch((error: unknown) =>
-                onError('WhatsApp worker failed', error),
-              )
+              .catch((error: unknown) => {
+                metrics.recordJob({
+                  queue: 'whatsapp_outbound',
+                  outcome: 'failure',
+                });
+                metrics.recordProviderFailure('whatsapp');
+                onError('WhatsApp worker failed', error);
+                void errorReporter.report(error, {
+                  tags: { surface: 'worker', queue: 'whatsapp_outbound' },
+                });
+              })
               .finally(() => {
                 running = false;
               });
@@ -387,6 +446,7 @@ export async function createRuntime(
             orderService,
             shippingClient,
             alertService,
+            metrics,
           );
           let running = false;
           const timer = setInterval(() => {
@@ -401,9 +461,17 @@ export async function createRuntime(
               }
               await worker.runOnce();
             })()
-              .catch((error: unknown) =>
-                onError('Shipping worker failed', error),
-              )
+              .catch((error: unknown) => {
+                metrics.recordJob({
+                  queue: 'shipping_guide',
+                  outcome: 'failure',
+                });
+                metrics.recordProviderFailure('shipping');
+                onError('Shipping worker failed', error);
+                void errorReporter.report(error, {
+                  tags: { surface: 'worker', queue: 'shipping_guide' },
+                });
+              })
               .finally(() => {
                 running = false;
               });
