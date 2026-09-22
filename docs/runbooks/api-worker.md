@@ -2,63 +2,73 @@
 
 ## Servicios
 
-| Servicio | Imagen                     | Proceso               |
-| -------- | -------------------------- | --------------------- |
-| `api`    | `docker/Dockerfile.api`    | `node dist/server.js` |
-| `worker` | `docker/Dockerfile.worker` | `node dist/worker.js` |
+| Servicio  | Imagen                      | Proceso                                    |
+| --------- | --------------------------- | ------------------------------------------ |
+| `migrate` | `docker/Dockerfile.api`     | one-shot `node dist/database/migrate.js`   |
+| `api`     | `docker/Dockerfile.api`     | `node dist/server.js`                      |
+| `worker`  | `docker/Dockerfile.worker`  | `node dist/worker.js`                      |
 
-Ambos comparten runtime (`createRuntime()`), config vía variables de entorno y volumen `media_data` en `/data/media`.
+API y worker comparten runtime (`createRuntime()`), config vía env y volumen `media_data` en `/data/media` (origen local / fallback; runtime prod usa `STORAGE_DRIVER=s3`).
 
-## Arranque (compose prod)
+## Arranque producción
 
 ```bash
 cp .env.prod.example .env.prod
-# Editar secretos en .env.prod — solo en servidor
+# Editar secretos reales — nunca change_me / example
 docker compose -f compose.prod.yaml --env-file .env.prod up -d --build
 ```
 
-`api` espera `postgres` healthy. `worker` no expone HTTP; healthcheck mínimo de proceso.
+`migrate` termina con éxito **antes** de que `api`/`worker` acepten tráfico. Ambos dependen de Postgres healthy + migrate `service_completed_successfully`.
+
+## Arranque staging (loopback)
+
+```bash
+pnpm production:smoke
+# o:
+docker compose -f compose.prod.yaml -f compose.staging.yaml --env-file .env.staging up -d --build
+```
+
+Staging publica Caddy en `127.0.0.1:18080` / `18443` con `tls internal`. No requiere DNS público.
 
 ## Migraciones
 
-Antes de tráfico real o tras desplegar schema nuevo:
+Automáticas vía servicio `migrate` (misma imagen de aplicación). Manual de emergencia:
 
 ```bash
-docker compose -f compose.prod.yaml --env-file .env.prod run --rm \
-  -e DATABASE_URL=postgresql://USER:PASS@postgres:5432/DB \
-  api node dist/database/migrate.js
+docker compose -f compose.prod.yaml --env-file .env.prod run --rm migrate
 ```
 
-(Asegure que la imagen incluye `dist/database/migrate.js` del build estándar.)
-
-Desarrollo local: `pnpm db:migrate` con `.env` apuntando a compose local.
+Desarrollo local: `pnpm db:migrate`.
 
 ## Health
 
-- Liveness: `GET /health/live`
-- Readiness (DB): `GET /health/ready`
+| Componente | Check |
+| ---------- | ----- |
+| API liveness | `GET /health/live` |
+| API readiness | `GET /health/ready` (DB ping) |
+| Worker | archivo `/tmp/kairo-worker-health.json` + CLI `dist/modules/health/worker-health-cli.js` (DB + scheduler init + heartbeat ≤90s) |
+| Admin | `GET http://admin:8080/` |
+| Caddy | espera upstreams healthy (`health_uri`) |
 
-Desde la red interna: `http://api:3000/health/ready`.
+Worker **ya no** usa `process.exit(0)` incondicional.
 
 ## Config obligatoria en producción
 
-Ver `.env.prod.example`. En `NODE_ENV=production`:
+Ver `.env.prod.example`. `loadConfig` en `NODE_ENV=production` rechaza:
 
-- `KAIRO_CONFIG_ENCRYPTION_KEY` (32 bytes base64)
-- `ADMIN_ORIGIN` (URL pública del panel)
-- `DATABASE_URL` (inyectada por compose en api/worker)
-- `MEDIA_ROOT=/data/media`
-
-WhatsApp y 99envíos: ver runbooks dedicados; credenciales pueden vivir cifradas en panel una vez exista la clave maestra.
+- `ADMIN_ORIGIN` HTTP (solo HTTPS)
+- Clave de cifrado ausente / inválida / placeholder
+- `STORAGE_DRIVER=local`
+- Contraseñas/ejemplo (`change_me`, etc.) en DB URL, S3 o 99envíos
 
 ## Operación
 
 - **Reinicio API:** `docker compose -f compose.prod.yaml restart api`
 - **Reinicio worker:** `docker compose -f compose.prod.yaml restart worker`
-- **Logs:** `docker compose -f compose.prod.yaml logs -f api worker`
-- **Escalar worker:** una réplica suele bastar; múltiples workers requieren revisar idempotencia de jobs (fuera de alcance Fase 7).
+- **Logs:** `docker compose -f compose.prod.yaml logs -f api worker migrate`
+- **Escalar worker:** una réplica suele bastar; múltiples replicas requieren revisar idempotencia de jobs.
 
 ## `[HUMANO]`
 
-- Ventana de despliegue y rollback acordados.
-- Canal de alertas si `/health/ready` falla de forma sostenida.
+- Ventana de despliegue y rollback.
+- Canal de alertas si health falla de forma sostenida (Task 10).

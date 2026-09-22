@@ -89,15 +89,15 @@ Docker image manifest lists (this machine, after build):
 | Fast Refresh warnings = 0 | `failed` | 4 warnings remain |
 | A11y all principal routes @ 390/768/1280/1440 | `failed` | Partial E2E only |
 | S3-compatible production storage | `verified` | Task 7: ObjectStorage local+S3; prod requires `STORAGE_DRIVER=s3`; MinIO test profile only |
-| Compose migrate service | `failed` | Not yet one-shot migrate gate |
-| Real worker health | `failed` | Need heartbeat/DB readiness |
-| Hardened non-root containers | `in_progress` | Partial from prior hardening; Task 8 must complete |
-| Productive HTTPS (Caddy + domain) | `[HUMANO]` | Needs domain/DNS/VPS |
+| Compose migrate service | `verified` | Task 8: one-shot `migrate` before api/worker |
+| Real worker health | `verified` | Task 8: DB + scheduler + heartbeat via `worker-health` |
+| Hardened non-root containers | `verified` | Task 8: unprivileged admin, read_only/tmpfs/cap_drop, digests |
+| Productive HTTPS (Caddy + domain) | `[HUMANO]` | Needs domain/DNS/VPS; staging uses loopback + tls internal |
 | Encrypted off-server backup + restore drill | `failed` / `[HUMANO]` dest | Automate in Task 9; prod bucket `[HUMANO]` |
-| Metrics + correlation IDs + external alerts | `failed` / `[HUMANO]` webhook | Task 10 |
+| Metrics + correlation IDs + external alerts | `failed` / `[HUMANO]` webhook | Task 10 stubs present (prometheus/alertmanager) |
 | CI coverage/secret/fs/image/smoke gates | `failed` | Task 11 |
 | Real idempotency/concurrency tests | `failed` | Schema-name assertions insufficient |
-| Staging reproducible smoke | `failed` | Task 8 |
+| Staging reproducible smoke | `verified` | Task 8: `pnpm production:smoke` PASS |
 | Meta + 99envíos real evidence | `[HUMANO]` | Credentials + authorized actions |
 | Pilot + acceptance signoff | `[HUMANO]` | Owner/operators |
 
@@ -319,5 +319,36 @@ Visual spot-check of screenshots under `apps/admin/test-results/` after full E2E
 ### [HUMANO]
 
 Provision external S3-compatible bucket + credentials for production (not MinIO-in-compose).
+
+---
+
+## Task 8 — Production topology + real health checks (2026-09-22)
+
+### Behavior
+
+- One-shot `migrate` service (same `camila-api:local` image) must complete before api/worker
+- Worker readiness: DB ping + scheduler init + heartbeat file (`worker-health.ts` / CLI)
+- Admin: `nginxinc/nginx-unprivileged` digest-pinned, listen 8080, USER 101
+- Caddy: 80/443 prod; staging loopback `18080`/`18443` + `tls internal`; waits on healthy upstreams
+- Hardening: `read_only`, `tmpfs`, `cap_drop: ALL`, `no-new-privileges`, restart, cpus/mem_limit
+- Images pinned by digest (node, postgres, caddy, nginx-unprivileged, prometheus, alertmanager)
+- Production `loadConfig` refuses HTTP `ADMIN_ORIGIN`, blank encryption key, `STORAGE_DRIVER=local`, example passwords
+- Backup + prometheus + alertmanager stubs for Task 9–10 handoff
+- `pnpm production:smoke` disposable staging stack
+
+### TDD / verification
+
+| Step | Command | Result |
+| --- | --- | --- |
+| Worker health unit | `vitest run --project unit test/worker-health.test.ts` | passed |
+| Config prod guards | `vitest run --project unit test/config.test.ts` | passed |
+| API typecheck | `pnpm --filter @camila/api typecheck` | pass |
+| Compose prod | `docker compose --env-file .env.prod.example -f compose.prod.yaml config --quiet` | pass |
+| Staging smoke | `pnpm production:smoke` | PASS (migrate→health→login→routes→separate api/worker→shutdown) |
+
+### [HUMANO]
+
+- Real `CAMILA_DOMAIN` + DNS + ACME email for production TLS
+- Alert webhook / backup destination remain Task 9–10
 
 ---

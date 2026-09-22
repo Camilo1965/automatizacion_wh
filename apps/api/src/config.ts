@@ -97,6 +97,46 @@ function isAdminOrigin(value: string): boolean {
   }
 }
 
+const EXAMPLE_SECRET_VALUES = new Set([
+  'change_me',
+  'change-me',
+  'changeme',
+  'change_me_use_long_random_secret',
+  'replace_me',
+  'your_password_here',
+  'password',
+  'secret',
+  'admin',
+  'postgres',
+  'example',
+  'kairo_test',
+  'kairo_test_secret',
+]);
+
+function looksLikeExampleSecret(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed === '') {
+    return true;
+  }
+  const normalized = trimmed.toLowerCase();
+  if (EXAMPLE_SECRET_VALUES.has(normalized)) {
+    return true;
+  }
+  if (/change[_-]?me/i.test(normalized)) {
+    return true;
+  }
+  return false;
+}
+
+function databasePasswordFromUrl(databaseUrl: string): string | undefined {
+  try {
+    const password = new URL(databaseUrl).password;
+    return password === '' ? undefined : password;
+  } catch {
+    return undefined;
+  }
+}
+
 function parsePort(value: string | undefined): number | undefined {
   if (value === undefined || value.trim() === '') {
     return 3000;
@@ -153,6 +193,13 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
   } else {
     const parsed = new URL(adminOriginRaw);
     adminOrigin = parsed.origin;
+    if (
+      nodeEnvResult.success &&
+      nodeEnvResult.data === 'production' &&
+      parsed.protocol !== 'https:'
+    ) {
+      issues.push('ADMIN_ORIGIN');
+    }
   }
 
   const logLevelResult = logLevelSchema.safeParse(
@@ -189,6 +236,9 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     issues.push('STORAGE_DRIVER');
   }
   if (nodeEnvValue === 'production' && storageDriver !== 's3') {
+    issues.push('STORAGE_DRIVER');
+  }
+  if (nodeEnvValue === 'production' && storageDriver === 'local') {
     issues.push('STORAGE_DRIVER');
   }
 
@@ -278,6 +328,34 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     Buffer.from(integrationEncryptionKey, 'base64').length !== 32
   ) {
     issues.push('INTEGRATION_ENCRYPTION_KEY');
+  }
+  if (
+    nodeEnvValue === 'production' &&
+    integrationEncryptionKey !== undefined &&
+    looksLikeExampleSecret(integrationEncryptionKey)
+  ) {
+    issues.push('INTEGRATION_ENCRYPTION_KEY');
+  }
+  if (nodeEnvValue === 'production' && databaseUrl !== undefined) {
+    const dbPassword = databasePasswordFromUrl(databaseUrl);
+    if (dbPassword !== undefined && looksLikeExampleSecret(dbPassword)) {
+      issues.push('DATABASE_URL');
+    }
+  }
+  if (nodeEnvValue === 'production' && s3 !== undefined) {
+    if (looksLikeExampleSecret(s3.accessKeyId)) {
+      issues.push('S3_ACCESS_KEY_ID');
+    }
+    if (looksLikeExampleSecret(s3.secretAccessKey)) {
+      issues.push('S3_SECRET_ACCESS_KEY');
+    }
+  }
+  if (
+    nodeEnvValue === 'production' &&
+    ninetyNineEnviosPassword !== undefined &&
+    looksLikeExampleSecret(ninetyNineEnviosPassword)
+  ) {
+    issues.push('NINETYNINE_ENVIOS_PASSWORD');
   }
   if (
     (ninetyNineEnviosEmail === undefined) !==

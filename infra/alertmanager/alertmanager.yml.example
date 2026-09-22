@@ -1,0 +1,15 @@
+# Alertmanager stub. [HUMANO] Task 10: set a real receiver webhook; never commit its secret.
+
+route:
+  receiver: blackhole
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+
+receivers:
+  - name: blackhole
+    # [HUMANO] Example after secrets are supplied out-of-band:
+    # webhook_configs:
+    #   - url: 'https://hooks.example.com/...'
+    #     send_resolved: true

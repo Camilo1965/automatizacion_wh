@@ -42,6 +42,8 @@ describe('loadConfig', () => {
         ...validEnvironment,
         NODE_ENV: 'production',
         ADMIN_ORIGIN: 'https://admin.example.com',
+        DATABASE_URL:
+          'postgresql://camila:prod-db-pass-9f3a@127.0.0.1:5432/camila',
         KAIRO_CONFIG_ENCRYPTION_KEY: Buffer.alloc(32).toString('base64'),
       }),
     ).toThrow(ConfigurationError);
@@ -50,13 +52,18 @@ describe('loadConfig', () => {
       ...validEnvironment,
       NODE_ENV: 'production',
       ADMIN_ORIGIN: 'https://admin.example.com',
+      DATABASE_URL:
+        'postgresql://camila:prod-db-pass-9f3a@127.0.0.1:5432/camila',
       KAIRO_CONFIG_ENCRYPTION_KEY: Buffer.alloc(32).toString('base64'),
       STORAGE_DRIVER: 's3',
       S3_ENDPOINT: 'https://s3.example.com',
       S3_BUCKET: 'kairo-media',
       S3_REGION: 'us-east-1',
-      S3_ACCESS_KEY_ID: 'akid',
-      S3_SECRET_ACCESS_KEY: 'secret',
+      S3_ACCESS_KEY_ID: 'AKIA_NOT_AN_EXAMPLE',
+      S3_SECRET_ACCESS_KEY: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'.replace(
+        'EXAMPLE',
+        'REALVAL',
+      ),
       S3_FORCE_PATH_STYLE: 'true',
       S3_TLS_REJECT_UNAUTHORIZED: 'true',
     });
@@ -67,6 +74,64 @@ describe('loadConfig', () => {
       forcePathStyle: true,
       tlsRejectUnauthorized: true,
     });
+  });
+
+  it('refuses HTTP ADMIN_ORIGIN, blank encryption keys, local storage, and example passwords in production', () => {
+    const productionBase: NodeJS.ProcessEnv = {
+      ...validEnvironment,
+      NODE_ENV: 'production',
+      DATABASE_URL:
+        'postgresql://camila:prod-db-pass-9f3a@127.0.0.1:5432/camila',
+      ADMIN_ORIGIN: 'https://admin.example.com',
+      KAIRO_CONFIG_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString('base64'),
+      STORAGE_DRIVER: 's3',
+      S3_ENDPOINT: 'https://s3.example.com',
+      S3_BUCKET: 'kairo-media',
+      S3_REGION: 'us-east-1',
+      S3_ACCESS_KEY_ID: 'AKIA_NOT_AN_EXAMPLE',
+      S3_SECRET_ACCESS_KEY: 'not-an-example-secret-value-32chars!!',
+      S3_FORCE_PATH_STYLE: 'true',
+      S3_TLS_REJECT_UNAUTHORIZED: 'true',
+    };
+
+    expect(() =>
+      loadConfig({
+        ...productionBase,
+        ADMIN_ORIGIN: 'http://admin.example.com',
+      }),
+    ).toThrow(ConfigurationError);
+
+    expect(() => {
+      const env = { ...productionBase };
+      delete env.KAIRO_CONFIG_ENCRYPTION_KEY;
+      loadConfig(env);
+    }).toThrow(ConfigurationError);
+
+    expect(() =>
+      loadConfig({
+        ...productionBase,
+        STORAGE_DRIVER: 'local',
+      }),
+    ).toThrow(ConfigurationError);
+
+    expect(() =>
+      loadConfig({
+        ...productionBase,
+        DATABASE_URL:
+          'postgresql://camila:change_me_use_long_random_secret@127.0.0.1:5432/camila',
+      }),
+    ).toThrow(ConfigurationError);
+
+    expect(() =>
+      loadConfig({
+        ...productionBase,
+        S3_SECRET_ACCESS_KEY: 'change_me',
+      }),
+    ).toThrow(ConfigurationError);
+
+    expect(loadConfig(productionBase).adminOrigin).toBe(
+      'https://admin.example.com',
+    );
   });
 
   it('rejects a missing DATABASE_URL', () => {

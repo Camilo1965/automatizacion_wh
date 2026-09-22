@@ -1,32 +1,41 @@
-# Copy to docker/Caddyfile and set CAMILA_DOMAIN in compose / env.
-# [HUMANO] DNS must point to this host before enabling HTTPS blocks.
+# Caddy reverse proxy for KAIRO.
+#
+# Production: set CAMILA_DOMAIN to the public hostname. ACME email is [HUMANO].
+# Staging/loopback: compose.staging.yaml sets CAMILA_DOMAIN=localhost and
+# TLS_INTERNAL=1 so Caddy uses an internal CA (no public DNS required).
 
 {
-  # email you@example.com
+  {$CADDY_GLOBAL_OPTIONS}
+  # [HUMANO] Production ACME contact, e.g.:
+  # email ops@example.com
 }
 
-:80 {
+{$CAMILA_DOMAIN:localhost} {
+  {$CADDY_SITE_OPTIONS}
+
   encode gzip
 
+  handle /health/* {
+    reverse_proxy api:3000 {
+      health_uri /health/ready
+      health_interval 10s
+      health_timeout 5s
+    }
+  }
+
   handle /api/* {
-    reverse_proxy api:3000
+    reverse_proxy api:3000 {
+      health_uri /health/ready
+      health_interval 10s
+      health_timeout 5s
+    }
   }
 
   handle {
-    reverse_proxy admin:80
+    reverse_proxy admin:8080 {
+      health_uri /
+      health_interval 10s
+      health_timeout 5s
+    }
   }
 }
-
-# [HUMANO] Uncomment after DNS + TLS strategy is chosen (automatic ACME or manual certs).
-#
-# {$CAMILA_DOMAIN} {
-#   encode gzip
-#
-#   handle /api/* {
-#     reverse_proxy api:3000
-#   }
-#
-#   handle {
-#     reverse_proxy admin:80
-#   }
-# }

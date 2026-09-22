@@ -3,39 +3,51 @@
 ## Diseño
 
 - **Caddy** termina HTTP(S) y enruta:
-  - `/api/*` → servicio `api:3000`
-  - resto → servicio `admin:80` (nginx + SPA)
+  - `/health/*` → `api:3000`
+  - `/api/*` → `api:3000`
+  - resto → `admin:8080` (nginx-unprivileged + SPA)
 - Admin usa rutas relativas `/api/...`; no requiere `VITE_*` de API URL si el proxy es coherente.
+- Caddy espera upstreams healthy (`health_uri` hacia API ready y admin `/`).
 
-Plantilla: [docker/Caddyfile.example](../../docker/Caddyfile.example).
+Plantilla montada: [docker/Caddyfile.example](../../docker/Caddyfile.example).
 
-## Desarrollo / prueba en VPS
-
-`compose.prod.yaml` publica Caddy en `127.0.0.1:8080:80` para probar sin abrir el firewall público:
+## Staging / loopback (sin DNS)
 
 ```bash
-curl -sS http://127.0.0.1:8080/          # admin SPA
-docker compose -f compose.prod.yaml exec api wget -qO- http://127.0.0.1:3000/health/live
+docker compose -f compose.prod.yaml -f compose.staging.yaml --env-file .env.staging up -d --build
+# o pnpm production:smoke
+```
+
+- HTTP: `http://127.0.0.1:18080`
+- HTTPS: `https://127.0.0.1:18443` con `CAMILA_DOMAIN=localhost` y `CADDY_SITE_OPTIONS=tls internal`
+- `ADMIN_ORIGIN=https://localhost:18443`
+
+```bash
+curl -k -sS --resolve localhost:18443:127.0.0.1 https://localhost:18443/health/live
+curl -k -sS --resolve localhost:18443:127.0.0.1 https://localhost:18443/
 ```
 
 ## Producción con TLS
 
+`compose.prod.yaml` publica **80/443** (y 443/udp). Requiere `CAMILA_DOMAIN`.
+
 ### `[HUMANO]` — checklist
 
-1. **DNS:** registro `A`/`AAAA` del dominio admin (y API si separa host) hacia la IP de la VPS.
-2. **Firewall:** permitir 80 y 443; denegar 5432 desde Internet.
+1. **DNS:** `A`/`AAAA` de `CAMILA_DOMAIN` → IP de la VPS.
+2. **Firewall:** permitir 80/443; denegar 5432 desde Internet.
 3. **Certificados:**
-   - **Automático (recomendado):** descomentar bloque `{$CAMILA_DOMAIN}` en Caddyfile, fijar `email` en bloque global, montar `docker/Caddyfile` (no solo `.example`).
-   - **Manual:** PEM en volumen y directiva `tls` en Caddy; rotación fuera de banda.
-4. **Compose:** descomentar `ports: '80:80'` y `'443:443'` en servicio `caddy`; quitar bind solo loopback si aplica.
-5. **ADMIN_ORIGIN:** en `.env.prod`, debe coincidir con la URL HTTPS del panel (p. ej. `https://kairo.example.com`).
+   - Automático (recomendado): fijar `CADDY_GLOBAL_OPTIONS=email you@example.com` en `.env.prod`; Caddy obtiene cert ACME para `CAMILA_DOMAIN`.
+   - Manual: PEM en volumen + directiva `tls` vía `CADDY_SITE_OPTIONS`.
+4. **ADMIN_ORIGIN:** HTTPS exacto del panel (p. ej. `https://kairo.example.com`). Producción **rechaza** orígenes HTTP.
+5. Confirmar que `.env.prod` no usa contraseñas `change_me` / example.
 
 ## WhatsApp webhooks
 
-Meta llama URL HTTPS pública (p. ej. `https://kairo.example.com/api/whatsapp/webhook`). El mismo Caddy debe reenviar ese path al API sin cache.
+Meta llama URL HTTPS pública (p. ej. `https://kairo.example.com/api/whatsapp/webhook`). El mismo Caddy reenvía `/api/*` al API sin cache.
 
 ## Fallos frecuentes
 
-- **502 en /api:** API caída o no en red `internal`; revisar `depends_on` y logs API.
-- **SPA 404 al refrescar:** falta `try_files` en nginx admin — ya incluido en `docker/nginx-admin.conf`.
-- **CORS / cookies:** `ADMIN_ORIGIN` debe ser el origen exacto del navegador.
+- **502 en /api:** API no healthy o migrate pendiente; revisar `depends_on` y logs.
+- **SPA 404 al refrescar:** falta `try_files` — incluido en `docker/nginx-admin.conf` (listen **8080**).
+- **CORS / cookies:** `ADMIN_ORIGIN` = origen exacto del navegador (HTTPS en prod).
+- **Staging TLS trust:** usar `curl -k` / `NODE_TLS_REJECT_UNAUTHORIZED=0` solo en smoke local.

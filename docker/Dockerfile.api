@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:24-bookworm AS base
+FROM node:24-bookworm@sha256:64af3819f9275802414d7cdc38c27e9d82bd564dec4d4da87d008255d36c63b4 AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="${PNPM_HOME}:${PATH}"
 RUN corepack enable && corepack prepare pnpm@11.19.0 --activate
@@ -20,7 +20,12 @@ RUN pnpm install --frozen-lockfile \
   && pnpm --filter @camila/contracts build \
   && pnpm --filter @camila/api build
 
-RUN pnpm deploy --filter @camila/api --prod --legacy /out/api
+RUN pnpm deploy --filter @camila/api --prod --legacy /out/api \
+  && mkdir -p /out/api/drizzle \
+  && cp -a /app/apps/api/drizzle/. /out/api/drizzle/ \
+  && rm -rf /out/api/node_modules/@camila/contracts \
+  && mkdir -p /out/api/node_modules/@camila \
+  && cp -a /app/packages/contracts /out/api/node_modules/@camila/contracts
 
 FROM base AS runtime
 WORKDIR /app

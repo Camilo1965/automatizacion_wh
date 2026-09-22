@@ -1,7 +1,9 @@
 import { createRuntime } from './runtime.js';
+import { WorkerHealthMonitor } from './modules/health/worker-health.js';
 
 async function main(): Promise<void> {
   const runtime = await createRuntime();
+  const health = new WorkerHealthMonitor();
   const log = (message: string, error?: unknown): void => {
     if (error === undefined) {
       console.error(message);
@@ -10,9 +12,24 @@ async function main(): Promise<void> {
     console.error(message, error);
   };
 
-  const stop = runtime.workers.start((message, error) => {
-    log(message, error);
-  });
+  const pulse = (): void => {
+    health.recordHeartbeat();
+    void health.persist().catch((error: unknown) => {
+      log('Worker health persist failed', error);
+    });
+  };
+
+  const stop = runtime.workers.start(
+    (message, error) => {
+      log(message, error);
+    },
+    {
+      onSchedulerReady: () => {
+        health.markSchedulerInitialized();
+      },
+      onLoopHeartbeat: pulse,
+    },
+  );
 
   console.info('KAIRO worker started');
 

@@ -66,7 +66,13 @@ export type AppRuntime = Readonly<{
   database: PostgresDatabase;
   appDependencies: AppDependencies;
   workers: Readonly<{
-    start(onError: (message: string, error?: unknown) => void): () => void;
+    start(
+      onError: (message: string, error?: unknown) => void,
+      options?: {
+        onSchedulerReady?: () => void;
+        onLoopHeartbeat?: () => void;
+      },
+    ): () => void;
   }>;
 }>;
 
@@ -288,13 +294,14 @@ export async function createRuntime(
     database,
     appDependencies,
     workers: {
-      start(onError) {
+      start(onError, options) {
         const timers: NodeJS.Timeout[] = [];
         let stopped = false;
 
         const closureScheduler = new DailyClosureScheduler(
           inventoryClosureService,
         );
+        options?.onSchedulerReady?.();
         if (integrationSettingsService) {
           const alertWorker = new OwnerAlertWorker(
             database,
@@ -320,6 +327,7 @@ export async function createRuntime(
         let purgingSessions = false;
         const maintenanceTimer = setInterval(() => {
           if (stopped) return;
+          options?.onLoopHeartbeat?.();
           void closureScheduler.tick(new Date());
           if (purgingSessions) return;
           purgingSessions = true;
@@ -329,9 +337,10 @@ export async function createRuntime(
             .finally(() => {
               purgingSessions = false;
             });
-        }, 60_000);
+        }, 15_000);
         maintenanceTimer.unref();
         timers.push(maintenanceTimer);
+        options?.onLoopHeartbeat?.();
         void closureScheduler.tick(new Date());
 
         if (

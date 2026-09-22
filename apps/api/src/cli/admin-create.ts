@@ -50,7 +50,8 @@ export async function main(
   console.log(`Created admin user '${user.username}'`);
 }
 
-const executedAsCli = process.argv[1]?.includes('admin-create') === true;
+const executedAsCli =
+  /admin-create\.(js|ts)$/.test(process.argv[1] ?? '') === true;
 
 if (executedAsCli) {
   main().catch((error: unknown) => {

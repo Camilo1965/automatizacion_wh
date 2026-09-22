@@ -1,0 +1,12 @@
+# Stub alert rules for Task 8→10 handoff. Task 10 fills real expressions.
+
+groups:
+  - name: kairo-stubs
+    rules:
+      - alert: KairoPlaceholderAlwaysSilent
+        expr: vector(0)
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: Placeholder rule so alerts.yml parses; replaced in Task 10.

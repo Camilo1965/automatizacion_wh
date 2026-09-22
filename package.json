@@ -22,7 +22,8 @@
     "format:check": "prettier --check .",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:integration && pnpm test:e2e && pnpm build",
     "db:generate": "pnpm --filter @camila/api db:generate",
-    "db:migrate": "pnpm --filter @camila/api db:migrate"
+    "db:migrate": "pnpm --filter @camila/api db:migrate",
+    "production:smoke": "node scripts/production-smoke.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

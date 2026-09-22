@@ -1,0 +1,14 @@
+# syntax=docker/dockerfile:1
+# Backup runner stub for Task 8→9 handoff. Task 9 replaces the command body
+# with encrypted pg_dump + off-server upload.
+
+FROM postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
+
+RUN mkdir -p /backups \
+  && chown postgres:postgres /backups
+
+USER postgres
+WORKDIR /backups
+
+# Placeholder: Task 9 wires scripts/backup-postgres.mjs (or image entrypoint).
+CMD ["bash", "-lc", "echo 'KAIRO backup stub idle — Task 9 implements encrypted off-server backups'; sleep infinity"]

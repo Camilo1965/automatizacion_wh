@@ -4,9 +4,23 @@
 #   cp .env.prod.example .env.prod   # fill secrets on the server only
 #   docker compose -f compose.prod.yaml --env-file .env.prod up -d --build
 #
-# [HUMANO] TLS: see docker/Caddyfile.example and docs/runbooks/proxy-https.md
+# One-shot migrate runs before api/worker. Staging: compose.staging.yaml.
+# [HUMANO] TLS: set CAMILA_DOMAIN + DNS; see docker/Caddyfile.example and docs/runbooks/proxy-https.md
+#
+# Resource limits (cpus/mem_limit) are documented for hosts that honor them.
+# Swarm-only `deploy.resources` is intentionally not used.
 
 name: camila-prod
+
+x-app-security: &app-security
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  restart: unless-stopped
 
 services:
   postgres:
@@ -28,14 +42,51 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - FOWNER
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    # Documented limits (compatible with Compose non-Swarm).
+    cpus: 1.0
+    mem_limit: 1g
+    networks:
+      - internal
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    image: camila-api:local
+    restart: 'no'
+    env_file:
+      - path: .env.prod
+        required: false
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    command: ['node', 'dist/database/migrate.js']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     networks:
       - internal
 
   api:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.api
-    restart: unless-stopped
+    <<: *app-security
+    image: camila-api:local
     env_file:
       - path: .env.prod
         required: false
@@ -45,18 +96,131 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       # Local migration source / emergency fallback. Runtime media uses STORAGE_DRIVER=s3.
       - media_data:/data/media
     expose:
       - '3000'
+    cpus: 1.0
+    mem_limit: 768m
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - internal
 
   worker:
+    <<: *app-security
     build:
       context: .
       dockerfile: docker/Dockerfile.worker
+    image: camila-worker:local
+    env_file:
+      - path: .env.prod
+        required: false
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      WORKER_HEALTH_FILE: /tmp/kairo-worker-health.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      # Local migration source / emergency fallback. Runtime media uses STORAGE_DRIVER=s3.
+      - media_data:/data/media
+    cpus: 1.0
+    mem_limit: 768m
+    networks:
+      - internal
+
+  admin:
+    <<: *app-security
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.admin
+    image: camila-admin:local
+    expose:
+      - '8080'
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+      - /var/run/nginx
+    cpus: 0.5
+    mem_limit: 128m
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '-qO-',
+          'http://127.0.0.1:8080/',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - internal
+
+  caddy:
+    image: caddy:2.10-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    restart: unless-stopped
+    ports:
+      # Production public listeners (firewall + DNS must be ready). [HUMANO] CAMILA_DOMAIN TLS.
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      CAMILA_DOMAIN: ${CAMILA_DOMAIN:?set CAMILA_DOMAIN to the public hostname}
+      CADDY_GLOBAL_OPTIONS: ${CADDY_GLOBAL_OPTIONS:-}
+      CADDY_SITE_OPTIONS: ${CADDY_SITE_OPTIONS:-}
+    volumes:
+      - ./docker/Caddyfile.example:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      admin:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    cpus: 0.5
+    mem_limit: 256m
+    healthcheck:
+      test: ['CMD', 'caddy', 'version']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - internal
+
+  backup:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backup
+    image: camila-backup:local
     restart: unless-stopped
     env_file:
       - path: .env.prod
@@ -66,45 +230,84 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
-      # Local migration source / emergency fallback. Runtime media uses STORAGE_DRIVER=s3.
-      - media_data:/data/media
+      - backup_data:/backups
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    cpus: 0.5
+    mem_limit: 256m
     networks:
       - internal
+    # Task 9 replaces stub command with scheduled encrypted dump + upload.
 
-  admin:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.admin
+  metrics:
+    image: prom/prometheus:v3.2.1@sha256:6927e0919a144aa7616fd0137d4816816d42f6b816de3af269ab065250859a62
     restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.listen-address=0.0.0.0:9090
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
     expose:
-      - '80'
-    networks:
-      - internal
-
-  caddy:
-    image: caddy:2.10-alpine
-    restart: unless-stopped
-    ports:
-      - '127.0.0.1:8080:80'
-      # [HUMANO] Bind 80/443 on the public interface after firewall + DNS are ready:
-      # - '80:80'
-      # - '443:443'
-    volumes:
-      - ./docker/Caddyfile.example:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+      - '9090'
     depends_on:
-      - api
-      - admin
+      api:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    cpus: 0.5
+    mem_limit: 512m
     networks:
       - internal
+    # Task 10 expands scrape targets + alert rules.
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./infra/alertmanager/alertmanager.yml.example:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    expose:
+      - '9093'
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    cpus: 0.25
+    mem_limit: 128m
+    networks:
+      - internal
+    # [HUMANO] Task 10: wire external webhook receiver; never commit its secret.
 
 volumes:
   postgres_data:
   media_data:
   caddy_data:
   caddy_config:
+  backup_data:
+  prometheus_data:
+  alertmanager_data:
 
 networks:
   internal:
