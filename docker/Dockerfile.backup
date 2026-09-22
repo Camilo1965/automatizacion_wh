@@ -1,11 +1,15 @@
 # syntax=docker/dockerfile:1
 # Scheduled encrypted Postgres backup runner (off-server S3-compatible upload).
 
-FROM node:24-bookworm@sha256:64af3819f9275802414d7cdc38c27e9d82bd564dec4d4da87d008255d36c63b4
+FROM node:24-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
 
 RUN apt-get update \
+  && apt-get upgrade -y \
   && apt-get install -y --no-install-recommends postgresql-client \
   && rm -rf /var/lib/apt/lists/* \
+      /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+      /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn* /root/.cache \
   && groupadd --system --gid 1001 camila \
   && useradd --system --uid 1001 --gid camila --home-dir /backups camila \
   && mkdir -p /backups /app/scripts/lib \

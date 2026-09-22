@@ -1,11 +1,10 @@
 # syntax=docker/dockerfile:1
 
-FROM node:24-bookworm@sha256:64af3819f9275802414d7cdc38c27e9d82bd564dec4d4da87d008255d36c63b4 AS base
+FROM node:24-bookworm@sha256:64af3819f9275802414d7cdc38c27e9d82bd564dec4d4da87d008255d36c63b4 AS build
 ENV PNPM_HOME="/pnpm"
 ENV PATH="${PNPM_HOME}:${PATH}"
 RUN corepack enable && corepack prepare pnpm@11.19.0 --activate
 
-FROM base AS build
 WORKDIR /app
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc tsconfig.base.json ./
@@ -27,10 +26,13 @@ RUN pnpm deploy --filter @camila/api --prod --legacy /out/api \
   && mkdir -p /out/api/node_modules/@camila \
   && cp -a /app/packages/contracts /out/api/node_modules/@camila/contracts
 
-FROM base AS runtime
+FROM node:24-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS runtime
 WORKDIR /app
 
-RUN groupadd --system --gid 1001 camila \
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+      /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn* /root/.cache \
+  && groupadd --system --gid 1001 camila \
   && useradd --system --uid 1001 --gid camila --home-dir /app camila
 
 COPY --from=build --chown=camila:camila /out/api /app
