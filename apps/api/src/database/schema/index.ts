@@ -7,6 +7,7 @@ export * from './shipping.js';
 export * from './ops.js';
 
 import {
+  adminAuditEvents,
   adminMfaRecoveryCodes,
   adminMfaSecrets,
   adminSessions,
@@ -66,6 +67,7 @@ export const schema = {
   adminMfaSecrets,
   adminMfaRecoveryCodes,
   adminSessions,
+  adminAuditEvents,
   catalogReferences,
   catalogStock,
   inventoryMovements,

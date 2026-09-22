@@ -1,13 +1,18 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import type { AuditService } from '../../modules/audit/audit-service.js';
 import {
   LocalityCatalogError,
   type LocalityCatalogService,
 } from '../../modules/localities/locality-catalog-service.js';
+
 export function registerLocalityCatalogRoutes(
   app: FastifyInstance,
   service: LocalityCatalogService,
-  authenticate: (request: FastifyRequest) => Promise<{ username: string }>,
+  authenticate: (
+    request: FastifyRequest,
+  ) => Promise<{ id?: string; username: string }>,
+  auditService?: AuditService,
 ) {
   app.get('/locality-catalog', async (request) => {
     await authenticate(request);
@@ -41,16 +46,40 @@ export function registerLocalityCatalogRoutes(
       .strict()
       .parse(request.body);
     try {
-      return {
-        data: {
-          versions: await service.publish(body.id, user.username, body.restore),
+      const versions = await service.publish(
+        body.id,
+        user.username,
+        body.restore,
+      );
+      await auditService?.record({
+        action: 'locality_catalog.published',
+        result: 'success',
+        actorUserId: user.id ?? null,
+        actorUsername: user.username,
+        targetType: 'locality_catalog',
+        targetId: body.id,
+        correlationId: request.id,
+        metadata: {
+          restore: body.restore === true,
         },
-      };
+      });
+      return { data: { versions } };
     } catch (error) {
-      if (error instanceof LocalityCatalogError)
+      if (error instanceof LocalityCatalogError) {
+        await auditService?.record({
+          action: 'locality_catalog.published',
+          result: 'failure',
+          actorUserId: user.id ?? null,
+          actorUsername: user.username,
+          targetType: 'locality_catalog',
+          targetId: body.id,
+          correlationId: request.id,
+          metadata: { errorCode: error.code },
+        });
         return reply
           .code(error.status)
           .send({ error: { code: error.code, message: error.message } });
+      }
       throw error;
     }
   });

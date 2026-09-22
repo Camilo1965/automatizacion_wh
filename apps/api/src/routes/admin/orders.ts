@@ -10,6 +10,7 @@ import {
   toPublicOrder,
   toPublicOrderSummary,
 } from '../../http/admin-mappers.js';
+import type { AuditService } from '../../modules/audit/audit-service.js';
 import { CatalogNotFoundError } from '../../modules/catalog/catalog-errors.js';
 import type { OrderService } from '../../modules/orders/order-service.js';
 import { OrderIdParamsSchema, type AdminAuthenticate } from './admin-shared.js';
@@ -19,9 +20,10 @@ export async function registerOrdersRoutes(
   dependencies: {
     authenticate: AdminAuthenticate;
     orderService: OrderService;
+    auditService?: AuditService;
   },
 ): Promise<void> {
-  const { authenticate, orderService } = dependencies;
+  const { authenticate, orderService, auditService } = dependencies;
   app.post('/orders', async (request, reply) => {
     const user = await authenticate(request);
     const body = CreateOrderBodySchema.parse(request.body);
@@ -143,12 +145,36 @@ export async function registerOrdersRoutes(
     app.post(`/orders/:orderId/${action}`, async (request, reply) => {
       const user = await authenticate(request);
       const { orderId } = OrderIdParamsSchema.parse(request.params);
-      const order = await orderService.transition({
-        orderId,
-        action,
-        adminUserId: user.id,
-      });
-      return reply.status(200).send({ data: toPublicOrder(order) });
+      try {
+        const order = await orderService.transition({
+          orderId,
+          action,
+          adminUserId: user.id,
+        });
+        await auditService?.record({
+          action: 'order.transitioned',
+          result: 'success',
+          actorUserId: user.id,
+          actorUsername: user.username,
+          targetType: 'order',
+          targetId: orderId,
+          correlationId: request.id,
+          metadata: { transition: action },
+        });
+        return reply.status(200).send({ data: toPublicOrder(order) });
+      } catch (error) {
+        await auditService?.record({
+          action: 'order.transitioned',
+          result: 'failure',
+          actorUserId: user.id,
+          actorUsername: user.username,
+          targetType: 'order',
+          targetId: orderId,
+          correlationId: request.id,
+          metadata: { transition: action },
+        });
+        throw error;
+      }
     });
   }
 
@@ -156,12 +182,36 @@ export async function registerOrdersRoutes(
     const user = await authenticate(request);
     const { orderId } = OrderIdParamsSchema.parse(request.params);
     const body = ConfirmOrderBodySchema.parse(request.body);
-    const order = await orderService.transition({
-      orderId,
-      action: 'confirm',
-      adminUserId: user.id,
-      ...body,
-    });
-    return reply.status(200).send({ data: toPublicOrder(order) });
+    try {
+      const order = await orderService.transition({
+        orderId,
+        action: 'confirm',
+        adminUserId: user.id,
+        ...body,
+      });
+      await auditService?.record({
+        action: 'order.transitioned',
+        result: 'success',
+        actorUserId: user.id,
+        actorUsername: user.username,
+        targetType: 'order',
+        targetId: orderId,
+        correlationId: request.id,
+        metadata: { transition: 'confirm' },
+      });
+      return reply.status(200).send({ data: toPublicOrder(order) });
+    } catch (error) {
+      await auditService?.record({
+        action: 'order.transitioned',
+        result: 'failure',
+        actorUserId: user.id,
+        actorUsername: user.username,
+        targetType: 'order',
+        targetId: orderId,
+        correlationId: request.id,
+        metadata: { transition: 'confirm' },
+      });
+      throw error;
+    }
   });
 }

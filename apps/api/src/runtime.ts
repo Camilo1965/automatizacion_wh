@@ -11,6 +11,8 @@ import { OwnerAlertWorker } from './modules/alerts/owner-alert-worker.js';
 import { PostgresAlertRepository } from './modules/alerts/postgres-alert-repository.js';
 import { AuthService } from './modules/auth/auth-service.js';
 import { PostgresAdminAuthRepository } from './modules/auth/postgres-admin-auth-repository.js';
+import { AuditService } from './modules/audit/audit-service.js';
+import { PostgresAuditRepository } from './modules/audit/postgres-audit-repository.js';
 import { CatalogImportService } from './modules/catalog/catalog-import-service.js';
 import { DefaultCatalogService } from './modules/catalog/catalog-service.js';
 import { LocalPhotoStorage } from './modules/catalog/local-photo-storage.js';
@@ -75,6 +77,7 @@ export async function createRuntime(
   const localityCatalogService = new LocalityCatalogService(database);
   await localityCatalogService.bootstrap();
   const authRepository = new PostgresAdminAuthRepository(database);
+  const auditService = new AuditService(new PostgresAuditRepository(database));
   const authService = new AuthService(authRepository, {
     ...(config.integrationEncryptionKey === undefined
       ? {}
@@ -88,6 +91,7 @@ export async function createRuntime(
     sessionLastSeenThrottleMs:
       (config.sessionLastSeenThrottleSeconds ?? 300) * 1000,
     absoluteSessionTtlMs: (config.sessionAbsoluteTtlHours ?? 12) * 60 * 60 * 1000,
+    auditSink: auditService.asAuthAuditSink(),
   });
   const catalogRepository = new PostgresCatalogRepository(database);
   const photoStorage = new LocalPhotoStorage(config.mediaRoot);
@@ -185,6 +189,7 @@ export async function createRuntime(
     config,
     database,
     authService,
+    auditService,
     catalogService,
     catalogImportService,
     localityService,

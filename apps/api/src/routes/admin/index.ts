@@ -20,10 +20,12 @@ import type { DashboardService } from '../../modules/dashboard/dashboard-service
 import type { GlobalSearchService } from '../../modules/search/global-search-service.js';
 import type { ConnectionCapabilityService } from '../../modules/whatsapp/connection-capability-service.js';
 import type { AlertService } from '../../modules/alerts/alert-service.js';
+import type { AuditService } from '../../modules/audit/audit-service.js';
 import type { InventoryClosureService } from '../../modules/inventory/inventory-closure-service.js';
 import type { IntegrationHealthService } from '../../modules/integrations/integration-health-service.js';
 import type { IntegrationSettingsOperations } from '../../modules/integrations/integration-settings-service.js';
 import { requireAdminSession, authorize } from './admin-shared.js';
+import { registerAuditRoutes } from './audit.js';
 import { registerAuthRoutes } from './auth.js';
 import { registerCatalogRoutes } from './catalog.js';
 import { registerConversationsRoutes } from './conversations.js';
@@ -50,6 +52,7 @@ export type AdminRoutesDependencies = Readonly<{
   shippingIncidentService?: ShippingIncidentService;
   config: AppConfig;
   authService: AuthService;
+  auditService?: AuditService;
   catalogService: CatalogService;
   catalogImportService?: CatalogImportService;
   localityService?: LocalityService;
@@ -88,6 +91,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
       app,
       dependencies.localityCatalogService,
       authorize(authenticate, 'integrations:manage'),
+      dependencies.auditService,
     );
   }
 
@@ -114,12 +118,18 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     ...(dependencies.alertService === undefined
       ? {}
       : { alertService: dependencies.alertService }),
+    ...(dependencies.auditService === undefined
+      ? {}
+      : { auditService: dependencies.auditService }),
   });
 
   if (dependencies.inventoryClosureService !== undefined) {
     await registerInventoryRoutes(app, {
       authenticate: authorize(authenticate, 'inventory:operate'),
       inventoryClosureService: dependencies.inventoryClosureService,
+      ...(dependencies.auditService === undefined
+        ? {}
+        : { auditService: dependencies.auditService }),
     });
   }
 
@@ -131,6 +141,9 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     ...(dependencies.shippingGuideService === undefined
       ? {}
       : { shippingGuideService: dependencies.shippingGuideService }),
+    ...(dependencies.auditService === undefined
+      ? {}
+      : { auditService: dependencies.auditService }),
   });
 
   await registerConversationsRoutes(app, {
@@ -169,6 +182,13 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     authService: dependencies.authService,
   });
 
+  if (dependencies.auditService !== undefined) {
+    await registerAuditRoutes(app, {
+      authenticate,
+      auditService: dependencies.auditService,
+    });
+  }
+
   await registerSecurityRoutes(app, {
     authenticate,
     authService: dependencies.authService,
@@ -181,12 +201,18 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     ...(dependencies.catalogImportService === undefined
       ? {}
       : { catalogImportService: dependencies.catalogImportService }),
+    ...(dependencies.auditService === undefined
+      ? {}
+      : { auditService: dependencies.auditService }),
   });
 
   if (dependencies.orderService !== undefined) {
     await registerOrdersRoutes(app, {
       authenticate: authorize(authenticate, 'orders:operate'),
       orderService: dependencies.orderService,
+      ...(dependencies.auditService === undefined
+        ? {}
+        : { auditService: dependencies.auditService }),
     });
   }
 

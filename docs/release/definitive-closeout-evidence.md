@@ -83,7 +83,7 @@ Docker image manifest lists (this machine, after build):
 | Docker image builds | `verified` | api/worker/admin built |
 | Real RBAC / capabilities | `verified` | Task 2: roles + `requireCapability` on admin routes; U/I/E evidence |
 | Operable MFA from panel | `verified` | Task 3: enroll/confirm/disable, sessions, rate limit, local QR |
-| Unified admin/business audit | `failed` | Historial still incomplete vs design §8.4; Task 3 emits in-memory auth audit sink only |
+| Unified admin/business audit | `verified` | Task 4: `admin_audit_events` + Historial `/audit`; auth sink → Postgres |
 | Versioned retention + legal gate | `failed` | Execution must stay blocked until `[HUMANO]` legal approval |
 | Integrations/Shipping UX lifecycle | `failed` | Pages still monolithic; generic copy residual risk |
 | Fast Refresh warnings = 0 | `failed` | 4 warnings remain |
@@ -101,11 +101,11 @@ Docker image manifest lists (this machine, after build):
 | Meta + 99envíos real evidence | `[HUMANO]` | Credentials + authorized actions |
 | Pilot + acceptance signoff | `[HUMANO]` | Owner/operators |
 
-### Remaining gaps entering Task 4
+### Remaining gaps entering Task 5
 
-1. Unified append-only audit (Task 4) — auth sink today is in-memory placeholder.
-2. Retention, storage, backup, observability, CI gates incomplete.
-3. Real provider/pilot/launch evidence absent → final recommendation remains **NO-GO** until `[HUMANO]` gates close.
+1. Retention, storage, backup, observability, CI gates incomplete.
+2. Real provider/pilot/launch evidence absent → final recommendation remains **NO-GO** until `[HUMANO]` gates close.
+3. Audit raw IP not stored (by design until legal approval); optional `ip_hash` column reserved.
 
 ---
 
@@ -166,8 +166,8 @@ Docker image manifest lists (this machine, after build):
 | --- | --- | --- | --- |
 | 1 Baseline | `verified` | `87f92e9` | Fresh totals recorded |
 | 2 AuthZ | `verified` | `35038be` | Stub replaced; server enforcement |
-| 3 MFA/sessions | `verified` | (this commit) | MFA+sessions operable; migration 0032 |
-| 4 Audit | pending | | Plan file becomes `0033_admin_audit_events.sql` |
+| 3 MFA/sessions | `verified` | (Task 3 commit) | MFA+sessions operable; migration 0032 |
+| 4 Audit | `verified` | (this commit) | Unified append-only audit; migration 0033 |
 | 5 Retention | pending | | |
 | 6 Frontend UX/a11y | pending | | |
 | 7 Object storage | pending | | |
@@ -183,3 +183,37 @@ Docker image manifest lists (this machine, after build):
 ## Secrets / PII confirmation
 
 No passwords, tokens, TOTP secrets, recovery codes, documents, phones, addresses or production data recorded in this ledger.
+
+---
+
+## Task 4 — Unified security and business audit (2026-09-22)
+
+### Behavior
+
+- Table `admin_audit_events` (migration **0033**; plan text said 0032 but that number was taken by session security)
+- Fields: actor id/username snapshot, action, target type/id, correlation id, sanitized metadata, result, optional `ip_hash` (raw IP never stored; legal approval required before use), immutable `created_at`
+- Append-only repository API (`append` + `list` only; no update/delete for consumers)
+- `AuthService` audit sink wired to Postgres via `AuditService.asAuthAuditSink()`
+- Sensitive routes also emit: integrations, bot/locality publish, shipping policy, inventory adjust/closures/export download, order transitions, role/user lifecycle
+- Retention action names recorded via service API hooks (`retention.executed` / `retention.simulated`) for Task 5
+- Owner-only `audit:read` on `GET /api/admin/audit` and legacy `GET /api/admin/configuration/audit`
+- Historial UI filters + pagination against unified feed
+
+### Indexes
+
+- `created_at`, `actor_user_id`, `action`, `(target_type, target_id)`
+
+### TDD evidence
+
+| Step | Command | Result |
+| --- | --- | --- |
+| RED | Tests authored against missing `modules/audit/*` before implementation | Import/compile would fail without module |
+| GREEN unit | `pnpm --filter @camila/api exec vitest run test/audit-service.test.ts` | 5 passed |
+| GREEN integration | `pnpm --filter @camila/api test:integration -- test/admin-audit.integration.test.ts` | 3 passed |
+| Migrations | `test/database-migrations.integration.test.ts` | 3 passed |
+| Typecheck | api + admin `tsc --noEmit` | pass |
+| Contracts | `pnpm --filter @camila/contracts exec vitest run` | 70 passed |
+
+### IP / secrets note
+
+Raw client IP is not captured. Failed login/MFA metadata is sanitized (no password/token/code fields persist).

@@ -4,6 +4,7 @@ import {
   BotFlowDraftBodySchema,
   BotFlowSimulationBodySchema,
 } from '@camila/contracts';
+import type { AuditService } from '../../modules/audit/audit-service.js';
 import {
   BotFlowError,
   type BotFlowService,
@@ -14,7 +15,10 @@ import { validateBotFlow } from '../../modules/conversations/flow-definition.js'
 export function registerBotFlowRoutes(
   app: FastifyInstance,
   service: BotFlowService,
-  authenticate: (request: FastifyRequest) => Promise<{ username: string }>,
+  authenticate: (
+    request: FastifyRequest,
+  ) => Promise<{ id?: string; username: string }>,
+  auditService?: AuditService,
 ) {
   app.get('/bot-flow', async (request) => {
     await authenticate(request);
@@ -45,18 +49,43 @@ export function registerBotFlowRoutes(
       .strict()
       .parse(request.body);
     try {
-      return {
-        data: await service.publish(
-          body.revision,
-          user.username,
-          body.restoreVersionId,
-        ),
-      };
+      const data = await service.publish(
+        body.revision,
+        user.username,
+        body.restoreVersionId,
+      );
+      await auditService?.record({
+        action: 'bot_flow.published',
+        result: 'success',
+        actorUserId: user.id ?? null,
+        actorUsername: user.username,
+        targetType: 'bot_flow',
+        targetId: 'sales',
+        correlationId: request.id,
+        metadata: {
+          revision: body.revision,
+          ...(body.restoreVersionId === undefined
+            ? {}
+            : { restoreVersionId: body.restoreVersionId }),
+        },
+      });
+      return { data };
     } catch (error) {
-      if (error instanceof BotFlowError)
+      if (error instanceof BotFlowError) {
+        await auditService?.record({
+          action: 'bot_flow.published',
+          result: 'failure',
+          actorUserId: user.id ?? null,
+          actorUsername: user.username,
+          targetType: 'bot_flow',
+          targetId: 'sales',
+          correlationId: request.id,
+          metadata: { errorCode: error.code, revision: body.revision },
+        });
         return reply
           .code(error.status)
           .send({ error: { code: error.code, message: error.message } });
+      }
       throw error;
     }
   });

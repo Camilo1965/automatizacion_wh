@@ -3,6 +3,7 @@ import { IntegrationSettingsUpdateSchema } from '@camila/contracts';
 import { z } from 'zod';
 
 import type { AlertService } from '../../modules/alerts/alert-service.js';
+import type { AuditService } from '../../modules/audit/audit-service.js';
 import type { BotFlowService } from '../../modules/conversations/bot-flow-service.js';
 import type { IntegrationHealthService } from '../../modules/integrations/integration-health-service.js';
 import {
@@ -25,21 +26,20 @@ export async function registerIntegrationsRoutes(
     integrationHealthService?: IntegrationHealthService;
     connectionCapabilityService?: ConnectionCapabilityService;
     alertService?: AlertService;
+    auditService?: AuditService;
   },
 ): Promise<void> {
   const { authenticate, integrationHealthService } = dependencies;
   const requireIntegrations = authorize(authenticate, 'integrations:manage');
-  const requireAudit = authorize(authenticate, 'audit:read');
   const requireAlerts = authorize(authenticate, 'alerts:operate');
   const requireConversations = authorize(authenticate, 'conversations:operate');
 
   if (dependencies.botFlowService !== undefined) {
-    app.get('/configuration/audit', async (request) => {
-      await requireAudit(request);
-      return { data: { items: await dependencies.botFlowService!.audit() } };
-    });
-    registerBotFlowRoutes(app, dependencies.botFlowService, (request) =>
-      requireIntegrations(request),
+    registerBotFlowRoutes(
+      app,
+      dependencies.botFlowService,
+      (request) => requireIntegrations(request),
+      dependencies.auditService,
     );
   }
   if (dependencies.integrationSettingsService !== undefined) {
@@ -80,14 +80,33 @@ export async function registerIntegrationsRoutes(
           .strict()
           .parse(request.body);
         try {
-          return {
-            data: await lifecycleService.activate!(
-              provider,
-              revision,
-              user.username,
-            ),
-          };
+          const data = await lifecycleService.activate!(
+            provider,
+            revision,
+            user.username,
+          );
+          await dependencies.auditService?.record({
+            action: 'integration.activated',
+            result: 'success',
+            actorUserId: user.id,
+            actorUsername: user.username,
+            targetType: 'integration',
+            targetId: provider,
+            correlationId: request.id,
+            metadata: { revision },
+          });
+          return { data };
         } catch {
+          await dependencies.auditService?.record({
+            action: 'integration.activated',
+            result: 'failure',
+            actorUserId: user.id,
+            actorUsername: user.username,
+            targetType: 'integration',
+            targetId: provider,
+            correlationId: request.id,
+            metadata: { revision },
+          });
           return reply.code(409).send({
             error: {
               code: 'activation_rejected',
@@ -111,8 +130,27 @@ export async function registerIntegrationsRoutes(
           IntegrationSettingsUpdateSchema.parse(request.body),
           user.username,
         );
+        await dependencies.auditService?.record({
+          action: 'integration.updated',
+          result: 'success',
+          actorUserId: user.id,
+          actorUsername: user.username,
+          targetType: 'integration',
+          targetId: 'settings',
+          correlationId: request.id,
+        });
       } catch (error) {
         if (error instanceof IntegrationSettingsError) {
+          await dependencies.auditService?.record({
+            action: 'integration.updated',
+            result: 'failure',
+            actorUserId: user.id,
+            actorUsername: user.username,
+            targetType: 'integration',
+            targetId: 'settings',
+            correlationId: request.id,
+            metadata: { reason: 'invalid_settings' },
+          });
           return reply.status(400).send({
             error: {
               code: 'invalid_integration_settings',

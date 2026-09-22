@@ -6,7 +6,10 @@ export type AuthAuditAction =
   | 'mfa.enabled'
   | 'mfa.disabled'
   | 'session.revoked'
-  | 'session.revoked_others';
+  | 'session.revoked_others'
+  | 'role.changed'
+  | 'user.created'
+  | 'user.deactivated';
 
 export type AuthAuditEvent = {
   action: AuthAuditAction;

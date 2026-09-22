@@ -17,6 +17,7 @@ import {
   toPublicReferenceSummary,
   toPublicStockRecord,
 } from '../../http/admin-mappers.js';
+import type { AuditService } from '../../modules/audit/audit-service.js';
 import {
   CatalogImportValidationError,
   CatalogNotFoundError,
@@ -38,10 +39,16 @@ export async function registerCatalogRoutes(
     catalogService: CatalogService;
     catalogImportService?: CatalogImportService;
     photoStorage: PhotoStorage;
+    auditService?: AuditService;
   },
 ): Promise<void> {
-  const { authenticate, catalogService, catalogImportService, photoStorage } =
-    dependencies;
+  const {
+    authenticate,
+    catalogService,
+    catalogImportService,
+    photoStorage,
+    auditService,
+  } = dependencies;
   app.get('/references', async (request, reply) => {
     await authenticate(request);
     const query = ListReferencesQuerySchema.parse(request.query);
@@ -271,18 +278,41 @@ export async function registerCatalogRoutes(
   });
 
   app.put('/references/:referenceId/stock/:size', async (request, reply) => {
-    await authenticate(request);
+    const user = await authenticate(request);
     const params = StockParamsSchema.parse(request.params);
     const body = SetStockBodySchema.parse(request.body);
-    const stock = await catalogService.setPhysicalStock({
-      referenceId: params.referenceId,
-      size: params.size,
-      physicalQuantity: body.physicalQuantity,
-      note: body.note,
-    });
-    return reply.status(200).send({
-      data: toPublicStockRecord(stock),
-    });
+    try {
+      const stock = await catalogService.setPhysicalStock({
+        referenceId: params.referenceId,
+        size: params.size,
+        physicalQuantity: body.physicalQuantity,
+        note: body.note,
+      });
+      await auditService?.record({
+        action: 'inventory.adjusted',
+        result: 'success',
+        actorUserId: user.id,
+        actorUsername: user.username,
+        targetType: 'catalog_stock',
+        targetId: `${params.referenceId}:${params.size}`,
+        correlationId: request.id,
+        metadata: { physicalQuantity: body.physicalQuantity },
+      });
+      return reply.status(200).send({
+        data: toPublicStockRecord(stock),
+      });
+    } catch (error) {
+      await auditService?.record({
+        action: 'inventory.adjusted',
+        result: 'failure',
+        actorUserId: user.id,
+        actorUsername: user.username,
+        targetType: 'catalog_stock',
+        targetId: `${params.referenceId}:${params.size}`,
+        correlationId: request.id,
+      });
+      throw error;
+    }
   });
 
   app.get('/references/:referenceId/movements', async (request, reply) => {

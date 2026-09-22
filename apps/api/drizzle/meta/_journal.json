@@ -232,6 +232,13 @@
       "when": 1790051000000,
       "tag": "0032_admin_session_security",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790052000000,
+      "tag": "0033_admin_audit_events",
+      "breakpoints": true
     }
   ]
 }

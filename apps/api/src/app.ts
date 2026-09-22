@@ -33,6 +33,7 @@ import type { ShippingQuoteOperations } from './modules/shipping/shipping-quote-
 import type { ShippingGuideOperations } from './modules/shipping/shipping-guide-service.js';
 import type { ConnectionCapabilityService } from './modules/whatsapp/connection-capability-service.js';
 import type { AlertService } from './modules/alerts/alert-service.js';
+import type { AuditService } from './modules/audit/audit-service.js';
 import type { InventoryClosureService } from './modules/inventory/inventory-closure-service.js';
 import type { IntegrationHealthService } from './modules/integrations/integration-health-service.js';
 import type { IntegrationSettingsOperations } from './modules/integrations/integration-settings-service.js';
@@ -44,6 +45,7 @@ export type AppDependencies = Readonly<{
   config: AppConfig;
   database: PostgresDatabase;
   authService: AuthService;
+  auditService?: AuditService;
   catalogService: CatalogService;
   catalogImportService?: CatalogImportService;
   photoStorage: PhotoStorage;
@@ -201,6 +203,9 @@ export async function buildApp(
     prefix: '/api/admin',
     config: dependencies.config,
     authService: dependencies.authService,
+    ...(dependencies.auditService === undefined
+      ? {}
+      : { auditService: dependencies.auditService }),
     catalogService: dependencies.catalogService,
     ...(dependencies.catalogImportService === undefined
       ? {}

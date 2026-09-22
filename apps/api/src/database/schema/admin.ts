@@ -4,6 +4,7 @@ import {
   char,
   check,
   index,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -99,5 +100,42 @@ export const adminSessions = pgTable(
       table.revokedAt,
     ),
     index('admin_sessions_user_id_idx').on(table.userId),
+  ],
+);
+
+/**
+ * Unified append-only security and business audit log.
+ * Raw IP is never stored; `ip_hash` is optional and unused until legally approved.
+ */
+export const adminAuditEvents = pgTable(
+  'admin_audit_events',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    actorUserId: uuid('actor_user_id'),
+    actorUsername: varchar('actor_username', { length: 64 }),
+    action: varchar('action', { length: 64 }).notNull(),
+    targetType: varchar('target_type', { length: 64 }),
+    targetId: varchar('target_id', { length: 128 }),
+    correlationId: varchar('correlation_id', { length: 64 }),
+    metadata: jsonb('metadata').notNull().default({}),
+    result: varchar('result', { length: 16 }).notNull(),
+    ipHash: char('ip_hash', { length: 64 }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'admin_audit_events_result_check',
+      sql`${table.result} IN ('success', 'failure')`,
+    ),
+    check(
+      'admin_audit_events_ip_hash_format',
+      sql`${table.ipHash} IS NULL OR ${table.ipHash} ~ '^[a-f0-9]{64}$'`,
+    ),
+    index('admin_audit_events_created_at_idx').on(table.createdAt),
+    index('admin_audit_events_actor_user_id_idx').on(table.actorUserId),
+    index('admin_audit_events_action_idx').on(table.action),
+    index('admin_audit_events_target_idx').on(table.targetType, table.targetId),
   ],
 );

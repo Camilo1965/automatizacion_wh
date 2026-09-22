@@ -8,6 +8,7 @@ import {
 import { z } from 'zod';
 
 import { CARRIER_CATALOG } from '../../modules/shipping/carrier-catalog.js';
+import type { AuditService } from '../../modules/audit/audit-service.js';
 import type { ShippingGuideOperations } from '../../modules/shipping/shipping-guide-service.js';
 import type { ShippingQuoteOperations } from '../../modules/shipping/shipping-quote-service.js';
 import { OrderIdParamsSchema, type AdminAuthenticate } from './admin-shared.js';
@@ -18,10 +19,15 @@ export async function registerShippingRoutes(
     authenticate: AdminAuthenticate;
     shippingQuoteService?: ShippingQuoteOperations;
     shippingGuideService?: ShippingGuideOperations;
+    auditService?: AuditService;
   },
 ): Promise<void> {
-  const { authenticate, shippingQuoteService, shippingGuideService } =
-    dependencies;
+  const {
+    authenticate,
+    shippingQuoteService,
+    shippingGuideService,
+    auditService,
+  } = dependencies;
   if (shippingGuideService !== undefined) {
     const ReviewGuideBodySchema = z
       .object({ preShipmentNumber: z.string().trim().min(1).max(64) })
@@ -162,6 +168,15 @@ export async function registerShippingRoutes(
       const user = await authenticate(request);
       const policy = ShippingPolicySchema.parse(request.body);
       await shippingQuoteService.setDefaultPolicy(policy, user.username);
+      await auditService?.record({
+        action: 'shipping_policy.updated',
+        result: 'success',
+        actorUserId: user.id,
+        actorUsername: user.username,
+        targetType: 'shipping_policy',
+        targetId: 'default',
+        correlationId: request.id,
+      });
       return reply
         .status(200)
         .send({ data: await shippingQuoteService.getDefaultPolicy() });

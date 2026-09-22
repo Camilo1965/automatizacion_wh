@@ -196,12 +196,23 @@ export class AuthService {
   ): Promise<AdminUserPublic> {
     requireCapability(actor, 'security:manage');
     await this.verifyCurrentPassword(actor.id, input.currentPassword);
-    return this.createUser(
+    const created = await this.createUser(
       input.username,
       input.password,
       input.passwordConfirmation,
       input.role,
     );
+    await this.auditSink.record({
+      action: 'user.created',
+      result: 'success',
+      actorUserId: actor.id,
+      actorUsername: actor.username,
+      targetType: 'admin_user',
+      targetId: created.id,
+      metadata: { role: created.role },
+      at: this.now(),
+    });
+    return created;
   }
 
   async updateUserRole(
@@ -222,7 +233,18 @@ export class AuthService {
       updatedAt: this.now(),
     });
     await this.repository.revokeAllSessionsForUser(userId, this.now());
-    return toPublicUser(updated);
+    const publicUser = toPublicUser(updated);
+    await this.auditSink.record({
+      action: 'role.changed',
+      result: 'success',
+      actorUserId: actor.id,
+      actorUsername: actor.username,
+      targetType: 'admin_user',
+      targetId: publicUser.id,
+      metadata: { role: publicUser.role },
+      at: this.now(),
+    });
+    return publicUser;
   }
 
   async deactivateUser(
@@ -243,7 +265,17 @@ export class AuthService {
       updatedAt: this.now(),
     });
     await this.repository.revokeAllSessionsForUser(userId, this.now());
-    return toPublicUser(updated);
+    const publicUser = toPublicUser(updated);
+    await this.auditSink.record({
+      action: 'user.deactivated',
+      result: 'success',
+      actorUserId: actor.id,
+      actorUsername: actor.username,
+      targetType: 'admin_user',
+      targetId: publicUser.id,
+      at: this.now(),
+    });
+    return publicUser;
   }
 
   private async verifyCurrentPassword(
