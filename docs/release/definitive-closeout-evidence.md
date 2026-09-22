@@ -675,3 +675,34 @@ The staging smoke used separate media and backup S3 credentials and an isolated 
 | `camila-backup:local` | `4f20f8be0815cadcc8a6214f7e4b13d6ea26aa42af0000eaeedbbc554028f42e` |
 
 **Decision: NO-GO.** P0/P1 `[HUMANO]` gates remain open: real production HTTPS/DNS, external S3 destination and recovery targets, external alert receipt, live Meta and 99envíos transactions, business reconciliation, owner sign-off, and production migration/deployment approval. A local green gate does not prove 100% functionality with real providers or authorize launch.
+
+---
+
+## Independent review remediation — verified 2026-09-22
+
+**Code commit:** `2c474cf` on `cursor/kairo-definitive-closeout`. This section supersedes the earlier local-closeout counts above; those remain as historical evidence for `deddd48`. The release command now requires a clean worktree before running, so the source tested by coverage matches the committed tree examined by Gitleaks and Trivy.
+
+| Check                           | Result    | Evidence                                                                                                                                                                                                                                                                                                        |
+| ------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm verify:release`           | exit 0    | Frozen install, format, zero-warning lint, typecheck, tests, build/bundle budget, combined coverage, dependency audit, production config, Gitleaks, Trivy filesystem, isolated smoke, four final image scans                                                                                                    |
+| Unit                            | exit 0    | contracts 70, API 315, admin 61                                                                                                                                                                                                                                                                                 |
+| Integration                     | exit 0    | API 142 passed, one environment-conditional file skipped; includes PostgreSQL guide-delivery opt-out and idempotency cases                                                                                                                                                                                      |
+| E2E                             | exit 0    | Chromium 30 passed, 1 skipped                                                                                                                                                                                                                                                                                   |
+| Combined API coverage           | exit 0    | 457 passed; 9 critical files ≥90% lines/branches each; 15 modified pure business-decision modules ≥80% lines/branches each, no exceptions                                                                                                                                                                       |
+| Global coverage (informational) | measured  | API 74.48% lines / 69.89% branches; admin 54.85% / 48.32%; contracts 95.33% / 68.83%. Other adapters, workers, routes and UI files do not meet a blanket 80% or 90% promise.                                                                                                                                    |
+| Security                        | exit 0    | Gitleaks v8.30.1 full history: no leaks; Trivy v0.74.0 committed filesystem and API/admin/worker/backup images: no blocking HIGH/CRITICAL findings with `--ignore-unfixed` and `.trivyignore`                                                                                                                   |
+| Smoke                           | exit 0    | Random `kairo-smoke-*` Compose project, env file and image tags; scoped media/backup MinIO users with cross-bucket access denied; S3 put/get/delete, encrypted backup upload/verify, isolated restore, heartbeat, health/login/routes and API-worker process split all passed; own resources and images removed |
+| Critical concurrency            | exit 0 ×3 | 10/10 passed in each consecutive run against `postgres-test`                                                                                                                                                                                                                                                    |
+
+### Final-scanned local image digests for code commit `2c474cf`
+
+| Image                 | SHA-256 digest                                                     |
+| --------------------- | ------------------------------------------------------------------ |
+| `camila-api:local`    | `63b9a099a59c1def5dba5e0656a220a06ae9a14b6cb61674463c04e2d270a1ca` |
+| `camila-worker:local` | `1a13ef15987a45b64d8a914a089c7d26ddf743dc8dfdabf36bb35ce4a1837419` |
+| `camila-admin:local`  | `5370b6cede46db891846c7d6a226b4afca2428368c619886199c71e5dc1865ac` |
+| `camila-backup:local` | `fbd8c84a39650febf6e1909ddec891f9e0e0d49f16bb7ced8ced8f840ccbf765` |
+
+The source-code safety issue found in review was resolved: smoke no longer shares the `camila-prod` project, network, volumes, image tags or env file. The guide-delivery selection query is now exercised against PostgreSQL. The 80/80 gate covers modified pure business-decision modules, including MFA token and auth error rules; integration adapters are tested separately and the global totals above remain visible as quality debt.
+
+**Production decision remains NO-GO.** Local automation cannot supply the live Meta/99envíos evidence, productive HTTPS/DNS, external S3 backup destination and recovery targets, external alert receipt, business acceptance, owner signature or deployment approval. No push, merge or deploy occurred.
