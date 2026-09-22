@@ -125,3 +125,8 @@ services:
 
 volumes:
   minio_staging_data:
+
+networks:
+  internal:
+    # Declared so this override file validates alone; merged with compose.prod.yaml in smoke.
+    name: kairo_staging_internal

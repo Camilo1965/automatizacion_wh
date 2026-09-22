@@ -601,3 +601,48 @@ No credentials, tokens, or personal data added in Task 13 docs.
 Do not declare production complete until evidence-log, go/no-go checklist, stabilization, and acceptance-signoff contain **real** approvals and live provider IDs (sanitized).
 
 ---
+
+## Final verification sequence (post Task 13 + regression fixes)
+
+Timestamp: 2026-09-22 ~02:50 local (America/Bogota)  
+Final SHA at sequence start of fixes trail: `4f5bb50` (+ staging network declare commit below)
+
+| Command | Exit | Totals / notes |
+| --- | --- | --- |
+| `pnpm install --frozen-lockfile` | 0 | pnpm 11.19.0 |
+| `pnpm format:check` | 0 | After Prettier write + commit `fb47192` |
+| `pnpm lint -- --max-warnings=0` | 0 | Fast Refresh 0; load scripts get Node globals |
+| `pnpm typecheck` | 0 | Removed invalid `thresholds: undefined` |
+| `pnpm test:unit` | 0 | contracts 70 + API 273 + admin 61 = **404** |
+| `pnpm test:integration` | 0 | **142** passed (40 files) |
+| `pnpm test:e2e` | 0 | **30** passed, 1 skipped |
+| `pnpm test:coverage` | 0 | Critical rules **99.29% lines / 90.29% branches**; gates OK (time-bounded exceptions documented) |
+| `pnpm build` | 0 | contracts + api + admin |
+| `pnpm audit --prod` | 0 | No known vulnerabilities |
+| `docker compose ... compose.prod.yaml config --quiet` | 0 | Valid |
+| `compose.staging.yaml` alone | N/A | Override file — validate merged / via smoke |
+| `pnpm production:smoke` | 0 | **PASS** full path: docker → health → login → routes → separate processes → shutdown |
+| `git diff --check` | 0 | Clean |
+| gitleaks / trivy local | not installed | Enforced in CI (`.github/workflows/verify.yml` SHA-pinned) |
+
+### Image digests (local — smoke/staging tags + prior prod tags)
+
+| Image | Digest |
+| --- | --- |
+| camila-api:local (smoke) | `sha256:6b3b765a3f0d52cfef76ce76dfdcc3a9fe0d187b17ce9d15b0404afc06a9f6eb` |
+| camila-worker:local (smoke) | `sha256:0d617898aea1d8f1e63ba758ba701b1322560ac03ac577aca1b1af5a2466ef96` |
+| camila-admin:local (smoke) | `sha256:d9b0bfca69595edf0f8aea66355d0676aa69e5d774fcb715088132fd4e947685` |
+| camila-backup:local | `sha256:cc12a4d5059b45e7b7758ead8f2754102e5dfda93185cb9d6595faa16c0b3e6e` |
+| camila-prod-api:latest | `sha256:ed82c6c6007abfe2088d78499f35808d0309ef0a30963601880f7c1632de4f0d` |
+| camila-prod-worker:latest | `sha256:331c12e8e57be7bf4710221e6a52ada706585e4c7bd137a158013b7b497c68f6` |
+| camila-prod-admin:latest | `sha256:d5b8856dd67f40884b90cc0af77652a88844f80f6b5d4d3e6b6187604ea7dafa` |
+
+Trivy image/FS scans: run in CI job (local scanner binary absent on this workstation).
+
+### Secrets / PII confirmation (final)
+
+`.env.staging` gitignored; not staged. No passwords, tokens, TOTP, recovery codes, documents, phones, addresses, or production PII committed in closeout commits.
+
+**Recommendation remains NO-GO** — open P0/P1 `[HUMANO]` gates above.
+
+---
