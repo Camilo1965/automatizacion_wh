@@ -25,7 +25,7 @@
     "security:filesystem": "node scripts/security-scan.mjs filesystem",
     "security:images": "node scripts/security-scan.mjs images",
     "security:all": "node scripts/security-scan.mjs all",
-    "test:coverage": "pnpm --filter @camila/contracts test:coverage && pnpm --filter @camila/api test:coverage && pnpm --filter @camila/admin test:coverage && node scripts/check-coverage-gates.mjs",
+    "test:coverage": "node scripts/test-coverage.mjs",
     "check:bundle-budget": "node scripts/check-bundle-budget.mjs",
     "check:production-config": "node scripts/check-production-config.mjs",
     "load:webhook": "node --env-file-if-exists=.env tests/load/webhook-load.mjs",
