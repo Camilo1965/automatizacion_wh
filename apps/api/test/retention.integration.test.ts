@@ -13,7 +13,6 @@ import {
   type PostgresDatabase,
 } from '../src/database/client.js';
 import { runMigrations } from '../src/database/migrate.js';
-import { ADMIN_SESSION_COOKIE } from '../src/http/session-cookie.js';
 import { AuditService } from '../src/modules/audit/audit-service.js';
 import { PostgresAuditRepository } from '../src/modules/audit/postgres-audit-repository.js';
 import { AuthService } from '../src/modules/auth/auth-service.js';

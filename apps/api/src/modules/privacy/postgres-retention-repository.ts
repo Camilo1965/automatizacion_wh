@@ -110,7 +110,8 @@ export class PostgresRetentionRepository implements RetentionRepository {
     return mapPolicy(row);
   }
 
-  async supersedeActiveExcept(activeId: string, _at: Date): Promise<void> {
+  async supersedeActiveExcept(activeId: string, at: Date): Promise<void> {
+    void at;
     await this.database.orm
       .update(retentionPolicies)
       .set({ status: 'superseded' })

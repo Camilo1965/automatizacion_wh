@@ -20,5 +20,21 @@ export default defineConfig({
         },
       },
     ],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary', 'lcov'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.d.ts',
+        'src/cli/**',
+        'src/database/migrate.ts',
+        'src/server.ts',
+        'src/worker.ts',
+        '**/node_modules/**',
+      ],
+      // Floor is informational; critical/modified gates: scripts/check-coverage-gates.mjs
+      thresholds: undefined,
+    },
   },
 });

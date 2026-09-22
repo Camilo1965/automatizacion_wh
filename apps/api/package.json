@@ -11,6 +11,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "vitest run --project unit",
+    "test:coverage": "vitest run --project unit --coverage",
     "test:integration": "node --env-file-if-exists=../../.env ./node_modules/vitest/vitest.mjs run --project integration",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=../../.env src/database/migrate.ts",

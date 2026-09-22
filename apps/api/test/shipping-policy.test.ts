@@ -42,6 +42,10 @@ describe('shipping policy', () => {
     ).toEqual(defaults);
   });
 
+  it('uses global defaults when municipality is null', () => {
+    expect(resolveShippingPolicy(defaults, null)).toEqual(defaults);
+  });
+
   it('creates one automatic offer without asking the customer', () => {
     expect(shippingOfferInsurances(defaults)).toEqual(['none']);
   });
@@ -54,5 +58,28 @@ describe('shipping policy', () => {
         protectedInsurance: 'plus',
       }),
     ).toEqual(['plus']);
+  });
+
+  it('forces protected insurance when declared value meets threshold', () => {
+    expect(
+      shippingOfferInsurances(
+        {
+          ...defaults,
+          offerMode: 'customer_choice',
+          insuranceThresholdCop: 100_000,
+          protectedInsurance: 'standard',
+        },
+        150_000,
+      ),
+    ).toEqual(['standard']);
+  });
+
+  it('returns economy-only as none', () => {
+    expect(
+      shippingOfferInsurances({
+        ...defaults,
+        offerMode: 'economy_only',
+      }),
+    ).toEqual(['none']);
   });
 });

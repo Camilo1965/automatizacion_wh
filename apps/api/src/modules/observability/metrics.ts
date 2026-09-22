@@ -20,7 +20,7 @@ const METHOD_LABELS = new Set([
   'OTHER',
 ]);
 
-const ROUTE_GROUPS = [
+export const ROUTE_GROUPS = [
   'health',
   'metrics',
   'whatsapp',

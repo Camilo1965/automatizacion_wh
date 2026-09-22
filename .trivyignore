@@ -1,0 +1,3 @@
+# Time-bounded documented exceptions for Trivy CRITICAL/HIGH findings.
+# Format: CVE-YYYY-NNNNN  # owner / expire YYYY-MM-DD / justification
+# Empty means fail closed on exploitable critical/high (ignore-unfixed=true in CI).

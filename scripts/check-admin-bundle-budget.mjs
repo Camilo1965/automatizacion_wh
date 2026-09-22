@@ -32,7 +32,8 @@ const violations = [];
 for (const file of files) {
   let limit = limits.default;
   if (file.name.includes('charts')) limit = limits.charts;
-  else if (file.name.includes('settings-heavy')) limit = limits['settings-heavy'];
+  else if (file.name.includes('settings-heavy'))
+    limit = limits['settings-heavy'];
   else if (file.name.includes('index') || file.name.includes('entry'))
     limit = limits.entry;
   if (file.size > limit) {
@@ -48,9 +49,7 @@ for (const file of files.slice(0, 12)) {
 if (violations.length > 0) {
   console.error('\nBundle budget exceeded:');
   for (const item of violations) {
-    console.error(
-      `  ${item.name}: ${item.size} > ${item.limit}`,
-    );
+    console.error(`  ${item.name}: ${item.size} > ${item.limit}`);
   }
   process.exit(1);
 }

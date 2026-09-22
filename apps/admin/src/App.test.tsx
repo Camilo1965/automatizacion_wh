@@ -27,6 +27,25 @@ describe('App shell', () => {
     state.authenticated = true;
     let saved: unknown;
     server.use(
+      http.get('/api/admin/shipping/preferences', () =>
+        HttpResponse.json({
+          data: {
+            revision: 0,
+            preferredCarrier: null,
+            fallbackPolicy: 'allow',
+            offerMode: 'customer_choice',
+            protectedInsurance: 'standard',
+          },
+        }),
+      ),
+      http.get('/api/admin/shipping/rules', () =>
+        HttpResponse.json({ data: { items: [] } }),
+      ),
+      http.get('/api/admin/shipping/carriers', () =>
+        HttpResponse.json({
+          data: { items: ['interrapidisimo', 'tcc', 'servientrega'] },
+        }),
+      ),
       http.get('/api/admin/localities/departments', () =>
         HttpResponse.json({
           data: { items: [{ name: 'Antioquia', localityCount: 125 }] },
@@ -59,42 +78,44 @@ describe('App shell', () => {
     );
     renderWithProviders(<App />, { initialEntries: ['/settings/shipping'] });
 
-    const municipalityForm = (
-      await screen.findByRole('heading', { name: 'Nueva regla municipal' })
-    ).closest('form')!;
-    await within(municipalityForm).findByRole('option', {
-      name: /Antioquia/,
+    const exceptions = await screen.findByRole('region', {
+      name: /Excepciones por localidad/i,
     });
+    await within(exceptions).findByRole('option', { name: /Antioquia/ });
     await user.selectOptions(
-      within(municipalityForm).getByLabelText('Departamento'),
+      within(exceptions).getByLabelText('Departamento'),
       'Antioquia',
     );
-    await within(municipalityForm).findByRole('option', { name: /Medellín/ });
+    await within(exceptions).findByRole('option', { name: /Medellín/ });
     await user.selectOptions(
-      within(municipalityForm).getByLabelText('Municipio'),
+      within(exceptions).getByLabelText('Municipio'),
       '05001000',
     );
+
+    await user.click(
+      within(exceptions).getByText('Editar excepción municipal'),
+    );
     await user.selectOptions(
-      within(municipalityForm).getByLabelText('Transportadora preferida'),
+      within(exceptions).getByLabelText('Transportadora preferida'),
       'tcc',
     );
     await user.selectOptions(
-      within(municipalityForm).getByLabelText('Si no aparece la preferida'),
+      within(exceptions).getByLabelText('Si no aparece la preferida'),
       'block',
     );
     await user.selectOptions(
-      within(municipalityForm).getByLabelText('Política automática de seguro'),
+      within(exceptions).getByLabelText('Política automática de seguro'),
       'protected_only',
     );
     await user.selectOptions(
-      within(municipalityForm).getByLabelText('Seguro protegido'),
+      within(exceptions).getByLabelText('Seguro protegido'),
       'plus',
     );
-    await user.click(screen.getByRole('button', { name: 'Guardar regla' }));
-
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Regla guardada',
+    await user.click(
+      within(exceptions).getByRole('button', { name: 'Guardar regla' }),
     );
+
+    expect(await within(exceptions).findByText('Regla guardada')).toBeVisible();
     expect(saved).toEqual({
       revision: 0,
       localityCarrierCode: '05001000',

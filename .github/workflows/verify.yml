@@ -2,7 +2,7 @@ name: Verify
 
 on:
   push:
-    branches: [main, codex/premium-ux]
+    branches: [main, codex/premium-ux, cursor/kairo-definitive-closeout]
   pull_request:
 
 permissions:
@@ -12,10 +12,40 @@ concurrency:
   group: verify-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  NODE_VERSION: '24.14.1'
+  PNPM_VERSION: '11.19.0'
+  GITLEAKS_VERSION: '8.30.1'
+  GITLEAKS_LINUX_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
+  TRIVY_VERSION: '0.74.0'
+
 jobs:
-  quality:
+  secrets:
+    name: Secret scan
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository (full history)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks (pinned)
+        run: |
+          set -euo pipefail
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o /tmp/gitleaks.tgz
+          echo "${GITLEAKS_LINUX_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Scan Git history + working tree
+        run: gitleaks detect --source . --config .gitleaks.toml --verbose --redact --exit-code 1
+
+  quality:
+    name: Quality + coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
     services:
       postgres:
         image: postgres:18.4-bookworm
@@ -40,27 +70,169 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
         with:
-          version: 11.19.0
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 24.14.1
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
-      - name: Install dependencies
+      - name: Install dependencies (frozen)
         run: pnpm install --frozen-lockfile
 
       - name: Install Chromium
         run: pnpm --filter @camila/admin exec playwright install --with-deps chromium
 
-      - name: Run complete verification
-        run: pnpm verify
+      - name: Format check
+        run: pnpm format:check
 
-      - name: Audit production dependencies
+      - name: Lint (zero warnings)
+        run: pnpm lint:ci
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit + contracts
+        run: pnpm test:unit
+
+      - name: Integration
+        run: pnpm test:integration
+
+      - name: Build
+        run: pnpm build
+
+      - name: Bundle budget
+        run: pnpm check:bundle-budget
+
+      - name: E2E / a11y
+        run: pnpm test:e2e
+
+      - name: Coverage + critical domain gates
+        run: pnpm test:coverage
+
+      - name: Production dependency audit
         run: pnpm audit --prod
+
+      - name: Production config gate
+        run: pnpm check:production-config
+
+  filesystem-scan:
+    name: Filesystem vulnerability scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@1f0aa582c8c8f5f7639610d6d38baddfea4fdcee # v0.9.2
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          cache-dir: ${{ github.workspace }}/.cache/trivy
+          version: ${{ env.TRIVY_VERSION }}
+
+  containers:
+    name: Compose + images + image scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@6524bf65af31da8d45b59e8c27de4bd072b392f5 # v3.8.0
+
+      - name: Validate compose.prod.yaml
+        run: docker compose --env-file .env.prod.example -f compose.prod.yaml config --quiet
+
+      - name: Build production images
+        run: |
+          set -euo pipefail
+          docker compose --env-file .env.prod.example -f compose.prod.yaml build migrate worker admin
+          docker image inspect camila-api:local --format 'api {{.Id}}'
+          docker image inspect camila-worker:local --format 'worker {{.Id}}'
+          docker image inspect camila-admin:local --format 'admin {{.Id}}'
+
+      - name: Record image digests
+        run: |
+          set -euo pipefail
+          {
+            echo "### CI image IDs ($(date -u +%Y-%m-%dT%H:%MZ))"
+            docker image inspect camila-api:local --format 'camila-api:local {{.Id}}'
+            docker image inspect camila-worker:local --format 'camila-worker:local {{.Id}}'
+            docker image inspect camila-admin:local --format 'camila-admin:local {{.Id}}'
+          } | tee /tmp/ci-image-digests.txt
+          cat /tmp/ci-image-digests.txt
+
+      - name: Trivy scan api image
+        uses: aquasecurity/trivy-action@1f0aa582c8c8f5f7639610d6d38baddfea4fdcee # v0.9.2
+        with:
+          scan-type: image
+          image-ref: camila-api:local
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          cache-dir: ${{ github.workspace }}/.cache/trivy
+          version: ${{ env.TRIVY_VERSION }}
+
+      - name: Trivy scan admin image
+        uses: aquasecurity/trivy-action@1f0aa582c8c8f5f7639610d6d38baddfea4fdcee # v0.9.2
+        with:
+          scan-type: image
+          image-ref: camila-admin:local
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          cache-dir: ${{ github.workspace }}/.cache/trivy
+          version: ${{ env.TRIVY_VERSION }}
+
+      - name: Trivy scan worker image
+        uses: aquasecurity/trivy-action@1f0aa582c8c8f5f7639610d6d38baddfea4fdcee # v0.9.2
+        with:
+          scan-type: image
+          image-ref: camila-worker:local
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          cache-dir: ${{ github.workspace }}/.cache/trivy
+          version: ${{ env.TRIVY_VERSION }}
+
+  smoke:
+    name: Staging smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [quality, containers]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies (frozen)
+        run: pnpm install --frozen-lockfile
+
+      - name: Disposable staging smoke
+        run: pnpm production:smoke

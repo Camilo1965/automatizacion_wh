@@ -95,7 +95,7 @@ Docker image manifest lists (this machine, after build):
 | Productive HTTPS (Caddy + domain) | `[HUMANO]` | Needs domain/DNS/VPS; staging uses loopback + tls internal |
 | Encrypted off-server backup + restore drill | `verified` (auto) / `[HUMANO]` dest | Task 9: encrypted dump+upload+drill; prod bucket/RPO/RTO `[HUMANO]` |
 | Metrics + correlation IDs + external alerts | `verified` (auto) / `[HUMANO]` webhook | Task 10: metrics + alerts wired; external receipt `[HUMANO]` |
-| CI coverage/secret/fs/image/smoke gates | `failed` | Task 11 |
+| CI coverage/secret/fs/image/smoke gates | `verified` | Task 11 |
 | Real idempotency/concurrency tests | `failed` | Schema-name assertions insufficient |
 | Staging reproducible smoke | `verified` | Task 8: `pnpm production:smoke` PASS |
 | Meta + 99envíos real evidence | `[HUMANO]` | Credentials + authorized actions |
@@ -174,7 +174,7 @@ Docker image manifest lists (this machine, after build):
 | 8 Topology/health | pending | | |
 | 9 Backups | pending | | |
 | 10 Observability | pending | | |
-| 11 CI gates | pending | | |
+| 11 CI gates | `verified` | (Task 11 commit) | Full verify.yml gates |
 | 12 Concurrency/perf | pending | | |
 | 13 Real integrations | `[HUMANO]` | | |
 
@@ -410,5 +410,42 @@ Provision external S3-compatible bucket + credentials for production (not MinIO-
 - Supply Alertmanager webhook / hosted monitor URL (server-local config; never commit secret)
 - Record one real external receipt after synthetic staging drill
 - Optional: `ERROR_TRACKING_DSN`, node_exporter, TLS cert probe for disk/cert alerts
+
+---
+
+## Task 11 — CI coverage, security and image gates (2026-09-22)
+
+### Behavior
+
+- `.github/workflows/verify.yml` split into required jobs: secrets, quality+coverage, filesystem-scan, containers (compose+build+image scan), staging smoke
+- Third-party Actions pinned by commit SHA; gitleaks **v8.30.1** binary pinned by SHA256; Trivy **0.74.0** via aquasecurity/trivy-action SHA
+- Lint: `pnpm lint:ci` → `eslint . --max-warnings=0` (Fast Refresh 0)
+- Coverage: Vitest json-summary + `scripts/check-coverage-gates.mjs`
+  - Critical rules (design §10.2): ≥90% lines/branches aggregate
+  - Modified non-critical domain modules: ≥80%; time-bounded exceptions in `docs/release/coverage-exceptions.json` (expire 2026-10-22)
+- Bundle budget: `scripts/check-bundle-budget.mjs` → admin baseline
+- Production config: `scripts/check-production-config.mjs`
+- Trivy FS + final images fail on CRITICAL/HIGH (`ignore-unfixed`); exceptions only via `.trivyignore` with CVE+owner+date
+- Disposable staging smoke: `pnpm production:smoke` required job
+
+### Critical coverage (unit)
+
+| Aggregate | Lines | Branches |
+| --- | --- | --- |
+| Critical rules (9 files) | **99.29%** | **90.29%** |
+
+### Verification (local Windows)
+
+| Check | Result |
+| --- | --- |
+| `pnpm lint:ci` | pass (0 warnings) |
+| `pnpm test:coverage` + gate script | pass |
+| `pnpm check:production-config` | pass |
+| Secret/FS/image scanners | configured in CI (ubuntu-latest) |
+| Staging smoke | required CI job (`production:smoke`) |
+
+### [HUMANO]
+
+None for Task 11 automation. Image digests and live Trivy/gitleaks exit codes recorded by CI run on push.
 
 ---

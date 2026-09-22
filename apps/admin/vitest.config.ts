@@ -17,5 +17,19 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary', 'lcov'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.d.ts',
+        'src/test/**',
+        'src/main.tsx',
+        '**/node_modules/**',
+      ],
+      // Floor is informational; modified-file gate: scripts/check-coverage-gates.mjs
+      thresholds: undefined,
+    },
   },
 });

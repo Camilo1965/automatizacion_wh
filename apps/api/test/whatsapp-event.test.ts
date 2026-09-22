@@ -58,4 +58,134 @@ describe('extractInboundWhatsAppMessages', () => {
       ok: false,
     });
   });
+
+  it('skips status-only changes that omit messages', () => {
+    expect(
+      extractInboundWhatsAppMessages({
+        object: 'whatsapp_business_account',
+        entry: [
+          {
+            changes: [
+              {
+                value: {
+                  metadata: { phone_number_id: '1234567890' },
+                  statuses: [{ id: 'wamid.status-1' }],
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    ).toEqual({ ok: true, messages: [] });
+  });
+
+  it('rejects messages without metadata phone_number_id', () => {
+    expect(
+      extractInboundWhatsAppMessages({
+        object: 'whatsapp_business_account',
+        entry: [
+          {
+            changes: [
+              {
+                value: {
+                  metadata: {},
+                  messages: [
+                    {
+                      from: '573001234567',
+                      id: 'wamid.x',
+                      timestamp: '1760000000',
+                      type: 'text',
+                      text: { body: 'hola' },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    ).toEqual({ ok: false });
+  });
+
+  it('rejects invalid customer phone or timestamp', () => {
+    expect(
+      extractInboundWhatsAppMessages({
+        object: 'whatsapp_business_account',
+        entry: [
+          {
+            changes: [
+              {
+                value: {
+                  metadata: { phone_number_id: '123' },
+                  messages: [
+                    {
+                      from: 'abc',
+                      id: 'wamid.x',
+                      timestamp: '1760000000',
+                      type: 'text',
+                      text: { body: 'hola' },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    ).toEqual({ ok: false });
+
+    expect(
+      extractInboundWhatsAppMessages({
+        object: 'whatsapp_business_account',
+        entry: [
+          {
+            changes: [
+              {
+                value: {
+                  metadata: { phone_number_id: '123' },
+                  messages: [
+                    {
+                      from: '573001234567',
+                      id: 'wamid.x',
+                      timestamp: '-1',
+                      type: 'image',
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    ).toEqual({ ok: false });
+  });
+
+  it('accepts non-text messages with null text body', () => {
+    const result = extractInboundWhatsAppMessages({
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: '1234567890' },
+                messages: [
+                  {
+                    from: '573001234567',
+                    id: 'wamid.image-1',
+                    timestamp: '1760000000',
+                    type: 'image',
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      messages: [{ messageType: 'image', textBody: null }],
+    });
+  });
 });

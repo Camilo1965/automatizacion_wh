@@ -52,7 +52,8 @@ export class InMemoryRetentionRepository implements RetentionRepository {
     return row;
   }
 
-  async supersedeActiveExcept(activeId: string, _at: Date): Promise<void> {
+  async supersedeActiveExcept(activeId: string, at: Date): Promise<void> {
+    void at;
     for (const policy of this.policies) {
       if (policy.id !== activeId && policy.status === 'active') {
         policy.status = 'superseded';

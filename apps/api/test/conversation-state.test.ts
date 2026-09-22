@@ -88,6 +88,28 @@ describe('advanceConversation', () => {
     });
   });
 
+  it('cancels confirmation back to size selection', () => {
+    expect(
+      advanceConversation('awaiting_confirmation', 'cancelar'),
+    ).toMatchObject({
+      state: 'awaiting_size',
+      selectedSize: null,
+      action: 'cancel_order',
+    });
+  });
+
+  it('reprompts when confirmation text is neither confirm nor cancel', () => {
+    const result = advanceConversation('awaiting_confirmation', 'tal vez');
+    expect(result.state).toBe('awaiting_confirmation');
+    expect(result.reply).toMatch(/confirmar/i);
+  });
+
+  it('ignores blank messages without changing state', () => {
+    expect(advanceConversation('showing_models', '   ')).toMatchObject({
+      state: 'showing_models',
+    });
+  });
+
   it('accepts only a numbered shipping option before confirmation', () => {
     expect(advanceConversation('awaiting_shipping', '2')).toMatchObject({
       state: 'awaiting_confirmation',

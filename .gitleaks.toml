@@ -1,0 +1,24 @@
+# Gitleaks config for KAIRO / Camila.
+# Scans Git history + working tree; allow only documented false positives.
+
+title = "kairo-gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Non-secret fixtures and documented placeholders"
+paths = [
+  '''\.env\.prod\.example$''',
+  '''\.env\.example$''',
+  '''docs/.*''',
+  '''.*\.md$''',
+  '''apps/.*/test/.*''',
+  '''apps/.*/e2e/.*''',
+  '''.*\.test\.(ts|tsx|js|mjs)$''',
+]
+regexes = [
+  '''change_me''',
+  '''example\.com''',
+  '''AKIA_NOT_AN_EXAMPLE''',
+]

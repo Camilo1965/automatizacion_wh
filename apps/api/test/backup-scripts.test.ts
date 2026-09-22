@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment -- backup-core.mjs has no declarations */
 // @ts-nocheck
-// @ts-nocheck — backup-core.mjs has no TS declarations; runtime covered by vitest.
 import { createHash, randomBytes } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 

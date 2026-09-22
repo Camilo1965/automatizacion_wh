@@ -1,0 +1,55 @@
+{
+  "exceptions": [
+    {
+      "path": "apps/api/src/modules/auth/auth-service.ts",
+      "until": "2026-10-22",
+      "reason": "pre-existing closeout coverage debt; raise in Task 12"
+    },
+    {
+      "path": "apps/api/src/modules/auth/authorize.ts",
+      "until": "2026-10-22",
+      "reason": "pre-existing closeout coverage debt; raise in Task 12"
+    },
+    {
+      "path": "apps/api/src/modules/auth/totp.ts",
+      "until": "2026-10-22",
+      "reason": "pre-existing closeout coverage debt; raise in Task 12"
+    },
+    {
+      "path": "apps/api/src/modules/conversations/bot-flow-service.ts",
+      "until": "2026-10-22",
+      "reason": "pre-existing closeout coverage debt; raise in Task 12"
+    },
+    {
+      "path": "apps/api/src/modules/localities/locality-catalog-service.ts",
+      "until": "2026-10-22",
+      "reason": "pre-existing closeout coverage debt; raise in Task 12"
+    },
+    {
+      "path": "apps/api/src/modules/privacy/retention-policy.ts",
+      "until": "2026-10-22",
+      "reason": "pre-existing closeout coverage debt; raise in Task 12"
+    },
+    {
+      "path": "apps/api/src/modules/privacy/retention-service.ts",
+      "until": "2026-10-22",
+      "reason": "pre-existing closeout coverage debt; raise in Task 12"
+    },
+    {
+      "path": "apps/api/src/modules/search/global-search-service.ts",
+      "until": "2026-10-22",
+      "reason": "pre-existing closeout coverage debt; raise in Task 12"
+    },
+    {
+      "path": "apps/api/src/modules/shipping/guide-delivery-service.ts",
+      "until": "2026-10-22",
+      "reason": "pre-existing closeout coverage debt; raise in Task 12"
+    },
+    {
+      "path": "apps/api/src/modules/shipping/shipping-incident-service.ts",
+      "until": "2026-10-22",
+      "reason": "pre-existing closeout coverage debt; raise in Task 12"
+    }
+  ],
+  "note": "Time-bounded exceptions for modified non-critical domain modules below 80%. Critical rules are never excepted."
+}

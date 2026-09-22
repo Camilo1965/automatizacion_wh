@@ -4,5 +4,14 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['test/**/*.test.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary', 'lcov'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.d.ts', '**/node_modules/**'],
+      // Floor is informational; modified-file gate: scripts/check-coverage-gates.mjs
+      thresholds: undefined,
+    },
   },
 });

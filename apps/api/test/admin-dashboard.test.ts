@@ -51,6 +51,7 @@ describe('admin dashboard HTTP', () => {
         return {
           id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
           username: 'owner',
+          role: 'owner',
         };
       },
     } as unknown as AuthService;

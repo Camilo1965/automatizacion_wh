@@ -134,7 +134,7 @@ export async function runWorkerHealthCheck(options: {
     return 1;
   }
 
-  let databaseReachable = false;
+  let databaseReachable: boolean;
   try {
     await options.pingDatabase();
     databaseReachable = true;
