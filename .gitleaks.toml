@@ -8,15 +8,6 @@ useDefault = true
 
 [allowlist]
 description = "Non-secret fixtures and documented placeholders"
-paths = [
-  '''\.env\.prod\.example$''',
-  '''\.env\.example$''',
-  '''docs/.*''',
-  '''.*\.md$''',
-  '''apps/.*/test/.*''',
-  '''apps/.*/e2e/.*''',
-  '''.*\.test\.(ts|tsx|js|mjs)$''',
-]
 regexes = [
   '''change_me''',
   '''example\.com''',
