@@ -3,7 +3,7 @@ import type { PostgresDatabase } from '../../database/client.js';
 import {
   shippingLocalities,
   shippingLocalityImports,
-} from '../../database/schema.js';
+} from '../../database/schema/index.js';
 import type { ColombianLocality } from './locality-import.js';
 import type {
   LocalityListInput,

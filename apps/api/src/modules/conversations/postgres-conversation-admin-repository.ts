@@ -1,7 +1,7 @@
 import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
-import { whatsappConversations } from '../../database/schema.js';
+import { whatsappConversations } from '../../database/schema/index.js';
 
 export type AdminConversation = Readonly<{
   id: string;

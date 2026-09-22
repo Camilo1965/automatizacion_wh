@@ -4,11 +4,12 @@ import type { PostgresDatabase } from '../../database/client.js';
 import {
   whatsappConversationMessages,
   whatsappOutboundMessages,
-} from '../../database/schema.js';
+} from '../../database/schema/index.js';
 import type {
   ClaimedOutboundMessage,
   OutboxWorkerRepository,
 } from './outbox-worker.js';
+import { assertOutboundMessageTransition } from './outbound-message-state.js';
 
 export type EnqueueTextInput = Readonly<{
   conversationId?: string;
@@ -267,6 +268,7 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
   }
 
   async markSent(id: string, whatsappMessageId: string): Promise<void> {
+    assertOutboundMessageTransition('processing', 'mark_sent');
     await this.database.orm.execute(sql`
       WITH sent AS (
         UPDATE whatsapp_outbound_messages
@@ -284,6 +286,7 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
   }
 
   async markFailed(id: string, errorCode: string): Promise<void> {
+    assertOutboundMessageTransition('processing', 'mark_failed');
     await this.database.orm.execute(sql`
       WITH failed AS (
         UPDATE whatsapp_outbound_messages

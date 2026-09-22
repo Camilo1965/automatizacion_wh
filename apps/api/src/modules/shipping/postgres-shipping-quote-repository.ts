@@ -11,7 +11,7 @@ import {
   shippingPreferences,
   shippingQuotes,
   configurationAudits,
-} from '../../database/schema.js';
+} from '../../database/schema/index.js';
 import {
   DEFAULT_SHIPPING_POLICY,
   resolveShippingPolicy,

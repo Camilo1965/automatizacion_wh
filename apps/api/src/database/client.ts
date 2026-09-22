@@ -2,7 +2,7 @@ import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
 import type { DatabaseHealth } from '../contracts/database-health.js';
-import { schema } from './schema.js';
+import { schema } from './schema/index.js';
 
 export interface PostgresDatabase extends DatabaseHealth {
   readonly orm: PostgresJsDatabase<typeof schema>;

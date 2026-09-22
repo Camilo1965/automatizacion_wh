@@ -4,7 +4,7 @@ import {
   catalogReferences,
   inventoryClosures,
   inventoryMovements,
-} from '../../database/schema.js';
+} from '../../database/schema/index.js';
 import type { ClosureRepository } from './inventory-closure-service.js';
 
 export class PostgresInventoryClosureRepository implements ClosureRepository {

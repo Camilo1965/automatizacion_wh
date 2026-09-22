@@ -5,7 +5,7 @@ import {
   botFlowDrafts,
   botFlowVersions,
   configurationAudits,
-} from '../../database/schema.js';
+} from '../../database/schema/index.js';
 import { createDefaultBotFlow, validateBotFlow } from './flow-definition.js';
 
 export class BotFlowError extends Error {

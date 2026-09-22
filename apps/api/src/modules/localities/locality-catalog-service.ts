@@ -6,7 +6,7 @@ import {
   localityCatalogVersions,
   shippingLocalities,
   configurationAudits,
-} from '../../database/schema.js';
+} from '../../database/schema/index.js';
 import {
   parse99EnviosLocalitySource,
   toColombianLocalities,

@@ -9,7 +9,7 @@ import {
   botFlowVersions,
   salesOrders,
   catalogReferences,
-} from '../../database/schema.js';
+} from '../../database/schema/index.js';
 import { type ConversationTransition } from './conversation-state.js';
 import { BotFlowDefinitionSchema } from '@camila/contracts';
 import { advanceConfiguredConversation } from './configured-flow.js';

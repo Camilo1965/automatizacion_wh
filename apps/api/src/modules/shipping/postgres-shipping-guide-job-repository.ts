@@ -1,7 +1,8 @@
 import { eq, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
-import { shippingGuideJobs } from '../../database/schema.js';
+import { shippingGuideJobs } from '../../database/schema/index.js';
+import { assertGuideJobTransition } from './guide-job-state.js';
 
 export type ClaimedShippingGuideJob = Readonly<{
   id: string;
@@ -96,6 +97,7 @@ export class PostgresShippingGuideJobRepository {
   }
 
   async markUncertain(id: string): Promise<void> {
+    assertGuideJobTransition('processing', 'mark_uncertain');
     await this.database.orm
       .update(shippingGuideJobs)
       .set({
@@ -111,6 +113,7 @@ export class PostgresShippingGuideJobRepository {
     preShipmentNumber: string,
     freightCop: number,
   ): Promise<void> {
+    assertGuideJobTransition('processing', 'mark_created');
     await this.database.orm
       .update(shippingGuideJobs)
       .set({
@@ -124,6 +127,7 @@ export class PostgresShippingGuideJobRepository {
   }
 
   async markFailed(id: string, errorCode: string): Promise<void> {
+    assertGuideJobTransition('processing', 'mark_failed');
     await this.database.orm
       .update(shippingGuideJobs)
       .set({
@@ -170,6 +174,7 @@ export class PostgresShippingGuideJobRepository {
     id: string,
     preShipmentNumber: string,
   ): Promise<boolean> {
+    assertGuideJobTransition('uncertain', 'resolve_uncertain');
     const [updated] = await this.database.orm
       .update(shippingGuideJobs)
       .set({

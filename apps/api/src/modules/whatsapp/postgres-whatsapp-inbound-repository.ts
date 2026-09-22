@@ -1,4 +1,4 @@
-import { whatsappInboundMessages } from '../../database/schema.js';
+import { whatsappInboundMessages } from '../../database/schema/index.js';
 import type { PostgresDatabase } from '../../database/client.js';
 
 import type { InboundWhatsAppMessage } from './whatsapp-event.js';

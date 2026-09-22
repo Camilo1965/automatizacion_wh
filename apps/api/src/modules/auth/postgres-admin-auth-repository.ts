@@ -1,7 +1,7 @@
 import { and, eq, gt, isNull } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
-import { adminSessions, adminUsers } from '../../database/schema.js';
+import { adminSessions, adminUsers } from '../../database/schema/index.js';
 import type {
   AdminAuthRepository,
   AdminSessionRecord,

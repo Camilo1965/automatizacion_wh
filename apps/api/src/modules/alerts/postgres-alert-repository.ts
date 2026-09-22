@@ -1,6 +1,9 @@
 import { desc, eq, sql } from 'drizzle-orm';
 import type { PostgresDatabase } from '../../database/client.js';
-import { ownerAlerts, ownerAlertDeliveries } from '../../database/schema.js';
+import {
+  ownerAlerts,
+  ownerAlertDeliveries,
+} from '../../database/schema/index.js';
 import type { AlertInput, AlertRepository } from './alert-service.js';
 
 function publicAlert(row: typeof ownerAlerts.$inferSelect) {

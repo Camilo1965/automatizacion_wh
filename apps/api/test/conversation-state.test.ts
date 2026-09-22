@@ -98,4 +98,10 @@ describe('advanceConversation', () => {
     expect(invalid).toMatchObject({ state: 'awaiting_shipping' });
     expect(invalid).not.toHaveProperty('action');
   });
+
+  it('keeps completed conversations from mutating on free text', () => {
+    const result = advanceConversation('completed', 'hola otra vez');
+    expect(result.state).toBe('completed');
+    expect(result).not.toHaveProperty('action');
+  });
 });

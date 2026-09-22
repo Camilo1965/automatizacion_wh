@@ -7,7 +7,7 @@ import {
   catalogReferences,
   catalogStock,
   inventoryMovements,
-} from '../src/database/schema.js';
+} from '../src/database/schema/index.js';
 import { PostgresCatalogImportRepository } from '../src/modules/catalog/postgres-catalog-import-repository.js';
 import { requireTestDatabaseUrl } from './helpers/test-database.js';
 

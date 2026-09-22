@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import type { PostgresDatabase } from '../../database/client.js';
-import { ownerAlertDeliveries } from '../../database/schema.js';
+import { ownerAlertDeliveries } from '../../database/schema/index.js';
 import type { IntegrationSettingsService } from '../integrations/integration-settings-service.js';
 import { MetaWhatsAppClient } from '../whatsapp/meta-whatsapp-client.js';
 

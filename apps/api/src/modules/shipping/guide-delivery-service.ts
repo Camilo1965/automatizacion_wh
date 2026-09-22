@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import type { PostgresDatabase } from '../../database/client.js';
-import { shippingGuideJobs } from '../../database/schema.js';
+import { shippingGuideJobs } from '../../database/schema/index.js';
 import type { PostgresOutboundRepository } from '../whatsapp/postgres-outbound-repository.js';
 import type { ShippingGuideOperations } from './shipping-guide-service.js';
 import { renderFlowMessage } from '../conversations/configured-flow.js';

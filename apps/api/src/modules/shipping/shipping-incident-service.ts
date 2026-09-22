@@ -4,7 +4,7 @@ import {
   shippingGuideJobs,
   shippingIncidents,
   configurationAudits,
-} from '../../database/schema.js';
+} from '../../database/schema/index.js';
 import type { ConfiguredNinetyNineEnviosClient } from '../integrations/configured-clients.js';
 import { ShippingRequestError } from './99envios-client.js';
 export class ShippingIncidentService {

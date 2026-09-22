@@ -5,7 +5,7 @@ import {
   whatsappCatalogMenuOptions,
   whatsappCatalogMenus,
   whatsappConversations,
-} from '../../database/schema.js';
+} from '../../database/schema/index.js';
 import type { AvailableCatalogItem } from '../catalog/catalog-types.js';
 
 export type CreateConversationMenuInput = Readonly<{

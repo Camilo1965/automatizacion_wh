@@ -14,7 +14,7 @@ import {
   ownerAlerts,
   shippingLocalities,
   shippingQuotes,
-} from '../../database/schema.js';
+} from '../../database/schema/index.js';
 import { parseShoeSize } from '../catalog/catalog-validation.js';
 import {
   OrderConflictError,

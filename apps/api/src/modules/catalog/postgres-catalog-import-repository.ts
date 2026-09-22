@@ -6,7 +6,7 @@ import {
   catalogReferences,
   catalogStock,
   inventoryMovements,
-} from '../../database/schema.js';
+} from '../../database/schema/index.js';
 import {
   CatalogConflictError,
   CatalogNotFoundError,

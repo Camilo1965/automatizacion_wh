@@ -7,7 +7,7 @@ import {
   catalogReferences,
   salesOrders,
   whatsappConversations,
-} from '../../database/schema.js';
+} from '../../database/schema/index.js';
 
 function escapeLikePattern(value: string): string {
   return value

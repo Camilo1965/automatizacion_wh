@@ -6,7 +6,7 @@ import {
   integrationDrafts,
   integrationVersions,
   configurationAudits,
-} from '../../database/schema.js';
+} from '../../database/schema/index.js';
 
 export class PostgresIntegrationSettingsRepository {
   constructor(private readonly database: PostgresDatabase) {}
