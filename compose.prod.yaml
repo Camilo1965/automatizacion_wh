@@ -226,7 +226,28 @@ services:
       - path: .env.prod
         required: false
     environment:
+      # Discrete PG vars + URL for scripts; password never placed on pg_dump argv.
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: '5432'
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Off-server backup store — SEPARATE from app S3_* media credentials. [HUMANO]
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET}
+      BACKUP_S3_REGION: ${BACKUP_S3_REGION:-us-east-1}
+      BACKUP_S3_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID}
+      BACKUP_S3_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY}
+      BACKUP_S3_FORCE_PATH_STYLE: ${BACKUP_S3_FORCE_PATH_STYLE:-true}
+      BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:-postgres}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_LOOP: '1'
+      BACKUP_METRICS_PATH: /backups/heartbeat.json
+      BACKUP_TMP_DIR: /tmp/kairo-backup
+      BACKUP_HEARTBEAT_URL: ${BACKUP_HEARTBEAT_URL:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -242,10 +263,9 @@ services:
     security_opt:
       - no-new-privileges:true
     cpus: 0.5
-    mem_limit: 256m
+    mem_limit: 512m
     networks:
       - internal
-    # Task 9 replaces stub command with scheduled encrypted dump + upload.
 
   metrics:
     image: prom/prometheus:v3.2.1@sha256:6927e0919a144aa7616fd0137d4816816d42f6b816de3af269ab065250859a62

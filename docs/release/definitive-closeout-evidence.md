@@ -93,7 +93,7 @@ Docker image manifest lists (this machine, after build):
 | Real worker health | `verified` | Task 8: DB + scheduler + heartbeat via `worker-health` |
 | Hardened non-root containers | `verified` | Task 8: unprivileged admin, read_only/tmpfs/cap_drop, digests |
 | Productive HTTPS (Caddy + domain) | `[HUMANO]` | Needs domain/DNS/VPS; staging uses loopback + tls internal |
-| Encrypted off-server backup + restore drill | `failed` / `[HUMANO]` dest | Automate in Task 9; prod bucket `[HUMANO]` |
+| Encrypted off-server backup + restore drill | `verified` (auto) / `[HUMANO]` dest | Task 9: encrypted dump+upload+drill; prod bucket/RPO/RTO `[HUMANO]` |
 | Metrics + correlation IDs + external alerts | `failed` / `[HUMANO]` webhook | Task 10 stubs present (prometheus/alertmanager) |
 | CI coverage/secret/fs/image/smoke gates | `failed` | Task 11 |
 | Real idempotency/concurrency tests | `failed` | Schema-name assertions insufficient |
@@ -350,5 +350,34 @@ Provision external S3-compatible bucket + credentials for production (not MinIO-
 
 - Real `CAMILA_DOMAIN` + DNS + ACME email for production TLS
 - Alert webhook / backup destination remain Task 9–10
+
+---
+
+## Task 9 — Encrypted off-server backups + restore drills (2026-09-22)
+
+### Behavior
+
+- Custom-format `pg_dump`; password via `PGPASSWORD` (never argv)
+- AES-256-GCM encrypt **before** upload; manifest with SHA-256 / schema version / timestamp
+- `BACKUP_S3_*` destination separate from app `S3_*` media credentials
+- Configurable retention (`BACKUP_RETENTION_DAYS`); non-zero exit on failure
+- Metrics/heartbeat: last success, age, size, last restore drill (`backup-heartbeat.mjs`)
+- Restore to isolated DB; sample row counts; `DROP` only after validation success
+- Scheduled container (`Dockerfile.backup` + `BACKUP_LOOP=1`)
+
+### Verification
+
+| Step | Result |
+| --- | --- |
+| `vitest run --project unit test/backup-scripts.test.ts` | 9 passed |
+| `docker compose … compose.prod.yaml config --quiet` | pass |
+| `docker build -f docker/Dockerfile.backup` | image `sha256:a271e76b142c…` |
+| In-process encrypt→upload mock→restore drill→cleanup | OK (`cleaned: true`) |
+
+### [HUMANO]
+
+- Production backup bucket + credentials + bucket policy
+- Approved RPO / RTO / retention / alert (`BACKUP_HEARTBEAT_URL`) destination
+- Full Docker+MinIO staging drill against live Postgres when `.env.staging` supplied
 
 ---

@@ -1,14 +1,30 @@
 # syntax=docker/dockerfile:1
-# Backup runner stub for Task 8→9 handoff. Task 9 replaces the command body
-# with encrypted pg_dump + off-server upload.
+# Scheduled encrypted Postgres backup runner (off-server S3-compatible upload).
 
-FROM postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
+FROM node:24-bookworm@sha256:64af3819f9275802414d7cdc38c27e9d82bd564dec4d4da87d008255d36c63b4
 
-RUN mkdir -p /backups \
-  && chown postgres:postgres /backups
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends postgresql-client \
+  && rm -rf /var/lib/apt/lists/* \
+  && groupadd --system --gid 1001 camila \
+  && useradd --system --uid 1001 --gid camila --home-dir /backups camila \
+  && mkdir -p /backups /app/scripts/lib \
+  && chown -R camila:camila /backups /app
 
-USER postgres
+WORKDIR /app
+
+COPY --chown=camila:camila scripts/lib/backup-core.mjs scripts/lib/backup-s3.mjs scripts/lib/backup-pg.mjs scripts/lib/
+COPY --chown=camila:camila scripts/backup-postgres.mjs scripts/restore-postgres-drill.mjs scripts/verify-backup.mjs scripts/backup-heartbeat.mjs scripts/
+
+USER camila
+ENV BACKUP_DIR=/backups \
+    BACKUP_METRICS_PATH=/backups/heartbeat.json \
+    BACKUP_TMP_DIR=/backups/tmp \
+    BACKUP_LOOP=1 \
+    BACKUP_INTERVAL_SECONDS=86400 \
+    HOME=/backups
+
 WORKDIR /backups
 
-# Placeholder: Task 9 wires scripts/backup-postgres.mjs (or image entrypoint).
-CMD ["bash", "-lc", "echo 'KAIRO backup stub idle — Task 9 implements encrypted off-server backups'; sleep infinity"]
+# Loop: dump → encrypt → upload → retention → heartbeat. Failures recorded; loop continues unless BACKUP_EXIT_ON_FAILURE=1.
+CMD ["node", "/app/scripts/backup-postgres.mjs", "--loop"]

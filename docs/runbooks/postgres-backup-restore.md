@@ -1,69 +1,88 @@
-# Runbook — Postgres backup y restore
+# Runbook — Postgres backup cifrado y restore drill
 
 ## Cuándo usar
 
-- Backup programado de producción.
-- Prueba de restore (drill) antes de confiar en copias.
-- Recuperación tras incidente (con ventana de mantenimiento).
+- Backup programado de producción (contenedor `backup`).
+- Drill de restore antes de confiar en copias.
+- Recuperación tras incidente (ventana de mantenimiento).
 
-## Backup lógico
+## Arquitectura
 
-Requisitos: `pg_dump` (cliente), `DATABASE_URL` hacia la instancia (desde la VPS o túnel; **no** exponga Postgres a Internet).
+1. `pg_dump --format=custom` (password vía `PGPASSWORD`, **nunca** en argv).
+2. Cifrado AES-256-GCM **antes** de salir del servidor (`BACKUP_ENCRYPTION_KEY`).
+3. Manifest JSON: SHA-256 del dump, schema version (drizzle), timestamp, tamaños.
+4. Upload a bucket S3-compatible **separado** del media app (`BACKUP_S3_*` ≠ `S3_*`).
+5. Retención configurable (`BACKUP_RETENTION_DAYS`).
+6. Heartbeat/métricas: `backups/heartbeat.json` + opcional `BACKUP_HEARTBEAT_URL`.
+7. Drill: descarga → verifica checksum → restore a DB aislada → conteos muestra → `DROP` **solo si OK**.
+
+## Contenedor programado
+
+Compose prod/staging levanta `backup` con `BACKUP_LOOP=1` (intervalo `BACKUP_INTERVAL_SECONDS`, default 86400).
 
 ```bash
-export DATABASE_URL='postgresql://USER:PASS@127.0.0.1:5432/camila'
-./scripts/backup-postgres.sh
+docker compose -f compose.prod.yaml --env-file .env.prod up -d --build backup
+docker compose -f compose.prod.yaml --env-file .env.prod logs -f backup
 ```
 
-Windows (PowerShell):
+One-shot:
+
+```bash
+docker compose -f compose.prod.yaml --env-file .env.prod run --rm -e BACKUP_LOOP=0 backup \
+  node /app/scripts/backup-postgres.mjs
+```
+
+## Host / Windows
 
 ```powershell
 $env:DATABASE_URL = 'postgresql://...'
+$env:BACKUP_ENCRYPTION_KEY = '...' # 32-byte base64
+$env:BACKUP_S3_ENDPOINT = 'https://...'
+$env:BACKUP_S3_BUCKET = 'kairo-backups'
+$env:BACKUP_S3_ACCESS_KEY_ID = '...'
+$env:BACKUP_S3_SECRET_ACCESS_KEY = '...'
 node scripts/backup-postgres.mjs
+node scripts/backup-heartbeat.mjs
 ```
 
-Salida por defecto: `./backups/postgres/camila-<UTC-stamp>.dump` (formato custom).
+Verificar artefacto:
 
-### `[HUMANO]`
-
-- Destino **fuera del servidor** (otro bucket, otro host, copia offline).
-- Retención acordada (p. ej. 7 diarios + 4 semanales).
-- Alertas si el job de backup falla o el archivo no crece.
-
-En compose prod, Postgres no publica puerto en `0.0.0.0`. Ejecute backup **en la VPS** (`docker compose exec` + URL interna) o vía túnel SSH a loopback.
-
-Ejemplo desde la VPS (URL interna):
-
-```bash
-export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
-docker compose -f compose.prod.yaml --env-file .env.prod run --rm --no-deps \
-  -e DATABASE_URL \
-  postgres pg_dump --format=custom --no-owner --no-acl -f /tmp/camila.dump "$DATABASE_URL"
+```powershell
+$env:BACKUP_ID = '20260922T120000Z'
+node scripts/verify-backup.mjs
 ```
 
-(Ajuste montajes/volúmenes según su política; el script en host con cliente `pg_dump` es equivalente.)
+## Restore drill
 
-## Restore drill (base scratch)
-
-Nunca apunte el drill a la base de producción salvo mantenimiento explícito.
-
-```bash
-export DUMP=./backups/postgres/camila-20260101T120000Z.dump
-export DATABASE_URL=postgresql://USER:PASS@127.0.0.1:5432/postgres
-export DRILL_DB=camila_restore_drill
-./scripts/restore-postgres-drill.sh
+```powershell
+$env:BACKUP_ID = '20260922T120000Z'
+$env:DATABASE_URL = 'postgresql://...@127.0.0.1:5432/camila'
+node scripts/restore-postgres-drill.mjs
 ```
 
-Valide conteos / login admin / una orden de prueba. Luego elimine la base drill.
+Si la validación falla: la DB drill **permanece** para inspección; no hay cleanup destructivo automático.
+
+## `[HUMANO]` — política operativa
+
+| Campo | Valor |
+| --- | --- |
+| RPO objetivo | `[HUMANO]` (p. ej. ≤ 24 h con intervalo diario) |
+| RTO objetivo | `[HUMANO]` (tiempo drill medido en staging) |
+| Retención | `[HUMANO]` — default código 14 días; aprobar antes de prod |
+| Bucket prod + policy | `[HUMANO]` — cuenta/credenciales **distintas** de media; versioning/Object Lock opcional |
+| Destino alerta / heartbeat | `[HUMANO]` — `BACKUP_HEARTBEAT_URL` u monitor externo |
+| Credenciales backup | Nunca chat/Git; solo `.env.prod` en VPS |
+
+Staging puede usar MinIO (`kairo-backups-staging`) para drills. Destino de producción permanece `[HUMANO]` hasta suministrar endpoint/credenciales reales.
 
 ## Restore a producción
 
 1. Detenga tráfico (Caddy / API / worker).
-2. Backup fresco de la base actual.
-3. `pg_restore --clean --if-exists` contra la base de producción **solo** con runbook aprobado.
-4. Migraciones: `pnpm --filter @camila/api db:migrate` si el dump no incluye el último esquema.
-5. Reinicie servicios y verifique `/health/ready`.
+2. Backup fresco cifrado + upload.
+3. `pg_restore` contra prod **solo** con runbook aprobado (no use el drill script contra prod).
+4. Migraciones si el dump no incluye el último esquema.
+5. Verifique `/health/ready` y heartbeat.
 
 ## Bash en Windows
 
-Los `.sh` funcionan en **Git Bash** o **WSL**. En PowerShell nativo use los `.mjs`.
+Los `.sh` delegan a los `.mjs`. Preferir Node en PowerShell.

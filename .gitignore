@@ -41,6 +41,7 @@ Thumbs.db
 /var/
 /apps/api/var/
 /tmp/
+/backups/
 
 # Existing non-product materials
 entregables/
