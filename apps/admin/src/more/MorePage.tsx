@@ -84,6 +84,12 @@ const groups = [
         title: 'Seguridad y acceso',
         description: 'MFA, sesiones, operadoras y roles.',
       },
+      {
+        to: '/settings/privacy',
+        title: 'Privacidad y retención',
+        description: 'Inventario, simulación y solicitudes de titular.',
+        ownerOnly: true,
+      },
     ],
   },
 ] as const;

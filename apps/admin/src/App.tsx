@@ -119,6 +119,11 @@ const SecuritySettingsPage = lazy(() =>
     }),
   ),
 );
+const PrivacySettingsPage = lazy(() =>
+  import('./settings/PrivacySettingsPage').then(({ PrivacySettingsPage }) => ({
+    default: PrivacySettingsPage,
+  })),
+);
 
 function AuthenticatedShell() {
   const { user, logout } = useAuth();
@@ -175,6 +180,7 @@ export function App() {
           />
           <Route path="settings/integrations" element={<IntegrationsPage />} />
           <Route path="settings/security" element={<SecuritySettingsPage />} />
+          <Route path="settings/privacy" element={<PrivacySettingsPage />} />
           <Route path="alerts" element={<AlertsPage />} />
           <Route path="more" element={<MorePage />} />
           <Route

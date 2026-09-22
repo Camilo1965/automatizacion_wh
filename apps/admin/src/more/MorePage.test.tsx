@@ -25,6 +25,7 @@ describe('MorePage', () => {
       'WhatsApp Business',
       'Integraciones',
       'Seguridad y acceso',
+      'Privacidad y retención',
     ]) {
       expect(await screen.findByRole('link', { name })).toBeVisible();
     }
@@ -47,6 +48,9 @@ describe('MorePage', () => {
     renderWithProviders(<MorePage />);
     expect(await screen.findByRole('link', { name: 'Alertas' })).toBeVisible();
     expect(screen.queryByRole('link', { name: 'Integraciones' })).toBeNull();
+    expect(
+      screen.queryByRole('link', { name: 'Privacidad y retención' }),
+    ).toBeNull();
     expect(
       await screen.findByRole('link', { name: 'Seguridad y acceso' }),
     ).toBeVisible();

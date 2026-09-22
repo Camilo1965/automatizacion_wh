@@ -239,6 +239,13 @@
       "when": 1790052000000,
       "tag": "0033_admin_audit_events",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790053000000,
+      "tag": "0034_retention_privacy",
+      "breakpoints": true
     }
   ]
 }

@@ -12,6 +12,7 @@ import {
   Store,
   Webhook,
   History,
+  Lock,
 } from 'lucide-react';
 
 import { useAuth } from '@/auth/AuthProvider';
@@ -48,6 +49,7 @@ const sharedConfigItems = [
 const ownerOnlyConfigItems = [
   { to: '/settings/bot-flow', label: 'Mensajes / bot', icon: MessageCircle },
   { to: '/settings/integrations', label: 'Integraciones', icon: PackageSearch },
+  { to: '/settings/privacy', label: 'Privacidad', icon: Lock },
   { to: '/settings/audit', label: 'Historial', icon: History },
 ] as const;
 

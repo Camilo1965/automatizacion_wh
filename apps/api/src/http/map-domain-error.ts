@@ -28,6 +28,12 @@ import {
   OrderValidationError,
 } from '../modules/orders/order-errors.js';
 import { ShippingDomainError } from '../modules/shipping/shipping-quote-service.js';
+import {
+  RetentionConfirmationRequiredError,
+  RetentionExecutionDisabledError,
+  RetentionPolicyNotApprovedError,
+  RetentionValidationError,
+} from '../modules/privacy/retention-service.js';
 
 export type ApiErrorBody = {
   error: {
@@ -55,6 +61,19 @@ export function mapDomainError(
   request: FastifyRequest,
   reply: FastifyReply,
 ): FastifyReply | null {
+  if (error instanceof RetentionExecutionDisabledError) {
+    return sendApiError(reply, 403, error.code, error.message);
+  }
+  if (error instanceof RetentionPolicyNotApprovedError) {
+    return sendApiError(reply, 409, error.code, error.message);
+  }
+  if (error instanceof RetentionConfirmationRequiredError) {
+    return sendApiError(reply, 400, error.code, error.message);
+  }
+  if (error instanceof RetentionValidationError) {
+    return sendApiError(reply, 400, error.code, error.message);
+  }
+
   if (error instanceof InvalidCredentialsError) {
     return sendApiError(reply, 401, error.code, error.message);
   }

@@ -24,6 +24,7 @@ import type { AuditService } from '../../modules/audit/audit-service.js';
 import type { InventoryClosureService } from '../../modules/inventory/inventory-closure-service.js';
 import type { IntegrationHealthService } from '../../modules/integrations/integration-health-service.js';
 import type { IntegrationSettingsOperations } from '../../modules/integrations/integration-settings-service.js';
+import type { RetentionService } from '../../modules/privacy/retention-service.js';
 import { requireAdminSession, authorize } from './admin-shared.js';
 import { registerAuditRoutes } from './audit.js';
 import { registerAuthRoutes } from './auth.js';
@@ -36,6 +37,7 @@ import { registerInventoryRoutes } from './inventory.js';
 import { registerLocalitiesRoutes } from './localities.js';
 import { registerLocalityCatalogRoutes } from './locality-catalog.js';
 import { registerOrdersRoutes } from './orders.js';
+import { registerPrivacyRoutes } from './privacy.js';
 import { registerSecurityRoutes } from './security.js';
 import { registerShippingRoutes } from './shipping.js';
 import { registerShippingIncidentRoutes } from './shipping-incidents.js';
@@ -70,6 +72,7 @@ export type AdminRoutesDependencies = Readonly<{
   inventoryClosureService?: InventoryClosureService;
   integrationHealthService?: IntegrationHealthService;
   integrationSettingsService?: IntegrationSettingsOperations;
+  retentionService?: RetentionService;
 }>;
 
 export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
@@ -193,6 +196,13 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
     authenticate,
     authService: dependencies.authService,
   });
+
+  if (dependencies.retentionService !== undefined) {
+    await registerPrivacyRoutes(app, {
+      authenticate,
+      retentionService: dependencies.retentionService,
+    });
+  }
 
   await registerCatalogRoutes(app, {
     authenticate: authorize(authenticate, 'catalog:operate'),

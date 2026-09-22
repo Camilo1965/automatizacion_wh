@@ -295,6 +295,14 @@ export class AuthService {
     }
   }
 
+  /** Owner re-auth for irreversible privacy/security actions. */
+  async confirmCurrentPassword(
+    actor: AdminUserPublic,
+    currentPassword: string,
+  ): Promise<void> {
+    await this.verifyCurrentPassword(actor.id, currentPassword);
+  }
+
   async resetPassword(
     usernameInput: string,
     password: string,

@@ -5,6 +5,7 @@ export * from './orders.js';
 export * from './whatsapp.js';
 export * from './shipping.js';
 export * from './ops.js';
+export * from './privacy.js';
 
 import {
   adminAuditEvents,
@@ -55,6 +56,7 @@ import {
   shippingQuotes,
 } from './shipping.js';
 import { inventoryClosures, ownerAlertDeliveries, ownerAlerts } from './ops.js';
+import { retentionPolicies, retentionRuns } from './privacy.js';
 
 export const schema = {
   shippingIncidents,
@@ -96,4 +98,6 @@ export const schema = {
   ownerAlerts,
   ownerAlertDeliveries,
   inventoryClosures,
+  retentionPolicies,
+  retentionRuns,
 };

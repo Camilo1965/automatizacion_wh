@@ -24,6 +24,11 @@ export type AppConfig = Readonly<{
   sessionIdleTtlMinutes?: number;
   /** Minimum seconds between lastSeenAt writes (default 300). */
   sessionLastSeenThrottleSeconds?: number;
+  /**
+   * When false (default), retention execute/resume is refused.
+   * Dry-run always allowed for owners with security:manage.
+   */
+  retentionExecutionEnabled?: boolean;
 }>;
 
 export class ConfigurationError extends Error {
@@ -254,6 +259,9 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     }
   }
 
+  const retentionExecutionEnabled =
+    environment.RETENTION_EXECUTION_ENABLED === 'true';
+
   if (
     issues.length > 0 ||
     !nodeEnvResult.success ||
@@ -276,6 +284,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     sessionAbsoluteTtlHours,
     sessionIdleTtlMinutes,
     sessionLastSeenThrottleSeconds,
+    retentionExecutionEnabled,
     ...(whatsappWebhookVerifyToken === undefined
       ? {}
       : { whatsappWebhookVerifyToken }),

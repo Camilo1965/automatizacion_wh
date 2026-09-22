@@ -13,6 +13,9 @@ import { AuthService } from './modules/auth/auth-service.js';
 import { PostgresAdminAuthRepository } from './modules/auth/postgres-admin-auth-repository.js';
 import { AuditService } from './modules/audit/audit-service.js';
 import { PostgresAuditRepository } from './modules/audit/postgres-audit-repository.js';
+import { PostgresRetentionDataStore } from './modules/privacy/postgres-retention-data-store.js';
+import { PostgresRetentionRepository } from './modules/privacy/postgres-retention-repository.js';
+import { RetentionService } from './modules/privacy/retention-service.js';
 import { CatalogImportService } from './modules/catalog/catalog-import-service.js';
 import { DefaultCatalogService } from './modules/catalog/catalog-service.js';
 import { LocalPhotoStorage } from './modules/catalog/local-photo-storage.js';
@@ -93,6 +96,30 @@ export async function createRuntime(
     absoluteSessionTtlMs: (config.sessionAbsoluteTtlHours ?? 12) * 60 * 60 * 1000,
     auditSink: auditService.asAuthAuditSink(),
   });
+  // Retention jobs are owner/CLI triggered. Automatic execution stays OFF unless
+  // RETENTION_EXECUTION_ENABLED=true and an approved active policy exists.
+  const retentionService = new RetentionService(
+    new PostgresRetentionRepository(database),
+    new PostgresRetentionDataStore(database),
+    auditService,
+    {
+      executionEnabled: config.retentionExecutionEnabled === true,
+      now: () => new Date(),
+      confirmPassword: async (actor, password) => {
+        if (actor.id === null) {
+          return;
+        }
+        await authService.confirmCurrentPassword(
+          {
+            id: actor.id,
+            username: actor.username,
+            role: actor.role,
+          },
+          password,
+        );
+      },
+    },
+  );
   const catalogRepository = new PostgresCatalogRepository(database);
   const photoStorage = new LocalPhotoStorage(config.mediaRoot);
   const catalogService = new DefaultCatalogService(
@@ -190,6 +217,7 @@ export async function createRuntime(
     database,
     authService,
     auditService,
+    retentionService,
     catalogService,
     catalogImportService,
     localityService,

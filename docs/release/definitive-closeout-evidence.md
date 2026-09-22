@@ -167,8 +167,8 @@ Docker image manifest lists (this machine, after build):
 | 1 Baseline | `verified` | `87f92e9` | Fresh totals recorded |
 | 2 AuthZ | `verified` | `35038be` | Stub replaced; server enforcement |
 | 3 MFA/sessions | `verified` | (Task 3 commit) | MFA+sessions operable; migration 0032 |
-| 4 Audit | `verified` | (this commit) | Unified append-only audit; migration 0033 |
-| 5 Retention | pending | | |
+| 4 Audit | `verified` | (Task 4 commit) | Unified append-only audit; migration 0033 |
+| 5 Retention | `verified` | (this commit) | Privacy inventory + controlled retention; migration 0034; legal durations `[HUMANO]` |
 | 6 Frontend UX/a11y | pending | | |
 | 7 Object storage | pending | | |
 | 8 Topology/health | pending | | |
@@ -217,3 +217,38 @@ No passwords, tokens, TOTP secrets, recovery codes, documents, phones, addresses
 ### IP / secrets note
 
 Raw client IP is not captured. Failed login/MFA metadata is sanitized (no password/token/code fields persist).
+
+---
+
+## Task 5 — Privacy inventory, retention, data-subject ops (2026-09-22)
+
+### Capability choice
+
+- `security:manage` (owner): inventory, draft/activate policies, dry-run, execute/resume, data-subject preview/execute
+- `audit:read` (owner): list/get retention runs and signed reports
+
+### Behavior
+
+- Migration **0034** `retention_policies` + `retention_runs` (versioned policies, resumable runs, signed reports)
+- Explicit data classes with per-class `retain | anonymize | delete` (orders: anonymize/retain only; audit: retain only)
+- Dry-run: counts + opaque sample IDs only — never phones, names, addresses, message bodies
+- Execute refused unless `RETENTION_EXECUTION_ENABLED=true` **and** active policy with every class `legalStatus=approved` + retentionDays
+- Automatic execution OFF by default (worker does not schedule retention)
+- CLI: `retention:execute`, compat `retention:simulate` (opaque IDs only)
+- Admin UI: `/settings/privacy`
+- Legal Colombia durations remain **`[HUMANO]`** in inventory, matrix template, and UI
+
+### TDD evidence
+
+| Step | Command | Result |
+| --- | --- | --- |
+| RED | Failing unit cases for dry-run side-effects + execute without approved policy | Authored first; now green |
+| GREEN unit | `pnpm --filter @camila/api exec vitest run --project unit test/retention-service.test.ts` | 7 passed |
+| GREEN integration | `pnpm --filter @camila/api test:integration -- test/retention.integration.test.ts` | 3 passed |
+| GREEN admin | `pnpm --filter @camila/admin exec vitest run src/settings/PrivacySettingsPage.test.tsx` | 2 passed |
+| Migrations | `test/database-migrations.integration.test.ts` | 3 passed |
+| Typecheck | api + admin + contracts build | pass |
+
+### [HUMANO]
+
+Colombia legal retention durations and matrix approval — do not invent approved durations in production policy activation until owner signs matrix.

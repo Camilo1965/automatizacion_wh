@@ -31,8 +31,12 @@ export type AuditAction =
   | 'inventory.closure_acknowledged'
   | 'order.transitioned'
   | 'data.exported'
+  | 'data_subject.previewed'
+  | 'data_subject.anonymized'
   | 'retention.executed'
-  | 'retention.simulated';
+  | 'retention.simulated'
+  | 'retention.policy_drafted'
+  | 'retention.policy_activated';
 
 export type AuditMetadataValue = string | number | boolean | null;
 export type AuditMetadata = Record<string, AuditMetadataValue>;

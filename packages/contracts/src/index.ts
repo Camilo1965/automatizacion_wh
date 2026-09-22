@@ -18,6 +18,7 @@ export * from './integration-lifecycle.js';
 export * from './shipping-incidents.js';
 export * from './shipping-simulation.js';
 export * from './configuration-audit.js';
+export * from './privacy.js';
 
 export const ApiErrorSchema = z
   .object({
