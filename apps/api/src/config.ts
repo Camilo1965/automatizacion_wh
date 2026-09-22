@@ -18,6 +18,12 @@ export type AppConfig = Readonly<{
   ninetyNineEnviosIntegrationToken?: string;
   ninetyNineEnviosIntegrationId?: string;
   integrationEncryptionKey?: string;
+  /** Absolute session lifetime in hours (default 12). */
+  sessionAbsoluteTtlHours?: number;
+  /** Idle timeout in minutes (default 60 in production, 720 elsewhere). */
+  sessionIdleTtlMinutes?: number;
+  /** Minimum seconds between lastSeenAt writes (default 300). */
+  sessionLastSeenThrottleSeconds?: number;
 }>;
 
 export class ConfigurationError extends Error {
@@ -195,6 +201,59 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     issues.push('NINETYNINE_ENVIOS_CREDENTIALS');
   }
 
+  const nodeEnvValue = nodeEnvResult.success
+    ? nodeEnvResult.data
+    : 'development';
+  const defaultIdleMinutes = nodeEnvValue === 'production' ? 60 : 720;
+
+  let sessionAbsoluteTtlHours = 12;
+  if (environment.SESSION_ABSOLUTE_TTL_HOURS !== undefined) {
+    if (!/^\d+$/.test(environment.SESSION_ABSOLUTE_TTL_HOURS.trim())) {
+      issues.push('SESSION_ABSOLUTE_TTL_HOURS');
+    } else {
+      sessionAbsoluteTtlHours = Number.parseInt(
+        environment.SESSION_ABSOLUTE_TTL_HOURS,
+        10,
+      );
+      if (sessionAbsoluteTtlHours < 1 || sessionAbsoluteTtlHours > 168) {
+        issues.push('SESSION_ABSOLUTE_TTL_HOURS');
+      }
+    }
+  }
+
+  let sessionIdleTtlMinutes = defaultIdleMinutes;
+  if (environment.SESSION_IDLE_TTL_MINUTES !== undefined) {
+    if (!/^\d+$/.test(environment.SESSION_IDLE_TTL_MINUTES.trim())) {
+      issues.push('SESSION_IDLE_TTL_MINUTES');
+    } else {
+      sessionIdleTtlMinutes = Number.parseInt(
+        environment.SESSION_IDLE_TTL_MINUTES,
+        10,
+      );
+      if (sessionIdleTtlMinutes < 1 || sessionIdleTtlMinutes > 10_080) {
+        issues.push('SESSION_IDLE_TTL_MINUTES');
+      }
+    }
+  }
+
+  let sessionLastSeenThrottleSeconds = 300;
+  if (environment.SESSION_LAST_SEEN_THROTTLE_SECONDS !== undefined) {
+    if (!/^\d+$/.test(environment.SESSION_LAST_SEEN_THROTTLE_SECONDS.trim())) {
+      issues.push('SESSION_LAST_SEEN_THROTTLE_SECONDS');
+    } else {
+      sessionLastSeenThrottleSeconds = Number.parseInt(
+        environment.SESSION_LAST_SEEN_THROTTLE_SECONDS,
+        10,
+      );
+      if (
+        sessionLastSeenThrottleSeconds < 0 ||
+        sessionLastSeenThrottleSeconds > 3600
+      ) {
+        issues.push('SESSION_LAST_SEEN_THROTTLE_SECONDS');
+      }
+    }
+  }
+
   if (
     issues.length > 0 ||
     !nodeEnvResult.success ||
@@ -214,6 +273,9 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     logLevel: logLevelResult.data,
     mediaRoot,
     whatsappGraphApiVersion,
+    sessionAbsoluteTtlHours,
+    sessionIdleTtlMinutes,
+    sessionLastSeenThrottleSeconds,
     ...(whatsappWebhookVerifyToken === undefined
       ? {}
       : { whatsappWebhookVerifyToken }),

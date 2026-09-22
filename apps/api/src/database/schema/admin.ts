@@ -82,6 +82,9 @@ export const adminSessions = pgTable(
       .notNull()
       .defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
   },
   (table) => [

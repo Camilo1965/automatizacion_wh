@@ -108,6 +108,46 @@ class MemoryAdminAuthRepository implements AdminAuthRepository {
     }
   }
 
+  async revokeOtherSessionsForUser(
+    userId: string,
+    keepSessionId: string,
+    revokedAt: Date,
+  ): Promise<void> {
+    for (const [id, session] of this.sessions) {
+      if (
+        session.userId === userId &&
+        session.id !== keepSessionId &&
+        session.revokedAt === null
+      ) {
+        this.sessions.set(id, { ...session, revokedAt });
+      }
+    }
+  }
+
+  async listActiveSessionsForUser(
+    userId: string,
+    now: Date,
+  ): Promise<AdminSessionRecord[]> {
+    return [...this.sessions.values()]
+      .filter(
+        (session) =>
+          session.userId === userId &&
+          session.revokedAt === null &&
+          session.expiresAt.getTime() > now.getTime(),
+      )
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async touchSessionLastSeen(
+    sessionId: string,
+    lastSeenAt: Date,
+  ): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (session !== undefined) {
+      this.sessions.set(sessionId, { ...session, lastSeenAt });
+    }
+  }
+
   async updatePasswordAndRevokeSessions(input: {
     userId: string;
     passwordHash: string;
@@ -134,6 +174,7 @@ class MemoryAdminAuthRepository implements AdminAuthRepository {
     tokenHash: string;
     expiresAt: Date;
     createdAt: Date;
+    lastSeenAt: Date;
   }): Promise<AdminSessionRecord> {
     const session: AdminSessionRecord = {
       id: crypto.randomUUID(),
@@ -141,6 +182,7 @@ class MemoryAdminAuthRepository implements AdminAuthRepository {
       tokenHash: input.tokenHash,
       createdAt: input.createdAt,
       expiresAt: input.expiresAt,
+      lastSeenAt: input.lastSeenAt,
       revokedAt: null,
     };
     this.sessions.set(session.id, session);

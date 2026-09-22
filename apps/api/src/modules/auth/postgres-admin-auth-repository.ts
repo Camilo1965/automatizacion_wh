@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, isNull, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, isNull, lte, ne } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import {
@@ -47,6 +47,7 @@ function mapSession(row: SessionRow): AdminSessionRecord {
     tokenHash: row.tokenHash,
     createdAt: row.createdAt,
     expiresAt: row.expiresAt,
+    lastSeenAt: row.lastSeenAt,
     revokedAt: row.revokedAt,
   };
 }
@@ -176,6 +177,51 @@ export class PostgresAdminAuthRepository implements AdminAuthRepository {
       );
   }
 
+  async revokeOtherSessionsForUser(
+    userId: string,
+    keepSessionId: string,
+    revokedAt: Date,
+  ): Promise<void> {
+    await this.database.orm
+      .update(adminSessions)
+      .set({ revokedAt })
+      .where(
+        and(
+          eq(adminSessions.userId, userId),
+          isNull(adminSessions.revokedAt),
+          ne(adminSessions.id, keepSessionId),
+        ),
+      );
+  }
+
+  async listActiveSessionsForUser(
+    userId: string,
+    now: Date,
+  ): Promise<AdminSessionRecord[]> {
+    const rows = await this.database.orm
+      .select()
+      .from(adminSessions)
+      .where(
+        and(
+          eq(adminSessions.userId, userId),
+          isNull(adminSessions.revokedAt),
+          gt(adminSessions.expiresAt, now),
+        ),
+      )
+      .orderBy(desc(adminSessions.createdAt));
+    return rows.map(mapSession);
+  }
+
+  async touchSessionLastSeen(
+    sessionId: string,
+    lastSeenAt: Date,
+  ): Promise<void> {
+    await this.database.orm
+      .update(adminSessions)
+      .set({ lastSeenAt })
+      .where(eq(adminSessions.id, sessionId));
+  }
+
   async updatePasswordAndRevokeSessions(input: {
     userId: string;
     passwordHash: string;
@@ -212,6 +258,7 @@ export class PostgresAdminAuthRepository implements AdminAuthRepository {
     tokenHash: string;
     expiresAt: Date;
     createdAt: Date;
+    lastSeenAt: Date;
   }): Promise<AdminSessionRecord> {
     const rows = await this.database.orm
       .insert(adminSessions)
@@ -220,6 +267,7 @@ export class PostgresAdminAuthRepository implements AdminAuthRepository {
         tokenHash: input.tokenHash,
         expiresAt: input.expiresAt,
         createdAt: input.createdAt,
+        lastSeenAt: input.lastSeenAt,
       })
       .returning();
     const row = rows[0];

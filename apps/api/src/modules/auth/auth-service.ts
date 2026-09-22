@@ -4,8 +4,13 @@ import type { IntegrationSecretCrypto } from '../integrations/integration-secret
 import type {
   AdminAuthRepository,
   AdminRole,
+  AdminSessionRecord,
   AdminUserPublic,
 } from './admin-auth-repository.js';
+import {
+  NoopAuthAuditSink,
+  type AuthAuditSink,
+} from './auth-audit-sink.js';
 import {
   AuthenticationRequiredError,
   InvalidCredentialsError,
@@ -32,6 +37,7 @@ import {
 import {
   createSessionToken,
   hashSessionToken,
+  SESSION_DURATION_MS,
   sessionExpiresAt,
 } from './session-token.js';
 import {
@@ -41,6 +47,9 @@ import {
 } from './totp.js';
 import { normalizeUsername } from './username.js';
 
+const DEFAULT_IDLE_TTL_MS = 60 * 60 * 1000;
+const DEFAULT_LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000;
+
 export type AuthServiceOptions = {
   now?: () => Date;
   createToken?: () => string;
@@ -48,6 +57,10 @@ export type AuthServiceOptions = {
   mfaCrypto?: IntegrationSecretCrypto;
   /** Base64-encoded 32-byte key (same as INTEGRATION_ENCRYPTION_KEY). */
   mfaSigningKeyBase64?: string;
+  sessionIdleTtlMs?: number;
+  sessionLastSeenThrottleMs?: number;
+  absoluteSessionTtlMs?: number;
+  auditSink?: AuthAuditSink;
 };
 
 export type LoginSessionResult = {
@@ -77,6 +90,14 @@ export type MfaEnrollmentConfirmResult = {
 export type MfaStatus = {
   enabled: boolean;
   pendingSetup: boolean;
+};
+
+export type PublicSessionInfo = {
+  id: string;
+  createdAt: Date;
+  expiresAt: Date;
+  lastSeenAt: Date;
+  current: boolean;
 };
 
 function toPublicUser(user: {
@@ -114,6 +135,10 @@ export class AuthService {
   private readonly dummyPasswordHash: string;
   private readonly mfaCrypto: IntegrationSecretCrypto | undefined;
   private readonly mfaSigningKey: Buffer | undefined;
+  private readonly sessionIdleTtlMs: number;
+  private readonly sessionLastSeenThrottleMs: number;
+  private readonly absoluteSessionTtlMs: number;
+  private readonly auditSink: AuthAuditSink;
 
   constructor(
     private readonly repository: AdminAuthRepository,
@@ -128,6 +153,12 @@ export class AuthService {
     } else {
       this.mfaSigningKey = undefined;
     }
+    this.sessionIdleTtlMs = options.sessionIdleTtlMs ?? DEFAULT_IDLE_TTL_MS;
+    this.sessionLastSeenThrottleMs =
+      options.sessionLastSeenThrottleMs ?? DEFAULT_LAST_SEEN_THROTTLE_MS;
+    this.absoluteSessionTtlMs =
+      options.absoluteSessionTtlMs ?? SESSION_DURATION_MS;
+    this.auditSink = options.auditSink ?? new NoopAuthAuditSink();
   }
 
   async createUser(
@@ -253,27 +284,46 @@ export class AuthService {
   }
 
   async login(usernameInput: string, password: string): Promise<LoginResult> {
-    const user = await this.authenticateCredentials(usernameInput, password);
-    const mfa = await this.repository.findMfaSecretByUserId(user.id);
-    if (mfa?.enabled === true) {
-      requireMfaCrypto(this.mfaCrypto);
-      if (this.mfaSigningKey === undefined) {
-        throw new MfaEncryptionRequiredError();
+    try {
+      const user = await this.authenticateCredentials(usernameInput, password);
+      const mfa = await this.repository.findMfaSecretByUserId(user.id);
+      if (mfa?.enabled === true) {
+        requireMfaCrypto(this.mfaCrypto);
+        if (this.mfaSigningKey === undefined) {
+          throw new MfaEncryptionRequiredError();
+        }
+        const now = this.now();
+        const { token, expiresAt } = createMfaLoginToken(
+          user.id,
+          now,
+          this.mfaSigningKey,
+        );
+        return {
+          kind: 'mfa_required',
+          mfaToken: token,
+          mfaExpiresAt: expiresAt,
+        };
       }
-      const now = this.now();
-      const { token, expiresAt } = createMfaLoginToken(
-        user.id,
-        now,
-        this.mfaSigningKey,
-      );
-      return {
-        kind: 'mfa_required',
-        mfaToken: token,
-        mfaExpiresAt: expiresAt,
-      };
-    }
 
-    return this.issueSession(user);
+      const session = await this.issueSession(user);
+      await this.auditSink.record({
+        action: 'login.succeeded',
+        result: 'success',
+        actorUserId: user.id,
+        actorUsername: user.username,
+        at: this.now(),
+      });
+      return session;
+    } catch (error) {
+      if (error instanceof InvalidCredentialsError) {
+        await this.auditSink.record({
+          action: 'login.failed',
+          result: 'failure',
+          at: this.now(),
+        });
+      }
+      throw error;
+    }
   }
 
   async completeMfaLogin(
@@ -289,6 +339,12 @@ export class AuthService {
     try {
       userId = verifyMfaLoginToken(mfaToken, now, this.mfaSigningKey);
     } catch (error) {
+      await this.auditSink.record({
+        action: 'mfa.verify_failed',
+        result: 'failure',
+        at: now,
+        metadata: { reason: 'invalid_token' },
+      });
       if (error instanceof MfaLoginTokenError) {
         throw new InvalidMfaCodeError(error.message);
       }
@@ -297,6 +353,13 @@ export class AuthService {
 
     const user = await this.repository.findUserById(userId);
     if (user === null || !user.active) {
+      await this.auditSink.record({
+        action: 'mfa.verify_failed',
+        result: 'failure',
+        actorUserId: userId,
+        at: now,
+        metadata: { reason: 'inactive_user' },
+      });
       throw new InvalidMfaCodeError();
     }
 
@@ -313,13 +376,29 @@ export class AuthService {
     );
     const totpValid = verifyTotpCode(secret, code, now);
     if (!totpValid && recovery === null) {
+      await this.auditSink.record({
+        action: 'mfa.verify_failed',
+        result: 'failure',
+        actorUserId: user.id,
+        actorUsername: user.username,
+        at: now,
+      });
       throw new InvalidMfaCodeError();
     }
     if (recovery !== null) {
       await this.repository.markRecoveryCodeUsed(recovery.id, now);
     }
 
-    return this.issueSession(user);
+    const session = await this.issueSession(user);
+    await this.auditSink.record({
+      action: 'mfa.verify_succeeded',
+      result: 'success',
+      actorUserId: user.id,
+      actorUsername: user.username,
+      at: now,
+      metadata: { method: recovery !== null ? 'recovery' : 'totp' },
+    });
+    return session;
   }
 
   async getMfaStatus(userId: string): Promise<MfaStatus> {
@@ -378,11 +457,21 @@ export class AuthService {
       codeHashes: recoveryCodes.map((value) => hashRecoveryCode(value)),
       createdAt: now,
     });
+    await this.auditSink.record({
+      action: 'mfa.enabled',
+      result: 'success',
+      actorUserId: userId,
+      at: now,
+    });
 
     return { recoveryCodes };
   }
 
-  async disableMfa(userId: string, password: string): Promise<void> {
+  async disableMfa(
+    userId: string,
+    password: string,
+    currentSessionToken: string | null | undefined,
+  ): Promise<void> {
     const user = await this.repository.findUserById(userId);
     if (user === null) {
       throw new UserNotFoundError('User was not found');
@@ -392,6 +481,24 @@ export class AuthService {
       throw new InvalidCredentialsError();
     }
     await this.repository.deleteMfaForUser(userId);
+    const now = this.now();
+    const current = await this.resolveSession(currentSessionToken, now, false);
+    if (current !== null) {
+      await this.repository.revokeOtherSessionsForUser(
+        userId,
+        current.session.id,
+        now,
+      );
+    } else {
+      await this.repository.revokeAllSessionsForUser(userId, now);
+    }
+    await this.auditSink.record({
+      action: 'mfa.disabled',
+      result: 'success',
+      actorUserId: userId,
+      actorUsername: user.username,
+      at: now,
+    });
   }
 
   async purgeExpiredSessions(): Promise<number> {
@@ -399,21 +506,83 @@ export class AuthService {
   }
 
   async getSession(token: string | null | undefined): Promise<AdminUserPublic> {
-    if (token === null || token === undefined || token === '') {
+    const found = await this.resolveSession(token, this.now(), true);
+    if (found === null) {
       throw new AuthenticationRequiredError();
     }
+    return toPublicUser(found.user);
+  }
 
+  async listSessions(
+    token: string | null | undefined,
+  ): Promise<PublicSessionInfo[]> {
+    const found = await this.resolveSession(token, this.now(), true);
+    if (found === null) {
+      throw new AuthenticationRequiredError();
+    }
     const now = this.now();
-    const found = await this.repository.findValidSessionByTokenHash(
-      hashSessionToken(token),
+    const sessions = await this.repository.listActiveSessionsForUser(
+      found.user.id,
       now,
     );
+    return sessions
+      .filter((session) => this.isWithinIdleWindow(session, now))
+      .map((session) => ({
+        id: session.id,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+        lastSeenAt: session.lastSeenAt,
+        current: session.id === found.session.id,
+      }));
+  }
 
-    if (found === null || !found.user.active) {
+  async revokeSessionById(
+    token: string | null | undefined,
+    sessionId: string,
+  ): Promise<void> {
+    const found = await this.resolveSession(token, this.now(), true);
+    if (found === null) {
       throw new AuthenticationRequiredError();
     }
+    const sessions = await this.repository.listActiveSessionsForUser(
+      found.user.id,
+      this.now(),
+    );
+    const target = sessions.find((session) => session.id === sessionId);
+    if (target === undefined) {
+      throw new AuthenticationRequiredError();
+    }
+    const now = this.now();
+    await this.repository.revokeSession(sessionId, now);
+    await this.auditSink.record({
+      action: 'session.revoked',
+      result: 'success',
+      actorUserId: found.user.id,
+      actorUsername: found.user.username,
+      targetType: 'admin_session',
+      targetId: sessionId,
+      at: now,
+    });
+  }
 
-    return toPublicUser(found.user);
+  async revokeOtherSessions(token: string | null | undefined): Promise<void> {
+    const found = await this.resolveSession(token, this.now(), true);
+    if (found === null) {
+      throw new AuthenticationRequiredError();
+    }
+    const now = this.now();
+    await this.repository.revokeOtherSessionsForUser(
+      found.user.id,
+      found.session.id,
+      now,
+    );
+    await this.auditSink.record({
+      action: 'session.revoked_others',
+      result: 'success',
+      actorUserId: found.user.id,
+      actorUsername: found.user.username,
+      at: now,
+    });
   }
 
   async logout(token: string | null | undefined): Promise<void> {
@@ -470,12 +639,16 @@ export class AuthService {
   }): Promise<LoginSessionResult> {
     const now = this.now();
     const token = this.createToken();
-    const expiresAt = sessionExpiresAt(now);
+    const expiresAt =
+      this.absoluteSessionTtlMs === SESSION_DURATION_MS
+        ? sessionExpiresAt(now)
+        : new Date(now.getTime() + this.absoluteSessionTtlMs);
     await this.repository.createSession({
       userId: user.id,
       tokenHash: hashSessionToken(token),
       expiresAt,
       createdAt: now,
+      lastSeenAt: now,
     });
 
     return {
@@ -484,6 +657,55 @@ export class AuthService {
       token,
       expiresAt,
     };
+  }
+
+  private isWithinIdleWindow(session: AdminSessionRecord, now: Date): boolean {
+    const lastActivity = session.lastSeenAt.getTime();
+    return now.getTime() - lastActivity <= this.sessionIdleTtlMs;
+  }
+
+  private async resolveSession(
+    token: string | null | undefined,
+    now: Date,
+    touch: boolean,
+  ): Promise<{
+    session: AdminSessionRecord;
+    user: {
+      id: string;
+      username: string;
+      passwordHash: string;
+      role: AdminRole;
+      active: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    };
+  } | null> {
+    if (token === null || token === undefined || token === '') {
+      return null;
+    }
+
+    const found = await this.repository.findValidSessionByTokenHash(
+      hashSessionToken(token),
+      now,
+    );
+
+    if (found === null || !found.user.active) {
+      return null;
+    }
+
+    if (!this.isWithinIdleWindow(found.session, now)) {
+      return null;
+    }
+
+    if (touch) {
+      const elapsed = now.getTime() - found.session.lastSeenAt.getTime();
+      if (elapsed >= this.sessionLastSeenThrottleMs) {
+        await this.repository.touchSessionLastSeen(found.session.id, now);
+        found.session = { ...found.session, lastSeenAt: now };
+      }
+    }
+
+    return found;
   }
 
   private assertPasswordConfirmation(

@@ -82,9 +82,8 @@ Docker image manifest lists (this machine, after build):
 | Compose prod config | `verified` | config --quiet exit 0 |
 | Docker image builds | `verified` | api/worker/admin built |
 | Real RBAC / capabilities | `verified` | Task 2: roles + `requireCapability` on admin routes; U/I/E evidence |
-
-| Operable MFA from panel | `failed` | Not end-to-end operable per Task 3 scope |
-| Unified admin/business audit | `failed` | Historial still incomplete vs design §8.4 |
+| Operable MFA from panel | `verified` | Task 3: enroll/confirm/disable, sessions, rate limit, local QR |
+| Unified admin/business audit | `failed` | Historial still incomplete vs design §8.4; Task 3 emits in-memory auth audit sink only |
 | Versioned retention + legal gate | `failed` | Execution must stay blocked until `[HUMANO]` legal approval |
 | Integrations/Shipping UX lifecycle | `failed` | Pages still monolithic; generic copy residual risk |
 | Fast Refresh warnings = 0 | `failed` | 4 warnings remain |
@@ -102,10 +101,10 @@ Docker image manifest lists (this machine, after build):
 | Meta + 99envíos real evidence | `[HUMANO]` | Credentials + authorized actions |
 | Pilot + acceptance signoff | `[HUMANO]` | Owner/operators |
 
-### Remaining gaps entering Task 3
+### Remaining gaps entering Task 4
 
-1. MFA/session UX incomplete.
-2. Audit, retention, storage, backup, observability, CI gates incomplete.
+1. Unified append-only audit (Task 4) — auth sink today is in-memory placeholder.
+2. Retention, storage, backup, observability, CI gates incomplete.
 3. Real provider/pilot/launch evidence absent → final recommendation remains **NO-GO** until `[HUMANO]` gates close.
 
 ---
@@ -130,14 +129,45 @@ Docker image manifest lists (this machine, after build):
 | Integration | `pnpm --filter @camila/api test:integration -- test/admin-authorization.integration.test.ts` | 5 passed (401/403/owner/operator/create) |
 | Admin unit | `pnpm --filter @camila/admin exec vitest run src/settings/SecuritySettingsPage.test.tsx` | 2 passed |
 
+---
+
+## Task 3 — MFA and session security (2026-09-22)
+
+### Behavior
+
+- Enrollment: `otpauth://` URI + local `qrcode@1.5.4` QR + manual secret (no external QR service)
+- Confirm: valid TOTP required; recovery codes shown once, stored as SHA-256 hashes, single use
+- Disable MFA: current password + revoke every other session
+- MFA verify: separate rate limit (5 / 15 min) + `AuthAuditSink` events
+- Session list / revoke one / revoke others
+- Absolute expiry 12h; idle default 60 min in production (`SESSION_IDLE_TTL_MINUTES`); throttled `last_seen_at`
+- Password reset / role change / deactivation / MFA disable revoke applicable sessions
+- Dashboard Integraciones queue gated to owners
+
+### Migration
+
+- `0032_admin_session_security.sql` adds `admin_sessions.last_seen_at`
+- Task 4 audit migration renumbered to `0033` (plan originally said 0032)
+
+### Verification
+
+| Suite | Result |
+| --- | --- |
+| `mfa-http.integration.test.ts` | 4 passed |
+| `session-security.integration.test.ts` | 3 passed |
+| Auth unit (auth-service/session-token/totp/config) | 25 passed |
+| SecuritySettingsPage + MorePage unit | 6 passed |
+| E2E `security.spec.ts` + `authorization.spec.ts` | 2 passed |
+| api + admin typecheck | pass |
+
 ### Task progress log
 
 | Task | Status | Commit | Notes |
 | --- | --- | --- | --- |
 | 1 Baseline | `verified` | `87f92e9` | Fresh totals recorded |
-| 2 AuthZ | `verified` | (this commit) | Stub replaced; server enforcement |
-| 3 MFA/sessions | pending | | |
-| 4 Audit | pending | | |
+| 2 AuthZ | `verified` | `35038be` | Stub replaced; server enforcement |
+| 3 MFA/sessions | `verified` | (this commit) | MFA+sessions operable; migration 0032 |
+| 4 Audit | pending | | Plan file becomes `0033_admin_audit_events.sql` |
 | 5 Retention | pending | | |
 | 6 Frontend UX/a11y | pending | | |
 | 7 Object storage | pending | | |

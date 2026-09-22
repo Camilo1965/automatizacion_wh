@@ -67,15 +67,19 @@ test('owner sees security navigation and operator is denied owner routes', async
   await login(page, OPERATOR_USERNAME, OPERATOR_PASSWORD);
   await expect(
     page.getByRole('link', { name: 'Seguridad y acceso' }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'Integraciones' }),
   ).toHaveCount(0);
 
   await page.goto('/settings/security');
   await expect(
-    page.getByText(/Solo la propietaria puede gestionar el acceso/i),
+    page.getByRole('heading', { name: 'Seguridad y acceso' }),
   ).toBeVisible();
+  await expect(
+    page.getByText('Autenticación en dos pasos (MFA)'),
+  ).toBeVisible();
+  await expect(page.getByText('Crear operadora')).toHaveCount(0);
 
   const denied = await page.request.get(
     `${E2E_API_ORIGIN}/api/admin/security/users`,

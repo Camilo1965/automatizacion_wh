@@ -48,7 +48,7 @@ describe('MorePage', () => {
     expect(await screen.findByRole('link', { name: 'Alertas' })).toBeVisible();
     expect(screen.queryByRole('link', { name: 'Integraciones' })).toBeNull();
     expect(
-      screen.queryByRole('link', { name: 'Seguridad y acceso' }),
-    ).toBeNull();
+      await screen.findByRole('link', { name: 'Seguridad y acceso' }),
+    ).toBeVisible();
   });
 });

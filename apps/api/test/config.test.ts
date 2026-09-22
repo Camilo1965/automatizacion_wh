@@ -24,6 +24,9 @@ describe('loadConfig', () => {
       logLevel: 'info',
       mediaRoot: './var/media',
       whatsappGraphApiVersion: 'v26.0',
+      sessionAbsoluteTtlHours: 12,
+      sessionIdleTtlMinutes: 720,
+      sessionLastSeenThrottleSeconds: 300,
     });
   });
 

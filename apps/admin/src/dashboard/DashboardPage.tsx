@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { lazy, Suspense, useMemo, useState } from 'react';
 
+import { useAuth } from '../auth/AuthProvider';
 import { getDashboardSummary } from '../api/dashboard-api';
 import { getErrorMessage } from '../api/client';
 import { EmptyState } from '../components/EmptyState';
@@ -80,6 +81,7 @@ function queueCount(value: number | boolean): number {
 }
 
 export function DashboardPage() {
+  const { user } = useAuth();
   const [range, setRange] = useState<'today' | '7d' | '30d'>('today');
   const query = useQuery({
     queryKey: ['dashboard', range],
@@ -88,13 +90,18 @@ export function DashboardPage() {
 
   const openQueue = useMemo(() => {
     if (!query.data) return [];
+    const isOwner = user?.role === 'owner';
     return priorityDefinitions
       .map((priority) => ({
         ...priority,
         count: queueCount(query.data.queues[priority.field]),
       }))
-      .filter((item) => item.count > 0);
-  }, [query.data]);
+      .filter((item) => {
+        if (item.count <= 0) return false;
+        if (item.to === '/settings/integrations' && !isOwner) return false;
+        return true;
+      });
+  }, [query.data, user?.role]);
 
   const colombiaDate = new Intl.DateTimeFormat('es-CO', {
     weekday: 'long',

@@ -225,6 +225,13 @@
       "when": 1790050000000,
       "tag": "0031_admin_roles_audit_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790051000000,
+      "tag": "0032_admin_session_security",
+      "breakpoints": true
     }
   ]
 }

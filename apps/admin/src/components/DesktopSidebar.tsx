@@ -40,17 +40,17 @@ const shippingItems = [
   },
 ] as const;
 
-const ownerConfigItems = [
+const sharedConfigItems = [
   { to: '/settings/whatsapp', label: 'WhatsApp', icon: Webhook },
-  { to: '/settings/bot-flow', label: 'Mensajes / bot', icon: MessageCircle },
-  { to: '/settings/integrations', label: 'Integraciones', icon: PackageSearch },
-  { to: '/settings/audit', label: 'Historial', icon: History },
   { to: '/settings/security', label: 'Seguridad y acceso', icon: Shield },
 ] as const;
 
-const operatorConfigItems = [
-  { to: '/settings/whatsapp', label: 'WhatsApp', icon: Webhook },
+const ownerOnlyConfigItems = [
+  { to: '/settings/bot-flow', label: 'Mensajes / bot', icon: MessageCircle },
+  { to: '/settings/integrations', label: 'Integraciones', icon: PackageSearch },
+  { to: '/settings/audit', label: 'Historial', icon: History },
 ] as const;
+
 
 function NavItem({
   to,
@@ -101,7 +101,9 @@ function NavGroup({
 export function DesktopSidebar() {
   const { user } = useAuth();
   const configItems =
-    user?.role === 'owner' ? ownerConfigItems : operatorConfigItems;
+    user?.role === 'owner'
+      ? [...sharedConfigItems, ...ownerOnlyConfigItems]
+      : [...sharedConfigItems];
 
   return (
     <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 py-4 md:flex">

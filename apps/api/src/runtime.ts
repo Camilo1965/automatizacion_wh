@@ -84,6 +84,10 @@ export async function createRuntime(
           ),
           mfaSigningKeyBase64: config.integrationEncryptionKey,
         }),
+    sessionIdleTtlMs: (config.sessionIdleTtlMinutes ?? 60) * 60 * 1000,
+    sessionLastSeenThrottleMs:
+      (config.sessionLastSeenThrottleSeconds ?? 300) * 1000,
+    absoluteSessionTtlMs: (config.sessionAbsoluteTtlHours ?? 12) * 60 * 60 * 1000,
   });
   const catalogRepository = new PostgresCatalogRepository(database);
   const photoStorage = new LocalPhotoStorage(config.mediaRoot);

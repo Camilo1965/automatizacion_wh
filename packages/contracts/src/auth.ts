@@ -116,6 +116,8 @@ export const MfaStatusDataSchema = z
   })
   .strict();
 
+export type MfaStatusData = z.infer<typeof MfaStatusDataSchema>;
+
 export const MfaStatusResponseSchema = dataEnvelopeSchema(MfaStatusDataSchema);
 
 export const MfaSetupDataSchema = z
@@ -147,3 +149,40 @@ export const MfaDisableBodySchema = z
     password: z.string().min(1),
   })
   .strict();
+
+export type MfaDisableBody = z.infer<typeof MfaDisableBodySchema>;
+
+export const AdminSessionPublicSchema = z
+  .object({
+    id: z.uuid(),
+    createdAt: z.string().datetime(),
+    expiresAt: z.string().datetime(),
+    lastSeenAt: z.string().datetime(),
+    current: z.boolean(),
+  })
+  .strict();
+
+export type AdminSessionPublic = z.infer<typeof AdminSessionPublicSchema>;
+
+export const AdminSessionListDataSchema = z
+  .object({
+    items: z.array(AdminSessionPublicSchema),
+  })
+  .strict();
+
+export type AdminSessionListData = z.infer<typeof AdminSessionListDataSchema>;
+
+export const AdminSessionListResponseSchema = dataEnvelopeSchema(
+  AdminSessionListDataSchema,
+);
+export type AdminSessionListResponse = z.infer<
+  typeof AdminSessionListResponseSchema
+>;
+
+export const SessionIdParamsSchema = z
+  .object({
+    sessionId: z.uuid(),
+  })
+  .strict();
+
+export type SessionIdParams = z.infer<typeof SessionIdParamsSchema>;

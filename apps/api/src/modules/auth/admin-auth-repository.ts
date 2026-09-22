@@ -22,6 +22,7 @@ export type AdminSessionRecord = {
   tokenHash: string;
   createdAt: Date;
   expiresAt: Date;
+  lastSeenAt: Date;
   revokedAt: Date | null;
 };
 
@@ -65,6 +66,16 @@ export interface AdminAuthRepository {
     updatedAt: Date;
   }): Promise<AdminUserRecord>;
   revokeAllSessionsForUser(userId: string, revokedAt: Date): Promise<void>;
+  revokeOtherSessionsForUser(
+    userId: string,
+    keepSessionId: string,
+    revokedAt: Date,
+  ): Promise<void>;
+  listActiveSessionsForUser(
+    userId: string,
+    now: Date,
+  ): Promise<AdminSessionRecord[]>;
+  touchSessionLastSeen(sessionId: string, lastSeenAt: Date): Promise<void>;
   updatePasswordAndRevokeSessions(input: {
     userId: string;
     passwordHash: string;
@@ -75,6 +86,7 @@ export interface AdminAuthRepository {
     tokenHash: string;
     expiresAt: Date;
     createdAt: Date;
+    lastSeenAt: Date;
   }): Promise<AdminSessionRecord>;
   findValidSessionByTokenHash(
     tokenHash: string,

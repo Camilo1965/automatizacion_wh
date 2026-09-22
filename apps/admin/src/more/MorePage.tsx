@@ -65,22 +65,24 @@ const groups = [
   },
   {
     title: 'Sistema',
-    ownerOnly: true,
+    ownerOnly: false,
     items: [
       {
         to: '/settings/integrations',
         title: 'Integraciones',
         description: 'Configurado · Verificado · Activo · Incidencia.',
+        ownerOnly: true,
       },
       {
         to: '/settings/audit',
         title: 'Historial de cambios',
         description: 'Publicaciones y acciones sin secretos.',
+        ownerOnly: true,
       },
       {
         to: '/settings/security',
         title: 'Seguridad y acceso',
-        description: 'Operadoras, roles y desactivación de cuentas.',
+        description: 'MFA, sesiones, operadoras y roles.',
       },
     ],
   },
