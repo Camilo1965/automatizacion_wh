@@ -38,10 +38,7 @@ export function evaluateWorkerReadiness(input: {
   let heartbeat: WorkerReadinessChecks['heartbeat'];
   if (input.lastHeartbeatAtMs === null) {
     heartbeat = 'missing';
-  } else if (
-    input.nowMs - input.lastHeartbeatAtMs >
-    input.heartbeatMaxAgeMs
-  ) {
+  } else if (input.nowMs - input.lastHeartbeatAtMs > input.heartbeatMaxAgeMs) {
     heartbeat = 'stale';
   } else {
     heartbeat = 'fresh';
@@ -49,9 +46,7 @@ export function evaluateWorkerReadiness(input: {
 
   return {
     ready:
-      database === 'up' &&
-      scheduler === 'initialized' &&
-      heartbeat === 'fresh',
+      database === 'up' && scheduler === 'initialized' && heartbeat === 'fresh',
     checks: { database, scheduler, heartbeat },
   };
 }
@@ -62,12 +57,8 @@ export class WorkerHealthMonitor {
   private readonly healthFilePath: string;
   private readonly now: () => number;
 
-  constructor(options?: {
-    healthFilePath?: string;
-    now?: () => number;
-  }) {
-    this.healthFilePath =
-      options?.healthFilePath ?? DEFAULT_WORKER_HEALTH_FILE;
+  constructor(options?: { healthFilePath?: string; now?: () => number }) {
+    this.healthFilePath = options?.healthFilePath ?? DEFAULT_WORKER_HEALTH_FILE;
     this.now = options?.now ?? Date.now;
   }
 
@@ -146,10 +137,7 @@ export async function runWorkerHealthCheck(options: {
     snapshot.lastHeartbeatAt === null
       ? null
       : Date.parse(snapshot.lastHeartbeatAt);
-  if (
-    snapshot.lastHeartbeatAt !== null &&
-    Number.isNaN(lastHeartbeatAtMs)
-  ) {
+  if (snapshot.lastHeartbeatAt !== null && Number.isNaN(lastHeartbeatAtMs)) {
     return 1;
   }
 

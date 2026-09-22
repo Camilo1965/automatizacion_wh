@@ -13,12 +13,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import {
-  existsSync,
-  mkdirSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -31,12 +26,7 @@ const envPath = join(root, '.env.staging');
 const evidenceDir = join(root, 'docs', 'release');
 const evidencePartial = join(evidenceDir, '_task8-smoke-partial.md');
 
-const composeFiles = [
-  '-f',
-  'compose.prod.yaml',
-  '-f',
-  'compose.staging.yaml',
-];
+const composeFiles = ['-f', 'compose.prod.yaml', '-f', 'compose.staging.yaml'];
 
 const baseUrl = process.env.SMOKE_BASE_URL ?? 'https://localhost:18443';
 

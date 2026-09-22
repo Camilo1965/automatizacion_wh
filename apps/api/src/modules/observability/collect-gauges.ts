@@ -146,8 +146,7 @@ export async function refreshOperationalGauges(input: {
     }
   }
 
-  const healthPath =
-    input.workerHealthFilePath ?? DEFAULT_WORKER_HEALTH_FILE;
+  const healthPath = input.workerHealthFilePath ?? DEFAULT_WORKER_HEALTH_FILE;
   const health = await readWorkerHealthSnapshot(healthPath);
   if (health?.lastHeartbeatAt) {
     const parsed = Date.parse(health.lastHeartbeatAt);

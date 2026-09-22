@@ -78,12 +78,10 @@ export function IntegrationsPage() {
   const whatsappDraft = drafts.find((draft) => draft.provider === 'whatsapp');
   const shippingDraft = drafts.find((draft) => draft.provider === 'shipping');
   const whatsappActive = versions.some(
-    (version) =>
-      version.provider === 'whatsapp' && version.status === 'active',
+    (version) => version.provider === 'whatsapp' && version.status === 'active',
   );
   const shippingActive = versions.some(
-    (version) =>
-      version.provider === 'shipping' && version.status === 'active',
+    (version) => version.provider === 'shipping' && version.status === 'active',
   );
 
   return (

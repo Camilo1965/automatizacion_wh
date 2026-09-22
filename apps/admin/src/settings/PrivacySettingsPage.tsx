@@ -202,9 +202,7 @@ export function PrivacySettingsPage() {
             <input
               type="checkbox"
               checked={confirmIrreversible}
-              onChange={(event) =>
-                setConfirmIrreversible(event.target.checked)
-              }
+              onChange={(event) => setConfirmIrreversible(event.target.checked)}
             />
             Confirmo acción irreversible (activar / anonimizar)
           </label>
@@ -300,7 +298,9 @@ export function PrivacySettingsPage() {
                 {run.report !== null
                   ? ` · firma ${run.report.signature.slice(0, 12)}…`
                   : ''}
-                {run.errorMessage !== null ? ` · error: ${run.errorMessage}` : ''}
+                {run.errorMessage !== null
+                  ? ` · error: ${run.errorMessage}`
+                  : ''}
               </li>
             ))}
             {(runsQuery.data ?? []).length === 0 ? (

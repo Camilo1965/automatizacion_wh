@@ -7,10 +7,7 @@ import {
 import { z } from 'zod';
 
 import type { AuthService } from '../../modules/auth/auth-service.js';
-import {
-  authorize,
-  type AdminAuthenticate,
-} from './admin-shared.js';
+import { authorize, type AdminAuthenticate } from './admin-shared.js';
 
 export async function registerSecurityRoutes(
   app: FastifyInstance,

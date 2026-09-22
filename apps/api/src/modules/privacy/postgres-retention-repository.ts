@@ -18,7 +18,9 @@ import type {
   RetentionRunRecord,
 } from './retention-repository.js';
 
-function mapPolicy(row: typeof retentionPolicies.$inferSelect): RetentionPolicyRecord {
+function mapPolicy(
+  row: typeof retentionPolicies.$inferSelect,
+): RetentionPolicyRecord {
   return {
     id: row.id,
     version: row.version,
@@ -40,7 +42,10 @@ function mapRun(row: typeof retentionRuns.$inferSelect): RetentionRunRecord {
     mode: row.mode as RetentionRunRecord['mode'],
     status: row.status as RetentionRunRecord['status'],
     progress: (row.progress ?? []) as RetentionClassProgress[],
-    cursor: (row.cursor ?? { classIndex: 0, lastId: null }) as RetentionRunCursor,
+    cursor: (row.cursor ?? {
+      classIndex: 0,
+      lastId: null,
+    }) as RetentionRunCursor,
     report: (row.report ?? null) as RetentionReport | null,
     errorMessage: row.errorMessage,
     createdAt: row.createdAt,
@@ -196,7 +201,9 @@ export class PostgresRetentionRepository implements RetentionRepository {
         ...(input.errorMessage === undefined
           ? {}
           : { errorMessage: input.errorMessage }),
-        ...(input.startedAt === undefined ? {} : { startedAt: input.startedAt }),
+        ...(input.startedAt === undefined
+          ? {}
+          : { startedAt: input.startedAt }),
         ...(input.finishedAt === undefined
           ? {}
           : { finishedAt: input.finishedAt }),

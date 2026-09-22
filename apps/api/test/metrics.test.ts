@@ -42,9 +42,7 @@ function createDatabaseMock(
     ping: vi.fn(async () => undefined),
     close: vi.fn(async () => undefined),
     orm: {
-      execute: vi.fn(async () => [
-        { depth: 0, oldest_age_seconds: 0 },
-      ]),
+      execute: vi.fn(async () => [{ depth: 0, oldest_age_seconds: 0 }]),
     } as unknown as PostgresDatabase['orm'],
     ...overrides,
   };
@@ -132,16 +130,12 @@ describe('metrics registry', () => {
     expect(body).toContain('kairo_db_ready 1');
     expect(body).toContain('kairo_worker_heartbeat_unixtime');
     expect(body).toContain('kairo_queue_depth{queue="whatsapp_outbound"} 3');
-    expect(body).toContain(
-      'kairo_guide_outcomes_total{outcome="uncertain"} 1',
-    );
+    expect(body).toContain('kairo_guide_outcomes_total{outcome="uncertain"} 1');
     expect(body).toContain(
       'kairo_inventory_conflicts_total{reason="insufficient_stock"} 1',
     );
     expect(body).toContain('kairo_last_backup_age_seconds 3600');
-    expect(body).toContain(
-      'kairo_synthetic_failures_total{kind="provider"} 1',
-    );
+    expect(body).toContain('kairo_synthetic_failures_total{kind="provider"} 1');
     expect(body).not.toMatch(/3001234567|@|Bearer |password=/i);
   });
 

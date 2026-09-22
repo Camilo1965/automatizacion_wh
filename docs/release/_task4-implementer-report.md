@@ -10,14 +10,14 @@ Migration: `apps/api/drizzle/0033_admin_audit_events.sql` (not 0032)
 
 ## GREEN
 
-| Command | Result |
-| --- | --- |
-| `pnpm --filter @camila/api exec vitest run test/audit-service.test.ts` | 5 passed |
-| `pnpm --filter @camila/api test:integration -- test/admin-audit.integration.test.ts` | 3 passed |
-| `pnpm --filter @camila/api test:integration -- test/database-migrations.integration.test.ts` | 3 passed |
-| `pnpm --filter @camila/api exec tsc -p tsconfig.json --noEmit` | pass |
-| `pnpm --filter @camila/admin exec tsc -p tsconfig.json --noEmit` | pass |
-| `pnpm --filter @camila/contracts exec vitest run` | 70 passed |
+| Command                                                                                      | Result    |
+| -------------------------------------------------------------------------------------------- | --------- |
+| `pnpm --filter @camila/api exec vitest run test/audit-service.test.ts`                       | 5 passed  |
+| `pnpm --filter @camila/api test:integration -- test/admin-audit.integration.test.ts`         | 3 passed  |
+| `pnpm --filter @camila/api test:integration -- test/database-migrations.integration.test.ts` | 3 passed  |
+| `pnpm --filter @camila/api exec tsc -p tsconfig.json --noEmit`                               | pass      |
+| `pnpm --filter @camila/admin exec tsc -p tsconfig.json --noEmit`                             | pass      |
+| `pnpm --filter @camila/contracts exec vitest run`                                            | 70 passed |
 
 ## Delivered
 

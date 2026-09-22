@@ -29,17 +29,17 @@ pnpm --filter @camila/api exec vitest run test/capabilities.test.ts
 
 ## Verification run
 
-| Suite | Command | Result |
-| --- | --- | --- |
-| Capabilities unit | `vitest run test/capabilities.test.ts` | 4 passed |
-| Auth service unit | `vitest run test/auth-service.test.ts` | 6 passed |
-| Contracts | `pnpm --filter @camila/contracts test:unit` | 70 passed |
-| AuthZ integration | `test:integration -- test/admin-authorization.integration.test.ts` | 5 passed |
-| Auth migrations/login | `admin-auth-migrations` + `admin-auth-login` | 4 passed |
-| Security page unit | `SecuritySettingsPage.test.tsx` | 2 passed |
-| More page unit | `MorePage.test.tsx` | 2 passed |
-| E2E authorization | `playwright test e2e/authorization.spec.ts` | 1 passed |
-| Typecheck | api + admin + contracts `tsc --noEmit` | pass |
+| Suite                 | Command                                                            | Result    |
+| --------------------- | ------------------------------------------------------------------ | --------- |
+| Capabilities unit     | `vitest run test/capabilities.test.ts`                             | 4 passed  |
+| Auth service unit     | `vitest run test/auth-service.test.ts`                             | 6 passed  |
+| Contracts             | `pnpm --filter @camila/contracts test:unit`                        | 70 passed |
+| AuthZ integration     | `test:integration -- test/admin-authorization.integration.test.ts` | 5 passed  |
+| Auth migrations/login | `admin-auth-migrations` + `admin-auth-login`                       | 4 passed  |
+| Security page unit    | `SecuritySettingsPage.test.tsx`                                    | 2 passed  |
+| More page unit        | `MorePage.test.tsx`                                                | 2 passed  |
+| E2E authorization     | `playwright test e2e/authorization.spec.ts`                        | 1 passed  |
+| Typecheck             | api + admin + contracts `tsc --noEmit`                             | pass      |
 
 Integration cases covered: 401 unauthenticated, 403 operator on owner-only, owner success, operator success on operate routes, create operator without exposing hashes.
 

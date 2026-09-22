@@ -226,8 +226,8 @@ export function SecuritySettingsPage() {
             Autenticación en dos pasos (MFA)
           </CardTitle>
           <CardDescription>
-            Usa una app autenticadora. El código QR se genera en este dispositivo;
-            el secreto no se envía a servicios externos.
+            Usa una app autenticadora. El código QR se genera en este
+            dispositivo; el secreto no se envía a servicios externos.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -267,7 +267,10 @@ export function SecuritySettingsPage() {
                   <p className="font-mono text-sm text-foreground">
                     Secreto manual: {setupSecret}
                   </p>
-                  <label className="block space-y-1 text-sm" htmlFor="mfa-confirm-code">
+                  <label
+                    className="block space-y-1 text-sm"
+                    htmlFor="mfa-confirm-code"
+                  >
                     <span className="text-muted-foreground">
                       Código de la app
                     </span>
@@ -283,7 +286,9 @@ export function SecuritySettingsPage() {
                   </label>
                   <Button
                     type="button"
-                    disabled={confirmMutation.isPending || mfaCode.trim() === ''}
+                    disabled={
+                      confirmMutation.isPending || mfaCode.trim() === ''
+                    }
                     onClick={() => confirmMutation.mutate(mfaCode.trim())}
                   >
                     Confirmar y activar
@@ -293,7 +298,10 @@ export function SecuritySettingsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              <label className="block space-y-1 text-sm" htmlFor="mfa-disable-password">
+              <label
+                className="block space-y-1 text-sm"
+                htmlFor="mfa-disable-password"
+              >
                 <span className="text-muted-foreground">
                   Contraseña actual para desactivar MFA
                 </span>
@@ -363,8 +371,9 @@ export function SecuritySettingsPage() {
                     {session.current ? 'Esta sesión' : 'Otra sesión'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Creada {new Date(session.createdAt).toLocaleString('es-CO')} ·
-                    Vista {new Date(session.lastSeenAt).toLocaleString('es-CO')}
+                    Creada {new Date(session.createdAt).toLocaleString('es-CO')}{' '}
+                    · Vista{' '}
+                    {new Date(session.lastSeenAt).toLocaleString('es-CO')}
                   </p>
                 </div>
                 {!session.current ? (

@@ -155,8 +155,8 @@ describe('AuditService', () => {
     const sample: AuditRepository = new InMemoryAuditRepository();
     expect(typeof sample.append).toBe('function');
     expect(typeof sample.list).toBe('function');
-    expect(
-      'update' in sample || 'delete' in sample || 'remove' in sample,
-    ).toBe(false);
+    expect('update' in sample || 'delete' in sample || 'remove' in sample).toBe(
+      false,
+    );
   });
 });

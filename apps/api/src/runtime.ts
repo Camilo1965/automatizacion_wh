@@ -90,7 +90,9 @@ export async function createRuntime(
     ...(config.errorTrackingDsn === undefined
       ? {}
       : { dsn: config.errorTrackingDsn }),
-    ...(config.releaseSha === undefined ? {} : { releaseSha: config.releaseSha }),
+    ...(config.releaseSha === undefined
+      ? {}
+      : { releaseSha: config.releaseSha }),
     environment: config.nodeEnv,
   });
   const botFlowService = new BotFlowService(database);
@@ -111,7 +113,8 @@ export async function createRuntime(
     sessionIdleTtlMs: (config.sessionIdleTtlMinutes ?? 60) * 60 * 1000,
     sessionLastSeenThrottleMs:
       (config.sessionLastSeenThrottleSeconds ?? 300) * 1000,
-    absoluteSessionTtlMs: (config.sessionAbsoluteTtlHours ?? 12) * 60 * 60 * 1000,
+    absoluteSessionTtlMs:
+      (config.sessionAbsoluteTtlHours ?? 12) * 60 * 60 * 1000,
     auditSink: auditService.asAuthAuditSink(),
   });
   // Retention jobs are owner/CLI triggered. Automatic execution stays OFF unless

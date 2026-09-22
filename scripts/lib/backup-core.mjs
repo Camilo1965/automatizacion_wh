@@ -2,7 +2,12 @@
  * Encrypted Postgres backup / restore-drill core (injectable for unit tests).
  * Credentials never appear in child process argv when safer env/.pgpass paths exist.
  */
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -29,7 +34,10 @@ export function sha256Hex(bytes) {
 
 export function decodeEncryptionKey(raw) {
   if (!raw?.trim()) {
-    throw new BackupError('missing_credentials', 'BACKUP_ENCRYPTION_KEY is required');
+    throw new BackupError(
+      'missing_credentials',
+      'BACKUP_ENCRYPTION_KEY is required',
+    );
   }
   const key = Buffer.from(raw.trim(), 'base64');
   if (key.length !== 32) {
@@ -57,7 +65,10 @@ export function decryptDump(payload, key) {
   }
   const magic = payload.subarray(0, BACKUP_MAGIC.length);
   if (!magic.equals(BACKUP_MAGIC)) {
-    throw new BackupError('checksum_mismatch', 'Encrypted payload magic mismatch');
+    throw new BackupError(
+      'checksum_mismatch',
+      'Encrypted payload magic mismatch',
+    );
   }
   const ivStart = BACKUP_MAGIC.length;
   const tagStart = ivStart + 12;
@@ -70,7 +81,11 @@ export function decryptDump(payload, key) {
   try {
     return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
   } catch (err) {
-    throw new BackupError('checksum_mismatch', 'Decryption failed (key or tamper)', err);
+    throw new BackupError(
+      'checksum_mismatch',
+      'Decryption failed (key or tamper)',
+      err,
+    );
   }
 }
 
@@ -82,12 +97,21 @@ export function parseDatabaseUrl(databaseUrl) {
   try {
     url = new URL(databaseUrl);
   } catch (err) {
-    throw new BackupError('missing_credentials', 'DATABASE_URL is invalid', err);
+    throw new BackupError(
+      'missing_credentials',
+      'DATABASE_URL is invalid',
+      err,
+    );
   }
   if (!['postgres:', 'postgresql:'].includes(url.protocol)) {
-    throw new BackupError('missing_credentials', 'DATABASE_URL must be postgresql');
+    throw new BackupError(
+      'missing_credentials',
+      'DATABASE_URL must be postgresql',
+    );
   }
-  const database = decodeURIComponent(url.pathname.replace(/^\//, '') || 'postgres');
+  const database = decodeURIComponent(
+    url.pathname.replace(/^\//, '') || 'postgres',
+  );
   return {
     host: url.hostname || '127.0.0.1',
     port: url.port || '5432',
@@ -179,9 +203,14 @@ export async function runEncryptedBackup(deps, env) {
   const upload = requireBackupUploadEnv(env);
   parseDatabaseUrl(env.DATABASE_URL);
 
-  const retentionDays = Number(env.BACKUP_RETENTION_DAYS || DEFAULT_RETENTION_DAYS);
+  const retentionDays = Number(
+    env.BACKUP_RETENTION_DAYS || DEFAULT_RETENTION_DAYS,
+  );
   if (!Number.isFinite(retentionDays) || retentionDays < 1) {
-    throw new BackupError('invalid_config', 'BACKUP_RETENTION_DAYS must be >= 1');
+    throw new BackupError(
+      'invalid_config',
+      'BACKUP_RETENTION_DAYS must be >= 1',
+    );
   }
 
   const id = stampId(now);
@@ -292,7 +321,10 @@ export async function runRestoreDrill(deps, env, options = {}) {
 
   const backupId = options.backupId || env.BACKUP_ID;
   if (!backupId?.trim()) {
-    throw new BackupError('missing_credentials', 'BACKUP_ID is required for restore drill');
+    throw new BackupError(
+      'missing_credentials',
+      'BACKUP_ID is required for restore drill',
+    );
   }
 
   const keys = objectKeys(upload.keyPrefix, backupId.trim());
@@ -355,7 +387,8 @@ export async function runRestoreDrill(deps, env, options = {}) {
       lastRestoreDrillDb: drillDb,
       cleaned: true,
       sampleCounts: validation.details?.sampleCounts ?? {},
-      schemaVersion: validation.details?.schemaVersion ?? manifest.schemaVersion,
+      schemaVersion:
+        validation.details?.schemaVersion ?? manifest.schemaVersion,
     };
     await deps.writeMetrics?.(metrics);
     await deps.sendHeartbeat?.('restore_drill_success', metrics);
@@ -438,7 +471,12 @@ export async function writeMetricsFile(filePath, patch, now = new Date()) {
   return next;
 }
 
-export async function postHeartbeat(url, event, payload, fetchImpl = globalThis.fetch) {
+export async function postHeartbeat(
+  url,
+  event,
+  payload,
+  fetchImpl = globalThis.fetch,
+) {
   if (!url?.trim()) return { skipped: true };
   const res = await fetchImpl(url.trim(), {
     method: 'POST',
@@ -450,10 +488,7 @@ export async function postHeartbeat(url, event, payload, fetchImpl = globalThis.
     }),
   });
   if (!res.ok) {
-    throw new BackupError(
-      'heartbeat_failed',
-      `Heartbeat HTTP ${res.status}`,
-    );
+    throw new BackupError('heartbeat_failed', `Heartbeat HTTP ${res.status}`);
   }
   return { ok: true, status: res.status };
 }

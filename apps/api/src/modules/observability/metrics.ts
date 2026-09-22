@@ -37,11 +37,7 @@ export const ROUTE_GROUPS = [
 
 export type RouteGroup = (typeof ROUTE_GROUPS)[number];
 
-export type GuideOutcome =
-  | 'created'
-  | 'uncertain'
-  | 'failed'
-  | 'skipped';
+export type GuideOutcome = 'created' | 'uncertain' | 'failed' | 'skipped';
 
 export type WhatsAppSendOutcome = 'sent' | 'failed';
 
@@ -52,7 +48,10 @@ export type JobOutcome = 'attempt' | 'failure';
 export type ProviderName = 'whatsapp' | 'shipping' | 'backup' | 'other';
 
 function escapeLabelValue(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/"/g, '\\"');
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/\n/g, '\\n')
+    .replace(/"/g, '\\"');
 }
 
 function formatLabels(labels: Readonly<Record<string, string>>): string {
@@ -79,8 +78,7 @@ export function classifyRoute(urlPath: string): RouteGroup {
   if (path.startsWith('/api/admin/catalog')) return 'admin_catalog';
   if (path.startsWith('/api/admin/orders')) return 'admin_orders';
   if (path.startsWith('/api/admin/shipping')) return 'admin_shipping';
-  if (path.startsWith('/api/admin/conversations'))
-    return 'admin_conversations';
+  if (path.startsWith('/api/admin/conversations')) return 'admin_conversations';
   if (path.startsWith('/api/admin/inventory')) return 'admin_inventory';
   if (path.startsWith('/api/admin/integrations')) return 'admin_integrations';
   return 'admin_other';
@@ -213,10 +211,7 @@ export class MetricsRegistry {
     this.setGauge('kairo_queue_oldest_age_seconds', { queue }, ageSeconds);
   }
 
-  recordJob(input: {
-    queue: JobQueue;
-    outcome: JobOutcome;
-  }): void {
+  recordJob(input: { queue: JobQueue; outcome: JobOutcome }): void {
     this.incCounter('kairo_job_events_total', {
       queue: input.queue,
       outcome: input.outcome,
@@ -392,9 +387,7 @@ export function applyBackupSnapshot(
     metrics.setLastBackupUnixtime(Number.isNaN(parsed) ? null : parsed / 1000);
     metrics.setLastBackupAgeSeconds(
       snapshot.lastBackupAgeSeconds ??
-        (Number.isNaN(parsed)
-          ? null
-          : Math.max(0, (nowMs - parsed) / 1000)),
+        (Number.isNaN(parsed) ? null : Math.max(0, (nowMs - parsed) / 1000)),
     );
     metrics.setLastBackupOk(snapshot.lastBackupOk ?? true);
   }

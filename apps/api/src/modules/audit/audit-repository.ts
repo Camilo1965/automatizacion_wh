@@ -10,6 +10,8 @@ import type {
  * Deliberately exposes no update/delete methods.
  */
 export interface AuditRepository {
-  append(input: AuditRecordInput & { metadata: Record<string, unknown> }): Promise<AuditRecord>;
+  append(
+    input: AuditRecordInput & { metadata: Record<string, unknown> },
+  ): Promise<AuditRecord>;
   list(query: AuditListQuery): Promise<AuditListResult>;
 }

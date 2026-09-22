@@ -197,8 +197,9 @@ describe('MFA HTTP enrollment and login', () => {
       `;
       expect(hashes).toHaveLength(8);
       for (const codeValue of confirmBody.data.recoveryCodes) {
-        expect(hashes.some((row) => row.code_hash === hashRecoveryCode(codeValue)))
-          .toBe(true);
+        expect(
+          hashes.some((row) => row.code_hash === hashRecoveryCode(codeValue)),
+        ).toBe(true);
         expect(hashes.every((row) => row.code_hash !== codeValue)).toBe(true);
       }
     } finally {
@@ -299,9 +300,9 @@ describe('MFA HTTP enrollment and login', () => {
     const mfaEvents = auditSink
       .events()
       .filter((event: AuthAuditEvent) => event.action.startsWith('mfa.'));
-    expect(mfaEvents.some((event) => event.action === 'mfa.verify_failed')).toBe(
-      true,
-    );
+    expect(
+      mfaEvents.some((event) => event.action === 'mfa.verify_failed'),
+    ).toBe(true);
 
     const freshLogin = await app.inject({
       method: 'POST',
@@ -309,9 +310,8 @@ describe('MFA HTTP enrollment and login', () => {
       headers: { origin: adminOrigin },
       payload: { username: 'camila', password: 'password1234' },
     });
-    const freshToken = (
-      freshLogin.json() as { data: { mfaToken: string } }
-    ).data.mfaToken;
+    const freshToken = (freshLogin.json() as { data: { mfaToken: string } })
+      .data.mfaToken;
 
     const totpOk = await app.inject({
       method: 'POST',
@@ -330,7 +330,9 @@ describe('MFA HTTP enrollment and login', () => {
       `${ADMIN_SESSION_COOKIE}=`,
     );
     expect(
-      auditSink.events().some((event) => event.action === 'mfa.verify_succeeded'),
+      auditSink
+        .events()
+        .some((event) => event.action === 'mfa.verify_succeeded'),
     ).toBe(true);
 
     await app.inject({
@@ -369,9 +371,8 @@ describe('MFA HTTP enrollment and login', () => {
       headers: { origin: adminOrigin },
       payload: { username: 'camila', password: 'password1234' },
     });
-    const reuseToken = (
-      reuseLogin.json() as { data: { mfaToken: string } }
-    ).data.mfaToken;
+    const reuseToken = (reuseLogin.json() as { data: { mfaToken: string } })
+      .data.mfaToken;
     const reuse = await app.inject({
       method: 'POST',
       url: '/api/admin/auth/mfa/verify',
@@ -405,9 +406,8 @@ describe('MFA HTTP enrollment and login', () => {
       headers: { origin: adminOrigin },
       payload: { username: 'camila', password: 'password1234' },
     });
-    const mfaToken = (
-      secondLogin.json() as { data: { mfaToken: string } }
-    ).data.mfaToken;
+    const mfaToken = (secondLogin.json() as { data: { mfaToken: string } }).data
+      .mfaToken;
     const secondSession = await app.inject({
       method: 'POST',
       url: '/api/admin/auth/mfa/verify',

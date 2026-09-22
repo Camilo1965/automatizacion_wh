@@ -102,7 +102,10 @@ describe('session security', () => {
       storageDriver: 'local',
       integrationEncryptionKey: encryptionKey,
       sessionIdleTtlMinutes: Math.max(1, Math.round(idleMs / 60_000)),
-      sessionLastSeenThrottleSeconds: Math.max(1, Math.round(throttleMs / 1000)),
+      sessionLastSeenThrottleSeconds: Math.max(
+        1,
+        Math.round(throttleMs / 1000),
+      ),
     };
 
     authService = new AuthService(new PostgresAdminAuthRepository(database), {
@@ -307,11 +310,7 @@ describe('session security', () => {
     );
     expect(expiresAt.getTime() - createdAt.getTime()).toBe(12 * 60 * 60 * 1000);
 
-    await authService.resetPassword(
-      'camila',
-      'password9999',
-      'password9999',
-    );
+    await authService.resetPassword('camila', 'password9999', 'password9999');
 
     const dead = await app.inject({
       method: 'GET',

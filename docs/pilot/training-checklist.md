@@ -2,8 +2,8 @@
 
 **Estado Task 13 (2026-09-22):** checklist `verified` (automatable). **Demo/práctica/firmas = `[HUMANO]` / BLOCKING.** Ninguna sesión de capacitación ejecutada en closeout automático.
 
-| Tema                                       | Demo               | Práctica           | OK                 |
-| ------------------------------------------ | ------------------ | ------------------ | ------------------ |
+| Tema                                       | Demo                    | Práctica                | OK           |
+| ------------------------------------------ | ----------------------- | ----------------------- | ------------ |
 | Login (+ MFA si habilitado)                | **BLOCKING** `[HUMANO]` | **BLOCKING** `[HUMANO]` | **BLOCKING** |
 | Catálogo / foto / stock                    | **BLOCKING** `[HUMANO]` | **BLOCKING** `[HUMANO]` | **BLOCKING** |
 | Import CSV preview/commit                  | **BLOCKING** `[HUMANO]` | **BLOCKING** `[HUMANO]` | **BLOCKING** |

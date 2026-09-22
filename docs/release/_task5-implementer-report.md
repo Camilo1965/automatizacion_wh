@@ -10,15 +10,15 @@ Migration: `apps/api/drizzle/0034_retention_privacy.sql`
 
 ## GREEN
 
-| Command | Result |
-| --- | --- |
-| `pnpm --filter @camila/contracts build` | pass |
-| `pnpm --filter @camila/api exec vitest run --project unit test/retention-service.test.ts` | 7 passed |
-| `pnpm --filter @camila/api test:integration -- test/retention.integration.test.ts` | 3 passed |
-| `pnpm --filter @camila/admin exec vitest run src/settings/PrivacySettingsPage.test.tsx` | 2 passed |
+| Command                                                                                      | Result   |
+| -------------------------------------------------------------------------------------------- | -------- |
+| `pnpm --filter @camila/contracts build`                                                      | pass     |
+| `pnpm --filter @camila/api exec vitest run --project unit test/retention-service.test.ts`    | 7 passed |
+| `pnpm --filter @camila/api test:integration -- test/retention.integration.test.ts`           | 3 passed |
+| `pnpm --filter @camila/admin exec vitest run src/settings/PrivacySettingsPage.test.tsx`      | 2 passed |
 | `pnpm --filter @camila/api test:integration -- test/database-migrations.integration.test.ts` | 3 passed |
-| `pnpm --filter @camila/api exec tsc -p tsconfig.json --noEmit` | pass |
-| `pnpm --filter @camila/admin exec tsc -p tsconfig.json --noEmit` | pass |
+| `pnpm --filter @camila/api exec tsc -p tsconfig.json --noEmit`                               | pass     |
+| `pnpm --filter @camila/admin exec tsc -p tsconfig.json --noEmit`                             | pass     |
 
 ## Delivered
 

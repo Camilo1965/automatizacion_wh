@@ -4,15 +4,15 @@
 
 Usar una fila por evento. Redactar PII (teléfonos → últimos 4). **Nunca** tokens, app secrets, JWT ni PII completa.
 
-| Fecha UTC | Proveedor | Acción         | Pedido / wamid (parcial) | Resultado | Operador   | Autorización |
-| --------- | --------- | -------------- | ------------------------ | --------- | ---------- | ------------ |
-| —         | Meta      | inbound        | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
-| —         | Meta      | outbound       | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
-| —         | Meta      | template / ventana | —                    | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
-| —         | 99envíos  | login + quote  | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
-| —         | 99envíos  | guide (1×)     | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | explícita    |
-| —         | 99envíos  | PDF            | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
-| —         | 99envíos  | uncertain/fail | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
+| Fecha UTC | Proveedor | Acción             | Pedido / wamid (parcial) | Resultado                    | Operador   | Autorización |
+| --------- | --------- | ------------------ | ------------------------ | ---------------------------- | ---------- | ------------ |
+| —         | Meta      | inbound            | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
+| —         | Meta      | outbound           | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
+| —         | Meta      | template / ventana | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
+| —         | 99envíos  | login + quote      | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
+| —         | 99envíos  | guide (1×)         | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | explícita    |
+| —         | 99envíos  | PDF                | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
+| —         | 99envíos  | uncertain/fail     | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
 
 Adjuntos locales (fuera de git): capturas panel, IDs de preenvío sanitizados.
 

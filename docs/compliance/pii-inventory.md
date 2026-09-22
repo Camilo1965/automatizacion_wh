@@ -10,16 +10,16 @@ Inventario técnico de tablas y campos que pueden contener datos personales iden
 
 ## Clases de retención (modelo explícito)
 
-| data class | Tablas | Estrategia de relación | Acciones permitidas |
-| --- | --- | --- | --- |
-| `whatsapp_inbound_messages` | `whatsapp_inbound_messages` | Filas independientes | retain / anonymize / delete |
-| `whatsapp_conversation_messages` | `whatsapp_conversation_messages` | Hijo de conversación | retain / anonymize / delete |
-| `whatsapp_outbound_messages` | `whatsapp_outbound_messages` | Outbox | retain / anonymize / delete |
-| `whatsapp_conversations` | `whatsapp_conversations` | Puede referenciar pedidos (restrict); no borrar si hay FK | retain / anonymize |
-| `sales_orders_customer_pii` | `sales_orders`, `order_summaries` | Conservación comercial: anonimizar PII; **nunca** borrar pedido vía retención | retain / anonymize |
-| `admin_sessions_expired` | `admin_sessions` | Solo sesiones vencidas/revocadas | retain / delete |
-| `owner_alerts_resolved` | `owner_alerts` | Solo alertas resueltas | retain / delete |
-| `admin_audit_events` | `admin_audit_events` | Auditoría inmutable | retain **solo** |
+| data class                       | Tablas                            | Estrategia de relación                                                        | Acciones permitidas         |
+| -------------------------------- | --------------------------------- | ----------------------------------------------------------------------------- | --------------------------- |
+| `whatsapp_inbound_messages`      | `whatsapp_inbound_messages`       | Filas independientes                                                          | retain / anonymize / delete |
+| `whatsapp_conversation_messages` | `whatsapp_conversation_messages`  | Hijo de conversación                                                          | retain / anonymize / delete |
+| `whatsapp_outbound_messages`     | `whatsapp_outbound_messages`      | Outbox                                                                        | retain / anonymize / delete |
+| `whatsapp_conversations`         | `whatsapp_conversations`          | Puede referenciar pedidos (restrict); no borrar si hay FK                     | retain / anonymize          |
+| `sales_orders_customer_pii`      | `sales_orders`, `order_summaries` | Conservación comercial: anonimizar PII; **nunca** borrar pedido vía retención | retain / anonymize          |
+| `admin_sessions_expired`         | `admin_sessions`                  | Solo sesiones vencidas/revocadas                                              | retain / delete             |
+| `owner_alerts_resolved`          | `owner_alerts`                    | Solo alertas resueltas                                                        | retain / delete             |
+| `admin_audit_events`             | `admin_audit_events`              | Auditoría inmutable                                                           | retain **solo**             |
 
 ## Administración
 
@@ -40,15 +40,15 @@ Inventario técnico de tablas y campos que pueden contener datos personales iden
 
 ## WhatsApp / conversaciones
 
-| Tabla                            | Campo             | Clase                   |
-| -------------------------------- | ----------------- | ----------------------- |
-| `whatsapp_inbound_messages`      | `customer_phone`  | Teléfono                |
-| `whatsapp_inbound_messages`      | `text_body`       | Contenido de mensaje    |
-| `whatsapp_inbound_messages`      | `payload` (JSON)  | Metadatos del proveedor |
-| `whatsapp_conversations`         | `customer_phone`  | Teléfono                |
-| `whatsapp_conversation_messages` | `text_body`       | Contenido de mensaje    |
-| `whatsapp_outbound_messages`     | `customer_phone`  | Teléfono destino        |
-| `whatsapp_outbound_messages`     | `text_body`       | Contenido de mensaje    |
+| Tabla                            | Campo            | Clase                   |
+| -------------------------------- | ---------------- | ----------------------- |
+| `whatsapp_inbound_messages`      | `customer_phone` | Teléfono                |
+| `whatsapp_inbound_messages`      | `text_body`      | Contenido de mensaje    |
+| `whatsapp_inbound_messages`      | `payload` (JSON) | Metadatos del proveedor |
+| `whatsapp_conversations`         | `customer_phone` | Teléfono                |
+| `whatsapp_conversation_messages` | `text_body`      | Contenido de mensaje    |
+| `whatsapp_outbound_messages`     | `customer_phone` | Teléfono destino        |
+| `whatsapp_outbound_messages`     | `text_body`      | Contenido de mensaje    |
 
 ## Envíos
 
@@ -78,9 +78,9 @@ Inventario técnico de tablas y campos que pueden contener datos personales iden
 
 ## Auditoría
 
-| Tabla                 | Campo                         | Clase                                      |
-| --------------------- | ----------------------------- | ------------------------------------------ |
-| `admin_audit_events`  | `actor_username`, `metadata`  | Conservar; sin cuerpos de mensaje ni PII cruda |
+| Tabla                | Campo                        | Clase                                          |
+| -------------------- | ---------------------------- | ---------------------------------------------- |
+| `admin_audit_events` | `actor_username`, `metadata` | Conservar; sin cuerpos de mensaje ni PII cruda |
 
 ## Operación
 

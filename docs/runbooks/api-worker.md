@@ -2,11 +2,11 @@
 
 ## Servicios
 
-| Servicio  | Imagen                      | Proceso                                    |
-| --------- | --------------------------- | ------------------------------------------ |
-| `migrate` | `docker/Dockerfile.api`     | one-shot `node dist/database/migrate.js`   |
-| `api`     | `docker/Dockerfile.api`     | `node dist/server.js`                      |
-| `worker`  | `docker/Dockerfile.worker`  | `node dist/worker.js`                      |
+| Servicio  | Imagen                     | Proceso                                  |
+| --------- | -------------------------- | ---------------------------------------- |
+| `migrate` | `docker/Dockerfile.api`    | one-shot `node dist/database/migrate.js` |
+| `api`     | `docker/Dockerfile.api`    | `node dist/server.js`                    |
+| `worker`  | `docker/Dockerfile.worker` | `node dist/worker.js`                    |
 
 API y worker comparten runtime (`createRuntime()`), config vía env y volumen `media_data` en `/data/media` (origen local / fallback; runtime prod usa `STORAGE_DRIVER=s3`).
 
@@ -42,14 +42,14 @@ Desarrollo local: `pnpm db:migrate`.
 
 ## Health
 
-| Componente | Check |
-| ---------- | ----- |
-| API liveness | `GET /health/live` |
-| API readiness | `GET /health/ready` (DB ping) |
-| Worker | archivo `/tmp/kairo-worker-health.json` + CLI `dist/modules/health/worker-health-cli.js` (DB + scheduler init + heartbeat ≤90s) |
-| Metrics | API `GET /metrics` + worker `:9091/metrics` (internal network only; see `monitoring-alerts.md`) |
-| Admin | `GET http://admin:8080/` |
-| Caddy | espera upstreams healthy (`health_uri`) |
+| Componente    | Check                                                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| API liveness  | `GET /health/live`                                                                                                              |
+| API readiness | `GET /health/ready` (DB ping)                                                                                                   |
+| Worker        | archivo `/tmp/kairo-worker-health.json` + CLI `dist/modules/health/worker-health-cli.js` (DB + scheduler init + heartbeat ≤90s) |
+| Metrics       | API `GET /metrics` + worker `:9091/metrics` (internal network only; see `monitoring-alerts.md`)                                 |
+| Admin         | `GET http://admin:8080/`                                                                                                        |
+| Caddy         | espera upstreams healthy (`health_uri`)                                                                                         |
 
 Worker **ya no** usa `process.exit(0)` incondicional.
 

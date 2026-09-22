@@ -3,10 +3,7 @@ import { AuditListQuerySchema } from '@camila/contracts';
 
 import type { AuditRecord } from '../../modules/audit/audit-event.js';
 import type { AuditService } from '../../modules/audit/audit-service.js';
-import {
-  authorize,
-  type AdminAuthenticate,
-} from './admin-shared.js';
+import { authorize, type AdminAuthenticate } from './admin-shared.js';
 
 export function toPublicAuditEvent(row: AuditRecord) {
   return {

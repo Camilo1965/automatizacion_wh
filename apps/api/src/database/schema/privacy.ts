@@ -24,9 +24,12 @@ export const retentionPolicies = pgTable(
       .notNull()
       .defaultNow(),
     activatedAt: timestamp('activated_at', { withTimezone: true }),
-    createdByUserId: uuid('created_by_user_id').references(() => adminUsers.id, {
-      onDelete: 'set null',
-    }),
+    createdByUserId: uuid('created_by_user_id').references(
+      () => adminUsers.id,
+      {
+        onDelete: 'set null',
+      },
+    ),
     activatedByUserId: uuid('activated_by_user_id').references(
       () => adminUsers.id,
       { onDelete: 'set null' },
@@ -53,9 +56,7 @@ export const retentionRuns = pgTable(
     mode: varchar('mode', { length: 16 }).notNull(),
     status: varchar('status', { length: 16 }).notNull().default('pending'),
     progress: jsonb('progress').notNull().default([]),
-    cursor: jsonb('cursor')
-      .notNull()
-      .default({ classIndex: 0, lastId: null }),
+    cursor: jsonb('cursor').notNull().default({ classIndex: 0, lastId: null }),
     report: jsonb('report'),
     errorMessage: text('error_message'),
     createdAt: timestamp('created_at', { withTimezone: true })

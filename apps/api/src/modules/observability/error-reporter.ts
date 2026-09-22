@@ -64,7 +64,11 @@ export function scrubPii(value: string): string {
 export function scrubUnknown(value: unknown, depth = 0): unknown {
   if (depth > 4) return '[truncated]';
   if (typeof value === 'string') return scrubPii(value);
-  if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
+  if (
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    value === null
+  ) {
     return value;
   }
   if (Array.isArray(value)) {

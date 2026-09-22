@@ -19,11 +19,14 @@ const checkboxClassName = 'size-4 rounded border border-input accent-primary';
 type WhatsAppSettings = {
   configured: boolean;
   phoneNumberId: string | null;
-  serviceHours?: {
-    days: number[];
-    start: string;
-    end: string;
-  } | null | undefined;
+  serviceHours?:
+    | {
+        days: number[];
+        start: string;
+        end: string;
+      }
+    | null
+    | undefined;
   graphApiVersion?: string | null | undefined;
   wabaId?: string | null | undefined;
   ownerAlertPhone?: string | null | undefined;
@@ -49,13 +52,7 @@ export function WhatsAppIntegrationPanel({
   tested: boolean;
   active: boolean;
 }) {
-  const currentStep = !settings.configured
-    ? 1
-    : !tested
-      ? 2
-      : !active
-        ? 3
-        : 4;
+  const currentStep = !settings.configured ? 1 : !tested ? 2 : !active ? 3 : 4;
 
   return (
     <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
@@ -63,7 +60,9 @@ export function WhatsAppIntegrationPanel({
         onSubmit={(event: FormEvent<HTMLFormElement>) => {
           event.preventDefault();
           const fields = new FormData(event.currentTarget);
-          const phoneNumberId = String(fields.get('phoneNumberId') ?? '').trim();
+          const phoneNumberId = String(
+            fields.get('phoneNumberId') ?? '',
+          ).trim();
           const accessToken = String(fields.get('accessToken') ?? '').trim();
           const graphApiVersion = String(
             fields.get('graphApiVersion') ?? '',
@@ -167,7 +166,9 @@ export function WhatsAppIntegrationPanel({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="wabaId">Cuenta de WhatsApp Business (WABA ID)</Label>
+            <Label htmlFor="wabaId">
+              Cuenta de WhatsApp Business (WABA ID)
+            </Label>
             <Input
               id="wabaId"
               name="wabaId"
@@ -307,7 +308,11 @@ export function WhatsAppIntegrationPanel({
               className="h-11 rounded-[1.125rem] bg-muted"
             />
           </div>
-          <Button type="submit" disabled={save.isPending} loading={save.isPending}>
+          <Button
+            type="submit"
+            disabled={save.isPending}
+            loading={save.isPending}
+          >
             Guardar conexión
           </Button>
         </CardContent>

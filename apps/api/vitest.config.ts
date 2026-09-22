@@ -33,8 +33,6 @@ export default defineConfig({
         'src/worker.ts',
         '**/node_modules/**',
       ],
-      // Floor is informational; critical/modified gates: scripts/check-coverage-gates.mjs
-      thresholds: undefined,
     },
   },
 });

@@ -1,6 +1,16 @@
 import { createHash } from 'node:crypto';
 
-import { and, asc, eq, inArray, isNotNull, lt, lte, or, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNotNull,
+  lt,
+  lte,
+  or,
+  sql,
+} from 'drizzle-orm';
 
 import type { PrivacyDataClass, RetentionAction } from '@camila/contracts';
 
@@ -358,11 +368,7 @@ export class PostgresRetentionDataStore implements RetentionDataStore {
   }> {
     const related = await this.findCustomerRelated(customerPhone);
     const orderIds = related.orders.map((o) => o.id);
-    await this.applyAction(
-      'sales_orders_customer_pii',
-      'anonymize',
-      orderIds,
-    );
+    await this.applyAction('sales_orders_customer_pii', 'anonymize', orderIds);
     await this.applyAction(
       'whatsapp_inbound_messages',
       'anonymize',

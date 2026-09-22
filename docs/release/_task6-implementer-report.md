@@ -5,10 +5,10 @@ Product: **KAIRO Operaciones**
 
 ## RED → GREEN
 
-| Suite | RED | GREEN |
-| --- | --- | --- |
+| Suite                                                                    | RED      | GREEN    |
+| ------------------------------------------------------------------------ | -------- | -------- |
 | `IntegrationsPage.test.tsx` (wording + lifecycle + encryption next step) | 3 failed | 3 passed |
-| `ShippingSettingsPage.test.tsx` (sections + simulator recovery) | 2 failed | 2 passed |
+| `ShippingSettingsPage.test.tsx` (sections + simulator recovery)          | 2 failed | 2 passed |
 
 Commands:
 
@@ -19,12 +19,12 @@ pnpm --filter @camila/admin exec vitest run src/settings/IntegrationsPage.test.t
 
 ## Fast Refresh
 
-| File | Before | After |
-| --- | --- | --- |
-| `badge.tsx` | warning (exports `badgeVariants`) | 0 — variants in `badge-variants.ts` |
-| `button.tsx` | warning (exports `buttonVariants`) | 0 — variants in `button-variants.ts` |
-| `tabs.tsx` | warning (exports `tabsListVariants`) | 0 — variants in `tabs-list-variants.ts` |
-| `sidebar.tsx` | warning (exports `useSidebar`) | 0 — hook in `use-sidebar.ts` |
+| File          | Before                               | After                                   |
+| ------------- | ------------------------------------ | --------------------------------------- |
+| `badge.tsx`   | warning (exports `badgeVariants`)    | 0 — variants in `badge-variants.ts`     |
+| `button.tsx`  | warning (exports `buttonVariants`)   | 0 — variants in `button-variants.ts`    |
+| `tabs.tsx`    | warning (exports `tabsListVariants`) | 0 — variants in `tabs-list-variants.ts` |
+| `sidebar.tsx` | warning (exports `useSidebar`)       | 0 — hook in `use-sidebar.ts`            |
 
 `eslint` on those four files: **0 warnings** (was 4).
 

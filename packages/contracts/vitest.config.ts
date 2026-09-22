@@ -10,8 +10,6 @@ export default defineConfig({
       reportsDirectory: './coverage',
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.d.ts', '**/node_modules/**'],
-      // Floor is informational; modified-file gate: scripts/check-coverage-gates.mjs
-      thresholds: undefined,
     },
   },
 });

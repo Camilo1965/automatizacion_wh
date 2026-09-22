@@ -37,7 +37,9 @@ export class InMemoryAuditRepository implements AuditRepository {
     const offset = Math.max(query.offset ?? 0, 0);
     let filtered = [...this.rows];
     if (query.actorUserId !== undefined) {
-      filtered = filtered.filter((row) => row.actorUserId === query.actorUserId);
+      filtered = filtered.filter(
+        (row) => row.actorUserId === query.actorUserId,
+      );
     }
     if (query.action !== undefined) {
       filtered = filtered.filter((row) => row.action === query.action);

@@ -436,7 +436,9 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
   if (
     environment.METRICS_ENABLED !== undefined &&
     environment.METRICS_ENABLED.trim() !== '' &&
-    !['true', 'false'].includes(environment.METRICS_ENABLED.trim().toLowerCase())
+    !['true', 'false'].includes(
+      environment.METRICS_ENABLED.trim().toLowerCase(),
+    )
   ) {
     issues.push('METRICS_ENABLED');
   }

@@ -3,11 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { OperationalOutcome } from '@/components/OperationalOutcome';
 import { StatusBadge } from '@/components/StatusBadge';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
   INTEGRATION_LABELS,
   internalServiceDiagnostic,

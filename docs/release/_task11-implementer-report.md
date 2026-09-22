@@ -20,13 +20,13 @@
 
 ## Verification
 
-| Check | Result |
-| --- | --- |
-| lint:ci (max-warnings=0) | pass |
-| Critical rules coverage | lines 99.29% / branches 90.29% |
-| Coverage gate script | pass |
-| check:production-config | pass |
-| CI smoke/image/secret | wired as required jobs |
+| Check                    | Result                         |
+| ------------------------ | ------------------------------ |
+| lint:ci (max-warnings=0) | pass                           |
+| Critical rules coverage  | lines 99.29% / branches 90.29% |
+| Coverage gate script     | pass                           |
+| check:production-config  | pass                           |
+| CI smoke/image/secret    | wired as required jobs         |
 
 ## Notes
 

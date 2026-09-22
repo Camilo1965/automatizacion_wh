@@ -51,6 +51,3 @@ export function policyModeLabel(policy: ShippingPolicy): string {
   }
   return 'Económico automático';
 }
-
-
-

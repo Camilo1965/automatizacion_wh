@@ -242,7 +242,9 @@ describe('order contracts', () => {
 describe('AdminUserPublicSchema', () => {
   it('accepts public admin user shape', () => {
     const id = '11111111-1111-4111-8111-111111111111';
-    expect(AdminUserPublicSchema.parse({ id, username: 'camila', role: 'owner' })).toEqual({
+    expect(
+      AdminUserPublicSchema.parse({ id, username: 'camila', role: 'owner' }),
+    ).toEqual({
       id,
       username: 'camila',
       role: 'owner',

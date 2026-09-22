@@ -6,7 +6,10 @@ export function ProviderLifecycleSteps({
   currentStep: 1 | 2 | 3 | 4;
 }) {
   return (
-    <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4" aria-label="Ciclo de vida">
+    <ol
+      className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"
+      aria-label="Ciclo de vida"
+    >
       {LIFECYCLE_STEPS.map((step, index) => {
         const stepNumber = (index + 1) as 1 | 2 | 3 | 4;
         const active = stepNumber === currentStep;

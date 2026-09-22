@@ -295,8 +295,10 @@ describe('RetentionService', () => {
   it('activates versioned policy with audit and supports resumable execute after crash', async () => {
     const now = new Date('2026-09-22T00:00:00.000Z');
     const old = new Date('2026-01-01T00:00:00.000Z');
-    const ids = Array.from({ length: 5 }, (_, i) =>
-      `cccccccc-cccc-4ccc-8ccc-cccccccccc${String(i).padStart(2, '0')}`,
+    const ids = Array.from(
+      { length: 5 },
+      (_, i) =>
+        `cccccccc-cccc-4ccc-8ccc-cccccccccc${String(i).padStart(2, '0')}`,
     );
     const store = createStore(
       ids.map((id) => ({
@@ -489,9 +491,15 @@ describe('RetentionService', () => {
     expect(dump.find((r) => r.id.startsWith('ffff'))?.customerName).toBe(
       'Other',
     );
-    expect(auditRepo.events().some((e) => e.action === 'data.exported' || e.action === 'data_subject.anonymized')).toBe(
-      true,
-    );
+    expect(
+      auditRepo
+        .events()
+        .some(
+          (e) =>
+            e.action === 'data.exported' ||
+            e.action === 'data_subject.anonymized',
+        ),
+    ).toBe(true);
   });
 
   it('rejects delete action on sales_orders_customer_pii (must anonymize)', async () => {

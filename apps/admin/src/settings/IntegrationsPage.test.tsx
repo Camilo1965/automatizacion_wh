@@ -110,9 +110,13 @@ describe('IntegrationsPage provider wording and lifecycle', () => {
     });
     const databaseCard = database.closest('article, [data-slot="card"]');
     expect(databaseCard).toBeTruthy();
-    expect(within(databaseCard as HTMLElement).queryByText(/Guardar credenciales/i)).toBeNull();
     expect(
-      within(databaseCard as HTMLElement).getByText(/Revisa la conexión a PostgreSQL/i),
+      within(databaseCard as HTMLElement).queryByText(/Guardar credenciales/i),
+    ).toBeNull();
+    expect(
+      within(databaseCard as HTMLElement).getByText(
+        /Revisa la conexión a PostgreSQL/i,
+      ),
     ).toBeVisible();
 
     const media = screen.getByRole('heading', {
@@ -120,9 +124,13 @@ describe('IntegrationsPage provider wording and lifecycle', () => {
       level: 3,
     });
     const mediaCard = media.closest('article, [data-slot="card"]');
-    expect(within(mediaCard as HTMLElement).queryByText(/Guardar credenciales/i)).toBeNull();
     expect(
-      within(mediaCard as HTMLElement).getByText(/Verifica el almacenamiento de medios/i),
+      within(mediaCard as HTMLElement).queryByText(/Guardar credenciales/i),
+    ).toBeNull();
+    expect(
+      within(mediaCard as HTMLElement).getByText(
+        /Verifica el almacenamiento de medios/i,
+      ),
     ).toBeVisible();
 
     const scheduler = screen.getByRole('heading', {
@@ -147,7 +155,10 @@ describe('IntegrationsPage provider wording and lifecycle', () => {
     renderWithProviders(<IntegrationsPage />);
 
     expect(
-      await screen.findByRole('heading', { name: 'WhatsApp Cloud API', level: 3 }),
+      await screen.findByRole('heading', {
+        name: 'WhatsApp Cloud API',
+        level: 3,
+      }),
     ).toBeVisible();
     expect(
       screen.getAllByRole('heading', { name: '99envíos', level: 3 }).length,

@@ -15,10 +15,7 @@ import {
   RetentionValidationError,
   type RetentionService,
 } from '../../modules/privacy/retention-service.js';
-import {
-  authorize,
-  type AdminAuthenticate,
-} from './admin-shared.js';
+import { authorize, type AdminAuthenticate } from './admin-shared.js';
 
 const ResumeBodySchema = z
   .object({

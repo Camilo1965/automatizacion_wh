@@ -60,7 +60,8 @@ async function once(env) {
         env.BACKUP_SCHEMA_VERSION?.trim()
           ? Promise.resolve(env.BACKUP_SCHEMA_VERSION.trim())
           : readSchemaVersion(env.DATABASE_URL, env),
-      uploadObject: (key, bytes, contentType) => s3.putObject(key, bytes, contentType),
+      uploadObject: (key, bytes, contentType) =>
+        s3.putObject(key, bytes, contentType),
       listObjectKeys: (prefix) => s3.listObjectKeys(prefix),
       deleteObject: (key) => s3.deleteObject(key),
       writeMetrics: (m) => writeMetricsFile(metricsPath, m),
@@ -74,9 +75,7 @@ async function once(env) {
 
 async function main() {
   const env = process.env;
-  const loop =
-    env.BACKUP_LOOP === '1' ||
-    process.argv.includes('--loop');
+  const loop = env.BACKUP_LOOP === '1' || process.argv.includes('--loop');
   const intervalSec = Number(env.BACKUP_INTERVAL_SECONDS || 86400);
 
   if (!loop) {

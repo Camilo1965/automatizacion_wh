@@ -44,9 +44,9 @@ const ACTION_LABELS: Record<string, string> = {
 
 export function ConfigurationAuditPage() {
   const [actionFilter, setActionFilter] = useState('');
-  const [resultFilter, setResultFilter] = useState<
-    '' | 'success' | 'failure'
-  >('');
+  const [resultFilter, setResultFilter] = useState<'' | 'success' | 'failure'>(
+    '',
+  );
   const [offset, setOffset] = useState(0);
   const limit = 50;
 

@@ -71,9 +71,7 @@ export function LocalityExceptions({
                 Nueva regla municipal
               </h2>
             </CardTitle>
-            <CardDescription>
-              {describePolicy(municipalPolicy)}
-            </CardDescription>
+            <CardDescription>{describePolicy(municipalPolicy)}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <LocalityPicker

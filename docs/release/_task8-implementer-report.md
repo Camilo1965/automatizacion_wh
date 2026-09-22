@@ -20,12 +20,12 @@
 
 ## Verification
 
-| Check | Result |
-| --- | --- |
-| worker-health + config unit | 23 passed |
-| API typecheck | pass |
-| compose.prod config | pass |
-| production:smoke | PASS full path |
+| Check                       | Result         |
+| --------------------------- | -------------- |
+| worker-health + config unit | 23 passed      |
+| API typecheck               | pass           |
+| compose.prod config         | pass           |
+| production:smoke            | PASS full path |
 
 ## [HUMANO]
 

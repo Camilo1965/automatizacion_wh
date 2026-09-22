@@ -64,14 +64,14 @@ Si la validación falla: la DB drill **permanece** para inspección; no hay clea
 
 ## `[HUMANO]` — política operativa
 
-| Campo | Valor |
-| --- | --- |
-| RPO objetivo | `[HUMANO]` (p. ej. ≤ 24 h con intervalo diario) |
-| RTO objetivo | `[HUMANO]` (tiempo drill medido en staging) |
-| Retención | `[HUMANO]` — default código 14 días; aprobar antes de prod |
-| Bucket prod + policy | `[HUMANO]` — cuenta/credenciales **distintas** de media; versioning/Object Lock opcional |
-| Destino alerta / heartbeat | `[HUMANO]` — `BACKUP_HEARTBEAT_URL` u monitor externo |
-| Credenciales backup | Nunca chat/Git; solo `.env.prod` en VPS |
+| Campo                      | Valor                                                                                    |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| RPO objetivo               | `[HUMANO]` (p. ej. ≤ 24 h con intervalo diario)                                          |
+| RTO objetivo               | `[HUMANO]` (tiempo drill medido en staging)                                              |
+| Retención                  | `[HUMANO]` — default código 14 días; aprobar antes de prod                               |
+| Bucket prod + policy       | `[HUMANO]` — cuenta/credenciales **distintas** de media; versioning/Object Lock opcional |
+| Destino alerta / heartbeat | `[HUMANO]` — `BACKUP_HEARTBEAT_URL` u monitor externo                                    |
+| Credenciales backup        | Nunca chat/Git; solo `.env.prod` en VPS                                                  |
 
 Staging puede usar MinIO (`kairo-backups-staging`) para drills. Destino de producción permanece `[HUMANO]` hasta suministrar endpoint/credenciales reales.
 

@@ -1,7 +1,11 @@
 /** Compat entry: `retention:simulate` → dry-run counts with opaque IDs only. */
 import { main } from './retention-execute.js';
 
-export { executeRetention, main, simulateRetention } from './retention-execute.js';
+export {
+  executeRetention,
+  main,
+  simulateRetention,
+} from './retention-execute.js';
 
 const executedAsCli = process.argv[1]?.includes('retention-simulate') === true;
 

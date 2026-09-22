@@ -53,7 +53,6 @@ const ownerOnlyConfigItems = [
   { to: '/settings/audit', label: 'Historial', icon: History },
 ] as const;
 
-
 function NavItem({
   to,
   label,

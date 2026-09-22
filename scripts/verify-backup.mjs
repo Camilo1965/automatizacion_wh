@@ -40,7 +40,9 @@ async function main() {
       const s3 = createBackupS3Client(s3cfg);
       const keys = objectKeys(s3cfg.keyPrefix, backupId.trim());
       encryptedBytes = await s3.getObject(keys.encKey);
-      manifest = JSON.parse((await s3.getObject(keys.manifestKey)).toString('utf8'));
+      manifest = JSON.parse(
+        (await s3.getObject(keys.manifestKey)).toString('utf8'),
+      );
     }
 
     const result = await verifyBackupArtifact({
@@ -52,7 +54,9 @@ async function main() {
     process.exit(0);
   } catch (err) {
     console.error(err instanceof BackupError ? err.message : err);
-    process.exit(err instanceof BackupError && err.code === 'checksum_mismatch' ? 5 : 1);
+    process.exit(
+      err instanceof BackupError && err.code === 'checksum_mismatch' ? 5 : 1,
+    );
   }
 }
 

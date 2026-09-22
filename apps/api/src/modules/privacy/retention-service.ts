@@ -297,8 +297,7 @@ export class RetentionService {
       }
     }
 
-    const batchSize =
-      input.batchSize ?? this.options.batchSize ?? 100;
+    const batchSize = input.batchSize ?? this.options.batchSize ?? 100;
     const run = await this.repository.insertRun({
       id: randomUUID(),
       policyId: policy.id,
@@ -318,7 +317,9 @@ export class RetentionService {
       const completed = await this.processRun(run, policy);
       await this.audit.record({
         action:
-          input.mode === 'dry_run' ? 'retention.simulated' : 'retention.executed',
+          input.mode === 'dry_run'
+            ? 'retention.simulated'
+            : 'retention.executed',
         result: 'success',
         actorUserId: actor.id,
         actorUsername: actor.username,
@@ -341,7 +342,9 @@ export class RetentionService {
       });
       await this.audit.record({
         action:
-          input.mode === 'dry_run' ? 'retention.simulated' : 'retention.executed',
+          input.mode === 'dry_run'
+            ? 'retention.simulated'
+            : 'retention.executed',
         result: 'failure',
         actorUserId: actor.id,
         actorUsername: actor.username,

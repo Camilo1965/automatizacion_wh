@@ -7,10 +7,7 @@ import type {
   AdminSessionRecord,
   AdminUserPublic,
 } from './admin-auth-repository.js';
-import {
-  NoopAuthAuditSink,
-  type AuthAuditSink,
-} from './auth-audit-sink.js';
+import { NoopAuthAuditSink, type AuthAuditSink } from './auth-audit-sink.js';
 import {
   AuthenticationRequiredError,
   InvalidCredentialsError,
@@ -20,10 +17,7 @@ import {
   PasswordMismatchError,
   UserNotFoundError,
 } from './auth-errors.js';
-import {
-  AuthorizationDeniedError,
-  requireCapability,
-} from './authorize.js';
+import { AuthorizationDeniedError, requireCapability } from './authorize.js';
 import {
   createMfaLoginToken,
   MfaLoginTokenError,

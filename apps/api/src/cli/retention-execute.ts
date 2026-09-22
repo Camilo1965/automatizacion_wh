@@ -8,10 +8,7 @@ import { PostgresRetentionRepository } from '../modules/privacy/postgres-retenti
 import { RetentionService } from '../modules/privacy/retention-service.js';
 import { requireDatabaseUrl } from './cli-args.js';
 
-function readFlag(
-  argv: readonly string[],
-  name: string,
-): string | undefined {
+function readFlag(argv: readonly string[], name: string): string | undefined {
   const flagIndex = argv.findIndex((value) => value === `--${name}`);
   if (flagIndex >= 0) {
     return argv[flagIndex + 1];
@@ -103,7 +100,9 @@ export async function simulateRetention(options: {
       counts[dataClass] = candidates.length;
       samples[dataClass] = candidates
         .slice(0, 5)
-        .map((c) => createHash('sha256').update(c.id).digest('hex').slice(0, 16));
+        .map((c) =>
+          createHash('sha256').update(c.id).digest('hex').slice(0, 16),
+        );
     }
     return {
       mode: 'dry_run_compat',
@@ -130,14 +129,16 @@ export async function main(
   const batchRaw = readFlag(argv, 'batch-size');
   const batchSize =
     batchRaw === undefined ? undefined : Number.parseInt(batchRaw, 10);
-  if (batchSize !== undefined && (!Number.isFinite(batchSize) || batchSize < 1)) {
+  if (
+    batchSize !== undefined &&
+    (!Number.isFinite(batchSize) || batchSize < 1)
+  ) {
     throw new Error('--batch-size must be a positive integer');
   }
 
   if (hasSwitch(argv, 'compat-simulate')) {
     const daysRaw = readFlag(argv, 'days');
-    const days =
-      daysRaw === undefined ? 365 : Number.parseInt(daysRaw, 10);
+    const days = daysRaw === undefined ? 365 : Number.parseInt(daysRaw, 10);
     const result = await simulateRetention({ databaseUrl, days });
     console.log(JSON.stringify(result, null, 2));
     return;
@@ -150,9 +151,7 @@ export async function main(
     ...(readFlag(argv, 'policy-id')
       ? { policyId: readFlag(argv, 'policy-id')! }
       : {}),
-    ...(readFlag(argv, 'run-id')
-      ? { runId: readFlag(argv, 'run-id')! }
-      : {}),
+    ...(readFlag(argv, 'run-id') ? { runId: readFlag(argv, 'run-id')! } : {}),
     ...(batchSize === undefined ? {} : { batchSize }),
   });
   console.log(JSON.stringify(result, null, 2));

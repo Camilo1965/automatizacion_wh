@@ -35,8 +35,12 @@ test('owner can open security page, start MFA setup and see sessions', async ({
   await expect(
     page.getByRole('heading', { name: 'Seguridad y acceso' }),
   ).toBeVisible();
-  await expect(page.getByText('Autenticación en dos pasos (MFA)')).toBeVisible();
-  await expect(page.getByText('Sesiones activas', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Autenticación en dos pasos (MFA)'),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Sesiones activas', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText('Esta sesión')).toBeVisible();
 
   const status = await page.request.get(
@@ -46,9 +50,9 @@ test('owner can open security page, start MFA setup and see sessions', async ({
   expect(status.status()).toBe(200);
 
   await page.getByRole('button', { name: 'Configurar MFA' }).click();
-  await expect(
-    page.getByAltText('Código QR para configurar MFA'),
-  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByAltText('Código QR para configurar MFA')).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByText(/otpauth:\/\/totp\//)).toBeVisible();
   await expect(page.getByText(/Secreto manual:/)).toBeVisible();
 });

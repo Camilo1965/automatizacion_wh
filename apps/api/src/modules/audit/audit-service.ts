@@ -1,7 +1,4 @@
-import type {
-  AuthAuditEvent,
-  AuthAuditSink,
-} from '../auth/auth-audit-sink.js';
+import type { AuthAuditEvent, AuthAuditSink } from '../auth/auth-audit-sink.js';
 import {
   sanitizeAuditMetadata,
   type AuditListQuery,

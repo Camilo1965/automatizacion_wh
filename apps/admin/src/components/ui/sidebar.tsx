@@ -22,7 +22,11 @@ import {
 } from '@/components/ui/tooltip';
 import { PanelLeftIcon } from 'lucide-react';
 
-import { SidebarContext, useSidebar, type SidebarContextProps } from './use-sidebar';
+import {
+  SidebarContext,
+  useSidebar,
+  type SidebarContextProps,
+} from './use-sidebar';
 
 const SIDEBAR_COOKIE_NAME = 'sidebar_state';
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;

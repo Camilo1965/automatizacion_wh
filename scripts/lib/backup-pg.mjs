@@ -6,7 +6,11 @@ import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { BackupError, DEFAULT_SAMPLE_TABLES, parseDatabaseUrl } from './backup-core.mjs';
+import {
+  BackupError,
+  DEFAULT_SAMPLE_TABLES,
+  parseDatabaseUrl,
+} from './backup-core.mjs';
 
 function runCaptured(cmd, args, env, { input } = {}) {
   return new Promise((resolve, reject) => {
@@ -44,7 +48,16 @@ function pgEnv(conn, baseEnv = process.env) {
 }
 
 function connArgs(conn, database = conn.database) {
-  const args = ['-h', conn.host, '-p', String(conn.port), '-U', conn.user, '-d', database];
+  const args = [
+    '-h',
+    conn.host,
+    '-p',
+    String(conn.port),
+    '-U',
+    conn.user,
+    '-d',
+    database,
+  ];
   return args;
 }
 
@@ -163,7 +176,12 @@ export async function dropDatabase(databaseUrl, dbName, env = process.env) {
   }
 }
 
-export async function restoreDumpFile(databaseUrl, dbName, dumpPath, env = process.env) {
+export async function restoreDumpFile(
+  databaseUrl,
+  dbName,
+  dumpPath,
+  env = process.env,
+) {
   assertSafeIdent(dbName);
   const conn = parseDatabaseUrl(databaseUrl);
   const result = await runCaptured(
@@ -192,7 +210,11 @@ export async function restoreDumpFile(databaseUrl, dbName, dumpPath, env = proce
       `pg_restore exit ${result.code}: ${sanitizePgOutput(result.stderr)}`,
     );
   }
-  if (result.code === 1 && /FATAL|ERROR:/i.test(result.stderr) && !/WARNING/i.test(result.stderr)) {
+  if (
+    result.code === 1 &&
+    /FATAL|ERROR:/i.test(result.stderr) &&
+    !/WARNING/i.test(result.stderr)
+  ) {
     // Keep permissive for extension noise; fatal still fails validation later.
   }
   return result;
@@ -224,10 +246,7 @@ export async function readSchemaVersion(databaseUrl, env = process.env) {
 export async function validateRestoredDatabase(
   databaseUrl,
   dbName,
-  {
-    sampleTables = DEFAULT_SAMPLE_TABLES,
-    expectedSchemaVersion,
-  } = {},
+  { sampleTables = DEFAULT_SAMPLE_TABLES, expectedSchemaVersion } = {},
   env = process.env,
 ) {
   assertSafeIdent(dbName);
@@ -254,7 +273,10 @@ export async function validateRestoredDatabase(
     ok: schema.code === 0 && details.schemaVersion !== 'missing',
   });
 
-  if (expectedSchemaVersion && details.schemaVersion !== expectedSchemaVersion) {
+  if (
+    expectedSchemaVersion &&
+    details.schemaVersion !== expectedSchemaVersion
+  ) {
     details.checks.push({
       name: 'schema_version_match',
       ok: false,
@@ -278,7 +300,11 @@ export async function validateRestoredDatabase(
     );
     if (count.code !== 0) {
       details.sampleCounts[table] = null;
-      details.checks.push({ name: `count:${table}`, ok: false, error: sanitizePgOutput(count.stderr) });
+      details.checks.push({
+        name: `count:${table}`,
+        ok: false,
+        error: sanitizePgOutput(count.stderr),
+      });
     } else {
       const n = Number(count.stdout.toString('utf8').trim());
       details.sampleCounts[table] = n;

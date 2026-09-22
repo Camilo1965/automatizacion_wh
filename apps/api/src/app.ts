@@ -197,14 +197,14 @@ export async function buildApp(
 
   app.addHook('onRequest', async (request, reply) => {
     reply.header(CORRELATION_HEADER, request.id);
-    (request as FastifyRequest & { metricsStartedAt?: bigint }).metricsStartedAt =
-      process.hrtime.bigint();
+    (
+      request as FastifyRequest & { metricsStartedAt?: bigint }
+    ).metricsStartedAt = process.hrtime.bigint();
   });
 
   app.addHook('onResponse', async (request, reply) => {
-    const started = (
-      request as FastifyRequest & { metricsStartedAt?: bigint }
-    ).metricsStartedAt;
+    const started = (request as FastifyRequest & { metricsStartedAt?: bigint })
+      .metricsStartedAt;
     const durationSeconds =
       started === undefined
         ? 0

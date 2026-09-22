@@ -16,12 +16,12 @@
 
 ## Verification
 
-| Check | Result |
-| --- | --- |
-| backup-scripts unit | 9 passed |
-| compose.prod config | pass |
-| Dockerfile.backup build | `sha256:a271e76b142cdd9be8d0aa273179da5a509da0999e3a290c20cf48fdc7c4cbda` |
-| Mock encrypt/restore drill | cleaned after success |
+| Check                      | Result                                                                    |
+| -------------------------- | ------------------------------------------------------------------------- |
+| backup-scripts unit        | 9 passed                                                                  |
+| compose.prod config        | pass                                                                      |
+| Dockerfile.backup build    | `sha256:a271e76b142cdd9be8d0aa273179da5a509da0999e3a290c20cf48fdc7c4cbda` |
+| Mock encrypt/restore drill | cleaned after success                                                     |
 
 ## [HUMANO]
 

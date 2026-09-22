@@ -27,20 +27,23 @@ export function internalServiceDiagnostic(
     if (check.status === 'up') {
       return {
         outcome: 'PostgreSQL responde y el pool está disponible.',
-        nextStep: 'Continúa con WhatsApp o 99envíos si necesitas operar canales.',
+        nextStep:
+          'Continúa con WhatsApp o 99envíos si necesitas operar canales.',
         actionLabel: 'Ver detalle del pool',
       };
     }
     if (check.status === 'degraded') {
       return {
         outcome: 'PostgreSQL responde con latencia o conexiones limitadas.',
-        nextStep: 'Revisa la conexión a PostgreSQL y el uso del pool en el servidor.',
+        nextStep:
+          'Revisa la conexión a PostgreSQL y el uso del pool en el servidor.',
         actionLabel: 'Revisar salud de base de datos',
       };
     }
     return {
       outcome: 'La base de datos no responde a la comprobación.',
-      nextStep: 'Revisa la conexión a PostgreSQL y reinicia la API si el fallo persiste.',
+      nextStep:
+        'Revisa la conexión a PostgreSQL y reinicia la API si el fallo persiste.',
       actionLabel: 'Diagnosticar base de datos',
     };
   }
@@ -56,13 +59,15 @@ export function internalServiceDiagnostic(
     if (check.status === 'degraded') {
       return {
         outcome: 'El almacenamiento de medios responde con degradación.',
-        nextStep: 'Verifica el almacenamiento de medios y el espacio disponible.',
+        nextStep:
+          'Verifica el almacenamiento de medios y el espacio disponible.',
         actionLabel: 'Revisar medios',
       };
     }
     return {
       outcome: 'No se pudo comprobar el almacenamiento de medios.',
-      nextStep: 'Verifica el almacenamiento de medios y los permisos del volumen.',
+      nextStep:
+        'Verifica el almacenamiento de medios y los permisos del volumen.',
       actionLabel: 'Diagnosticar medios',
     };
   }
@@ -70,20 +75,23 @@ export function internalServiceDiagnostic(
   if (check.status === 'up') {
     return {
       outcome: 'El scheduler del worker reporta heartbeat reciente.',
-      nextStep: 'No requiere acción. Supervisa alertas si el heartbeat se atrasa.',
+      nextStep:
+        'No requiere acción. Supervisa alertas si el heartbeat se atrasa.',
       actionLabel: 'Ver estado del worker',
     };
   }
   if (check.status === 'degraded') {
     return {
       outcome: 'El scheduler responde, pero el heartbeat está atrasado.',
-      nextStep: 'Revisa el heartbeat del worker y reinicia el proceso si hace falta.',
+      nextStep:
+        'Revisa el heartbeat del worker y reinicia el proceso si hace falta.',
       actionLabel: 'Revisar scheduler',
     };
   }
   return {
     outcome: 'El scheduler no reporta heartbeat.',
-    nextStep: 'Reinicia el worker y confirma que el heartbeat vuelve a registrarse.',
+    nextStep:
+      'Reinicia el worker y confirma que el heartbeat vuelve a registrarse.',
     actionLabel: 'Reiniciar / diagnosticar worker',
   };
 }

@@ -98,7 +98,9 @@ describe('ShippingSettingsPage sections and simulator recovery', () => {
     expect(
       await screen.findByRole('heading', { name: /Preferencias de envío/i }),
     ).toBeVisible();
-    expect(screen.getByRole('region', { name: /Política general/i })).toBeVisible();
+    expect(
+      screen.getByRole('region', { name: /Política general/i }),
+    ).toBeVisible();
     expect(
       screen.getByRole('region', { name: /Excepciones por localidad/i }),
     ).toBeVisible();
@@ -128,11 +130,15 @@ describe('ShippingSettingsPage sections and simulator recovery', () => {
     await user.selectOptions(municipality, '05001000');
 
     await user.click(
-      within(simulator).getByRole('button', { name: /Cotizar sin crear guía/i }),
+      within(simulator).getByRole('button', {
+        name: /Cotizar sin crear guía/i,
+      }),
     );
 
     expect(
-      await within(simulator).findByText(/99envíos no respondió|No se pudo consultar la cobertura/i),
+      await within(simulator).findByText(
+        /99envíos no respondió|No se pudo consultar la cobertura/i,
+      ),
     ).toBeVisible();
     expect(
       within(simulator).getByText(/reintentar la cotización/i),

@@ -1,7 +1,4 @@
-import type {
-  PrivacyDataClass,
-  RetentionAction,
-} from '@camila/contracts';
+import type { PrivacyDataClass, RetentionAction } from '@camila/contracts';
 
 export type PrivacyInventoryDefinition = {
   dataClass: PrivacyDataClass;

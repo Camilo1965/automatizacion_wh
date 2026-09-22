@@ -48,10 +48,7 @@ function hasSwitch(argv: readonly string[], name: string): boolean {
   return argv.includes(`--${name}`) || argv.includes(`--${name}=true`);
 }
 
-function readFlag(
-  argv: readonly string[],
-  name: string,
-): string | undefined {
+function readFlag(argv: readonly string[], name: string): string | undefined {
   const flagIndex = argv.findIndex((value) => value === `--${name}`);
   if (flagIndex >= 0) {
     return argv[flagIndex + 1];
@@ -262,7 +259,9 @@ export async function migrateMediaToObjectStorage(options: {
 export async function main(
   argv: readonly string[] = process.argv.slice(2),
 ): Promise<void> {
-  const mode: MigrationMode = hasSwitch(argv, 'execute') ? 'execute' : 'dry_run';
+  const mode: MigrationMode = hasSwitch(argv, 'execute')
+    ? 'execute'
+    : 'dry_run';
   const databaseUrl =
     readFlag(argv, 'database-url') ?? requireDatabaseUrl(process.env);
   const config = loadConfig({

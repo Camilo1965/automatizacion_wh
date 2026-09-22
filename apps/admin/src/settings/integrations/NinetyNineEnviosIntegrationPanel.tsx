@@ -49,13 +49,7 @@ export function NinetyNineEnviosIntegrationPanel({
   tested: boolean;
   active: boolean;
 }) {
-  const currentStep = !settings.configured
-    ? 1
-    : !tested
-      ? 2
-      : !active
-        ? 3
-        : 4;
+  const currentStep = !settings.configured ? 1 : !tested ? 2 : !active ? 3 : 4;
 
   return (
     <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
@@ -198,7 +192,11 @@ export function NinetyNineEnviosIntegrationPanel({
               className="h-11 rounded-[1.125rem] bg-muted"
             />
           </div>
-          <Button type="submit" disabled={save.isPending} loading={save.isPending}>
+          <Button
+            type="submit"
+            disabled={save.isPending}
+            loading={save.isPending}
+          >
             Guardar conexión
           </Button>
         </CardContent>

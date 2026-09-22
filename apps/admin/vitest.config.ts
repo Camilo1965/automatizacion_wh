@@ -28,8 +28,6 @@ export default defineConfig({
         'src/main.tsx',
         '**/node_modules/**',
       ],
-      // Floor is informational; modified-file gate: scripts/check-coverage-gates.mjs
-      thresholds: undefined,
     },
   },
 });

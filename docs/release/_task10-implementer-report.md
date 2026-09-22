@@ -17,13 +17,13 @@
 
 ## Verification
 
-| Check | Result |
-| --- | --- |
-| metrics unit | 9 passed |
-| typecheck (@camila/api) | pass |
-| compose.prod config | pass |
-| Synthetic series | present in `/metrics` text |
-| External webhook receipt | `[HUMANO]` |
+| Check                    | Result                     |
+| ------------------------ | -------------------------- |
+| metrics unit             | 9 passed                   |
+| typecheck (@camila/api)  | pass                       |
+| compose.prod config      | pass                       |
+| Synthetic series         | present in `/metrics` text |
+| External webhook receipt | `[HUMANO]`                 |
 
 ## [HUMANO]
 

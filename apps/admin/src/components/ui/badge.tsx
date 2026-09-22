@@ -9,8 +9,7 @@ function Badge({
   variant = 'default',
   asChild = false,
   ...props
-}: React.ComponentProps<'span'> &
-  BadgeVariantProps & { asChild?: boolean }) {
+}: React.ComponentProps<'span'> & BadgeVariantProps & { asChild?: boolean }) {
   const Comp = asChild ? Slot.Root : 'span';
 
   return (

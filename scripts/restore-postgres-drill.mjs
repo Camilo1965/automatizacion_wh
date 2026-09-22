@@ -56,9 +56,14 @@ async function main() {
         restoreDump: (name, dumpPath) =>
           restoreDumpFile(env.DATABASE_URL, name, dumpPath, env),
         validateRestore: (name) =>
-          validateRestoredDatabase(env.DATABASE_URL, name, {
-            expectedSchemaVersion: env.BACKUP_EXPECTED_SCHEMA_VERSION,
-          }, env),
+          validateRestoredDatabase(
+            env.DATABASE_URL,
+            name,
+            {
+              expectedSchemaVersion: env.BACKUP_EXPECTED_SCHEMA_VERSION,
+            },
+            env,
+          ),
         dropDatabase: (name) => dropDatabase(env.DATABASE_URL, name, env),
         ensureTempDir: async (dir) => {
           await mkdir(dir, { recursive: true });
@@ -89,7 +94,10 @@ async function main() {
     process.exit(0);
   } catch (err) {
     console.error(err instanceof BackupError ? err.message : err);
-    if (err instanceof BackupError && err.code === 'restore_validation_failed') {
+    if (
+      err instanceof BackupError &&
+      err.code === 'restore_validation_failed'
+    ) {
       console.error(
         'Drill database retained for inspection; destructive cleanup skipped.',
       );

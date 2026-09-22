@@ -13,14 +13,22 @@ function hmac(key, data) {
 }
 
 function amzDate(date) {
-  const iso = date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  const iso = date
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}Z$/, 'Z');
   return { amz: iso, short: iso.slice(0, 8) };
 }
 
 function encodePath(key) {
   return key
     .split('/')
-    .map((seg) => encodeURIComponent(seg).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`))
+    .map((seg) =>
+      encodeURIComponent(seg).replace(
+        /[!'()*]/g,
+        (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+      ),
+    )
     .join('/');
 }
 
@@ -104,7 +112,10 @@ export function createBackupS3Client(cfg) {
       sha256Hex(canonicalRequest),
     ].join('\n');
 
-    const signature = createHmac('sha256', signingKey(cfg.secretAccessKey, short, cfg.region, 's3'))
+    const signature = createHmac(
+      'sha256',
+      signingKey(cfg.secretAccessKey, short, cfg.region, 's3'),
+    )
       .update(stringToSign)
       .digest('hex');
 
@@ -113,7 +124,10 @@ export function createBackupS3Client(cfg) {
     const res = await fetchImpl(url, {
       method,
       headers,
-      body: method === 'GET' || method === 'HEAD' || method === 'DELETE' ? undefined : payload,
+      body:
+        method === 'GET' || method === 'HEAD' || method === 'DELETE'
+          ? undefined
+          : payload,
     });
     return res;
   }
@@ -160,14 +174,18 @@ export function createBackupS3Client(cfg) {
         const res = await signedBucketList(params.toString());
         if (!res.ok) {
           const text = await res.text().catch(() => '');
-          throw new Error(`S3 ListObjects ${res.status}: ${text.slice(0, 200)}`);
+          throw new Error(
+            `S3 ListObjects ${res.status}: ${text.slice(0, 200)}`,
+          );
         }
         const xml = await res.text();
         for (const m of xml.matchAll(/<Key>([^<]+)<\/Key>/g)) {
           keys.push(decodeXml(m[1]));
         }
         const truncated = /<IsTruncated>true<\/IsTruncated>/i.test(xml);
-        const next = xml.match(/<NextContinuationToken>([^<]+)<\/NextContinuationToken>/);
+        const next = xml.match(
+          /<NextContinuationToken>([^<]+)<\/NextContinuationToken>/,
+        );
         token = truncated && next ? decodeXml(next[1]) : undefined;
       } while (token);
       return keys;
@@ -179,7 +197,9 @@ export function createBackupS3Client(cfg) {
     const { amz, short } = amzDate(now);
     const listUrl = forcePathStyle
       ? new URL(`${endpoint.href.replace(/\/$/, '')}/${cfg.bucket}?${query}`)
-      : new URL(`${endpoint.protocol}//${cfg.bucket}.${endpoint.host}/?${query}`);
+      : new URL(
+          `${endpoint.protocol}//${cfg.bucket}.${endpoint.host}/?${query}`,
+        );
 
     const payloadHash = sha256Hex('');
     const host = listUrl.host;
@@ -214,7 +234,10 @@ export function createBackupS3Client(cfg) {
       credentialScope,
       sha256Hex(canonicalRequest),
     ].join('\n');
-    const signature = createHmac('sha256', signingKey(cfg.secretAccessKey, short, cfg.region, 's3'))
+    const signature = createHmac(
+      'sha256',
+      signingKey(cfg.secretAccessKey, short, cfg.region, 's3'),
+    )
       .update(stringToSign)
       .digest('hex');
     headers.authorization = `AWS4-HMAC-SHA256 Credential=${cfg.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;

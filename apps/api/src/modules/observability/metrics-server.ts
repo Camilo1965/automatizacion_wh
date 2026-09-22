@@ -2,10 +2,7 @@ import { createServer, type Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
 
 import type { MetricsRegistry } from './metrics.js';
-import {
-  CORRELATION_HEADER,
-  normalizeCorrelationId,
-} from './metrics.js';
+import { CORRELATION_HEADER, normalizeCorrelationId } from './metrics.js';
 
 /**
  * Minimal internal-only metrics HTTP server for the worker process.
@@ -22,9 +19,7 @@ export function startMetricsServer(input: {
   const server = createServer((req, res) => {
     void (async () => {
       const url = new URL(req.url ?? '/', `http://${host}`);
-      const incoming = normalizeCorrelationId(
-        req.headers[CORRELATION_HEADER],
-      );
+      const incoming = normalizeCorrelationId(req.headers[CORRELATION_HEADER]);
       const correlationId = incoming ?? randomUUID();
       res.setHeader(CORRELATION_HEADER, correlationId);
 

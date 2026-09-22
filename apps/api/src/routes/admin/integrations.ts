@@ -11,10 +11,7 @@ import {
   type IntegrationSettingsOperations,
 } from '../../modules/integrations/integration-settings-service.js';
 import type { ConnectionCapabilityService } from '../../modules/whatsapp/connection-capability-service.js';
-import {
-  authorize,
-  type AdminAuthenticate,
-} from './admin-shared.js';
+import { authorize, type AdminAuthenticate } from './admin-shared.js';
 import { registerBotFlowRoutes } from './bot-flow.js';
 
 export async function registerIntegrationsRoutes(

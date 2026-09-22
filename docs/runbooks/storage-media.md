@@ -13,16 +13,16 @@
 
 ## Variables
 
-| Variable | Uso |
-| --- | --- |
-| `STORAGE_DRIVER` | `local` \| `s3` |
-| `MEDIA_ROOT` | raíz local / origen de migración |
-| `S3_ENDPOINT` | URL del servicio S3-compatible |
-| `S3_BUCKET` | bucket compartido por api y worker |
-| `S3_REGION` | región (requerida por el SDK) |
-| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | credenciales (nunca en Git) |
-| `S3_FORCE_PATH_STYLE` | `true` típico para MinIO/path-style |
-| `S3_TLS_REJECT_UNAUTHORIZED` | validación TLS (`true` en prod) |
+| Variable                                    | Uso                                 |
+| ------------------------------------------- | ----------------------------------- |
+| `STORAGE_DRIVER`                            | `local` \| `s3`                     |
+| `MEDIA_ROOT`                                | raíz local / origen de migración    |
+| `S3_ENDPOINT`                               | URL del servicio S3-compatible      |
+| `S3_BUCKET`                                 | bucket compartido por api y worker  |
+| `S3_REGION`                                 | región (requerida por el SDK)       |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | credenciales (nunca en Git)         |
+| `S3_FORCE_PATH_STYLE`                       | `true` típico para MinIO/path-style |
+| `S3_TLS_REJECT_UNAUTHORIZED`                | validación TLS (`true` en prod)     |
 
 API y worker deben usar **el mismo** driver y bucket.
 

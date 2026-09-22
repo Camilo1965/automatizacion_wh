@@ -20,10 +20,7 @@ export type RetentionAction = z.infer<typeof RetentionActionSchema>;
  * Legal status for a class duration/basis.
  * Durations stay pending_human_approval until Colombia owner approval ([HUMANO]).
  */
-export const LegalStatusSchema = z.enum([
-  'pending_human_approval',
-  'approved',
-]);
+export const LegalStatusSchema = z.enum(['pending_human_approval', 'approved']);
 export type LegalStatus = z.infer<typeof LegalStatusSchema>;
 
 export const RetentionClassPolicySchema = z
@@ -161,8 +158,9 @@ export const PrivacyInventoryResponseSchema = z
   .object({
     data: z.object({
       items: z.array(PrivacyInventoryItemSchema),
-      capabilityNote:
-        z.literal('security:manage for activate/execute; audit:read for reports'),
+      capabilityNote: z.literal(
+        'security:manage for activate/execute; audit:read for reports',
+      ),
       legalDurationsStatus: z.literal('[HUMANO]'),
     }),
   })

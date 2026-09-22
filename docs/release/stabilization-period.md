@@ -6,12 +6,12 @@ Duración acordada `[HUMANO]`: ___ días desde ____. (**BLOCKING** — owner deb
 
 ## Revisión diaria
 
-| Día | Jobs stuck | Guías uncertain | Alertas críticas | Backup age | Notas |
-| --- | ---------- | --------------- | ---------------- | ---------- | ----- |
-| 1   | **BLOCKING** — no iniciado | | | | |
-| 2   | **BLOCKING** — no iniciado | | | | |
-| 3   | **BLOCKING** — no iniciado | | | | |
-| …   | extender según duración acordada | | | | |
+| Día | Jobs stuck                       | Guías uncertain | Alertas críticas | Backup age | Notas |
+| --- | -------------------------------- | --------------- | ---------------- | ---------- | ----- |
+| 1   | **BLOCKING** — no iniciado       |                 |                  |            |       |
+| 2   | **BLOCKING** — no iniciado       |                 |                  |            |       |
+| 3   | **BLOCKING** — no iniciado       |                 |                  |            |       |
+| …   | extender según duración acordada |                 |                  |            |       |
 
 ## Automatizable
 

@@ -167,7 +167,11 @@ for (const viewport of [
     await page.setViewportSize(viewport);
     await login(page);
     for (const route of criticalRoutes) {
-      await page.goto(route);
+      await page.goto(route, { waitUntil: 'domcontentloaded' });
+      if (page.url().includes('/login')) {
+        await login(page);
+        await page.goto(route, { waitUntil: 'domcontentloaded' });
+      }
       await expect(page.locator('main')).toBeVisible();
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])

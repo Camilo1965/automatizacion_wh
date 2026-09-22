@@ -345,5 +345,3 @@ export function PolicyFields({
     </div>
   );
 }
-
-

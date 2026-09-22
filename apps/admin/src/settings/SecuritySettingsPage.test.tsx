@@ -155,7 +155,9 @@ describe('SecuritySettingsPage', () => {
     ).toHaveAttribute('src', 'data:image/png;base64,qr');
     expect(screen.getByText(/otpauth:\/\/totp\//)).toBeVisible();
     expect(screen.getByText(/Secreto manual: JBSWY3DPEHPK3PXP/)).toBeVisible();
-    expect(document.body.textContent).not.toMatch(/chart\.googleapis|qrserver/i);
+    expect(document.body.textContent).not.toMatch(
+      /chart\.googleapis|qrserver/i,
+    );
   });
 
   it('lists the current session', async () => {

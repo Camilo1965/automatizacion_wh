@@ -43,7 +43,9 @@ async function ensureOperator(page: Page) {
   );
   expect([201, 409]).toContain(create.status());
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
-  await expect(page.getByRole('button', { name: 'Entrar al panel' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Entrar al panel' }),
+  ).toBeVisible();
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -68,9 +70,9 @@ test('owner sees security navigation and operator is denied owner routes', async
   await expect(
     page.getByRole('link', { name: 'Seguridad y acceso' }),
   ).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: 'Integraciones' }),
-  ).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Integraciones' })).toHaveCount(
+    0,
+  );
 
   await page.goto('/settings/security');
   await expect(
@@ -87,9 +89,8 @@ test('owner sees security navigation and operator is denied owner routes', async
   );
   expect(denied.status()).toBe(403);
 
-  const allowed = await page.request.get(
-    `${E2E_API_ORIGIN}/api/admin/alerts`,
-    { headers: { Origin: E2E_ADMIN_ORIGIN } },
-  );
+  const allowed = await page.request.get(`${E2E_API_ORIGIN}/api/admin/alerts`, {
+    headers: { Origin: E2E_ADMIN_ORIGIN },
+  });
   expect(allowed.status()).toBe(200);
 });

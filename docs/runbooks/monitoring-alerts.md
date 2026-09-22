@@ -8,12 +8,12 @@ Labels are bounded enums (`route_group`, `queue`, `outcome`, `provider`). Never 
 
 ## Components
 
-| Piece | Where | Notes |
-| --- | --- | --- |
-| API metrics | `api:3000/metrics` | HTTP + DB/queue/backup gauges on scrape |
+| Piece          | Where                 | Notes                                        |
+| -------------- | --------------------- | -------------------------------------------- |
+| API metrics    | `api:3000/metrics`    | HTTP + DB/queue/backup gauges on scrape      |
 | Worker metrics | `worker:9091/metrics` | Heartbeat, jobs, WhatsApp, guides, scheduler |
-| Prometheus | `metrics:9090` | Scrapes API + worker |
-| Alertmanager | `alertmanager:9093` | Routes alerts; webhook is `[HUMANO]` |
+| Prometheus     | `metrics:9090`        | Scrapes API + worker                         |
+| Alertmanager   | `alertmanager:9093`   | Routes alerts; webhook is `[HUMANO]`         |
 
 Optional protection: set `METRICS_TOKEN` and configure Prometheus `authorization` bearer (operator-managed secret file).
 
@@ -25,19 +25,19 @@ Optional protection: set `METRICS_TOKEN` and configure Prometheus `authorization
 
 ## Alert catalogue
 
-| Alert | Meaning | First action |
-| --- | --- | --- |
-| `KairoApiDown` | Prometheus cannot scrape API | `docker compose … logs api`; check migrate/health |
-| `KairoWorkerDown` | Worker metrics port down | Restart worker; check `WORKER_METRICS_PORT` |
-| `KairoWorkerHeartbeatStale` | Heartbeat >90s | Inspect worker loops / DB locks |
-| `KairoDatabaseNotReady` | `kairo_db_ready=0` | Postgres health + `DATABASE_URL` |
-| `KairoQueueDepthHigh` / `KairoQueueOldestAge` | Backlog | Inspect outbox / guide jobs |
-| `KairoProviderFailuresRepeated` | WhatsApp/shipping failures | Provider status + credentials |
-| `KairoGuideUncertain` | Uncertain guide | Manual review before retry |
-| `KairoBackupTooOld` / `KairoBackupFailed` | Backup gate | See `postgres-backup-restore.md` |
-| `KairoDiskPressure` | Needs node_exporter | Free disk / expand volume `[HUMANO]` |
-| `KairoCertificateExpiring` | Needs TLS probe | Renew cert / Caddy ACME `[HUMANO]` |
-| `KairoSyntheticFailure` | Staging alert-path drill | Confirm external receipt |
+| Alert                                         | Meaning                      | First action                                      |
+| --------------------------------------------- | ---------------------------- | ------------------------------------------------- |
+| `KairoApiDown`                                | Prometheus cannot scrape API | `docker compose … logs api`; check migrate/health |
+| `KairoWorkerDown`                             | Worker metrics port down     | Restart worker; check `WORKER_METRICS_PORT`       |
+| `KairoWorkerHeartbeatStale`                   | Heartbeat >90s               | Inspect worker loops / DB locks                   |
+| `KairoDatabaseNotReady`                       | `kairo_db_ready=0`           | Postgres health + `DATABASE_URL`                  |
+| `KairoQueueDepthHigh` / `KairoQueueOldestAge` | Backlog                      | Inspect outbox / guide jobs                       |
+| `KairoProviderFailuresRepeated`               | WhatsApp/shipping failures   | Provider status + credentials                     |
+| `KairoGuideUncertain`                         | Uncertain guide              | Manual review before retry                        |
+| `KairoBackupTooOld` / `KairoBackupFailed`     | Backup gate                  | See `postgres-backup-restore.md`                  |
+| `KairoDiskPressure`                           | Needs node_exporter          | Free disk / expand volume `[HUMANO]`              |
+| `KairoCertificateExpiring`                    | Needs TLS probe              | Renew cert / Caddy ACME `[HUMANO]`                |
+| `KairoSyntheticFailure`                       | Staging alert-path drill     | Confirm external receipt                          |
 
 ## Synthetic failure drill (staging)
 

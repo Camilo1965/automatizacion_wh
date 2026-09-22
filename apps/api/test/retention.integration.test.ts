@@ -175,7 +175,12 @@ describe('retention privacy integration', () => {
 
   beforeEach(async () => {
     await resetTables();
-    await authService.createUser('owner', 'password1234', 'password1234', 'owner');
+    await authService.createUser(
+      'owner',
+      'password1234',
+      'password1234',
+      'owner',
+    );
     await authService.createUser(
       'operator',
       'password1234',

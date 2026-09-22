@@ -21,13 +21,13 @@
 
 ## Verification
 
-| Check | Result |
-| --- | --- |
-| ObjectStorage local contract | 5 passed |
-| migrate-media unit | 3 passed |
+| Check                         | Result   |
+| ----------------------------- | -------- |
+| ObjectStorage local contract  | 5 passed |
+| migrate-media unit            | 3 passed |
 | S3/MinIO contract integration | 5 passed |
-| API typecheck | pass |
-| compose.prod config | pass |
+| API typecheck                 | pass     |
+| compose.prod config           | pass     |
 
 ## [HUMANO]
 

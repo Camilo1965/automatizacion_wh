@@ -1,11 +1,7 @@
 import type { IntegrationHealth } from '@camila/contracts';
 
 import { StatusBadge } from '@/components/StatusBadge';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { InternalServiceStatus } from './InternalServiceStatus';
 import { INTEGRATION_LABELS } from './integration-diagnostics';
 
@@ -58,11 +54,7 @@ function ProviderHealthCard({
   );
 }
 
-export function IntegrationOverview({
-  health,
-}: {
-  health: IntegrationHealth;
-}) {
+export function IntegrationOverview({ health }: { health: IntegrationHealth }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       <InternalServiceStatus serviceKey="database" check={health.database} />
