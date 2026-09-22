@@ -51,7 +51,7 @@ La auditoría corresponde al estado observado el 21 de septiembre de 2026.
 - Panel React/Vite con sesión administrativa mediante cookie HttpOnly.
 - Contratos TypeScript compartidos.
 - Webhook firmado de WhatsApp, adaptador de 99envíos, catálogo, inventario, pedidos, conversaciones, localidades, alertas, integraciones y dashboard.
-- CI en GitHub Actions con `pnpm verify` y auditoría de dependencias de producción.
+- Verificación local con `pnpm verify:release` y auditoría de dependencias de producción.
 - Helmet, CORS por origen, limitación de login, redacción de secretos en logs, cifrado de credenciales y verificación de firma de Meta ya presentes.
 
 ### 3.2 Evidencia de calidad actual
@@ -98,7 +98,7 @@ La auditoría corresponde al estado observado el 21 de septiembre de 2026.
 
 ### 4.1 Objetivos
 
-1. Recuperar una línea base reproducible con CI completamente verde.
+1. Recuperar una línea base reproducible con gates locales completamente verdes.
 2. Corregir defectos visuales, funcionales y de accesibilidad que impiden operar con confianza.
 3. Consolidar una experiencia operativa clara en escritorio y móvil.
 4. Separar responsabilidades sin romper los contratos públicos existentes.
@@ -368,7 +368,7 @@ Treinta se mantendrá como proceso manual controlado:
 - Procedimiento probado de rotación de claves.
 - Respuestas administrativas que solo indiquen estado, huella segura o últimos caracteres permitidos.
 - Redacción de tokens, cookies, firmas, contraseñas, documentos, teléfonos y direcciones en logs.
-- Escaneo de secretos y dependencias en CI.
+- Escaneo local de secretos y dependencias.
 
 ### 8.4 Autorización y auditoría
 
@@ -459,7 +459,7 @@ Las pruebas de integración no levantarán workers no controlados contra su mism
 - La cobertura global no permitirá compensar un dominio crítico sin pruebas mediante archivos triviales.
 - Un porcentaje no sustituirá pruebas de concurrencia, contrato o E2E.
 
-### 10.3 Puerta de CI
+### 10.3 Puerta local de release
 
 Todo cambio destinado a integración ejecutará, según la fase:
 
@@ -655,7 +655,7 @@ Cursor podrá preparar, validar y documentar estos pasos, pero no inventará dec
 KAIRO estará terminado para este alcance cuando se cumpla todo lo siguiente:
 
 - Todos los flujos incluidos funcionan de extremo a extremo con estados de éxito, error y recuperación.
-- CI está completamente verde desde una instalación limpia y es reproducible.
+- La verificación local está completamente verde desde una instalación limpia y es reproducible.
 - No quedan defectos P0/P1 ni deuda crítica conocida sin una decisión explícita.
 - Meta y 99envíos están validados con cuentas reales y evidencia sanitizada.
 - HTTPS, backups externos, restauración, alertas y monitoreo están operativos.

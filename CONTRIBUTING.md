@@ -10,49 +10,37 @@ Gracias por contribuir a Camila. Este documento fija expectativas mínimas de ca
 4. Abre un PR con resumen del problema, enfoque y cómo probarlo.
 5. No incluyas secretos, `.env`, medias reales ni dumps de base de datos.
 
-## Gates de CI (obligatorios)
+## Gates locales de release (obligatorios)
 
-El workflow `.github/workflows/verify.yml` debe pasar completo antes de merge. Secuencia:
+Ejecuta `pnpm verify:release` antes de proponer un release. Secuencia:
 
 1. Install congelado (`pnpm install --frozen-lockfile`)
 2. `pnpm format:check`
-3. `pnpm lint:ci` (ESLint con `--max-warnings=0`)
+3. `pnpm lint:strict` (ESLint con `--max-warnings=0`)
 4. `pnpm typecheck`
 5. Unit / contracts + integration + build + E2E/a11y
-6. `pnpm test:coverage` (≥90% líneas/ramas en dominios críticos API; ≥80% resto)
+6. `pnpm test:coverage` (≥90% líneas/ramas por archivo crítico API; ≥80% por archivo de dominio modificado, sin excepciones)
 7. `pnpm audit --prod`
-8. Secret scan (gitleaks historial + working tree, versión/checksum pinned)
-9. Filesystem scan (Trivy CRITICAL/HIGH; excepciones solo en `.trivyignore` con fecha)
-10. Compose validate + Docker build + image scan (Trivy)
-11. `pnpm production:smoke` (staging desechable)
+8. `pnpm security:secrets` (Gitleaks v8.30.1, historial completo)
+9. `pnpm security:filesystem` (Trivy v0.74.0, CRITICAL/HIGH)
+10. Compose validate + Docker build + `pnpm security:images` (cuatro imágenes)
+11. `pnpm production:smoke` (staging desechable con S3 y backup/restauración)
 12. Bundle budget: `pnpm check:bundle-budget`
 
-Localmente (Windows):
+Comando completo (Windows, Linux o macOS con Docker):
 
 ```powershell
-pnpm install --frozen-lockfile
-pnpm format:check
-pnpm lint:ci
-pnpm typecheck
-pnpm test:unit
-pnpm test:integration
-pnpm test:e2e
-pnpm test:coverage
-pnpm build
-pnpm check:bundle-budget
-pnpm audit --prod
-pnpm check:production-config
-pnpm production:smoke
+pnpm verify:release
 ```
 
 ## Estándares
 
 - TypeScript estricto; contratos compartidos viven en `@camila/contracts`.
-- Formato: Prettier. Lint: ESLint (config raíz); CI falla con cualquier warning.
-- Cobertura: dominios críticos (`auth`, `orders`, `inventory`, `shipping`, `whatsapp`, `conversations`, `catalog`, `privacy`, `audit`, `integrations`) ≥90% lines/branches; no excluir código de producción difícil solo para subir el %.
+- Formato: Prettier. Lint: ESLint (config raíz); el gate local falla con cualquier warning.
+- Cobertura: archivos críticos definidos en `scripts/check-coverage-gates.mjs` ≥90% líneas/ramas cada uno; archivos de dominio modificados ≥80% cada uno, sin excepciones.
 - Pruebas: unitarias cerca del dominio; integración con `postgres-test`; E2E Playwright para el panel.
 - Commits claros; un PR = una historia revisable.
-- Actions de terceros en CI van pinneadas por SHA inmutable.
+- Gitleaks y Trivy se ejecutan con versiones fijadas en `scripts/lib/local-security-gates.mjs`.
 
 ## Documentación
 

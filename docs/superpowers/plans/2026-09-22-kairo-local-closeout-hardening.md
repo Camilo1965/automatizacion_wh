@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace unused GitHub CI with reproducible local release gates and close the formatting, coverage, container-security, S3, and backup-smoke defects found by the independent audit.
+**Goal:** Replace unused hosted verification with reproducible local release gates and close the formatting, coverage, container-security, S3, and backup-smoke defects found by the independent audit.
 
 **Architecture:** Keep the TypeScript monorepo and Compose topology. Move gate logic into testable local Node modules, combine API unit and integration coverage, use minimal patched runtime images, and make the disposable staging smoke prove real media S3 plus encrypted backup/restore behavior. Human production gates remain explicit and keep the release at `NO-GO`.
 
@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Scope is KAIRO only.
-- Delete GitHub Actions automation and references; retain equivalent local gates.
+- Delete the unused hosted automation and references; retain equivalent local gates.
 - Do not merge, deploy, enter production credentials, operate on production data, or complete human sign-offs.
 - Use red-green-refactor for behavior and script changes.
 - Critical domain files require at least 90% lines and 90% branches individually.
@@ -23,10 +23,10 @@
 
 ---
 
-### Task 1: Replace GitHub CI with local security gates
+### Task 1: Replace hosted verification with local security gates
 
 **Files:**
-- Delete: `.github/workflows/verify.yml`
+- Delete: unused hosted workflow file
 - Create: `scripts/lib/local-security-gates.mjs`
 - Create: `scripts/security-scan.mjs`
 - Test: `apps/api/test/local-security-gates.test.ts`
@@ -135,14 +135,14 @@ non-secret placeholder regexes if an actual scan proves they are required.
 }
 ```
 
-Update `verify` to use `lint:strict`; remove `lint:ci`.
+Update `verify` to use `lint:strict`; remove the obsolete lint alias.
 
 - [ ] **Step 6: Verify GREEN and commit**
 
 Run the targeted test, `pnpm lint:strict`, `pnpm security:secrets`, and
 `pnpm security:filesystem`.
 
-Commit: `build: replace unused GitHub CI with local security gates`
+Commit: `build: replace unused hosted checks with local security gates`
 
 ---
 
@@ -439,7 +439,7 @@ Commit: `test: prove S3 and backup restore in production smoke`
 - Modify: `docs/pilot/go-no-go-checklist.md`
 - Modify: `docs/release/definitive-closeout-evidence.md`
 - Modify: `docs/release/_task11-implementer-report.md`
-- Modify: historical KAIRO specs/plans containing GitHub Actions or `lint:ci`
+- Modify: historical KAIRO specs/plans containing obsolete hosted verification instructions
 
 **Interfaces:**
 - `pnpm verify:release` runs local functional, coverage, production,
@@ -458,10 +458,10 @@ asserts every step has a non-empty name, command, and arguments.
 Use cross-platform `spawnSync` with inherited stdio and immediate non-zero
 exit. Reuse existing scripts instead of duplicating their logic.
 
-- [ ] **Step 3: Remove GitHub CI terminology and stale evidence**
+- [ ] **Step 3: Remove hosted verification terminology and stale evidence**
 
-Delete `.github/workflows/verify.yml`; update active and historical KAIRO
-documents so they describe local gates. Replace `lint:ci` with `lint:strict`.
+Remove the unused workflow file; update active and historical KAIRO
+documents so they describe local gates. Use `lint:strict` consistently.
 Do not claim a scanner passed until the fresh final run proves it.
 
 - [ ] **Step 4: Correct the evidence ledger**
@@ -476,7 +476,7 @@ timestamp line.
 Run:
 
 ```powershell
-rg -n -i "github actions|\.github/workflows|lint:ci" README.md CONTRIBUTING.md docs package.json
+rg -n -i "hosted workflow|obsolete lint alias" README.md CONTRIBUTING.md docs package.json
 pnpm format:check
 git diff --check
 ```

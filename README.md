@@ -116,7 +116,7 @@ cp .env.example .env
 
 ```bash
 pnpm install
-# o, para CI / verificación estricta:
+# para una instalación reproducible de release:
 pnpm install --frozen-lockfile
 ```
 
@@ -197,6 +197,7 @@ pnpm test:integration   # requiere postgres-test + TEST_DATABASE_URL
 pnpm test:e2e           # Playwright; puertos por defecto 3100 / 5174
 pnpm build
 pnpm verify             # formato + lint + tipos + unit + integración + e2e + build
+pnpm verify:release     # verificación local completa: cobertura, seguridad e infraestructura desechable
 ```
 
 PostgreSQL de pruebas (tmpfs; se pierde al recrear el contenedor):

@@ -840,7 +840,7 @@ git commit -m "feat: add premium operations center"
 - Create: `docs/operations/incidents.md`
 - Modify: `README.md`
 - Modify: `ROADMAP.md`
-- Modify: `.github/workflows/verify.yml` if GitHub Actions is enabled for the repository
+- Modify: local release gates if this change affects verification
 
 **Interfaces:**
 - Produces: reproducible verification, accessibility coverage, owner operating guide, incident runbook, coexistence checklist, and release evidence.

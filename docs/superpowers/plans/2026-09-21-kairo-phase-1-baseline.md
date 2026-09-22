@@ -1,6 +1,6 @@
 # Fase 1 — Recuperar la línea base
 
-**Objetivo:** CI verde desde instalación limpia; defectos P0 de pruebas y normalización corregidos.
+**Objetivo:** verificación local verde desde instalación limpia; defectos P0 de pruebas y normalización corregidos.
 
 **Precondiciones:** Node ≥24.14, pnpm 11.19, Docker para `postgres-test` (puerto 5433).
 

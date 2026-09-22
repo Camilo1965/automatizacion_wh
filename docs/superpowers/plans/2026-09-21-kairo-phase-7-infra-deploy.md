@@ -32,7 +32,7 @@
 
 ## Fuera de alcance (fases posteriores)
 
-- CI/CD remoto, Terraform, observabilidad gestionada, rotación automática de secretos.
+- Automatización remota de release, Terraform, observabilidad gestionada, rotación automática de secretos.
 
 ## Verificación local (sin desplegar)
 

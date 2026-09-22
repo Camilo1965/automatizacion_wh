@@ -8,8 +8,8 @@
 
 Close every automatable defect found in the independent audit while keeping
 the release at `NO-GO` until its external and human P0/P1 gates are completed.
-GitHub Actions is removed because this project does not use GitHub CI. The
-same quality and security guarantees remain executable locally.
+The unused hosted verification workflow is removed. The same quality and
+security guarantees remain executable locally.
 
 ## Considered approaches
 
@@ -23,7 +23,7 @@ unverified backup behavior, and images with fixable HIGH/CRITICAL findings.
 
 ### 2. Local release-gate hardening — selected
 
-Replace the unused CI workflow with documented local commands, fix the runtime
+Replace the unused hosted workflow with documented local commands, fix the runtime
 images, enforce coverage per source file, make the production smoke exercise
 real S3 and backup/restore paths, and rerun all gates after the final commit.
 
@@ -32,7 +32,7 @@ introducing an unrelated deployment platform.
 
 ### 3. Deployment-platform redesign
 
-Replace Compose with a new orchestrator and introduce a hosted CI/security
+Replace Compose with a new orchestrator and introduce a hosted security
 platform.
 
 This is rejected as out of scope. It would add operational complexity without
@@ -44,9 +44,8 @@ being required to close the known defects.
 
 The repository remains the source of truth for verification. Root package
 scripts and release documentation define the commands that a developer runs
-locally. `.github/workflows/verify.yml` and GitHub Actions references are
-removed. Existing tests, security scanners, and production checks are retained
-or strengthened; only their unused GitHub runner integration disappears.
+locally. The unused hosted workflow is removed. Existing tests, security
+scanners, and production checks are retained or strengthened.
 
 ### Container security boundary
 
@@ -113,7 +112,7 @@ Changes to scripts and behavior follow red-green-refactor:
 
 ## Acceptance criteria
 
-- GitHub CI workflow and GitHub Actions release claims are absent.
+- Hosted verification workflow and release claims are absent.
 - `pnpm format:check` and `git show --check HEAD` pass.
 - Critical coverage is enforced per file at 90/90.
 - Modified non-critical coverage is enforced per file at 80/80 with no
@@ -132,4 +131,4 @@ Changes to scripts and behavior follow red-green-refactor:
 - No merge, deployment, provider credential entry, production data operation,
   or human sign-off is performed.
 - No KAIRO feature redesign or unrelated refactor is included.
-- No new hosted CI product is introduced.
+- No new hosted verification product is introduced.

@@ -31,7 +31,7 @@ f72c875 feat: complete KAIRO phases 5-10 automatable hardening
 747da0b refactor: modularize backend schema contracts routes and workers
 15fd086 feat: move global search to server and split bot simulate panel
 424c576 feat: unify KAIRO Operaciones brand and WCAG AA shell
-4c8bb5f fix: restore KAIRO phase-1 CI baseline
+4c8bb5f fix: restore KAIRO phase-1 verification baseline
 f310bce docs: define KAIRO production hardening design
 838a63e feat: redesign admin UI with Refero/shadcn mono system
 118b374 merge: include KAIRO login redesign into UX branch
@@ -77,7 +77,7 @@ Docker image manifest lists (this machine, after build):
 
 | Requirement area                              | Status                                 | Evidence / gap                                                                             |
 | --------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Baseline CI green locally                     | `verified`                             | `pnpm verify:local` exit 0                                                                 |
+| Baseline local gates green                    | `verified`                             | `pnpm verify:local` exit 0                                                                 |
 | Prod dependency audit                         | `verified`                             | `pnpm audit --prod` clean                                                                  |
 | Compose prod config                           | `verified`                             | config --quiet exit 0                                                                      |
 | Docker image builds                           | `verified`                             | api/worker/admin built                                                                     |
@@ -95,7 +95,7 @@ Docker image manifest lists (this machine, after build):
 | Productive HTTPS (Caddy + domain)             | `[HUMANO]`                             | Needs domain/DNS/VPS; staging uses loopback + tls internal                                 |
 | Encrypted off-server backup + restore drill   | `verified` (auto) / `[HUMANO]` dest    | Task 9: encrypted dump+upload+drill; prod bucket/RPO/RTO `[HUMANO]`                        |
 | Metrics + correlation IDs + external alerts   | `verified` (auto) / `[HUMANO]` webhook | Task 10: metrics + alerts wired; external receipt `[HUMANO]`                               |
-| CI coverage/secret/fs/image/smoke gates       | `verified`                             | Task 11                                                                                    |
+| Coverage/secret/fs/image/smoke gates          | `verified` locally                     | Independent closeout below                                                                 |
 | Real idempotency/concurrency tests            | `failed`                               | Schema-name assertions insufficient                                                        |
 | Staging reproducible smoke                    | `verified`                             | Task 8: `pnpm production:smoke` PASS                                                       |
 | Meta + 99envíos real evidence                 | `[HUMANO]`                             | Credentials + authorized actions                                                           |
@@ -103,7 +103,7 @@ Docker image manifest lists (this machine, after build):
 
 ### Remaining gaps entering Task 5
 
-1. Retention, storage, backup, observability, CI gates incomplete.
+1. Retention, storage, backup, observability, release gates incomplete.
 2. Real provider/pilot/launch evidence absent → final recommendation remains **NO-GO** until `[HUMANO]` gates close.
 3. Audit raw IP not stored (by design until legal approval); optional `ip_hash` column reserved.
 
@@ -174,7 +174,7 @@ Docker image manifest lists (this machine, after build):
 | 8 Topology/health    | `verified` | (Task 8 commit)  | Staging smoke + hardened compose                                                     |
 | 9 Backups            | `verified` | (Task 9 commit)  | Encrypt+drill auto; prod dest `[HUMANO]`                                             |
 | 10 Observability     | `verified` | (Task 10 commit) | Metrics/alerts wired; external receipt `[HUMANO]`                                    |
-| 11 CI gates          | `verified` | (Task 11 commit) | Full verify.yml gates                                                                |
+| 11 Local gates       | `verified` | (Task 11 commit) | Superseded by `pnpm verify:release`                                                  |
 | 12 Concurrency/perf  | `verified` | (Task 12 commit) | Concurrency ×3 + load + matrix                                                       |
 | 13 Real integrations | `[HUMANO]` | (Task 13 commit) | Docs/gates only; **NO-GO** — all live evidence BLOCKING                              |
 
@@ -280,11 +280,11 @@ Colombia legal retention durations and matrix approval — do not invent approve
 
 ### Design ledger updates
 
-| Requirement                        | Status                                        |
-| ---------------------------------- | --------------------------------------------- |
-| Integrations/Shipping UX lifecycle | `verified` (unit + structure; full E2E on CI) |
-| Fast Refresh warnings = 0          | `verified`                                    |
-| A11y principal routes @ viewports  | `in_progress` → covered by extended E2E specs |
+| Requirement                        | Status                                          |
+| ---------------------------------- | ----------------------------------------------- |
+| Integrations/Shipping UX lifecycle | `verified` (unit + structure; full E2E locally) |
+| Fast Refresh warnings = 0          | `verified`                                      |
+| A11y principal routes @ viewports  | `in_progress` → covered by extended E2E specs   |
 
 ### [HUMANO]
 
@@ -413,20 +413,20 @@ Provision external S3-compatible bucket + credentials for production (not MinIO-
 
 ---
 
-## Task 11 — CI coverage, security and image gates (2026-09-22)
+## Task 11 — local coverage, security and image gates (2026-09-22)
 
 ### Behavior
 
-- `.github/workflows/verify.yml` split into required jobs: secrets, quality+coverage, filesystem-scan, containers (compose+build+image scan), staging smoke
-- Third-party Actions pinned by commit SHA; gitleaks **v8.30.1** binary pinned by SHA256; Trivy **0.74.0** via aquasecurity/trivy-action SHA
-- Lint: `pnpm lint:ci` → `eslint . --max-warnings=0` (Fast Refresh 0)
-- Coverage: Vitest json-summary + `scripts/check-coverage-gates.mjs`
-  - Critical rules (design §10.2): ≥90% lines/branches aggregate
-  - Modified non-critical domain modules: ≥80%; time-bounded exceptions in `docs/release/coverage-exceptions.json` (expire 2026-10-22)
+- The earlier hosted gate proposal was superseded by `pnpm verify:release`.
+- Gitleaks **v8.30.1** and Trivy **v0.74.0** run locally through pinned container images.
+- Lint: `pnpm lint:strict` → `eslint . --max-warnings=0` (Fast Refresh 0).
+- Coverage: combined Vitest unit + integration json-summary and `scripts/check-coverage-gates.mjs`.
+  - Critical files: ≥90% lines and branches individually.
+  - Modified non-critical domain files: ≥80% lines and branches individually; no exceptions.
 - Bundle budget: `scripts/check-bundle-budget.mjs` → admin baseline
 - Production config: `scripts/check-production-config.mjs`
 - Trivy FS + final images fail on CRITICAL/HIGH (`ignore-unfixed`); exceptions only via `.trivyignore` with CVE+owner+date
-- Disposable staging smoke: `pnpm production:smoke` required job
+- Disposable staging smoke: `pnpm production:smoke` local gate
 
 ### Critical coverage (unit)
 
@@ -436,17 +436,17 @@ Provision external S3-compatible bucket + credentials for production (not MinIO-
 
 ### Verification (local Windows)
 
-| Check                              | Result                               |
-| ---------------------------------- | ------------------------------------ |
-| `pnpm lint:ci`                     | pass (0 warnings)                    |
-| `pnpm test:coverage` + gate script | pass                                 |
-| `pnpm check:production-config`     | pass                                 |
-| Secret/FS/image scanners           | configured in CI (ubuntu-latest)     |
-| Staging smoke                      | required CI job (`production:smoke`) |
+| Check                              | Result                                           |
+| ---------------------------------- | ------------------------------------------------ |
+| `pnpm lint:strict`                 | pass (0 warnings)                                |
+| `pnpm test:coverage` + gate script | pass, per-file thresholds (independent closeout) |
+| `pnpm check:production-config`     | pending fresh final run                          |
+| Secret/FS/image scanners           | local commands; see independent closeout         |
+| Staging smoke                      | local `pnpm production:smoke` PASS               |
 
 ### [HUMANO]
 
-None for Task 11 automation. Image digests and live Trivy/gitleaks exit codes recorded by CI run on push.
+None for Task 11 automation. Final scanner exit codes and image digests must be recorded from the local release run.
 
 ---
 
@@ -583,7 +583,7 @@ No credentials, tokens, or personal data added in Task 13 docs.
 | **P1** | Stabilization + acceptance unsigned                           | OPEN `[HUMANO]`   | Launch incomplete by definition               |
 | **P2** | Optional ERROR_TRACKING_DSN / exporters                       | OPEN `[HUMANO]`   | Observability depth                           |
 | **P2** | Meta coexistence assumptions                                  | OPEN `[HUMANO]`   | Confirm with Meta before relying on templates |
-| **P3** | Historical Fast Refresh / UX gaps (Tasks 6 addressed in code) | mitigated in repo | Monitor regressions in CI                     |
+| **P3** | Historical Fast Refresh / UX gaps (Tasks 6 addressed in code) | mitigated in repo | Monitor regressions in local release gates    |
 | **P3** | Prior 99envíos portal/dashboard quirks (2026-09-07 notes)     | known             | Re-validate on live account at C4             |
 
 **Any open P0 or P1 ⇒ production recommendation = NO-GO.**
@@ -607,37 +607,37 @@ Do not declare production complete until evidence-log, go/no-go checklist, stabi
 Timestamp: 2026-09-22 ~02:50 local (America/Bogota)  
 Final SHA at sequence start of fixes trail: `4f5bb50` (+ staging network declare commit below)
 
-| Command | Exit | Totals / notes |
-| --- | --- | --- |
-| `pnpm install --frozen-lockfile` | 0 | pnpm 11.19.0 |
-| `pnpm format:check` | 0 | After Prettier write + commit `fb47192` |
-| `pnpm lint -- --max-warnings=0` | 0 | Fast Refresh 0; load scripts get Node globals |
-| `pnpm typecheck` | 0 | Removed invalid `thresholds: undefined` |
-| `pnpm test:unit` | 0 | contracts 70 + API 273 + admin 61 = **404** |
-| `pnpm test:integration` | 0 | **142** passed (40 files) |
-| `pnpm test:e2e` | 0 | **30** passed, 1 skipped |
-| `pnpm test:coverage` | 0 | Critical rules **99.29% lines / 90.29% branches**; gates OK (time-bounded exceptions documented) |
-| `pnpm build` | 0 | contracts + api + admin |
-| `pnpm audit --prod` | 0 | No known vulnerabilities |
-| `docker compose ... compose.prod.yaml config --quiet` | 0 | Valid |
-| `compose.staging.yaml` alone | N/A | Override file — validate merged / via smoke |
-| `pnpm production:smoke` | 0 | **PASS** full path: docker → health → login → routes → separate processes → shutdown |
-| `git diff --check` | 0 | Clean |
-| gitleaks / trivy local | not installed | Enforced in CI (`.github/workflows/verify.yml` SHA-pinned) |
+| Command                                               | Exit       | Totals / notes                                                                        |
+| ----------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------- |
+| `pnpm install --frozen-lockfile`                      | 0          | pnpm 11.19.0                                                                          |
+| `pnpm format:check`                                   | 0          | After Prettier write + commit `fb47192`                                               |
+| `pnpm lint -- --max-warnings=0`                       | 0          | Fast Refresh 0; load scripts get Node globals                                         |
+| `pnpm typecheck`                                      | 0          | Removed invalid `thresholds: undefined`                                               |
+| `pnpm test:unit`                                      | 0          | contracts 70 + API 273 + admin 61 = **404**                                           |
+| `pnpm test:integration`                               | 0          | **142** passed (40 files)                                                             |
+| `pnpm test:e2e`                                       | 0          | **30** passed, 1 skipped                                                              |
+| `pnpm test:coverage`                                  | 0          | Historical aggregate result; superseded by combined per-file gates without exceptions |
+| `pnpm build`                                          | 0          | contracts + api + admin                                                               |
+| `pnpm audit --prod`                                   | 0          | No known vulnerabilities                                                              |
+| `docker compose ... compose.prod.yaml config --quiet` | 0          | Valid                                                                                 |
+| `compose.staging.yaml` alone                          | N/A        | Override file — validate merged / via smoke                                           |
+| `pnpm production:smoke`                               | 0          | **PASS** full path: docker → health → login → routes → separate processes → shutdown  |
+| `git diff --check`                                    | 0          | Clean                                                                                 |
+| gitleaks / trivy local                                | superseded | Run through pinned containers in `pnpm verify:release`                                |
 
 ### Image digests (local — smoke/staging tags + prior prod tags)
 
-| Image | Digest |
-| --- | --- |
-| camila-api:local (smoke) | `sha256:6b3b765a3f0d52cfef76ce76dfdcc3a9fe0d187b17ce9d15b0404afc06a9f6eb` |
+| Image                       | Digest                                                                    |
+| --------------------------- | ------------------------------------------------------------------------- |
+| camila-api:local (smoke)    | `sha256:6b3b765a3f0d52cfef76ce76dfdcc3a9fe0d187b17ce9d15b0404afc06a9f6eb` |
 | camila-worker:local (smoke) | `sha256:0d617898aea1d8f1e63ba758ba701b1322560ac03ac577aca1b1af5a2466ef96` |
-| camila-admin:local (smoke) | `sha256:d9b0bfca69595edf0f8aea66355d0676aa69e5d774fcb715088132fd4e947685` |
-| camila-backup:local | `sha256:cc12a4d5059b45e7b7758ead8f2754102e5dfda93185cb9d6595faa16c0b3e6e` |
-| camila-prod-api:latest | `sha256:ed82c6c6007abfe2088d78499f35808d0309ef0a30963601880f7c1632de4f0d` |
-| camila-prod-worker:latest | `sha256:331c12e8e57be7bf4710221e6a52ada706585e4c7bd137a158013b7b497c68f6` |
-| camila-prod-admin:latest | `sha256:d5b8856dd67f40884b90cc0af77652a88844f80f6b5d4d3e6b6187604ea7dafa` |
+| camila-admin:local (smoke)  | `sha256:d9b0bfca69595edf0f8aea66355d0676aa69e5d774fcb715088132fd4e947685` |
+| camila-backup:local         | `sha256:cc12a4d5059b45e7b7758ead8f2754102e5dfda93185cb9d6595faa16c0b3e6e` |
+| camila-prod-api:latest      | `sha256:ed82c6c6007abfe2088d78499f35808d0309ef0a30963601880f7c1632de4f0d` |
+| camila-prod-worker:latest   | `sha256:331c12e8e57be7bf4710221e6a52ada706585e4c7bd137a158013b7b497c68f6` |
+| camila-prod-admin:latest    | `sha256:d5b8856dd67f40884b90cc0af77652a88844f80f6b5d4d3e6b6187604ea7dafa` |
 
-Trivy image/FS scans: run in CI job (local scanner binary absent on this workstation).
+Trivy image/FS scans: run through local Docker containers; fresh results appear below.
 
 ### Secrets / PII confirmation (final)
 

@@ -43,7 +43,7 @@ Extended:
 - `e2e/operations.spec.ts` — axe on principal routes (incl. security/privacy/audit/whatsapp); overflow @ 390/768/1280/1440; keyboard/44px/`prefers-reduced-motion` shell check
 - `e2e/configurable-operations.spec.ts` — axe + no horizontal overflow across expanded route set; screenshots for bot-flow/shipping/integrations
 
-Evidence for full Playwright run is CI/`pnpm verify:local` machine-local; unit gate for Task 6 wording is green above.
+Evidence for the full Playwright run is available through machine-local `pnpm verify:local`; the unit gate for Task 6 wording is green above.
 
 ## Constraints honored
 

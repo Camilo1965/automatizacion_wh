@@ -4,7 +4,7 @@
 
 **Goal:** Close the verified gaps left after commits `4c8bb5f..f72c875` and make KAIRO production-ready within the approved single-business scope, while preserving the currently green baseline.
 
-**Architecture:** Keep the TypeScript monorepo, React admin, Fastify API, PostgreSQL durable jobs, separate HTTP/worker entrypoints and native inbox. Add real authorization, operable MFA, S3-compatible storage, complete production services, observable worker health and enforceable CI gates without rewriting working domains.
+**Architecture:** Keep the TypeScript monorepo, React admin, Fastify API, PostgreSQL durable jobs, separate HTTP/worker entrypoints and native inbox. Add real authorization, operable MFA, S3-compatible storage, complete production services, observable worker health and enforceable local release gates without rewriting working domains.
 
 **Tech Stack:** Node.js 24.14.1, pnpm 11.19.0, TypeScript 6, React 19, Vite 8, Fastify 5, Drizzle, PostgreSQL 18, Vitest, Playwright, Docker Compose and Caddy.
 
@@ -422,29 +422,29 @@ export interface ObjectStorage {
 
 **Gate:** Synthetic staging failures generate metrics and a real external alert after `[HUMANO]` supplies the destination; no sensitive value appears in telemetry.
 
-## Task 11: Enforce complete CI, coverage, security and image gates
+## Task 11: Enforce complete local coverage, security and image gates
 
 **Files:**
 
-- Modify: `.github/workflows/verify.yml`
+- Modify: local release scripts
 - Create or modify: Vitest coverage configuration in each package
 - Create: `scripts/check-bundle-budget.mjs`
 - Create: `scripts/check-production-config.mjs`
 - Modify: `package.json`
 - Update: `CONTRIBUTING.md`
 
-**Required CI sequence:** frozen install, format, lint with zero warnings, typecheck, unit/contracts, integration, build, E2E/a11y, coverage, dependency audit, secret scan, filesystem scan, Compose validation, Docker builds, image vulnerability scan and staging smoke.
+**Required local sequence:** frozen install, format, lint with zero warnings, typecheck, unit/contracts, integration, build, E2E/a11y, coverage, dependency audit, secret scan, filesystem scan, Compose validation, Docker builds, image vulnerability scan and staging smoke.
 
-- [ ] Make lint fail on warnings in CI and remove the existing four warnings.
+- [ ] Make strict lint fail on warnings and remove the existing four warnings.
 - [ ] Enforce at least 90% lines/branches in critical domain modules and 80% in modified non-critical modules. Do not exclude difficult production code merely to raise the percentage.
 - [ ] Add secret scanning over Git history and the working diff using a maintained pinned scanner.
 - [ ] Add filesystem and final-image scanning; fail on exploitable critical/high findings unless a time-bounded documented exception exists.
 - [ ] Add bundle budgets based on the current measured baseline and fail meaningful regressions.
-- [ ] Run the disposable staging smoke test in CI.
-- [ ] Pin third-party GitHub Actions by immutable commit SHA.
-- [ ] Keep total CI time practical through caching and job separation without skipping gates.
+- [ ] Run the disposable staging smoke test locally.
+- [ ] Pin local scanner versions.
+- [ ] Keep local verification time practical through caching without skipping gates.
 
-**Gate:** A pull request cannot merge when any required test, coverage, secret, image, Compose or smoke gate fails.
+**Gate:** Do not merge a release candidate when any required local test, coverage, secret, image, Compose or smoke gate fails.
 
 ## Task 12: Expand functional, concurrency and performance acceptance
 
@@ -521,7 +521,7 @@ git diff --check
 git status --short
 ```
 
-Also run the configured secret scanner, filesystem scanner and image scanner exactly as CI runs them. Record tool versions, exit codes, test totals, coverage by critical domain, image digests, smoke-test output and remaining `[HUMANO]` gates in `docs/release/definitive-closeout-evidence.md`.
+Also run the configured secret scanner, filesystem scanner and image scanner through local release scripts. Record tool versions, exit codes, test totals, coverage by critical domain, image digests, smoke-test output and remaining `[HUMANO]` gates in `docs/release/definitive-closeout-evidence.md`.
 
 ## Required final response from Cursor
 

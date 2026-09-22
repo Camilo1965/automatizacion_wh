@@ -8,6 +8,7 @@
   },
   "scripts": {
     "verify:local": "node scripts/verify-local.mjs",
+    "verify:release": "node scripts/verify-release.mjs",
     "dev": "pnpm --filter @camila/contracts build && node scripts/dev.mjs",
     "build": "pnpm --filter @camila/contracts --filter @camila/api --filter @camila/admin build",
     "test": "pnpm test:unit",
