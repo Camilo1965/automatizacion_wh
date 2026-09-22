@@ -171,12 +171,12 @@ Docker image manifest lists (this machine, after build):
 | 5 Retention          | `verified` | (this commit)    | Privacy inventory + controlled retention; migration 0034; legal durations `[HUMANO]` |
 | 6 Frontend UX/a11y   | `verified` | (Task 6 commit)  | Lifecycle UX + Fast Refresh 0                                                        |
 | 7 Object storage     | `verified` | (this commit)    | ObjectStorage + S3/MinIO + migrate CLI                                               |
-| 8 Topology/health    | pending    |                  |                                                                                      |
-| 9 Backups            | pending    |                  |                                                                                      |
-| 10 Observability     | pending    |                  |                                                                                      |
+| 8 Topology/health    | `verified` | (Task 8 commit)  | Staging smoke + hardened compose                                                     |
+| 9 Backups            | `verified` | (Task 9 commit)  | Encrypt+drill auto; prod dest `[HUMANO]`                                             |
+| 10 Observability     | `verified` | (Task 10 commit) | Metrics/alerts wired; external receipt `[HUMANO]`                                    |
 | 11 CI gates          | `verified` | (Task 11 commit) | Full verify.yml gates                                                                |
-| 12 Concurrency/perf  | pending    |                  |                                                                                      |
-| 13 Real integrations | `[HUMANO]` |                  |                                                                                      |
+| 12 Concurrency/perf  | `verified` | (Task 12 commit) | Concurrency ×3 + load + matrix                                                       |
+| 13 Real integrations | `[HUMANO]` | (Task 13 commit) | Docs/gates only; **NO-GO** — all live evidence BLOCKING                              |
 
 ---
 
@@ -475,5 +475,129 @@ Detail: `docs/release/_task12-implementer-report.md`
 
 - Owner sign-off on functional matrix
 - Real Meta / 99envíos paths → Task 13
+
+---
+
+## Task 13 — Real integrations, staging, pilot and launch gates (2026-09-22)
+
+### Automatable outcome (this task)
+
+| Deliverable | Status | Notes |
+| ----------- | ------ | ----- |
+| `docs/integrations/evidence-log.md` | `verified` (template) | Zero live rows; all BLOCKING `[HUMANO]` |
+| `docs/integrations/meta-validation-template.md` | `verified` (template) | Preflight + tests marked BLOCKING |
+| `docs/pilot/reconciliation-worksheet.md` | `verified` (template) | No import/reconcile executed |
+| `docs/pilot/training-checklist.md` | `verified` (template) | No training session |
+| `docs/pilot/go-no-go-checklist.md` | `verified` | Explicit **NO-GO**; missing evidence = BLOCKING |
+| `docs/release/production-launch.md` | `verified` (runbook) | Cutover not run |
+| `docs/release/stabilization-period.md` | `verified` (template) | Period not started |
+| `docs/release/acceptance-signoff.md` | `verified` (template) | Owner unsigned |
+| Real Meta / 99envíos calls | **not run** | By design — no credentials/authorization in agent |
+| VPS / DNS / TLS / pilot / acceptance | **not run** | `[HUMANO]` only |
+
+**Recommendation: NO-GO for production.** Automatable closeout docs complete; live gates open.
+
+### Design ledger updates (Task 13)
+
+| Requirement area | Status | Evidence / gap |
+| ---------------- | ------ | -------------- |
+| Meta + 99envíos real evidence | `[HUMANO]` / BLOCKING | No sanitized provider IDs recorded |
+| Pilot + acceptance signoff | `[HUMANO]` / BLOCKING | Training/reconcile/pilot/signoff empty |
+| Productive HTTPS / VPS / DNS | `[HUMANO]` / BLOCKING | Unchanged since Task 8 |
+| Prod backup dest + RPO/RTO | `[HUMANO]` / BLOCKING | Unchanged since Task 9 |
+| External alert receipt | `[HUMANO]` / BLOCKING | Unchanged since Task 10 |
+| Legal retention approval | `[HUMANO]` / BLOCKING | Unchanged since Task 5 |
+
+### Exact `[HUMANO]` action list (do in order)
+
+#### A. Infra & policy (before any live provider test)
+
+| # | Item | Exact action | Evidence required |
+| - | ---- | ------------ | ----------------- |
+| A1 | VPS | Provision host; install Docker; harden SSH; open 80/443 | Hostname/IP in vault (never Git) |
+| A2 | Domain | Own/point domain to VPS | `dig` A/AAAA matches VPS |
+| A3 | DNS | Records for admin/API/webhook as per `proxy-https` runbook | Screenshot or zone export (no secrets) |
+| A4 | TLS contact | Set ACME email / Caddy env on server | Valid cert on public URL |
+| A5 | External object storage | Create S3-compatible media bucket + IAM keys; set `STORAGE_DRIVER=s3` | Health put/get opaque key |
+| A6 | Backup storage | **Separate** bucket/account from media; set `BACKUP_S3_*` | Encrypted upload + restore drill log |
+| A7 | Alert destination | Configure Alertmanager receiver / hosted monitor URL on server | One synthetic alert received off-server |
+| A8 | Retention / RPO / RTO | Owner+legal Colombia approve matrix + numeric RPO/RTO | Signed matrix; values in vault/runbook (not invented) |
+
+#### B. Credentials (secret channel only — never chat/Git)
+
+| # | Item | Exact action | Evidence required |
+| - | ---- | ------------ | ----------------- |
+| B1 | Meta | Deliver WABA, phone number ID, verify token, app secret, access token via password manager/vault → panel Integraciones | Panel shows configured; no secret in repo |
+| B2 | 99envíos | Deliver API credentials same channel → panel | Panel configured |
+
+#### C. Authorized real validation
+
+| # | Item | Exact action | Evidence required |
+| - | ---- | ------------ | ----------------- |
+| C1 | Meta preflight | Complete `meta-validation-template.md` on HTTPS URL | Verify + signature reject + inbound + outbound rows |
+| C2 | Meta coexistence/templates | Only if Meta confirms; do not assume | Note from Meta / approved template name |
+| C3 | 99envíos safe quote | Login + cotizar destino controlado | Sanitized quote id + timestamp in evidence-log |
+| C4 | One real pre-shipment | Explicit written auth; `CAMILA_ALLOW_REAL_GUIDE=YES` only on `*_test` DB per runbook; or prod panel with owner present | Guide id partial + classification created/uncertain/failed |
+| C5 | PDF + incidents | Fetch PDF (`%PDF-`); check incidents endpoints available | Size/hash optional; no customer PII in git |
+| C6 | Evidence log | Fill `evidence-log.md` rows | All Meta + 99envíos rows non-empty |
+
+#### D. Data, people, pilot, launch
+
+| # | Item | Exact action | Evidence required |
+| - | ---- | ------------ | ----------------- |
+| D1 | Import/reconcile | Preview → commit; fill worksheet; owner approve each domain | Signed `reconciliation-worksheet.md` |
+| D2 | Train | Run training checklist with operators | Signed `training-checklist.md` |
+| D3 | Pilot | Controlled pilot per duration/budget | Incident log empty of P0/P1 or closed |
+| D4 | Go/no-go | Re-score checklist; only then mark GO | All BLOCKING cleared + signatures |
+| D5 | Cutover | Follow `production-launch.md` | Health + inbound verify |
+| D6 | Stabilization | Daily rows for agreed days | Completed `stabilization-period.md` |
+| D7 | Acceptance | Owner signs `acceptance-signoff.md` | Signed name + date |
+
+### What was NOT done (honest)
+
+- No Meta Graph / webhook live calls
+- No 99envíos login/quote/guide/PDF live calls
+- No VPS, DNS, TLS, bucket, or alert webhook provisioning
+- No pilot, training, import of real catalogs, or owner acceptance
+- No claim of GO
+
+### Secrets / PII
+
+No credentials, tokens, or personal data added in Task 13 docs.
+
+---
+
+## Remaining risks ranked P0–P3 (post Task 13 automatable)
+
+| Rank | Risk | Status | Why open |
+| ---- | ---- | ------ | -------- |
+| **P0** | No real Meta WhatsApp evidence | OPEN `[HUMANO]` | Cannot operate sales channel in prod |
+| **P0** | No real 99envíos guide/PDF evidence | OPEN `[HUMANO]` | Shipping path unproven with live account |
+| **P0** | No production VPS/DNS/TLS | OPEN `[HUMANO]` | No public HTTPS surface |
+| **P0** | No prod off-server backup destination + approved RPO/RTO | OPEN `[HUMANO]` | Restore drill not against real dest |
+| **P0** | No external alert receipt | OPEN `[HUMANO]` | Failures may go unseen off-box |
+| **P0** | Legal retention matrix unsigned | OPEN `[HUMANO]` | Destructive retention must stay blocked |
+| **P1** | Owner functional-matrix sign-off missing | OPEN `[HUMANO]` | Business acceptance incomplete |
+| **P1** | Catalog/stock/locality reconcile unsigned | OPEN `[HUMANO]` | Pilot data risk |
+| **P1** | Operators untrained / no pilot run | OPEN `[HUMANO]` | Operational readiness |
+| **P1** | Stabilization + acceptance unsigned | OPEN `[HUMANO]` | Launch incomplete by definition |
+| **P2** | Optional ERROR_TRACKING_DSN / exporters | OPEN `[HUMANO]` | Observability depth |
+| **P2** | Meta coexistence assumptions | OPEN `[HUMANO]` | Confirm with Meta before relying on templates |
+| **P3** | Historical Fast Refresh / UX gaps (Tasks 6 addressed in code) | mitigated in repo | Monitor regressions in CI |
+| **P3** | Prior 99envíos portal/dashboard quirks (2026-09-07 notes) | known | Re-validate on live account at C4 |
+
+**Any open P0 or P1 ⇒ production recommendation = NO-GO.**
+
+---
+
+## Final go / no-go recommendation
+
+| Question | Answer |
+| -------- | ------ |
+| Automatable Tasks 1–13 (docs/code gates) | Prepared / evidenced in repo where claimed `verified` |
+| Real integration / infra / legal / pilot / acceptance | **Missing** — all `[HUMANO]` BLOCKING |
+| **Recommendation** | **NO-GO** |
+
+Do not declare production complete until evidence-log, go/no-go checklist, stabilization, and acceptance-signoff contain **real** approvals and live provider IDs (sanitized).
 
 ---
