@@ -13,8 +13,12 @@ const env = {
 
 function run(command, args, options = {}) {
   const executable =
-    process.platform === 'win32' && command === 'pnpm' ? 'pnpm.cmd' : command;
-  const result = spawnSync(executable, args, {
+    process.platform === 'win32' && command === 'pnpm' ? 'cmd.exe' : command;
+  const executableArgs =
+    process.platform === 'win32' && command === 'pnpm'
+      ? ['/d', '/s', '/c', 'pnpm.cmd', ...args]
+      : args;
+  const result = spawnSync(executable, executableArgs, {
     env,
     shell: false,
     stdio: 'inherit',

@@ -59,6 +59,27 @@ describe('extractInboundWhatsAppMessages', () => {
     });
   });
 
+  it.each([
+    {
+      object: 'whatsapp_business_account',
+      entry: 'invalid',
+    },
+    {
+      object: 'whatsapp_business_account',
+      entry: [{}],
+    },
+    {
+      object: 'whatsapp_business_account',
+      entry: [{ changes: [null] }],
+    },
+    {
+      object: 'whatsapp_business_account',
+      entry: [{ changes: [{ value: { messages: 'invalid' } }] }],
+    },
+  ])('rejects a malformed nested payload %#', (malformed) => {
+    expect(extractInboundWhatsAppMessages(malformed)).toEqual({ ok: false });
+  });
+
   it('skips status-only changes that omit messages', () => {
     expect(
       extractInboundWhatsAppMessages({

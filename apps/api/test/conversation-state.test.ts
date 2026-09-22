@@ -37,6 +37,14 @@ describe('advanceConversation', () => {
     });
   });
 
+  it('rejects a numeric size below the supported range', () => {
+    expect(advanceConversation('awaiting_size', '0')).toEqual({
+      state: 'awaiting_size',
+      reply: 'Escribe la talla en números, por ejemplo 37 o 37.5.',
+      invalidAttempts: 1,
+    });
+  });
+
   it.each(['volver', 'cambiar talla', 'cancelar'])(
     'returns to size selection for command %s',
     (command) => {

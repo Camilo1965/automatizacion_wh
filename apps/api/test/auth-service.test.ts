@@ -16,6 +16,7 @@ import {
   UsernameConflictError,
   UserNotFoundError,
 } from '../src/modules/auth/auth-errors.js';
+import { AuthorizationDeniedError } from '../src/modules/auth/authorize.js';
 import { hashSessionToken } from '../src/modules/auth/session-token.js';
 
 class MemoryAdminAuthRepository implements AdminAuthRepository {
@@ -459,5 +460,83 @@ describe('AuthService', () => {
     await expect(
       service.resetPassword('missing', 'new-password-99', 'new-password-99'),
     ).rejects.toBeInstanceOf(UserNotFoundError);
+  });
+
+  it('enforces owner management rules and current-password confirmation', async () => {
+    const repository = new MemoryAdminAuthRepository();
+    const service = new AuthService(repository);
+    const owner = await service.createUser(
+      'owner',
+      'password1234',
+      'password1234',
+    );
+    const operator = await service.createUser(
+      'operator',
+      'password1234',
+      'password1234',
+      'operator',
+    );
+
+    await expect(service.listUsers(operator)).rejects.toBeInstanceOf(
+      AuthorizationDeniedError,
+    );
+    await expect(service.listUsers(owner)).resolves.toHaveLength(2);
+    await expect(
+      service.confirmCurrentPassword(owner, 'wrong-password'),
+    ).rejects.toBeInstanceOf(InvalidCredentialsError);
+    await expect(
+      service.updateUserRole(owner, owner.id, {
+        role: 'operator',
+        currentPassword: 'password1234',
+      }),
+    ).rejects.toBeInstanceOf(AuthorizationDeniedError);
+    await expect(
+      service.deactivateUser(owner, owner.id, {
+        currentPassword: 'password1234',
+      }),
+    ).rejects.toBeInstanceOf(AuthorizationDeniedError);
+
+    await expect(
+      service.updateUserRole(owner, operator.id, {
+        role: 'owner',
+        currentPassword: 'password1234',
+      }),
+    ).resolves.toMatchObject({ id: operator.id, role: 'owner' });
+    await expect(
+      service.deactivateUser(owner, operator.id, {
+        currentPassword: 'password1234',
+      }),
+    ).resolves.toMatchObject({ id: operator.id });
+  });
+
+  it('applies custom absolute and idle session limits', async () => {
+    const repository = new MemoryAdminAuthRepository();
+    let now = new Date('2026-09-06T12:00:00.000Z');
+    const service = new AuthService(repository, {
+      now: () => now,
+      createToken: () => 'session-token-custom-limits-value',
+      absoluteSessionTtlMs: 30 * 60 * 1000,
+      sessionIdleTtlMs: 10 * 60 * 1000,
+      sessionLastSeenThrottleMs: 5 * 60 * 1000,
+    });
+    await service.createUser('camila', 'password1234', 'password1234');
+    const login = await service.login('camila', 'password1234');
+    if (login.kind !== 'session') throw new Error('expected session login');
+
+    expect(login.expiresAt.toISOString()).toBe('2026-09-06T12:30:00.000Z');
+    await expect(service.listSessions(login.token)).resolves.toEqual([
+      expect.objectContaining({ current: true }),
+    ]);
+
+    now = new Date('2026-09-06T12:06:00.000Z');
+    await service.getSession(login.token);
+    expect([...repository.sessions.values()][0]?.lastSeenAt).toEqual(now);
+
+    now = new Date('2026-09-06T12:17:00.000Z');
+    await expect(service.getSession(login.token)).rejects.toBeInstanceOf(
+      AuthenticationRequiredError,
+    );
+    await expect(service.logout(null)).resolves.toBeUndefined();
+    await expect(service.logout('unknown-token')).resolves.toBeUndefined();
   });
 });

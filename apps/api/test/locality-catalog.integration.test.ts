@@ -68,4 +68,39 @@ describe('locality catalog publishing', () => {
       (await service.list()).filter((version) => version.status === 'active'),
     ).toHaveLength(1);
   });
+  it('bootstraps safely with no legacy rows and preserves an active version', async () => {
+    await expect(service.bootstrap()).resolves.toBeUndefined();
+    expect(await service.list()).toEqual([]);
+
+    const preview = await service.preview(source, '99envios_document', 'owner');
+    await service.publish(preview.id, 'owner');
+    await expect(service.bootstrap()).resolves.toBeUndefined();
+    expect(
+      (await service.list()).filter((version) => version.status === 'active'),
+    ).toHaveLength(1);
+  });
+  it('rejects CSV issues after parsing valid rows', async () => {
+    const csv = [
+      'carrier_code,department,locality,country',
+      '08001000,Atlántico,Barranquilla,CO',
+      '08001000,Atlántico,Soledad,CO',
+    ].join('\n');
+
+    await expect(service.preview(csv, 'csv', 'owner')).rejects.toMatchObject({
+      code: 'invalid_source',
+    });
+    expect(await service.list()).toEqual([]);
+  });
+  it('rejects missing versions and treats republishing an active version as idempotent', async () => {
+    await expect(
+      service.publish('00000000-0000-4000-8000-000000000000', 'owner'),
+    ).rejects.toMatchObject({ code: 'not_found' });
+
+    const preview = await service.preview(source, '99envios_document', 'owner');
+    await service.publish(preview.id, 'owner');
+    const afterRepeat = await service.publish(preview.id, 'owner');
+    expect(
+      afterRepeat.filter((version) => version.status === 'active'),
+    ).toHaveLength(1);
+  });
 });

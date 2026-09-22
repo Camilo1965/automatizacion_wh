@@ -8,13 +8,16 @@ import { InMemoryAuditRepository } from '../src/modules/audit/in-memory-audit-re
 import { AuditService } from '../src/modules/audit/audit-service.js';
 import {
   PRIVACY_INVENTORY,
+  RetentionConfirmationRequiredError,
   RetentionExecutionDisabledError,
   RetentionPolicyNotApprovedError,
   RetentionService,
+  RetentionValidationError,
   type RetentionDataStore,
   type RetentionRecordSnapshot,
 } from '../src/modules/privacy/retention-service.js';
 import { InMemoryRetentionRepository } from '../src/modules/privacy/in-memory-retention-repository.js';
+import { inventoryFor } from '../src/modules/privacy/retention-policy.js';
 
 const ANON_PHONE = '0000000000';
 const ANON_NAME = 'ANONIMIZADO';
@@ -526,5 +529,145 @@ describe('RetentionService', () => {
         currentPassword: 'x',
       }),
     ).rejects.toThrow(/anonymize|retain|allowed/i);
+  });
+
+  it('rejects malformed policies and requires explicit activation confirmation', async () => {
+    const repo = new InMemoryRetentionRepository();
+    const service = new RetentionService(
+      repo,
+      createStore([]),
+      new AuditService(new InMemoryAuditRepository()),
+      {
+        executionEnabled: true,
+        now: () => new Date('2026-09-22T00:00:00.000Z'),
+        confirmPassword: async () => undefined,
+      },
+    );
+    const classes = approvedClasses();
+
+    await expect(
+      service.createDraftPolicy(actor, {
+        classes: [classes[0]!, classes[0]!],
+        currentPassword: 'x',
+      }),
+    ).rejects.toThrow(/Duplicate data class/);
+    expect(() =>
+      inventoryFor('unknown_data_class' as RetentionClassPolicy['dataClass']),
+    ).toThrow(/Unknown privacy data class/);
+
+    const pending = await service.createDraftPolicy(actor, {
+      classes: pendingClasses(),
+      currentPassword: 'x',
+    });
+    await expect(
+      service.activatePolicy(actor, pending.id, {
+        currentPassword: 'x',
+        confirmIrreversible: false as unknown as true,
+      }),
+    ).rejects.toBeInstanceOf(RetentionConfirmationRequiredError);
+    await expect(
+      service.activatePolicy(actor, 'missing', {
+        currentPassword: 'x',
+        confirmIrreversible: true,
+      }),
+    ).rejects.toBeInstanceOf(RetentionValidationError);
+    await expect(
+      service.activatePolicy(actor, pending.id, {
+        currentPassword: 'x',
+        confirmIrreversible: true,
+      }),
+    ).rejects.toBeInstanceOf(RetentionPolicyNotApprovedError);
+  });
+
+  it('covers missing policy/run paths and exports only opaque customer data', async () => {
+    const repo = new InMemoryRetentionRepository();
+    const store = createStore([
+      {
+        id: '99999999-9999-4999-8999-999999999999',
+        dataClass: 'sales_orders_customer_pii',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        customerPhone: '573001234567',
+        customerName: 'Export Customer',
+        status: 'confirmed',
+        processed: false,
+      },
+    ]);
+    const service = new RetentionService(
+      repo,
+      store,
+      new AuditService(new InMemoryAuditRepository()),
+      {
+        executionEnabled: true,
+        now: () => new Date('2026-09-22T00:00:00.000Z'),
+        confirmPassword: async () => undefined,
+      },
+    );
+
+    expect(await service.listPolicies()).toEqual([]);
+    expect(await service.listRuns()).toEqual([]);
+    expect(await service.getRun('missing')).toBeNull();
+    await expect(
+      service.startRun(actor, {
+        mode: 'dry_run',
+        currentPassword: 'x',
+      }),
+    ).rejects.toBeInstanceOf(RetentionValidationError);
+    await expect(
+      service.startRun(actor, {
+        mode: 'execute',
+        currentPassword: 'x',
+        confirmIrreversible: true,
+      }),
+    ).rejects.toBeInstanceOf(RetentionPolicyNotApprovedError);
+    await expect(
+      service.startRun(actor, {
+        mode: 'dry_run',
+        currentPassword: 'x',
+        policyId: 'missing',
+      }),
+    ).rejects.toBeInstanceOf(RetentionValidationError);
+    await expect(
+      service.resumeRun(actor, 'missing', { currentPassword: 'x' }),
+    ).rejects.toBeInstanceOf(RetentionValidationError);
+
+    const draft = await service.createDraftPolicy(actor, {
+      classes: approvedClasses(),
+      currentPassword: 'x',
+      note: 'approved export policy',
+    });
+    await expect(
+      service.startRun(actor, {
+        mode: 'execute',
+        currentPassword: 'x',
+        policyId: draft.id,
+      }),
+    ).rejects.toBeInstanceOf(RetentionPolicyNotApprovedError);
+
+    await service.activatePolicy(actor, draft.id, {
+      currentPassword: 'x',
+      confirmIrreversible: true,
+    });
+    await expect(
+      service.startRun(actor, {
+        mode: 'execute',
+        currentPassword: 'x',
+      }),
+    ).rejects.toBeInstanceOf(RetentionConfirmationRequiredError);
+
+    const exported = await service.executeDataSubject(actor, {
+      kind: 'export',
+      customerPhone: '573001234567',
+      currentPassword: 'x',
+      confirmIrreversible: true,
+    });
+    expect(exported.kind).toBe('export');
+    expect(exported.exportPayload?.orders).toEqual([
+      expect.objectContaining({
+        opaqueId: opaqueId('99999999-9999-4999-8999-999999999999'),
+        status: 'confirmed',
+      }),
+    ]);
+    expect(JSON.stringify(exported)).not.toContain('Export Customer');
+    expect(JSON.stringify(exported)).not.toContain('573001234567');
   });
 });
