@@ -14,9 +14,10 @@ Plantilla montada: [docker/Caddyfile.example](../../docker/Caddyfile.example).
 ## Staging / loopback (sin DNS)
 
 ```bash
-docker compose -f compose.prod.yaml -f compose.staging.yaml --env-file .env.staging up -d --build
-# o pnpm production:smoke
+pnpm production:smoke
 ```
+
+Este comando usa un proyecto Compose exclusivo; no combines el override staging con el nombre de proyecto `camila-prod`.
 
 - HTTP: `http://127.0.0.1:18080`
 - HTTPS: `https://127.0.0.1:18443` con `CAMILA_DOMAIN=localhost` y `CADDY_SITE_OPTIONS=tls internal`

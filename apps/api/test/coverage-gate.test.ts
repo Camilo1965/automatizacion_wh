@@ -2,7 +2,10 @@
 // @ts-nocheck
 import { describe, expect, it } from 'vitest';
 
-import { evaluateFileCoverage } from '../../../scripts/lib/coverage-gate.mjs';
+import {
+  evaluateFileCoverage,
+  isPureDomainModule,
+} from '../../../scripts/lib/coverage-gate.mjs';
 
 function summary(path: string, lines: number, branches: number) {
   return {
@@ -14,6 +17,25 @@ function summary(path: string, lines: number, branches: number) {
 }
 
 describe('per-file coverage gate', () => {
+  it('classifies modified domain decisions without silently omitting token and error rules', () => {
+    expect(
+      isPureDomainModule('apps/api/src/modules/auth/mfa-login-token.ts'),
+    ).toBe(true);
+    expect(isPureDomainModule('apps/api/src/modules/auth/auth-errors.ts')).toBe(
+      true,
+    );
+    expect(
+      isPureDomainModule(
+        'apps/api/src/modules/shipping/shipping-guide-worker.ts',
+      ),
+    ).toBe(false);
+    expect(
+      isPureDomainModule(
+        'apps/api/src/modules/auth/postgres-admin-auth-repository.ts',
+      ),
+    ).toBe(false);
+  });
+
   it('rejects a critical file below 90 percent branches', () => {
     const failures = evaluateFileCoverage({
       criticalFiles: ['src/modules/whatsapp/whatsapp-event.ts'],
@@ -51,6 +73,19 @@ describe('per-file coverage gate', () => {
 
     expect(failures).toEqual([
       'critical src/modules/orders/order-state.ts: missing from coverage report',
+    ]);
+  });
+
+  it('rejects a required file with a missing metric instead of assuming full coverage', () => {
+    const path = 'src/modules/auth/mfa-login-token.ts';
+    const failures = evaluateFileCoverage({
+      criticalFiles: [],
+      modifiedFiles: [path],
+      summaries: { [`C:/repo/${path}`]: { lines: { pct: 100 } } },
+    });
+
+    expect(failures).toEqual([
+      `modified ${path}: missing lines or branches coverage metric`,
     ]);
   });
 

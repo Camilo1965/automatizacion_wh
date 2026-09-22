@@ -5,7 +5,11 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { RELEASE_STEPS, runReleaseSteps } from './lib/release-steps.mjs';
+import {
+  RELEASE_STEPS,
+  requireCleanWorktree,
+  runReleaseSteps,
+} from './lib/release-steps.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -27,7 +31,25 @@ function execute(step) {
   return result.status ?? 1;
 }
 
-process.exitCode = runReleaseSteps(RELEASE_STEPS, execute);
+const gitStatus = spawnSync(
+  'git',
+  ['status', '--porcelain', '--untracked-files=all'],
+  { cwd: root, encoding: 'utf8', shell: false },
+);
+if (gitStatus.error || gitStatus.status !== 0) {
+  console.error(
+    `[verify:release] cannot check worktree: ${gitStatus.error?.message || gitStatus.stderr}`,
+  );
+  process.exitCode = 1;
+} else {
+  try {
+    requireCleanWorktree(gitStatus.stdout);
+    process.exitCode = runReleaseSteps(RELEASE_STEPS, execute);
+  } catch (error) {
+    console.error(`[verify:release] ${error.message}`);
+    process.exitCode = 1;
+  }
+}
 if (process.exitCode === 0) {
   console.log('[verify:release] all local gates passed');
 }

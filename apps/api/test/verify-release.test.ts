@@ -5,9 +5,20 @@ import { describe, expect, it } from 'vitest';
 import {
   RELEASE_STEPS,
   runReleaseSteps,
+  requireCleanWorktree,
 } from '../../../scripts/lib/release-steps.mjs';
 
 describe('local release runner', () => {
+  it('refuses a release gate when uncommitted files would be omitted from scans', () => {
+    expect(() => requireCleanWorktree('')).not.toThrow();
+    expect(() => requireCleanWorktree(' M apps/api/src/app.ts')).toThrow(
+      /clean worktree/i,
+    );
+    expect(() => requireCleanWorktree('?? new-secret.txt')).toThrow(
+      /clean worktree/i,
+    );
+  });
+
   it('stops at the first failing gate and returns its exit code', () => {
     const calls: string[] = [];
     const steps = [

@@ -14,6 +14,14 @@ export const RELEASE_STEPS = Object.freeze([
   { name: 'images', command: 'pnpm', args: ['security:images'] },
 ]);
 
+export function requireCleanWorktree(porcelain) {
+  if (porcelain.trim() !== '') {
+    throw new Error(
+      'verify:release requires a clean worktree so every gate scans the exact commit',
+    );
+  }
+}
+
 export function runReleaseSteps(steps, run) {
   for (const step of steps) {
     const code = run(step);

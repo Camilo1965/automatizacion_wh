@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Disposable staging smoke:
- * 1. Write .env.staging with random secrets
+ * 1. Write a uniquely named, ignored staging env file with random secrets
  * 2. Build + boot compose.prod + compose.staging
  * 3. Wait for health
  * 4. Bootstrap admin, login, hit major routes
@@ -23,18 +23,24 @@ import { setTimeout as delay } from 'node:timers/promises';
 import {
   assertBackupHeartbeat,
   parseBackupId,
+  projectScopedComposeFiles,
   renderStagingEnv,
+  smokeImageTags,
+  smokeProjectName,
 } from './lib/production-smoke-helpers.mjs';
 
 // Staging uses Caddy `tls internal`; accept the local CA for this process only.
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const envPath = join(root, '.env.staging');
+const smokeProject = smokeProjectName();
+const envFileName = `.env.staging.${smokeProject}`;
+const envPath = join(root, envFileName);
+process.env.SMOKE_ENV_FILE = envFileName;
 const evidenceDir = join(root, 'docs', 'release');
 const evidencePartial = join(evidenceDir, '_task8-smoke-partial.md');
 
-const composeFiles = ['-f', 'compose.prod.yaml', '-f', 'compose.staging.yaml'];
+const composeFiles = projectScopedComposeFiles(smokeProject);
 
 const baseUrl = process.env.SMOKE_BASE_URL ?? 'https://localhost:18443';
 
@@ -72,11 +78,13 @@ function writeStagingEnv() {
     mediaSecretKey: `stgmedia_${randomSecret(24)}`,
     backupAccessKey: `stgbackup_${randomSecret(12)}`,
     backupSecretKey: `stgbackup_${randomSecret(24)}`,
+    rootAccessKey: `stgroot_${randomSecret(12)}`,
+    rootSecretKey: `stgroot_${randomSecret(24)}`,
     adminPassword: `Adm_${randomSecret(16)}_9x`,
     adminUsername: 'smoke-owner',
   };
 
-  writeFileSync(envPath, renderStagingEnv(secrets), 'utf8');
+  writeFileSync(envPath, renderStagingEnv(secrets, smokeProject), 'utf8');
   return {
     adminUsername: secrets.adminUsername,
     adminPassword: secrets.adminPassword,
@@ -105,7 +113,7 @@ async function waitForHealth(timeoutMs = 180_000) {
     'compose',
     ...composeFiles,
     '--env-file',
-    '.env.staging',
+    envFileName,
     'logs',
     'caddy',
     '--tail',
@@ -130,17 +138,26 @@ async function checkRoutes(cookie) {
 }
 
 function confirmSeparateProcesses() {
+  const apiId = composeRun(['ps', '-q', 'api']);
+  const workerId = composeRun(['ps', '-q', 'worker']);
+  requireOk(apiId, 'api container lookup');
+  requireOk(workerId, 'worker container lookup');
+  const apiContainer = (apiId.stdout || '').trim();
+  const workerContainer = (workerId.stdout || '').trim();
+  if (!apiContainer || !workerContainer || apiContainer === workerContainer) {
+    throw new Error('API and worker containers are missing or identical');
+  }
   const apiInspect = run('docker', [
     'inspect',
     '--format',
     '{{json .Config.Cmd}}',
-    'camila-prod-api-1',
+    apiContainer,
   ]);
   const workerInspect = run('docker', [
     'inspect',
     '--format',
     '{{json .Config.Cmd}}',
-    'camila-prod-worker-1',
+    workerContainer,
   ]);
   requireOk(apiInspect, 'api process probe');
   requireOk(workerInspect, 'worker process probe');
@@ -163,9 +180,18 @@ function composeRun(args) {
     'compose',
     ...composeFiles,
     '--env-file',
-    '.env.staging',
+    envFileName,
     ...args,
   ]);
+}
+
+function removeDisposableImages() {
+  const result = run('docker', [
+    'image',
+    'rm',
+    ...smokeImageTags(smokeProject),
+  ]);
+  requireOk(result, 'smoke image cleanup');
 }
 
 function parseLastJson(output, label) {
@@ -369,27 +395,27 @@ async function main() {
 
     secrets = writeStagingEnv();
     passed.push('env-written');
-    log('wrote disposable .env.staging');
+    log(`wrote disposable ${envFileName}`);
 
     const config = run('docker', [
       'compose',
       ...composeFiles,
       '--env-file',
-      '.env.staging',
+      envFileName,
       'config',
       '--quiet',
     ]);
     requireOk(config, 'compose config');
     passed.push('compose-config');
 
-    log('building images (migrate builds shared camila-api:local)');
+    log(`building disposable images for ${smokeProject}`);
     const build = run(
       'docker',
       [
         'compose',
         ...composeFiles,
         '--env-file',
-        '.env.staging',
+        envFileName,
         'build',
         'migrate',
         'worker',
@@ -410,7 +436,7 @@ async function main() {
         'compose',
         ...composeFiles,
         '--env-file',
-        '.env.staging',
+        envFileName,
         'up',
         '-d',
         '--remove-orphans',
@@ -431,7 +457,7 @@ async function main() {
       'compose',
       ...composeFiles,
       '--env-file',
-      '.env.staging',
+      envFileName,
       'run',
       '--rm',
       '-T',
@@ -508,7 +534,7 @@ async function main() {
         'compose',
         ...composeFiles,
         '--env-file',
-        '.env.staging',
+        envFileName,
         'down',
         '-v',
         '--remove-orphans',
@@ -517,6 +543,8 @@ async function main() {
     );
     requireOk(down, 'compose down');
     passed.push('shutdown');
+    removeDisposableImages();
+    passed.push('image-cleanup');
 
     if (existsSync(envPath)) {
       rmSync(envPath);
@@ -538,13 +566,23 @@ async function main() {
         'compose',
         ...composeFiles,
         '--env-file',
-        '.env.staging',
+        envFileName,
         'down',
         '-v',
         '--remove-orphans',
       ],
       { stdio: 'inherit' },
     );
+    const imageCleanup = run('docker', [
+      'image',
+      'rm',
+      ...smokeImageTags(smokeProject),
+    ]);
+    if (imageCleanup.status !== 0) {
+      log(
+        `image cleanup incomplete: ${imageCleanup.stderr || imageCleanup.stdout}`,
+      );
+    }
     if (existsSync(envPath)) {
       rmSync(envPath);
     }

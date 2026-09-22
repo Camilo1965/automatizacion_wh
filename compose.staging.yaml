@@ -1,8 +1,7 @@
 # Staging overrides for compose.prod.yaml (loopback only; no public DNS).
 #
-#   docker compose -f compose.prod.yaml -f compose.staging.yaml --env-file .env.staging up -d --build
-#
-# Or: pnpm production:smoke
+# Use pnpm production:smoke; it assigns a unique Compose project, image tags,
+# env file and scoped S3 users. Never start this override under camila-prod.
 
 services:
   postgres:
@@ -10,13 +9,15 @@ services:
       - '127.0.0.1:55432:5432'
 
   migrate:
+    image: ${SMOKE_API_IMAGE:-camila-api:local}
     env_file:
-      - path: .env.staging
+      - path: ${SMOKE_ENV_FILE:-.env.staging}
         required: true
 
   api:
+    image: ${SMOKE_API_IMAGE:-camila-api:local}
     env_file:
-      - path: .env.staging
+      - path: ${SMOKE_ENV_FILE:-.env.staging}
         required: true
     environment:
       STORAGE_DRIVER: s3
@@ -32,8 +33,9 @@ services:
         condition: service_completed_successfully
 
   worker:
+    image: ${SMOKE_WORKER_IMAGE:-camila-worker:local}
     env_file:
-      - path: .env.staging
+      - path: ${SMOKE_ENV_FILE:-.env.staging}
         required: true
     environment:
       STORAGE_DRIVER: s3
@@ -49,8 +51,9 @@ services:
         condition: service_completed_successfully
 
   backup:
+    image: ${SMOKE_BACKUP_IMAGE:-camila-backup:local}
     env_file:
-      - path: .env.staging
+      - path: ${SMOKE_ENV_FILE:-.env.staging}
         required: true
     environment:
       # Staging drill uses MinIO with a SEPARATE backup bucket + keys from media S3_*.
@@ -84,12 +87,15 @@ services:
       CADDY_GLOBAL_OPTIONS: ${CADDY_GLOBAL_OPTIONS:-}
       CADDY_SITE_OPTIONS: ${CADDY_SITE_OPTIONS:-tls internal}
 
+  admin:
+    image: ${SMOKE_ADMIN_IMAGE:-camila-admin:local}
+
   minio:
     image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
     command: server /data --console-address ':9001'
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - minio_staging_data:/data
     expose:
@@ -116,16 +122,26 @@ services:
       BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-kairo-backups-staging}
       BACKUP_S3_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID}
       BACKUP_S3_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     entrypoint: >
       /bin/sh -c "
       set -eu;
-      until mc alias set local http://minio:9000 \"$$S3_ACCESS_KEY_ID\" \"$$S3_SECRET_ACCESS_KEY\"; do sleep 1; done;
+      until mc alias set local http://minio:9000 \"$$MINIO_ROOT_USER\" \"$$MINIO_ROOT_PASSWORD\"; do sleep 1; done;
       mc mb --ignore-existing \"local/$$S3_BUCKET\";
       mc mb --ignore-existing \"local/$$BACKUP_S3_BUCKET\";
+      printf '%s' '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:ListBucket\",\"s3:GetBucketLocation\"],\"Resource\":[\"arn:aws:s3:::'\"$$S3_BUCKET\"'\"]},{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\"],\"Resource\":[\"arn:aws:s3:::'\"$$S3_BUCKET\"'/*\"]}]}' > /tmp/media-policy.json;
+      mc admin user add local \"$$S3_ACCESS_KEY_ID\" \"$$S3_SECRET_ACCESS_KEY\";
+      mc admin policy create local kairo-media-staging /tmp/media-policy.json;
+      mc admin policy attach local kairo-media-staging --user \"$$S3_ACCESS_KEY_ID\";
       printf '%s' '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:ListBucket\",\"s3:GetBucketLocation\"],\"Resource\":[\"arn:aws:s3:::'\"$$BACKUP_S3_BUCKET\"'\"]},{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\"],\"Resource\":[\"arn:aws:s3:::'\"$$BACKUP_S3_BUCKET\"'/*\"]}]}' > /tmp/backup-policy.json;
       mc admin user add local \"$$BACKUP_S3_ACCESS_KEY_ID\" \"$$BACKUP_S3_SECRET_ACCESS_KEY\";
       mc admin policy create local kairo-backup-staging /tmp/backup-policy.json;
       mc admin policy attach local kairo-backup-staging --user \"$$BACKUP_S3_ACCESS_KEY_ID\";
+      mc alias set media http://minio:9000 \"$$S3_ACCESS_KEY_ID\" \"$$S3_SECRET_ACCESS_KEY\";
+      mc alias set backup http://minio:9000 \"$$BACKUP_S3_ACCESS_KEY_ID\" \"$$BACKUP_S3_SECRET_ACCESS_KEY\";
+      if mc ls \"media/$$BACKUP_S3_BUCKET\"; then echo 'media credentials reached backup bucket' >&2; exit 1; fi;
+      if mc ls \"backup/$$S3_BUCKET\"; then echo 'backup credentials reached media bucket' >&2; exit 1; fi;
       "
     networks:
       - internal
@@ -136,5 +152,4 @@ volumes:
 
 networks:
   internal:
-    # Declared so this override file validates alone; merged with compose.prod.yaml in smoke.
-    name: kairo_staging_internal
+    # Compose scopes this network to the disposable smoke project.

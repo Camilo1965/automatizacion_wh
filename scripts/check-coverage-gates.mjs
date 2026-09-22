@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import {
   evaluateFileCoverage,
   findSummaryEntry,
+  isPureDomainModule,
 } from './lib/coverage-gate.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -23,10 +24,6 @@ const CRITICAL_FILES = Object.freeze([
   'apps/api/src/modules/shipping/shipping-selection.ts',
   'apps/api/src/modules/shipping/shipping-policy.ts',
 ]);
-
-const DOMAIN_MODULE = /[/\\]modules[/\\][^/\\]+[/\\][^/\\]+\.(ts|tsx)$/i;
-const DOMAIN_KIND =
-  /(service|state|validation|policy|capabilities|authorize|totp|password|crypto|selection|event|scheduler)\.(ts|tsx)$/i;
 
 const reports = [
   {
@@ -47,7 +44,7 @@ const reports = [
 ];
 
 function pct(metric) {
-  return typeof metric?.pct === 'number' ? metric.pct : 100;
+  return typeof metric?.pct === 'number' ? metric.pct : null;
 }
 
 function basename(filePath) {
@@ -55,13 +52,7 @@ function basename(filePath) {
 }
 
 function isCritical(filePath) {
-  return CRITICAL_FILES.some(
-    (critical) => basename(critical) === basename(filePath),
-  );
-}
-
-function isDomainModule(filePath) {
-  return DOMAIN_MODULE.test(filePath) && DOMAIN_KIND.test(filePath);
+  return CRITICAL_FILES.includes(filePath.replace(/\\/g, '/'));
 }
 
 function listModifiedSourceFiles() {
@@ -103,7 +94,7 @@ function listModifiedSourceFiles() {
     .filter(Boolean)
     .filter(
       (file) =>
-        isDomainModule(file) &&
+        isPureDomainModule(file) &&
         !isCritical(file) &&
         !/\.test\.(ts|tsx)$/.test(file),
     );
@@ -124,8 +115,16 @@ for (const report of reports) {
     failures.push(`${report.label}: coverage-summary missing total`);
     continue;
   }
+  const totalLines = pct(data.total.lines);
+  const totalBranches = pct(data.total.branches);
+  if (totalLines === null || totalBranches === null) {
+    failures.push(
+      `${report.label}: coverage-summary missing total lines/branches`,
+    );
+    continue;
+  }
   console.log(
-    `${report.label} total: lines ${pct(data.total.lines).toFixed(2)}% branches ${pct(data.total.branches).toFixed(2)}%`,
+    `${report.label} total: lines ${totalLines.toFixed(2)}% branches ${totalBranches.toFixed(2)}%`,
   );
   Object.assign(summaries, data);
 }
@@ -138,16 +137,20 @@ console.log(
 for (const file of CRITICAL_FILES) {
   const entry = findSummaryEntry(summaries, file);
   if (entry !== null) {
+    const lines = pct(entry.metrics.lines);
+    const branches = pct(entry.metrics.branches);
     console.log(
-      `  critical ${basename(file)}: lines ${pct(entry.metrics.lines).toFixed(2)}% branches ${pct(entry.metrics.branches).toFixed(2)}%`,
+      `  critical ${basename(file)}: lines ${lines?.toFixed(2) ?? 'missing'}% branches ${branches?.toFixed(2) ?? 'missing'}%`,
     );
   }
 }
 for (const file of modifiedFiles) {
   const entry = findSummaryEntry(summaries, file);
   if (entry !== null) {
+    const lines = pct(entry.metrics.lines);
+    const branches = pct(entry.metrics.branches);
     console.log(
-      `  modified ${file}: lines ${pct(entry.metrics.lines).toFixed(2)}% branches ${pct(entry.metrics.branches).toFixed(2)}%`,
+      `  modified ${file}: lines ${lines?.toFixed(2) ?? 'missing'}% branches ${branches?.toFixed(2) ?? 'missing'}%`,
     );
   }
 }

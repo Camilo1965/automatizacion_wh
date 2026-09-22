@@ -5,7 +5,10 @@ import { describe, expect, it } from 'vitest';
 import {
   assertBackupHeartbeat,
   parseBackupId,
+  projectScopedComposeFiles,
   renderStagingEnv,
+  smokeImageTags,
+  smokeProjectName,
 } from '../../../scripts/lib/production-smoke-helpers.mjs';
 
 function envValue(contents: string, name: string): string {
@@ -24,13 +27,39 @@ const secrets = {
   mediaSecretKey: 'stg_media_secret_123456789',
   backupAccessKey: 'stg_backup_access',
   backupSecretKey: 'stg_backup_secret_123456789',
+  rootAccessKey: 'stg_root_access',
+  rootSecretKey: 'test-root-password',
   adminUsername: 'smoke-owner',
   adminPassword: 'Adm_smoke_password_9x',
 };
 
 describe('production smoke helpers', () => {
+  it('isolates every smoke in a unique Compose project', () => {
+    const first = smokeProjectName();
+    const second = smokeProjectName();
+    expect(first).toMatch(/^kairo-smoke-[0-9a-f]{16}$/);
+    expect(second).not.toBe(first);
+    expect(projectScopedComposeFiles(first)).toEqual([
+      '-p',
+      first,
+      '-f',
+      'compose.prod.yaml',
+      '-f',
+      'compose.staging.yaml',
+    ]);
+    expect(() => projectScopedComposeFiles('camila-prod')).toThrow(
+      /smoke project/i,
+    );
+    expect(smokeImageTags(first)).toEqual([
+      `${first}-api:local`,
+      `${first}-worker:local`,
+      `${first}-admin:local`,
+      `${first}-backup:local`,
+    ]);
+  });
+
   it('renders complete staging configuration with distinct media and backup credentials', () => {
-    const contents = renderStagingEnv(secrets);
+    const contents = renderStagingEnv(secrets, `kairo-smoke-${'a'.repeat(16)}`);
 
     expect(envValue(contents, 'S3_ACCESS_KEY_ID')).toBe(secrets.mediaAccessKey);
     expect(envValue(contents, 'BACKUP_S3_ACCESS_KEY_ID')).toBe(
@@ -44,6 +73,16 @@ describe('production smoke helpers', () => {
     );
     expect(envValue(contents, 'BACKUP_ENCRYPTION_KEY')).toBe(
       secrets.backupEncryptionKey,
+    );
+    expect(envValue(contents, 'MINIO_ROOT_USER')).toBe(secrets.rootAccessKey);
+    expect(envValue(contents, 'MINIO_ROOT_PASSWORD')).toBe(
+      secrets.rootSecretKey,
+    );
+    expect(envValue(contents, 'MINIO_ROOT_USER')).not.toBe(
+      envValue(contents, 'S3_ACCESS_KEY_ID'),
+    );
+    expect(envValue(contents, 'SMOKE_API_IMAGE')).toBe(
+      `kairo-smoke-${'a'.repeat(16)}-api:local`,
     );
   });
 
