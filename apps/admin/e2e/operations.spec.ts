@@ -136,47 +136,57 @@ for (const viewport of [
   });
 }
 
-test('has no serious accessibility violations on principal routes', async ({
-  page,
-}) => {
-  await login(page);
-  for (const route of [
-    '/',
-    '/conversations',
-    '/catalog',
-    '/orders',
-    '/settings/shipping',
-    '/settings/bot-flow',
-    '/settings/localities',
-    '/shipping/incidents',
-    '/alerts',
-    '/settings/integrations',
-    '/settings/whatsapp',
-    '/settings/audit',
-    '/settings/security',
-    '/settings/privacy',
-    '/inventory/closures',
-    '/more',
-  ]) {
-    await page.goto(route);
-    await expect(page.locator('main')).toBeVisible();
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
-      .analyze();
-    const seriousViolations = results.violations
-      .filter((violation) =>
-        ['critical', 'serious'].includes(violation.impact ?? ''),
-      )
-      .map((violation) => ({
-        id: violation.id,
-        impact: violation.impact,
-        targets: violation.nodes.map((node) => node.target.join(' ')),
-      }));
-    expect(seriousViolations, `${route} has accessibility violations`).toEqual(
-      [],
-    );
-  }
-});
+const criticalRoutes = [
+  '/',
+  '/conversations',
+  '/catalog',
+  '/orders',
+  '/settings/shipping',
+  '/settings/bot-flow',
+  '/settings/localities',
+  '/shipping/incidents',
+  '/alerts',
+  '/settings/integrations',
+  '/settings/whatsapp',
+  '/settings/audit',
+  '/settings/security',
+  '/settings/privacy',
+  '/inventory/closures',
+  '/more',
+] as const;
+
+for (const viewport of [
+  { width: 390, height: 844 },
+  { width: 768, height: 1024 },
+  { width: 1280, height: 720 },
+  { width: 1440, height: 900 },
+]) {
+  test(`has no serious accessibility violations at ${viewport.width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await login(page);
+    for (const route of criticalRoutes) {
+      await page.goto(route);
+      await expect(page.locator('main')).toBeVisible();
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze();
+      const seriousViolations = results.violations
+        .filter((violation) =>
+          ['critical', 'serious'].includes(violation.impact ?? ''),
+        )
+        .map((violation) => ({
+          id: violation.id,
+          impact: violation.impact,
+          targets: violation.nodes.map((node) => node.target.join(' ')),
+        }));
+      expect(seriousViolations, `${route} a11y at ${viewport.width}px`).toEqual(
+        [],
+      );
+    }
+  });
+}
 
 test('keeps keyboard order, 44px targets and reduced motion on shell', async ({
   page,
@@ -195,14 +205,23 @@ test('keeps keyboard order, 44px targets and reduced motion on shell', async ({
     return targets
       .filter((element) => {
         const box = element.getBoundingClientRect();
-        return box.width > 0 && box.height > 0 && (box.width < 44 || box.height < 44);
+        return (
+          box.width > 0 && box.height > 0 && (box.width < 44 || box.height < 44)
+        );
       })
-      .map((element) => element.textContent?.trim() || element.getAttribute('aria-label') || element.tagName)
+      .map(
+        (element) =>
+          element.textContent?.trim() ||
+          element.getAttribute('aria-label') ||
+          element.tagName,
+      )
       .slice(0, 8);
   });
   expect(undersized).toEqual([]);
   await page.keyboard.press('Tab');
-  const activeTag = await page.evaluate(() => document.activeElement?.tagName ?? '');
+  const activeTag = await page.evaluate(
+    () => document.activeElement?.tagName ?? '',
+  );
   expect(['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA']).toContain(activeTag);
   await page.getByRole('link', { name: 'Más' }).focus();
   await expect(page.getByRole('link', { name: 'Más' })).toBeFocused();

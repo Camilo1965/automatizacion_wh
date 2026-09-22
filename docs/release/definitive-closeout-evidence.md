@@ -12,12 +12,12 @@ Status legend: `verified` | `failed` | `[HUMANO]` | `in_progress`
 
 ### Git state
 
-| Check | Result |
-| --- | --- |
-| Branch created | `cursor/kairo-definitive-closeout` from `main` HEAD |
-| Starting SHA | `938003e44b31bdb625c4f970e8011a9719d0d8eb` |
-| Ahead of origin/main | 7 commits (preserved; no reset) |
-| Worktree | clean at Task 1 start |
+| Check                | Result                                              |
+| -------------------- | --------------------------------------------------- |
+| Branch created       | `cursor/kairo-definitive-closeout` from `main` HEAD |
+| Starting SHA         | `938003e44b31bdb625c4f970e8011a9719d0d8eb`          |
+| Ahead of origin/main | 7 commits (preserved; no reset)                     |
+| Worktree             | clean at Task 1 start                               |
 
 Commands:
 
@@ -43,63 +43,63 @@ git rev-parse HEAD
 
 ### Fresh verification (do not reuse prior audit claims)
 
-| Command | Exit | Timestamp (local) | Totals / notes |
-| --- | --- | --- | --- |
-| `pnpm install --frozen-lockfile` | 0 | 2026-09-21 ~23:45 | Already up to date; pnpm 11.19.0 |
-| `pnpm verify:local` | 0 | 2026-09-21 23:45–23:50 | Duration ~271s |
-| `pnpm audit --prod` | 0 | 2026-09-21 23:50 | No known vulnerabilities found |
-| `docker compose --env-file .env.prod.example -f compose.prod.yaml config --quiet` | 0 | 2026-09-21 23:50 | Valid |
-| `docker compose --env-file .env.prod.example -f compose.prod.yaml build api worker admin` | 0 | 2026-09-21 23:50 | All three images built |
+| Command                                                                                   | Exit | Timestamp (local)      | Totals / notes                   |
+| ----------------------------------------------------------------------------------------- | ---- | ---------------------- | -------------------------------- |
+| `pnpm install --frozen-lockfile`                                                          | 0    | 2026-09-21 ~23:45      | Already up to date; pnpm 11.19.0 |
+| `pnpm verify:local`                                                                       | 0    | 2026-09-21 23:45–23:50 | Duration ~271s                   |
+| `pnpm audit --prod`                                                                       | 0    | 2026-09-21 23:50       | No known vulnerabilities found   |
+| `docker compose --env-file .env.prod.example -f compose.prod.yaml config --quiet`         | 0    | 2026-09-21 23:50       | Valid                            |
+| `docker compose --env-file .env.prod.example -f compose.prod.yaml build api worker admin` | 0    | 2026-09-21 23:50       | All three images built           |
 
 #### `pnpm verify:local` totals
 
-| Suite | Result |
-| --- | --- |
-| format:check | pass |
-| lint | 0 errors, **4 Fast Refresh warnings** (badge/button/sidebar/tabs) |
-| typecheck | pass |
-| contracts unit | 70 passed |
-| API unit | 213 passed |
-| admin unit | 50 passed |
-| API integration | 109 passed |
-| admin E2E | 22 passed |
-| build | pass |
+| Suite           | Result                                                            |
+| --------------- | ----------------------------------------------------------------- |
+| format:check    | pass                                                              |
+| lint            | 0 errors, **4 Fast Refresh warnings** (badge/button/sidebar/tabs) |
+| typecheck       | pass                                                              |
+| contracts unit  | 70 passed                                                         |
+| API unit        | 213 passed                                                        |
+| admin unit      | 50 passed                                                         |
+| API integration | 109 passed                                                        |
+| admin E2E       | 22 passed                                                         |
+| build           | pass                                                              |
 
 Docker image manifest lists (this machine, after build):
 
-| Image | Manifest digest |
-| --- | --- |
-| camila-prod-api | `sha256:ed82c6c6007abfe2088d78499f35808d0309ef0a30963601880f7c1632de4f0d` |
+| Image              | Manifest digest                                                           |
+| ------------------ | ------------------------------------------------------------------------- |
+| camila-prod-api    | `sha256:ed82c6c6007abfe2088d78499f35808d0309ef0a30963601880f7c1632de4f0d` |
 | camila-prod-worker | `sha256:331c12e8e57be7bf4710221e6a52ada706585e4c7bd137a158013b7b497c68f6` |
-| camila-prod-admin | `sha256:d5b8856dd67f40884b90cc0af77652a88844f80f6b5d4d3e6b6187604ea7dafa` |
+| camila-prod-admin  | `sha256:d5b8856dd67f40884b90cc0af77652a88844f80f6b5d4d3e6b6187604ea7dafa` |
 
 ### Design requirement ledger (honest)
 
-| Requirement area | Status | Evidence / gap |
-| --- | --- | --- |
-| Baseline CI green locally | `verified` | `pnpm verify:local` exit 0 |
-| Prod dependency audit | `verified` | `pnpm audit --prod` clean |
-| Compose prod config | `verified` | config --quiet exit 0 |
-| Docker image builds | `verified` | api/worker/admin built |
-| Real RBAC / capabilities | `verified` | Task 2: roles + `requireCapability` on admin routes; U/I/E evidence |
-| Operable MFA from panel | `verified` | Task 3: enroll/confirm/disable, sessions, rate limit, local QR |
-| Unified admin/business audit | `verified` | Task 4: `admin_audit_events` + Historial `/audit`; auth sink → Postgres |
-| Versioned retention + legal gate | `failed` | Execution must stay blocked until `[HUMANO]` legal approval |
-| Integrations/Shipping UX lifecycle | `failed` | Pages still monolithic; generic copy residual risk |
-| Fast Refresh warnings = 0 | `failed` | 4 warnings remain |
-| A11y all principal routes @ 390/768/1280/1440 | `failed` | Partial E2E only |
-| S3-compatible production storage | `verified` | Task 7: ObjectStorage local+S3; prod requires `STORAGE_DRIVER=s3`; MinIO test profile only |
-| Compose migrate service | `verified` | Task 8: one-shot `migrate` before api/worker |
-| Real worker health | `verified` | Task 8: DB + scheduler + heartbeat via `worker-health` |
-| Hardened non-root containers | `verified` | Task 8: unprivileged admin, read_only/tmpfs/cap_drop, digests |
-| Productive HTTPS (Caddy + domain) | `[HUMANO]` | Needs domain/DNS/VPS; staging uses loopback + tls internal |
-| Encrypted off-server backup + restore drill | `verified` (auto) / `[HUMANO]` dest | Task 9: encrypted dump+upload+drill; prod bucket/RPO/RTO `[HUMANO]` |
-| Metrics + correlation IDs + external alerts | `verified` (auto) / `[HUMANO]` webhook | Task 10: metrics + alerts wired; external receipt `[HUMANO]` |
-| CI coverage/secret/fs/image/smoke gates | `verified` | Task 11 |
-| Real idempotency/concurrency tests | `failed` | Schema-name assertions insufficient |
-| Staging reproducible smoke | `verified` | Task 8: `pnpm production:smoke` PASS |
-| Meta + 99envíos real evidence | `[HUMANO]` | Credentials + authorized actions |
-| Pilot + acceptance signoff | `[HUMANO]` | Owner/operators |
+| Requirement area                              | Status                                 | Evidence / gap                                                                             |
+| --------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Baseline CI green locally                     | `verified`                             | `pnpm verify:local` exit 0                                                                 |
+| Prod dependency audit                         | `verified`                             | `pnpm audit --prod` clean                                                                  |
+| Compose prod config                           | `verified`                             | config --quiet exit 0                                                                      |
+| Docker image builds                           | `verified`                             | api/worker/admin built                                                                     |
+| Real RBAC / capabilities                      | `verified`                             | Task 2: roles + `requireCapability` on admin routes; U/I/E evidence                        |
+| Operable MFA from panel                       | `verified`                             | Task 3: enroll/confirm/disable, sessions, rate limit, local QR                             |
+| Unified admin/business audit                  | `verified`                             | Task 4: `admin_audit_events` + Historial `/audit`; auth sink → Postgres                    |
+| Versioned retention + legal gate              | `failed`                               | Execution must stay blocked until `[HUMANO]` legal approval                                |
+| Integrations/Shipping UX lifecycle            | `failed`                               | Pages still monolithic; generic copy residual risk                                         |
+| Fast Refresh warnings = 0                     | `failed`                               | 4 warnings remain                                                                          |
+| A11y all principal routes @ 390/768/1280/1440 | `failed`                               | Partial E2E only                                                                           |
+| S3-compatible production storage              | `verified`                             | Task 7: ObjectStorage local+S3; prod requires `STORAGE_DRIVER=s3`; MinIO test profile only |
+| Compose migrate service                       | `verified`                             | Task 8: one-shot `migrate` before api/worker                                               |
+| Real worker health                            | `verified`                             | Task 8: DB + scheduler + heartbeat via `worker-health`                                     |
+| Hardened non-root containers                  | `verified`                             | Task 8: unprivileged admin, read_only/tmpfs/cap_drop, digests                              |
+| Productive HTTPS (Caddy + domain)             | `[HUMANO]`                             | Needs domain/DNS/VPS; staging uses loopback + tls internal                                 |
+| Encrypted off-server backup + restore drill   | `verified` (auto) / `[HUMANO]` dest    | Task 9: encrypted dump+upload+drill; prod bucket/RPO/RTO `[HUMANO]`                        |
+| Metrics + correlation IDs + external alerts   | `verified` (auto) / `[HUMANO]` webhook | Task 10: metrics + alerts wired; external receipt `[HUMANO]`                               |
+| CI coverage/secret/fs/image/smoke gates       | `verified`                             | Task 11                                                                                    |
+| Real idempotency/concurrency tests            | `failed`                               | Schema-name assertions insufficient                                                        |
+| Staging reproducible smoke                    | `verified`                             | Task 8: `pnpm production:smoke` PASS                                                       |
+| Meta + 99envíos real evidence                 | `[HUMANO]`                             | Credentials + authorized actions                                                           |
+| Pilot + acceptance signoff                    | `[HUMANO]`                             | Owner/operators                                                                            |
 
 ### Remaining gaps entering Task 5
 
@@ -122,12 +122,12 @@ Docker image manifest lists (this machine, after build):
 
 ### TDD evidence
 
-| Step | Command | Result |
-| --- | --- | --- |
-| RED | `pnpm --filter @camila/api exec vitest run test/capabilities.test.ts` | Fail: operator denial expected false, got true |
-| GREEN | same | 4 passed |
-| Integration | `pnpm --filter @camila/api test:integration -- test/admin-authorization.integration.test.ts` | 5 passed (401/403/owner/operator/create) |
-| Admin unit | `pnpm --filter @camila/admin exec vitest run src/settings/SecuritySettingsPage.test.tsx` | 2 passed |
+| Step        | Command                                                                                      | Result                                         |
+| ----------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| RED         | `pnpm --filter @camila/api exec vitest run test/capabilities.test.ts`                        | Fail: operator denial expected false, got true |
+| GREEN       | same                                                                                         | 4 passed                                       |
+| Integration | `pnpm --filter @camila/api test:integration -- test/admin-authorization.integration.test.ts` | 5 passed (401/403/owner/operator/create)       |
+| Admin unit  | `pnpm --filter @camila/admin exec vitest run src/settings/SecuritySettingsPage.test.tsx`     | 2 passed                                       |
 
 ---
 
@@ -151,32 +151,32 @@ Docker image manifest lists (this machine, after build):
 
 ### Verification
 
-| Suite | Result |
-| --- | --- |
-| `mfa-http.integration.test.ts` | 4 passed |
-| `session-security.integration.test.ts` | 3 passed |
+| Suite                                              | Result    |
+| -------------------------------------------------- | --------- |
+| `mfa-http.integration.test.ts`                     | 4 passed  |
+| `session-security.integration.test.ts`             | 3 passed  |
 | Auth unit (auth-service/session-token/totp/config) | 25 passed |
-| SecuritySettingsPage + MorePage unit | 6 passed |
-| E2E `security.spec.ts` + `authorization.spec.ts` | 2 passed |
-| api + admin typecheck | pass |
+| SecuritySettingsPage + MorePage unit               | 6 passed  |
+| E2E `security.spec.ts` + `authorization.spec.ts`   | 2 passed  |
+| api + admin typecheck                              | pass      |
 
 ### Task progress log
 
-| Task | Status | Commit | Notes |
-| --- | --- | --- | --- |
-| 1 Baseline | `verified` | `87f92e9` | Fresh totals recorded |
-| 2 AuthZ | `verified` | `35038be` | Stub replaced; server enforcement |
-| 3 MFA/sessions | `verified` | (Task 3 commit) | MFA+sessions operable; migration 0032 |
-| 4 Audit | `verified` | (Task 4 commit) | Unified append-only audit; migration 0033 |
-| 5 Retention | `verified` | (this commit) | Privacy inventory + controlled retention; migration 0034; legal durations `[HUMANO]` |
-| 6 Frontend UX/a11y | `verified` | (Task 6 commit) | Lifecycle UX + Fast Refresh 0 |
-| 7 Object storage | `verified` | (this commit) | ObjectStorage + S3/MinIO + migrate CLI |
-| 8 Topology/health | pending | | |
-| 9 Backups | pending | | |
-| 10 Observability | pending | | |
-| 11 CI gates | `verified` | (Task 11 commit) | Full verify.yml gates |
-| 12 Concurrency/perf | pending | | |
-| 13 Real integrations | `[HUMANO]` | | |
+| Task                 | Status     | Commit           | Notes                                                                                |
+| -------------------- | ---------- | ---------------- | ------------------------------------------------------------------------------------ |
+| 1 Baseline           | `verified` | `87f92e9`        | Fresh totals recorded                                                                |
+| 2 AuthZ              | `verified` | `35038be`        | Stub replaced; server enforcement                                                    |
+| 3 MFA/sessions       | `verified` | (Task 3 commit)  | MFA+sessions operable; migration 0032                                                |
+| 4 Audit              | `verified` | (Task 4 commit)  | Unified append-only audit; migration 0033                                            |
+| 5 Retention          | `verified` | (this commit)    | Privacy inventory + controlled retention; migration 0034; legal durations `[HUMANO]` |
+| 6 Frontend UX/a11y   | `verified` | (Task 6 commit)  | Lifecycle UX + Fast Refresh 0                                                        |
+| 7 Object storage     | `verified` | (this commit)    | ObjectStorage + S3/MinIO + migrate CLI                                               |
+| 8 Topology/health    | pending    |                  |                                                                                      |
+| 9 Backups            | pending    |                  |                                                                                      |
+| 10 Observability     | pending    |                  |                                                                                      |
+| 11 CI gates          | `verified` | (Task 11 commit) | Full verify.yml gates                                                                |
+| 12 Concurrency/perf  | pending    |                  |                                                                                      |
+| 13 Real integrations | `[HUMANO]` |                  |                                                                                      |
 
 ---
 
@@ -205,14 +205,14 @@ No passwords, tokens, TOTP secrets, recovery codes, documents, phones, addresses
 
 ### TDD evidence
 
-| Step | Command | Result |
-| --- | --- | --- |
-| RED | Tests authored against missing `modules/audit/*` before implementation | Import/compile would fail without module |
-| GREEN unit | `pnpm --filter @camila/api exec vitest run test/audit-service.test.ts` | 5 passed |
-| GREEN integration | `pnpm --filter @camila/api test:integration -- test/admin-audit.integration.test.ts` | 3 passed |
-| Migrations | `test/database-migrations.integration.test.ts` | 3 passed |
-| Typecheck | api + admin `tsc --noEmit` | pass |
-| Contracts | `pnpm --filter @camila/contracts exec vitest run` | 70 passed |
+| Step              | Command                                                                              | Result                                   |
+| ----------------- | ------------------------------------------------------------------------------------ | ---------------------------------------- |
+| RED               | Tests authored against missing `modules/audit/*` before implementation               | Import/compile would fail without module |
+| GREEN unit        | `pnpm --filter @camila/api exec vitest run test/audit-service.test.ts`               | 5 passed                                 |
+| GREEN integration | `pnpm --filter @camila/api test:integration -- test/admin-audit.integration.test.ts` | 3 passed                                 |
+| Migrations        | `test/database-migrations.integration.test.ts`                                       | 3 passed                                 |
+| Typecheck         | api + admin `tsc --noEmit`                                                           | pass                                     |
+| Contracts         | `pnpm --filter @camila/contracts exec vitest run`                                    | 70 passed                                |
 
 ### IP / secrets note
 
@@ -240,14 +240,14 @@ Raw client IP is not captured. Failed login/MFA metadata is sanitized (no passwo
 
 ### TDD evidence
 
-| Step | Command | Result |
-| --- | --- | --- |
-| RED | Failing unit cases for dry-run side-effects + execute without approved policy | Authored first; now green |
-| GREEN unit | `pnpm --filter @camila/api exec vitest run --project unit test/retention-service.test.ts` | 7 passed |
-| GREEN integration | `pnpm --filter @camila/api test:integration -- test/retention.integration.test.ts` | 3 passed |
-| GREEN admin | `pnpm --filter @camila/admin exec vitest run src/settings/PrivacySettingsPage.test.tsx` | 2 passed |
-| Migrations | `test/database-migrations.integration.test.ts` | 3 passed |
-| Typecheck | api + admin + contracts build | pass |
+| Step              | Command                                                                                   | Result                    |
+| ----------------- | ----------------------------------------------------------------------------------------- | ------------------------- |
+| RED               | Failing unit cases for dry-run side-effects + execute without approved policy             | Authored first; now green |
+| GREEN unit        | `pnpm --filter @camila/api exec vitest run --project unit test/retention-service.test.ts` | 7 passed                  |
+| GREEN integration | `pnpm --filter @camila/api test:integration -- test/retention.integration.test.ts`        | 3 passed                  |
+| GREEN admin       | `pnpm --filter @camila/admin exec vitest run src/settings/PrivacySettingsPage.test.tsx`   | 2 passed                  |
+| Migrations        | `test/database-migrations.integration.test.ts`                                            | 3 passed                  |
+| Typecheck         | api + admin + contracts build                                                             | pass                      |
 
 ### [HUMANO]
 
@@ -270,21 +270,21 @@ Colombia legal retention durations and matrix approval — do not invent approve
 
 ### TDD evidence
 
-| Step | Command | Result |
-| --- | --- | --- |
-| RED | Integrations + Shipping section/lifecycle tests authored first | 5 failed before implementation |
-| GREEN unit | `pnpm --filter @camila/admin exec vitest run src/settings/IntegrationsPage.test.tsx src/settings/ShippingSettingsPage.test.tsx` | 5 passed |
-| Fast Refresh | eslint badge/button/tabs/sidebar | **0** Fast Refresh warnings (was 4) |
-| Typecheck | admin `tsc -p tsconfig.app.json --noEmit` | pass |
-| Build + budget | `pnpm --filter @camila/admin build` + `node scripts/check-admin-bundle-budget.mjs` | pass |
+| Step           | Command                                                                                                                         | Result                              |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| RED            | Integrations + Shipping section/lifecycle tests authored first                                                                  | 5 failed before implementation      |
+| GREEN unit     | `pnpm --filter @camila/admin exec vitest run src/settings/IntegrationsPage.test.tsx src/settings/ShippingSettingsPage.test.tsx` | 5 passed                            |
+| Fast Refresh   | eslint badge/button/tabs/sidebar                                                                                                | **0** Fast Refresh warnings (was 4) |
+| Typecheck      | admin `tsc -p tsconfig.app.json --noEmit`                                                                                       | pass                                |
+| Build + budget | `pnpm --filter @camila/admin build` + `node scripts/check-admin-bundle-budget.mjs`                                              | pass                                |
 
 ### Design ledger updates
 
-| Requirement | Status |
-| --- | --- |
+| Requirement                        | Status                                        |
+| ---------------------------------- | --------------------------------------------- |
 | Integrations/Shipping UX lifecycle | `verified` (unit + structure; full E2E on CI) |
-| Fast Refresh warnings = 0 | `verified` |
-| A11y principal routes @ viewports | `in_progress` → covered by extended E2E specs |
+| Fast Refresh warnings = 0          | `verified`                                    |
+| A11y principal routes @ viewports  | `in_progress` → covered by extended E2E specs |
 
 ### [HUMANO]
 
@@ -307,14 +307,14 @@ Visual spot-check of screenshots under `apps/admin/test-results/` after full E2E
 
 ### TDD evidence
 
-| Step | Command | Result |
-| --- | --- | --- |
-| Contract unit | `vitest run --project unit test/object-storage.contract.test.ts` | 5 passed (local) |
-| Migration unit | `vitest run --project unit test/migrate-media-to-object-storage.test.ts` | 3 passed |
-| Photo/PDF/config | local-photo + local-guide + config unit | passed |
-| S3 integration | `vitest run --project integration test/s3-object-storage.integration.test.ts` against MinIO | 5 passed |
-| Typecheck | `pnpm --filter @camila/api typecheck` | pass |
-| Compose prod | `docker compose --env-file .env.prod.example -f compose.prod.yaml config --quiet` | pass |
+| Step             | Command                                                                                     | Result           |
+| ---------------- | ------------------------------------------------------------------------------------------- | ---------------- |
+| Contract unit    | `vitest run --project unit test/object-storage.contract.test.ts`                            | 5 passed (local) |
+| Migration unit   | `vitest run --project unit test/migrate-media-to-object-storage.test.ts`                    | 3 passed         |
+| Photo/PDF/config | local-photo + local-guide + config unit                                                     | passed           |
+| S3 integration   | `vitest run --project integration test/s3-object-storage.integration.test.ts` against MinIO | 5 passed         |
+| Typecheck        | `pnpm --filter @camila/api typecheck`                                                       | pass             |
+| Compose prod     | `docker compose --env-file .env.prod.example -f compose.prod.yaml config --quiet`           | pass             |
 
 ### [HUMANO]
 
@@ -338,13 +338,13 @@ Provision external S3-compatible bucket + credentials for production (not MinIO-
 
 ### TDD / verification
 
-| Step | Command | Result |
-| --- | --- | --- |
-| Worker health unit | `vitest run --project unit test/worker-health.test.ts` | passed |
-| Config prod guards | `vitest run --project unit test/config.test.ts` | passed |
-| API typecheck | `pnpm --filter @camila/api typecheck` | pass |
-| Compose prod | `docker compose --env-file .env.prod.example -f compose.prod.yaml config --quiet` | pass |
-| Staging smoke | `pnpm production:smoke` | PASS (migrate→health→login→routes→separate api/worker→shutdown) |
+| Step               | Command                                                                           | Result                                                          |
+| ------------------ | --------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Worker health unit | `vitest run --project unit test/worker-health.test.ts`                            | passed                                                          |
+| Config prod guards | `vitest run --project unit test/config.test.ts`                                   | passed                                                          |
+| API typecheck      | `pnpm --filter @camila/api typecheck`                                             | pass                                                            |
+| Compose prod       | `docker compose --env-file .env.prod.example -f compose.prod.yaml config --quiet` | pass                                                            |
+| Staging smoke      | `pnpm production:smoke`                                                           | PASS (migrate→health→login→routes→separate api/worker→shutdown) |
 
 ### [HUMANO]
 
@@ -367,12 +367,12 @@ Provision external S3-compatible bucket + credentials for production (not MinIO-
 
 ### Verification
 
-| Step | Result |
-| --- | --- |
-| `vitest run --project unit test/backup-scripts.test.ts` | 9 passed |
-| `docker compose … compose.prod.yaml config --quiet` | pass |
-| `docker build -f docker/Dockerfile.backup` | image `sha256:a271e76b142c…` |
-| In-process encrypt→upload mock→restore drill→cleanup | OK (`cleaned: true`) |
+| Step                                                    | Result                       |
+| ------------------------------------------------------- | ---------------------------- |
+| `vitest run --project unit test/backup-scripts.test.ts` | 9 passed                     |
+| `docker compose … compose.prod.yaml config --quiet`     | pass                         |
+| `docker build -f docker/Dockerfile.backup`              | image `sha256:a271e76b142c…` |
+| In-process encrypt→upload mock→restore drill→cleanup    | OK (`cleaned: true`)         |
 
 ### [HUMANO]
 
@@ -396,14 +396,14 @@ Provision external S3-compatible bucket + credentials for production (not MinIO-
 
 ### Verification
 
-| Step | Result |
-| --- | --- |
-| `vitest run --project unit test/metrics.test.ts` | 9 passed |
-| Related unit (config/health/entrypoints/…) | 42 passed (batch) |
-| `pnpm --filter @camila/api typecheck` | pass |
-| `docker compose … compose.prod.yaml config --quiet` | pass |
-| Synthetic failure series in metrics text | `kairo_synthetic_failures_total` present |
-| External alert receipt | `[HUMANO]` — webhook not supplied |
+| Step                                                | Result                                   |
+| --------------------------------------------------- | ---------------------------------------- |
+| `vitest run --project unit test/metrics.test.ts`    | 9 passed                                 |
+| Related unit (config/health/entrypoints/…)          | 42 passed (batch)                        |
+| `pnpm --filter @camila/api typecheck`               | pass                                     |
+| `docker compose … compose.prod.yaml config --quiet` | pass                                     |
+| Synthetic failure series in metrics text            | `kairo_synthetic_failures_total` present |
+| External alert receipt                              | `[HUMANO]` — webhook not supplied        |
 
 ### [HUMANO]
 
@@ -430,22 +430,50 @@ Provision external S3-compatible bucket + credentials for production (not MinIO-
 
 ### Critical coverage (unit)
 
-| Aggregate | Lines | Branches |
-| --- | --- | --- |
+| Aggregate                | Lines      | Branches   |
+| ------------------------ | ---------- | ---------- |
 | Critical rules (9 files) | **99.29%** | **90.29%** |
 
 ### Verification (local Windows)
 
-| Check | Result |
-| --- | --- |
-| `pnpm lint:ci` | pass (0 warnings) |
-| `pnpm test:coverage` + gate script | pass |
-| `pnpm check:production-config` | pass |
-| Secret/FS/image scanners | configured in CI (ubuntu-latest) |
-| Staging smoke | required CI job (`production:smoke`) |
+| Check                              | Result                               |
+| ---------------------------------- | ------------------------------------ |
+| `pnpm lint:ci`                     | pass (0 warnings)                    |
+| `pnpm test:coverage` + gate script | pass                                 |
+| `pnpm check:production-config`     | pass                                 |
+| Secret/FS/image scanners           | configured in CI (ubuntu-latest)     |
+| Staging smoke                      | required CI job (`production:smoke`) |
 
 ### [HUMANO]
 
 None for Task 11 automation. Image digests and live Trivy/gitleaks exit codes recorded by CI run on push.
+
+---
+
+## Task 12 — Functional, concurrency and performance acceptance (2026-09-22)
+
+### Behavior
+
+- Concurrent DB idempotency for confirm, reservation/stock race, inbound webhook, outbound, guide job, inventory closeout
+- Uncertain 99envíos pre-shipment cannot auto-retry into duplicate guide; outage → failed; expired quote blocked; PDF retry without duplicate document; human handoff cancels bot outbound
+- Controlled sale E2E + rate-limit assertion; a11y serious/critical clear at 390 / 768 / 1280 / 1440
+- Synthetic local load baselines + `pnpm check:load-baselines` release gate (3× baseline thresholds)
+- Functional matrix rows link executable evidence only
+
+### Verification
+
+| Check                      | Result                                       |
+| -------------------------- | -------------------------------------------- |
+| `pnpm test:concurrency` ×3 | 10/10 pass each                              |
+| Load baselines + gate      | ok (see `docs/release/load-baselines.json`)  |
+| `end-to-end-sale` E2E      | 2 passed, 1 skipped (no WA secret)           |
+| Matrix                     | `docs/acceptance/kairo-functional-matrix.md` |
+
+Detail: `docs/release/_task12-implementer-report.md`
+
+### [HUMANO]
+
+- Owner sign-off on functional matrix
+- Real Meta / 99envíos paths → Task 13
 
 ---

@@ -2,20 +2,26 @@ import { getTableConfig } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
 
 import {
+  inventoryClosures,
   orderConfirmations,
   shippingGuideJobs,
   whatsappInboundMessages,
   whatsappOutboundMessages,
 } from '../src/database/schema/index.js';
 
+/**
+ * Schema-name smoke only. Concurrent DB proof lives in:
+ * - critical-idempotency.integration.test.ts
+ * - critical-concurrency.integration.test.ts
+ */
 function uniqueConstraintNames(table: Parameters<typeof getTableConfig>[0]) {
   return getTableConfig(table)
     .uniqueConstraints.map((constraint) => constraint.name)
     .filter((name): name is string => typeof name === 'string');
 }
 
-describe('critical-path idempotency constraints', () => {
-  it('keeps unique keys on confirm, outbound, inbound, and guide jobs', () => {
+describe('critical-path idempotency schema smoke', () => {
+  it('keeps unique keys that concurrent integration tests exercise', () => {
     expect(uniqueConstraintNames(orderConfirmations)).toEqual(
       expect.arrayContaining([
         'order_confirmations_order_unique',
@@ -30,6 +36,9 @@ describe('critical-path idempotency constraints', () => {
     );
     expect(uniqueConstraintNames(shippingGuideJobs)).toEqual(
       expect.arrayContaining(['shipping_guide_jobs_order_unique']),
+    );
+    expect(uniqueConstraintNames(inventoryClosures)).toEqual(
+      expect.arrayContaining(['inventory_closures_date_version_unique']),
     );
   });
 });
