@@ -86,9 +86,16 @@ test('controlled sale: catalog → customer → quote → confirm → guide → 
   await expect(page).toHaveURL(/\/references\/[0-9a-f-]+$/);
   const referenceId = page.url().split('/').pop()!;
 
-  await page.goto('/orders/new');
-  await page.getByLabel('Referencia').selectOption(referenceId);
-  await page.getByLabel('Talla').selectOption('37');
+  await page.goto('/orders/new', { waitUntil: 'domcontentloaded' });
+  await expect(
+    page.getByRole('heading', { name: 'Nuevo pedido' }),
+  ).toBeVisible();
+  await expect(page.locator('#order-reference')).toBeEnabled();
+  await expect(
+    page.locator(`#order-reference option[value="${referenceId}"]`),
+  ).toBeAttached();
+  await page.locator('#order-reference').selectOption(referenceId);
+  await page.locator('#order-size').selectOption('37');
   await page.getByRole('button', { name: 'Crear borrador' }).click();
   await expect(page).toHaveURL(/\/orders\/[0-9a-f-]+$/);
   const orderId = page.url().split('/').pop()!;
