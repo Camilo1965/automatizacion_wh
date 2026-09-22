@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
 
+import { useAuth } from '../auth/AuthProvider';
 import { PageHeader } from '../components/PageHeader';
 
 const groups = [
   {
     title: 'Inventario',
+    ownerOnly: false,
     items: [
       {
         to: '/catalog-import',
@@ -20,6 +22,7 @@ const groups = [
   },
   {
     title: 'Envíos',
+    ownerOnly: false,
     items: [
       {
         to: '/settings/shipping',
@@ -40,6 +43,7 @@ const groups = [
   },
   {
     title: 'Canal y automatización',
+    ownerOnly: false,
     items: [
       {
         to: '/settings/whatsapp',
@@ -50,6 +54,7 @@ const groups = [
         to: '/settings/bot-flow',
         title: 'Mensajes del bot',
         description: 'Borrador, simulación y publicación.',
+        ownerOnly: true,
       },
       {
         to: '/alerts',
@@ -60,6 +65,7 @@ const groups = [
   },
   {
     title: 'Sistema',
+    ownerOnly: true,
     items: [
       {
         to: '/settings/integrations',
@@ -71,11 +77,19 @@ const groups = [
         title: 'Historial de cambios',
         description: 'Publicaciones y acciones sin secretos.',
       },
+      {
+        to: '/settings/security',
+        title: 'Seguridad y acceso',
+        description: 'Operadoras, roles y desactivación de cuentas.',
+      },
     ],
   },
 ] as const;
 
 export function MorePage() {
+  const { user } = useAuth();
+  const isOwner = user?.role === 'owner';
+
   return (
     <section className="space-y-8">
       <PageHeader
@@ -83,35 +97,46 @@ export function MorePage() {
         title="Más herramientas"
         description="Configuración y tareas operativas agrupadas para celular."
       />
-      {groups.map((group) => (
-        <section key={group.title} className="space-y-3">
-          <h3 className="text-sm font-semibold tracking-tight text-foreground">
-            {group.title}
-          </h3>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {group.items.map((item) => (
-              <Link
-                aria-label={item.title}
-                className="flex items-center justify-between gap-3 rounded-3xl border border-border bg-card px-4 py-4 shadow-[var(--shadow-card)] transition-colors hover:bg-muted"
-                key={item.to}
-                to={item.to}
-              >
-                <span className="min-w-0 space-y-1">
-                  <strong className="block text-sm font-semibold text-foreground">
-                    {item.title}
-                  </strong>
-                  <small className="block text-xs text-muted-foreground">
-                    {item.description}
-                  </small>
-                </span>
-                <span aria-hidden="true" className="text-muted-foreground">
-                  →
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      ))}
+      {groups.map((group) => {
+        if (group.ownerOnly && !isOwner) {
+          return null;
+        }
+        const items = group.items.filter((item) => {
+          if ('ownerOnly' in item && item.ownerOnly === true) {
+            return isOwner;
+          }
+          return true;
+        });
+        if (items.length === 0) {
+          return null;
+        }
+        return (
+          <section key={group.title} className="space-y-3">
+            <h3 className="text-sm font-semibold tracking-tight text-foreground">
+              {group.title}
+            </h3>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {items.map((item) => (
+                <Link
+                  aria-label={item.title}
+                  className="flex items-center justify-between gap-3 rounded-3xl border border-border bg-card px-4 py-4 shadow-[var(--shadow-card)] transition-colors hover:bg-muted"
+                  key={item.to}
+                  to={item.to}
+                >
+                  <span className="min-w-0 space-y-1">
+                    <strong className="block text-sm font-semibold text-foreground">
+                      {item.title}
+                    </strong>
+                    <span className="block text-sm text-muted-foreground">
+                      {item.description}
+                    </span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </section>
   );
 }

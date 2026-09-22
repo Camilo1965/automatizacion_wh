@@ -7,7 +7,11 @@ import {
   adminSessionCookieOptions,
 } from '../../http/session-cookie.js';
 import type { AdminUserPublic } from '../../modules/auth/admin-auth-repository.js';
+import { requireCapability as assertCapability } from '../../modules/auth/authorize.js';
+import type { Capability } from '../../modules/auth/capabilities.js';
 import type { AuthService } from '../../modules/auth/auth-service.js';
+
+export type { Capability };
 
 export const ReferenceIdParamsSchema = z
   .object({
@@ -83,6 +87,24 @@ export async function requireAdminSession(
   const user = await authService.getSession(token);
   request.adminUser = user;
   return user;
+}
+
+export function requireCapability(
+  user: AdminUserPublic,
+  capability: Capability,
+): void {
+  assertCapability(user, capability);
+}
+
+export function authorize(
+  authenticate: AdminAuthenticate,
+  capability: Capability,
+): AdminAuthenticate {
+  return async (request) => {
+    const user = await authenticate(request);
+    assertCapability(user, capability);
+    return user;
+  };
 }
 
 export function clearSessionCookie(

@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lte } from 'drizzle-orm';
+import { and, asc, eq, gt, isNull, lte } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import {
@@ -11,6 +11,7 @@ import type {
   AdminAuthRepository,
   AdminMfaRecoveryCodeRecord,
   AdminMfaSecretRecord,
+  AdminRole,
   AdminSessionRecord,
   AdminUserRecord,
   SessionWithUser,
@@ -20,11 +21,19 @@ import { UsernameConflictError, UserNotFoundError } from './auth-errors.js';
 type UserRow = typeof adminUsers.$inferSelect;
 type SessionRow = typeof adminSessions.$inferSelect;
 
+function mapRole(role: string): AdminRole {
+  if (role === 'owner' || role === 'operator') {
+    return role;
+  }
+  return 'owner';
+}
+
 function mapUser(row: UserRow): AdminUserRecord {
   return {
     id: row.id,
     username: row.username,
     passwordHash: row.passwordHash,
+    role: mapRole(row.role),
     active: row.active,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -80,9 +89,18 @@ export class PostgresAdminAuthRepository implements AdminAuthRepository {
     return row === undefined ? null : mapUser(row);
   }
 
+  async listUsers(): Promise<AdminUserRecord[]> {
+    const rows = await this.database.orm
+      .select()
+      .from(adminUsers)
+      .orderBy(asc(adminUsers.username));
+    return rows.map(mapUser);
+  }
+
   async createUser(input: {
     username: string;
     passwordHash: string;
+    role?: AdminRole;
   }): Promise<AdminUserRecord> {
     try {
       const rows = await this.database.orm
@@ -90,6 +108,7 @@ export class PostgresAdminAuthRepository implements AdminAuthRepository {
         .values({
           username: input.username,
           passwordHash: input.passwordHash,
+          role: input.role ?? 'owner',
         })
         .returning();
       const row = rows[0];
@@ -103,6 +122,58 @@ export class PostgresAdminAuthRepository implements AdminAuthRepository {
       }
       throw error;
     }
+  }
+
+  async updateUserRole(input: {
+    userId: string;
+    role: AdminRole;
+    updatedAt: Date;
+  }): Promise<AdminUserRecord> {
+    const rows = await this.database.orm
+      .update(adminUsers)
+      .set({
+        role: input.role,
+        updatedAt: input.updatedAt,
+      })
+      .where(eq(adminUsers.id, input.userId))
+      .returning();
+    const row = rows[0];
+    if (row === undefined) {
+      throw new UserNotFoundError('User was not found');
+    }
+    return mapUser(row);
+  }
+
+  async setUserActive(input: {
+    userId: string;
+    active: boolean;
+    updatedAt: Date;
+  }): Promise<AdminUserRecord> {
+    const rows = await this.database.orm
+      .update(adminUsers)
+      .set({
+        active: input.active,
+        updatedAt: input.updatedAt,
+      })
+      .where(eq(adminUsers.id, input.userId))
+      .returning();
+    const row = rows[0];
+    if (row === undefined) {
+      throw new UserNotFoundError('User was not found');
+    }
+    return mapUser(row);
+  }
+
+  async revokeAllSessionsForUser(
+    userId: string,
+    revokedAt: Date,
+  ): Promise<void> {
+    await this.database.orm
+      .update(adminSessions)
+      .set({ revokedAt })
+      .where(
+        and(eq(adminSessions.userId, userId), isNull(adminSessions.revokedAt)),
+      );
   }
 
   async updatePasswordAndRevokeSessions(input: {

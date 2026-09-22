@@ -242,9 +242,10 @@ describe('order contracts', () => {
 describe('AdminUserPublicSchema', () => {
   it('accepts public admin user shape', () => {
     const id = '11111111-1111-4111-8111-111111111111';
-    expect(AdminUserPublicSchema.parse({ id, username: 'camila' })).toEqual({
+    expect(AdminUserPublicSchema.parse({ id, username: 'camila', role: 'owner' })).toEqual({
       id,
       username: 'camila',
+      role: 'owner',
     });
   });
 
@@ -562,6 +563,7 @@ describe('dataEnvelopeSchema', () => {
     const user = {
       id: '11111111-1111-4111-8111-111111111111',
       username: 'camila',
+      role: 'owner' as const,
     };
     expect(schema.parse({ data: user })).toEqual({ data: user });
     expect(schema.safeParse({ data: user, extra: true }).success).toBe(false);
@@ -572,6 +574,7 @@ describe('SessionResponseSchema and LoginResponseSchema', () => {
   const user = {
     id: '11111111-1111-4111-8111-111111111111',
     username: 'camila',
+    role: 'owner' as const,
   };
   const valid = { data: { user } };
 

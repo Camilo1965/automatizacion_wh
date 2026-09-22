@@ -1,23 +1,46 @@
 import type { AdminUserPublic } from './admin-auth-repository.js';
 
+export type AdminRole = 'owner' | 'operator';
+
 export type Capability =
-  | 'catalog'
-  | 'orders'
-  | 'conversations'
-  | 'shipping'
-  | 'integrations'
-  | 'inventory'
-  | 'alerts'
-  | 'audit'
-  | 'security';
+  | 'catalog:operate'
+  | 'orders:operate'
+  | 'conversations:operate'
+  | 'shipping:operate'
+  | 'inventory:operate'
+  | 'alerts:operate'
+  | 'integrations:manage'
+  | 'audit:read'
+  | 'security:manage';
+
+const OPERATOR_CAPABILITIES: ReadonlySet<Capability> = new Set([
+  'catalog:operate',
+  'orders:operate',
+  'conversations:operate',
+  'shipping:operate',
+  'inventory:operate',
+  'alerts:operate',
+]);
+
+const OWNER_CAPABILITIES: ReadonlySet<Capability> = new Set([
+  ...OPERATOR_CAPABILITIES,
+  'integrations:manage',
+  'audit:read',
+  'security:manage',
+]);
 
 export function hasCapability(
   user: AdminUserPublic | null,
-  cap: Capability,
+  capability: Capability,
 ): boolean {
   if (user === null) {
     return false;
   }
-  void cap;
-  return true;
+  if (user.role === 'owner') {
+    return OWNER_CAPABILITIES.has(capability);
+  }
+  if (user.role === 'operator') {
+    return OPERATOR_CAPABILITIES.has(capability);
+  }
+  return false;
 }

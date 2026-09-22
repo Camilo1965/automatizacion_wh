@@ -1,7 +1,10 @@
+export type AdminRole = 'owner' | 'operator';
+
 export type AdminUserRecord = {
   id: string;
   username: string;
   passwordHash: string;
+  role: AdminRole;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -10,6 +13,7 @@ export type AdminUserRecord = {
 export type AdminUserPublic = {
   id: string;
   username: string;
+  role: AdminRole;
 };
 
 export type AdminSessionRecord = {
@@ -44,10 +48,23 @@ export type AdminMfaRecoveryCodeRecord = {
 export interface AdminAuthRepository {
   findUserByUsername(username: string): Promise<AdminUserRecord | null>;
   findUserById(id: string): Promise<AdminUserRecord | null>;
+  listUsers(): Promise<AdminUserRecord[]>;
   createUser(input: {
     username: string;
     passwordHash: string;
+    role?: AdminRole;
   }): Promise<AdminUserRecord>;
+  updateUserRole(input: {
+    userId: string;
+    role: AdminRole;
+    updatedAt: Date;
+  }): Promise<AdminUserRecord>;
+  setUserActive(input: {
+    userId: string;
+    active: boolean;
+    updatedAt: Date;
+  }): Promise<AdminUserRecord>;
+  revokeAllSessionsForUser(userId: string, revokedAt: Date): Promise<void>;
   updatePasswordAndRevokeSessions(input: {
     userId: string;
     passwordHash: string;

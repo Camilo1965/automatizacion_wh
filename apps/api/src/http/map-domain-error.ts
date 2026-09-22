@@ -11,6 +11,7 @@ import {
   UsernameConflictError,
   UserNotFoundError,
 } from '../modules/auth/auth-errors.js';
+import { AuthorizationDeniedError } from '../modules/auth/authorize.js';
 import { UsernameValidationError } from '../modules/auth/username.js';
 import { PasswordValidationError } from '../modules/auth/password.js';
 import {
@@ -60,6 +61,10 @@ export function mapDomainError(
 
   if (error instanceof AuthenticationRequiredError) {
     return sendApiError(reply, 401, error.code, error.message);
+  }
+
+  if (error instanceof AuthorizationDeniedError) {
+    return sendApiError(reply, 403, error.code, error.message);
   }
 
   if (error instanceof InvalidMfaCodeError) {

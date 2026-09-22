@@ -10,7 +10,10 @@ import {
   type IntegrationSettingsOperations,
 } from '../../modules/integrations/integration-settings-service.js';
 import type { ConnectionCapabilityService } from '../../modules/whatsapp/connection-capability-service.js';
-import type { AdminAuthenticate } from './admin-shared.js';
+import {
+  authorize,
+  type AdminAuthenticate,
+} from './admin-shared.js';
 import { registerBotFlowRoutes } from './bot-flow.js';
 
 export async function registerIntegrationsRoutes(
@@ -25,13 +28,18 @@ export async function registerIntegrationsRoutes(
   },
 ): Promise<void> {
   const { authenticate, integrationHealthService } = dependencies;
+  const requireIntegrations = authorize(authenticate, 'integrations:manage');
+  const requireAudit = authorize(authenticate, 'audit:read');
+  const requireAlerts = authorize(authenticate, 'alerts:operate');
+  const requireConversations = authorize(authenticate, 'conversations:operate');
+
   if (dependencies.botFlowService !== undefined) {
     app.get('/configuration/audit', async (request) => {
-      await authenticate(request);
+      await requireAudit(request);
       return { data: { items: await dependencies.botFlowService!.audit() } };
     });
     registerBotFlowRoutes(app, dependencies.botFlowService, (request) =>
-      authenticate(request),
+      requireIntegrations(request),
     );
   }
   if (dependencies.integrationSettingsService !== undefined) {
@@ -42,11 +50,11 @@ export async function registerIntegrationsRoutes(
       lifecycleService.activate
     ) {
       app.get('/integrations/lifecycle', async (request) => {
-        await authenticate(request);
+        await requireIntegrations(request);
         return { data: await lifecycleService.lifecycle!() };
       });
       app.post('/integrations/:provider/test', async (request, reply) => {
-        await authenticate(request);
+        await requireIntegrations(request);
         const { provider } = z
           .object({ provider: z.enum(['whatsapp', 'shipping']) })
           .parse(request.params);
@@ -63,7 +71,7 @@ export async function registerIntegrationsRoutes(
         }
       });
       app.post('/integrations/:provider/activate', async (request, reply) => {
-        const user = await authenticate(request);
+        const user = await requireIntegrations(request);
         const { provider } = z
           .object({ provider: z.enum(['whatsapp', 'shipping']) })
           .parse(request.params);
@@ -91,13 +99,13 @@ export async function registerIntegrationsRoutes(
       });
     }
     app.get('/integrations/settings', async (request, reply) => {
-      await authenticate(request);
+      await requireIntegrations(request);
       return reply.status(200).send({
         data: await dependencies.integrationSettingsService!.getPublic(),
       });
     });
     app.patch('/integrations/settings', async (request, reply) => {
-      const user = await authenticate(request);
+      const user = await requireIntegrations(request);
       try {
         await dependencies.integrationSettingsService!.update(
           IntegrationSettingsUpdateSchema.parse(request.body),
@@ -122,7 +130,7 @@ export async function registerIntegrationsRoutes(
 
   if (dependencies.connectionCapabilityService !== undefined) {
     app.get('/whatsapp/connection', async (request, reply) => {
-      await authenticate(request);
+      await requireConversations(request);
       const saved =
         await dependencies.integrationSettingsService?.getWhatsApp?.();
       const connection =
@@ -144,7 +152,7 @@ export async function registerIntegrationsRoutes(
 
   if (dependencies.alertService !== undefined) {
     app.post('/alerts/:id/resolve', async (request, reply) => {
-      await authenticate(request);
+      await requireAlerts(request);
       const id = z.uuid().parse((request.params as { id: string }).id);
       const data = await dependencies.alertService!.resolve(id);
       return data
@@ -154,7 +162,7 @@ export async function registerIntegrationsRoutes(
           });
     });
     app.get('/alerts', async (request, reply) => {
-      await authenticate(request);
+      await requireAlerts(request);
       return reply.status(200).send({
         data: {
           items: await dependencies.alertService!.list(),
@@ -163,7 +171,7 @@ export async function registerIntegrationsRoutes(
       });
     });
     app.post('/alerts/:id/read', async (request, reply) => {
-      await authenticate(request);
+      await requireAlerts(request);
       const id = z.uuid().parse((request.params as { id: string }).id);
       const data = await dependencies.alertService!.markRead(id);
       return data
@@ -176,7 +184,7 @@ export async function registerIntegrationsRoutes(
 
   if (integrationHealthService !== undefined) {
     app.get('/integrations/health', async (request, reply) => {
-      await authenticate(request);
+      await requireIntegrations(request);
       return reply
         .status(200)
         .send({ data: await integrationHealthService.check() });

@@ -7,12 +7,14 @@ import {
   House,
   MessageCircle,
   PackageSearch,
+  Shield,
   Truck,
   Store,
   Webhook,
   History,
 } from 'lucide-react';
 
+import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/utils';
 
 const primaryItems = [
@@ -38,11 +40,16 @@ const shippingItems = [
   },
 ] as const;
 
-const configItems = [
+const ownerConfigItems = [
   { to: '/settings/whatsapp', label: 'WhatsApp', icon: Webhook },
   { to: '/settings/bot-flow', label: 'Mensajes / bot', icon: MessageCircle },
   { to: '/settings/integrations', label: 'Integraciones', icon: PackageSearch },
   { to: '/settings/audit', label: 'Historial', icon: History },
+  { to: '/settings/security', label: 'Seguridad y acceso', icon: Shield },
+] as const;
+
+const operatorConfigItems = [
+  { to: '/settings/whatsapp', label: 'WhatsApp', icon: Webhook },
 ] as const;
 
 function NavItem({
@@ -92,6 +99,10 @@ function NavGroup({
 }
 
 export function DesktopSidebar() {
+  const { user } = useAuth();
+  const configItems =
+    user?.role === 'owner' ? ownerConfigItems : operatorConfigItems;
+
   return (
     <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 py-4 md:flex">
       <Link

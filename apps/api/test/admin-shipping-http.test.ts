@@ -94,6 +94,7 @@ describe('admin shipping HTTP API', () => {
         return {
           id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
           username: 'camila',
+          role: 'owner' as const,
         };
       },
     } as unknown as AuthService;

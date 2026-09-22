@@ -23,6 +23,7 @@ Leyenda de prueba: U = unit · I = integration · E = E2E · M = manual `[HUMANO
 | 15  | Búsqueda global                            | Resultados servidor             | Query corta vacía                       | N/A                      | I global-search                |
 | 16  | Localidades publish                        | Versión publicada               | Preview inválido                        | SHA import unique        | I locality-catalog             |
 | 17  | Integraciones test/activate                | Lifecycle                       | Test fail no activa                     | Revisiones               | I integration-lifecycle        |
+| 18  | Roles owner/operator + capabilities        | Operator denied owner routes    | 401 unauth / 403 operator               | N/A                      | U capabilities, I admin-authorization, E authorization |
 
 ## Huecos residuales (Fase 5+)
 

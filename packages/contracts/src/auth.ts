@@ -2,14 +2,64 @@ import { z } from 'zod';
 
 import { dataEnvelopeSchema, publicUsernameSchema } from './shared.js';
 
+export const AdminRoleSchema = z.enum(['owner', 'operator']);
+export type AdminRole = z.infer<typeof AdminRoleSchema>;
+
 export const AdminUserPublicSchema = z
   .object({
     id: z.uuid(),
     username: publicUsernameSchema,
+    role: AdminRoleSchema,
   })
   .strict();
 
 export type AdminUserPublic = z.infer<typeof AdminUserPublicSchema>;
+
+export const AdminUserListDataSchema = z
+  .object({
+    items: z.array(AdminUserPublicSchema),
+  })
+  .strict();
+
+export type AdminUserListData = z.infer<typeof AdminUserListDataSchema>;
+
+export const AdminUserListResponseSchema = dataEnvelopeSchema(
+  AdminUserListDataSchema,
+);
+export type AdminUserListResponse = z.infer<typeof AdminUserListResponseSchema>;
+
+export const CreateAdminUserBodySchema = z
+  .object({
+    username: z.string().min(1),
+    password: z.string().min(1),
+    passwordConfirmation: z.string().min(1),
+    role: AdminRoleSchema.default('operator'),
+    currentPassword: z.string().min(1),
+  })
+  .strict();
+
+export type CreateAdminUserBody = z.infer<typeof CreateAdminUserBodySchema>;
+
+export const UpdateAdminUserRoleBodySchema = z
+  .object({
+    role: AdminRoleSchema,
+    currentPassword: z.string().min(1),
+  })
+  .strict();
+
+export type UpdateAdminUserRoleBody = z.infer<
+  typeof UpdateAdminUserRoleBodySchema
+>;
+
+export const DeactivateAdminUserBodySchema = z
+  .object({
+    currentPassword: z.string().min(1),
+  })
+  .strict();
+
+export type DeactivateAdminUserBody = z.infer<
+  typeof DeactivateAdminUserBodySchema
+>;
 
 export const LoginBodySchema = z
   .object({

@@ -218,6 +218,13 @@
       "when": 1790047252751,
       "tag": "0030_outgoing_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1790050000000,
+      "tag": "0031_admin_roles_audit_sessions",
+      "breakpoints": true
     }
   ]
 }

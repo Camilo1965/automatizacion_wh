@@ -40,6 +40,7 @@ class MemoryAdminAuthRepository implements AdminAuthRepository {
   async createUser(input: {
     username: string;
     passwordHash: string;
+    role?: 'owner' | 'operator';
   }): Promise<AdminUserRecord> {
     if ((await this.findUserByUsername(input.username)) !== null) {
       throw new UsernameConflictError('Username already exists');
@@ -49,12 +50,62 @@ class MemoryAdminAuthRepository implements AdminAuthRepository {
       id: crypto.randomUUID(),
       username: input.username,
       passwordHash: input.passwordHash,
+      role: input.role ?? 'owner',
       active: true,
       createdAt: now,
       updatedAt: now,
     };
     this.users.set(user.id, user);
     return user;
+  }
+
+  async listUsers(): Promise<AdminUserRecord[]> {
+    return [...this.users.values()].sort((a, b) =>
+      a.username.localeCompare(b.username),
+    );
+  }
+
+  async updateUserRole(input: {
+    userId: string;
+    role: 'owner' | 'operator';
+    updatedAt: Date;
+  }): Promise<AdminUserRecord> {
+    const user = this.users.get(input.userId);
+    if (user === undefined) {
+      throw new UserNotFoundError('User was not found');
+    }
+    const updated = { ...user, role: input.role, updatedAt: input.updatedAt };
+    this.users.set(input.userId, updated);
+    return updated;
+  }
+
+  async setUserActive(input: {
+    userId: string;
+    active: boolean;
+    updatedAt: Date;
+  }): Promise<AdminUserRecord> {
+    const user = this.users.get(input.userId);
+    if (user === undefined) {
+      throw new UserNotFoundError('User was not found');
+    }
+    const updated = {
+      ...user,
+      active: input.active,
+      updatedAt: input.updatedAt,
+    };
+    this.users.set(input.userId, updated);
+    return updated;
+  }
+
+  async revokeAllSessionsForUser(
+    userId: string,
+    revokedAt: Date,
+  ): Promise<void> {
+    for (const [id, session] of this.sessions) {
+      if (session.userId === userId && session.revokedAt === null) {
+        this.sessions.set(id, { ...session, revokedAt });
+      }
+    }
   }
 
   async updatePasswordAndRevokeSessions(input: {
@@ -229,7 +280,7 @@ describe('AuthService', () => {
       'password1234',
     );
 
-    expect(user).toEqual({ id: user.id, username: 'camila' });
+    expect(user).toEqual({ id: user.id, username: 'camila', role: 'owner' });
     const stored = [...repository.users.values()][0];
     expect(stored?.passwordHash).not.toContain('password1234');
     expect(stored?.passwordHash.startsWith('scrypt$')).toBe(true);
@@ -311,6 +362,7 @@ describe('AuthService', () => {
     await expect(service.getSession(token)).resolves.toEqual({
       id: expect.any(String),
       username: 'camila',
+      role: 'owner',
     });
 
     await service.logout(token);

@@ -112,6 +112,13 @@ const WhatsAppSettingsPage = lazy(() =>
     }),
   ),
 );
+const SecuritySettingsPage = lazy(() =>
+  import('./settings/SecuritySettingsPage').then(
+    ({ SecuritySettingsPage }) => ({
+      default: SecuritySettingsPage,
+    }),
+  ),
+);
 
 function AuthenticatedShell() {
   const { user, logout } = useAuth();
@@ -167,6 +174,7 @@ export function App() {
             element={<ShippingIncidentsPage />}
           />
           <Route path="settings/integrations" element={<IntegrationsPage />} />
+          <Route path="settings/security" element={<SecuritySettingsPage />} />
           <Route path="alerts" element={<AlertsPage />} />
           <Route path="more" element={<MorePage />} />
           <Route

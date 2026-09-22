@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { IntegrationSecretCrypto } from '../integrations/integration-secret-crypto.js';
 import type {
   AdminAuthRepository,
+  AdminRole,
   AdminUserPublic,
 } from './admin-auth-repository.js';
 import {
@@ -14,6 +15,10 @@ import {
   PasswordMismatchError,
   UserNotFoundError,
 } from './auth-errors.js';
+import {
+  AuthorizationDeniedError,
+  requireCapability,
+} from './authorize.js';
 import {
   createMfaLoginToken,
   MfaLoginTokenError,
@@ -74,8 +79,12 @@ export type MfaStatus = {
   pendingSetup: boolean;
 };
 
-function toPublicUser(user: { id: string; username: string }): AdminUserPublic {
-  return { id: user.id, username: user.username };
+function toPublicUser(user: {
+  id: string;
+  username: string;
+  role: AdminRole;
+}): AdminUserPublic {
+  return { id: user.id, username: user.username, role: user.role };
 }
 
 function requireMfaCrypto(
@@ -125,12 +134,102 @@ export class AuthService {
     usernameInput: string,
     password: string,
     passwordConfirmation: string,
+    role: AdminRole = 'owner',
   ): Promise<AdminUserPublic> {
     const username = normalizeUsername(usernameInput);
     this.assertPasswordConfirmation(password, passwordConfirmation);
     const passwordHash = await hashPassword(password);
-    const user = await this.repository.createUser({ username, passwordHash });
+    const user = await this.repository.createUser({
+      username,
+      passwordHash,
+      role,
+    });
     return toPublicUser(user);
+  }
+
+  async listUsers(actor: AdminUserPublic): Promise<AdminUserPublic[]> {
+    requireCapability(actor, 'security:manage');
+    const users = await this.repository.listUsers();
+    return users.map(toPublicUser);
+  }
+
+  async createManagedUser(
+    actor: AdminUserPublic,
+    input: {
+      username: string;
+      password: string;
+      passwordConfirmation: string;
+      role: AdminRole;
+      currentPassword: string;
+    },
+  ): Promise<AdminUserPublic> {
+    requireCapability(actor, 'security:manage');
+    await this.verifyCurrentPassword(actor.id, input.currentPassword);
+    return this.createUser(
+      input.username,
+      input.password,
+      input.passwordConfirmation,
+      input.role,
+    );
+  }
+
+  async updateUserRole(
+    actor: AdminUserPublic,
+    userId: string,
+    input: { role: AdminRole; currentPassword: string },
+  ): Promise<AdminUserPublic> {
+    requireCapability(actor, 'security:manage');
+    await this.verifyCurrentPassword(actor.id, input.currentPassword);
+    if (actor.id === userId && input.role !== 'owner') {
+      throw new AuthorizationDeniedError(
+        'No puedes quitarte el rol de propietaria',
+      );
+    }
+    const updated = await this.repository.updateUserRole({
+      userId,
+      role: input.role,
+      updatedAt: this.now(),
+    });
+    await this.repository.revokeAllSessionsForUser(userId, this.now());
+    return toPublicUser(updated);
+  }
+
+  async deactivateUser(
+    actor: AdminUserPublic,
+    userId: string,
+    input: { currentPassword: string },
+  ): Promise<AdminUserPublic> {
+    requireCapability(actor, 'security:manage');
+    await this.verifyCurrentPassword(actor.id, input.currentPassword);
+    if (actor.id === userId) {
+      throw new AuthorizationDeniedError(
+        'No puedes desactivar tu propia cuenta',
+      );
+    }
+    const updated = await this.repository.setUserActive({
+      userId,
+      active: false,
+      updatedAt: this.now(),
+    });
+    await this.repository.revokeAllSessionsForUser(userId, this.now());
+    return toPublicUser(updated);
+  }
+
+  private async verifyCurrentPassword(
+    userId: string,
+    currentPassword: string,
+  ): Promise<void> {
+    const user = await this.repository.findUserById(userId);
+    if (user === null || !user.active) {
+      throw new AuthenticationRequiredError();
+    }
+    const passwordMatches = await verifyPassword(
+      currentPassword,
+      user.passwordHash,
+    );
+    if (!passwordMatches) {
+      throw new InvalidCredentialsError('Contraseña de confirmación inválida');
+    }
   }
 
   async resetPassword(
@@ -342,6 +441,7 @@ export class AuthService {
     id: string;
     username: string;
     passwordHash: string;
+    role: AdminRole;
     active: boolean;
   }> {
     let username: string;
@@ -366,6 +466,7 @@ export class AuthService {
   private async issueSession(user: {
     id: string;
     username: string;
+    role: AdminRole;
   }): Promise<LoginSessionResult> {
     const now = this.now();
     const token = this.createToken();

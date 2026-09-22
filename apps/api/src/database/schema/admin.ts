@@ -18,6 +18,7 @@ export const adminUsers = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     username: varchar('username', { length: 64 }).notNull(),
     passwordHash: text('password_hash').notNull(),
+    role: varchar('role', { length: 16 }).notNull().default('owner'),
     active: boolean('active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -31,6 +32,10 @@ export const adminUsers = pgTable(
     check(
       'admin_users_username_format',
       sql`${table.username} ~ '^[a-z0-9._-]{3,64}$'`,
+    ),
+    check(
+      'admin_users_role_check',
+      sql`${table.role} IN ('owner', 'operator')`,
     ),
   ],
 );

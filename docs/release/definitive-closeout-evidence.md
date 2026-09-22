@@ -81,7 +81,8 @@ Docker image manifest lists (this machine, after build):
 | Prod dependency audit | `verified` | `pnpm audit --prod` clean |
 | Compose prod config | `verified` | config --quiet exit 0 |
 | Docker image builds | `verified` | api/worker/admin built |
-| Real RBAC / capabilities | `failed` | `hasCapability()` returns `true` for any authenticated user |
+| Real RBAC / capabilities | `verified` | Task 2: roles + `requireCapability` on admin routes; U/I/E evidence |
+
 | Operable MFA from panel | `failed` | Not end-to-end operable per Task 3 scope |
 | Unified admin/business audit | `failed` | Historial still incomplete vs design §8.4 |
 | Versioned retention + legal gate | `failed` | Execution must stay blocked until `[HUMANO]` legal approval |
@@ -101,21 +102,40 @@ Docker image manifest lists (this machine, after build):
 | Meta + 99envíos real evidence | `[HUMANO]` | Credentials + authorized actions |
 | Pilot + acceptance signoff | `[HUMANO]` | Owner/operators |
 
-### Remaining gaps entering Task 2
+### Remaining gaps entering Task 3
 
-1. Authorization stub grants all capabilities.
-2. MFA/session UX incomplete.
-3. Audit, retention, storage, backup, observability, CI gates incomplete.
-4. Real provider/pilot/launch evidence absent → final recommendation remains **NO-GO** until `[HUMANO]` gates close.
+1. MFA/session UX incomplete.
+2. Audit, retention, storage, backup, observability, CI gates incomplete.
+3. Real provider/pilot/launch evidence absent → final recommendation remains **NO-GO** until `[HUMANO]` gates close.
 
 ---
 
-## Task progress log
+## Task 2 — Real roles and capabilities (2026-09-22)
+
+### Behavior
+
+- `AdminRole`: `owner` | `operator`
+- Capabilities use colon form (`catalog:operate`, `integrations:manage`, …)
+- Owner: all capabilities. Operator: six `:operate` only.
+- Migration `0031_admin_roles_audit_sessions.sql` adds `admin_users.role` (existing rows → `owner`)
+- `requireCapability()` enforced server-side on admin domain routes; Security API for user management with password confirmation
+- Admin UI: Seguridad y acceso page; sidebar/Más hide owner-only links for operators
+
+### TDD evidence
+
+| Step | Command | Result |
+| --- | --- | --- |
+| RED | `pnpm --filter @camila/api exec vitest run test/capabilities.test.ts` | Fail: operator denial expected false, got true |
+| GREEN | same | 4 passed |
+| Integration | `pnpm --filter @camila/api test:integration -- test/admin-authorization.integration.test.ts` | 5 passed (401/403/owner/operator/create) |
+| Admin unit | `pnpm --filter @camila/admin exec vitest run src/settings/SecuritySettingsPage.test.tsx` | 2 passed |
+
+### Task progress log
 
 | Task | Status | Commit | Notes |
 | --- | --- | --- | --- |
-| 1 Baseline | `verified` | (this commit) | Fresh totals recorded |
-| 2 AuthZ | pending | | |
+| 1 Baseline | `verified` | `87f92e9` | Fresh totals recorded |
+| 2 AuthZ | `verified` | (this commit) | Stub replaced; server enforcement |
 | 3 MFA/sessions | pending | | |
 | 4 Audit | pending | | |
 | 5 Retention | pending | | |

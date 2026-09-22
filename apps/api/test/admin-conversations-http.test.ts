@@ -51,6 +51,7 @@ describe('admin conversation HTTP API', () => {
         return {
           id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
           username: 'camila',
+          role: 'owner' as const,
         };
       },
     } as unknown as AuthService;
@@ -102,6 +103,7 @@ describe('admin conversation HTTP API', () => {
       getSession: vi.fn().mockResolvedValue({
         id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         username: 'camila',
+        role: 'owner' as const,
       }),
     } as unknown as AuthService;
     const conversationAdminRepository = {
