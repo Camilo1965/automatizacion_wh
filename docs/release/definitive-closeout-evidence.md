@@ -1,0 +1,135 @@
+# KAIRO definitive closeout evidence
+
+Branch: `cursor/kairo-definitive-closeout`  
+Product: KAIRO Operaciones  
+Scope: single Colombian footwear business
+
+Status legend: `verified` | `failed` | `[HUMANO]` | `in_progress`
+
+---
+
+## Task 1 — Baseline inventory (2026-09-22T04:45Z approx)
+
+### Git state
+
+| Check | Result |
+| --- | --- |
+| Branch created | `cursor/kairo-definitive-closeout` from `main` HEAD |
+| Starting SHA | `938003e44b31bdb625c4f970e8011a9719d0d8eb` |
+| Ahead of origin/main | 7 commits (preserved; no reset) |
+| Worktree | clean at Task 1 start |
+
+Commands:
+
+```text
+git status --short --branch
+## cursor/kairo-definitive-closeout
+
+git log --oneline -10
+938003e docs: add definitive KAIRO closeout plan for Cursor
+f72c875 feat: complete KAIRO phases 5-10 automatable hardening
+747da0b refactor: modularize backend schema contracts routes and workers
+15fd086 feat: move global search to server and split bot simulate panel
+424c576 feat: unify KAIRO Operaciones brand and WCAG AA shell
+4c8bb5f fix: restore KAIRO phase-1 CI baseline
+f310bce docs: define KAIRO production hardening design
+838a63e feat: redesign admin UI with Refero/shadcn mono system
+118b374 merge: include KAIRO login redesign into UX branch
+3d72959 feat: ship boutique ops UX and live WhatsApp/99envíos path
+
+git rev-parse HEAD
+938003e44b31bdb625c4f970e8011a9719d0d8eb
+```
+
+### Fresh verification (do not reuse prior audit claims)
+
+| Command | Exit | Timestamp (local) | Totals / notes |
+| --- | --- | --- | --- |
+| `pnpm install --frozen-lockfile` | 0 | 2026-09-21 ~23:45 | Already up to date; pnpm 11.19.0 |
+| `pnpm verify:local` | 0 | 2026-09-21 23:45–23:50 | Duration ~271s |
+| `pnpm audit --prod` | 0 | 2026-09-21 23:50 | No known vulnerabilities found |
+| `docker compose --env-file .env.prod.example -f compose.prod.yaml config --quiet` | 0 | 2026-09-21 23:50 | Valid |
+| `docker compose --env-file .env.prod.example -f compose.prod.yaml build api worker admin` | 0 | 2026-09-21 23:50 | All three images built |
+
+#### `pnpm verify:local` totals
+
+| Suite | Result |
+| --- | --- |
+| format:check | pass |
+| lint | 0 errors, **4 Fast Refresh warnings** (badge/button/sidebar/tabs) |
+| typecheck | pass |
+| contracts unit | 70 passed |
+| API unit | 213 passed |
+| admin unit | 50 passed |
+| API integration | 109 passed |
+| admin E2E | 22 passed |
+| build | pass |
+
+Docker image manifest lists (this machine, after build):
+
+| Image | Manifest digest |
+| --- | --- |
+| camila-prod-api | `sha256:ed82c6c6007abfe2088d78499f35808d0309ef0a30963601880f7c1632de4f0d` |
+| camila-prod-worker | `sha256:331c12e8e57be7bf4710221e6a52ada706585e4c7bd137a158013b7b497c68f6` |
+| camila-prod-admin | `sha256:d5b8856dd67f40884b90cc0af77652a88844f80f6b5d4d3e6b6187604ea7dafa` |
+
+### Design requirement ledger (honest)
+
+| Requirement area | Status | Evidence / gap |
+| --- | --- | --- |
+| Baseline CI green locally | `verified` | `pnpm verify:local` exit 0 |
+| Prod dependency audit | `verified` | `pnpm audit --prod` clean |
+| Compose prod config | `verified` | config --quiet exit 0 |
+| Docker image builds | `verified` | api/worker/admin built |
+| Real RBAC / capabilities | `failed` | `hasCapability()` returns `true` for any authenticated user |
+| Operable MFA from panel | `failed` | Not end-to-end operable per Task 3 scope |
+| Unified admin/business audit | `failed` | Historial still incomplete vs design §8.4 |
+| Versioned retention + legal gate | `failed` | Execution must stay blocked until `[HUMANO]` legal approval |
+| Integrations/Shipping UX lifecycle | `failed` | Pages still monolithic; generic copy residual risk |
+| Fast Refresh warnings = 0 | `failed` | 4 warnings remain |
+| A11y all principal routes @ 390/768/1280/1440 | `failed` | Partial E2E only |
+| S3-compatible production storage | `failed` | Local storage still default path |
+| Compose migrate service | `failed` | Not yet one-shot migrate gate |
+| Real worker health | `failed` | Need heartbeat/DB readiness |
+| Hardened non-root containers | `in_progress` | Partial from prior hardening; Task 8 must complete |
+| Productive HTTPS (Caddy + domain) | `[HUMANO]` | Needs domain/DNS/VPS |
+| Encrypted off-server backup + restore drill | `failed` / `[HUMANO]` dest | Automate in Task 9; prod bucket `[HUMANO]` |
+| Metrics + correlation IDs + external alerts | `failed` / `[HUMANO]` webhook | Task 10 |
+| CI coverage/secret/fs/image/smoke gates | `failed` | Task 11 |
+| Real idempotency/concurrency tests | `failed` | Schema-name assertions insufficient |
+| Staging reproducible smoke | `failed` | Task 8 |
+| Meta + 99envíos real evidence | `[HUMANO]` | Credentials + authorized actions |
+| Pilot + acceptance signoff | `[HUMANO]` | Owner/operators |
+
+### Remaining gaps entering Task 2
+
+1. Authorization stub grants all capabilities.
+2. MFA/session UX incomplete.
+3. Audit, retention, storage, backup, observability, CI gates incomplete.
+4. Real provider/pilot/launch evidence absent → final recommendation remains **NO-GO** until `[HUMANO]` gates close.
+
+---
+
+## Task progress log
+
+| Task | Status | Commit | Notes |
+| --- | --- | --- | --- |
+| 1 Baseline | `verified` | (this commit) | Fresh totals recorded |
+| 2 AuthZ | pending | | |
+| 3 MFA/sessions | pending | | |
+| 4 Audit | pending | | |
+| 5 Retention | pending | | |
+| 6 Frontend UX/a11y | pending | | |
+| 7 Object storage | pending | | |
+| 8 Topology/health | pending | | |
+| 9 Backups | pending | | |
+| 10 Observability | pending | | |
+| 11 CI gates | pending | | |
+| 12 Concurrency/perf | pending | | |
+| 13 Real integrations | `[HUMANO]` | | |
+
+---
+
+## Secrets / PII confirmation
+
+No passwords, tokens, TOTP secrets, recovery codes, documents, phones, addresses or production data recorded in this ledger.
