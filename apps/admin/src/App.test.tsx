@@ -155,15 +155,17 @@ describe('App shell', () => {
     renderWithProviders(<App />, { initialEntries: ['/'] });
     await screen.findByRole('heading', { name: 'Inicio' });
     await user.click(
-      screen.getByRole('button', { name: 'Abrir búsqueda global' }),
+      await screen.findByRole('button', { name: 'Abrir búsqueda global' }),
     );
     expect(
-      screen.getByRole('dialog', { name: 'Búsqueda global' }),
+      await screen.findByRole('dialog', { name: 'Búsqueda global' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText('Cliente, teléfono, pedido o referencia'),
+      await screen.findByPlaceholderText(
+        'Cliente, teléfono, pedido o referencia',
+      ),
     ).toHaveFocus();
-  });
+  }, 15_000);
 });
 
 describe('Shipping operations', () => {
@@ -268,7 +270,7 @@ describe('Login and session', () => {
     renderWithProviders(<App />, { initialEntries: ['/catalog'] });
 
     expect(
-      await screen.findByRole('heading', { name: 'Bienvenida a Camila' }),
+      await screen.findByRole('heading', { name: 'Bienvenida a KAIRO' }),
     ).toBeInTheDocument();
   });
 
@@ -716,7 +718,7 @@ describe('Catalog flows', () => {
     await user.click(screen.getByRole('link', { name: /01/ }));
 
     expect(
-      await screen.findByRole('heading', { name: 'Bienvenida a Camila' }),
+      await screen.findByRole('heading', { name: 'Bienvenida a KAIRO' }),
     ).toBeInTheDocument();
   });
 

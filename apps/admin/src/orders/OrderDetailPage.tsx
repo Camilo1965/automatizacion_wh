@@ -25,12 +25,7 @@ import type { LocalityPublic } from '@camila/contracts';
 import { operationalLabel } from '../lib/operational-label';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type OrderLifecycleAction = 'cancel' | 'dispatch' | 'deliver' | 'return';
 
@@ -314,7 +309,9 @@ export function OrderDetailPage() {
                     {item.insuranceMode === 'none'
                       ? 'Económico'
                       : `Protegido · Seguro 99 ${item.insuranceMode === 'plus' ? 'Plus' : 'estándar'}`}
-                    {item.estimatedDays ? ` · ${item.estimatedDays} día(s)` : ''}
+                    {item.estimatedDays
+                      ? ` · ${item.estimatedDays} día(s)`
+                      : ''}
                     {item.recommended ? ' · Recomendada' : ''}
                   </span>
                 </label>

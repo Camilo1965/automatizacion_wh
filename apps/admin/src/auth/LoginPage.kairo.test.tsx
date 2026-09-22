@@ -19,7 +19,7 @@ describe('Camila login', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Bienvenida a Camila' }),
+      screen.getByRole('heading', { name: 'Bienvenida a KAIRO' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveClass('auth-shell');
     expect(

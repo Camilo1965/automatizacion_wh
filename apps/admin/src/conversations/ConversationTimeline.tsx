@@ -42,7 +42,9 @@ export function ConversationTimeline({
                 alt="Imagen enviada en la conversación"
               />
             ) : null}
-            {message.text ? <p className="whitespace-pre-wrap">{message.text}</p> : null}
+            {message.text ? (
+              <p className="whitespace-pre-wrap">{message.text}</p>
+            ) : null}
             <small
               className={cn(
                 'mt-1 block text-[0.7rem]',

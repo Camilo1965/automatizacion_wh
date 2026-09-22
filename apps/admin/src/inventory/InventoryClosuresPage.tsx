@@ -15,12 +15,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { Button as UiButton } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type ClosureAction = 'acknowledge' | 'reopen';
 

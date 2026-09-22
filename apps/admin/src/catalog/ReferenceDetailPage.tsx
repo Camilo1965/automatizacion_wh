@@ -203,7 +203,9 @@ export function ReferenceDetailPage() {
           Existencias
         </h3>
         {detail.stock.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sin tallas registradas</p>
+          <p className="text-sm text-muted-foreground">
+            Sin tallas registradas
+          </p>
         ) : (
           <ul className="space-y-2" aria-label="Existencias">
             {detail.stock.map((item) => (

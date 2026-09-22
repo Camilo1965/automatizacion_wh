@@ -91,10 +91,13 @@ test('main catalog operations flow', async ({ page }) => {
   await page.getByLabel('Color').fill('Negro');
   await page.getByLabel('Precio (COP)').fill('120000');
   await page.getByLabel('Fotografía principal').setInputFiles(pngPath);
+  await page.getByLabel('Talla 37').fill('3');
   await page.getByRole('button', { name: 'Crear referencia' }).click();
 
-  await expect(page.getByLabel('Código')).toHaveValue('01');
-  await expect(page.getByRole('heading', { name: /Referencia/ })).toBeVisible();
+  await expect(page).toHaveURL(/\/references\/[0-9a-f-]+$/);
+  await expect(
+    page.getByRole('heading', { name: 'Referencia 01' }),
+  ).toBeVisible();
 
   let photoUploads = 0;
   page.on('request', (req) => {
@@ -152,11 +155,9 @@ test('main catalog operations flow', async ({ page }) => {
   await confirmStock(page);
   await expect(page.getByText('3→5')).toBeVisible();
   await expect(page.getByText('+2')).toBeVisible();
-  const movementRow = page
-    .locator('.movement-list li')
-    .filter({ hasText: '3→5' });
+  const movementRow = page.getByRole('listitem').filter({ hasText: '3→5' });
   await expect(movementRow).toBeVisible();
-  await expect(movementRow.locator('div.muted')).not.toBeEmpty();
+  await expect(movementRow.locator('.text-xs')).not.toBeEmpty();
 
   await page
     .getByLabel('Subir JPEG o PNG (máx. 5 MiB)')
@@ -206,11 +207,9 @@ test('main catalog operations flow', async ({ page }) => {
   ).toBeVisible();
 
   await page.getByRole('link', { name: 'Volver al catálogo' }).click();
-  await page.getByLabel('Estado').selectOption('inactive');
-  await expect(
-    page.locator('.reference-code', { hasText: /^01$/ }),
-  ).toBeVisible();
-  await expect(page.getByText(/Tallas:\s*37/)).toBeVisible();
+  await page.getByRole('button', { name: 'Inactivas' }).click();
+  await expect(page.getByRole('link', { name: /01/ })).toBeVisible();
+  await expect(page.getByText(/Tallas 37/)).toBeVisible();
   await expect(
     page.getByAltText('Fotografía de 01 Ballerina Plus'),
   ).toBeVisible();
@@ -289,14 +288,17 @@ test('loads more movements when seeded beyond page size', async ({ page }) => {
 
 test('previews and confirms a catalog CSV import', async ({ page }) => {
   await login(page);
-  await page.getByRole('link', { name: 'Importar desde Treinta' }).click();
+  await page.goto('/catalog-import');
   await expect(
     page.getByRole('heading', { name: 'Importar desde Treinta' }),
   ).toBeVisible();
 
-  await page.getByLabel('Archivo CSV').setInputFiles(catalogImportPath);
+  await page
+    .getByLabel('Archivo CSV de Treinta')
+    .setInputFiles(catalogImportPath);
   await page.getByRole('button', { name: 'Previsualizar' }).click();
-  await expect(page.getByText('Referencias: 1. Errores: 0.')).toBeVisible();
+  await expect(page.getByText('Referencias: 1')).toBeVisible();
+  await expect(page.getByText('Errores: 0')).toBeVisible();
 
   await page.getByRole('button', { name: 'Confirmar importación' }).click();
   const dialog = page.getByRole('alertdialog', {
@@ -309,7 +311,7 @@ test('previews and confirms a catalog CSV import', async ({ page }) => {
   ).toBeVisible();
 
   await page.getByRole('link', { name: 'Catálogo', exact: true }).click();
-  await page.getByLabel('Estado').selectOption('inactive');
+  await page.getByRole('button', { name: 'Inactivas' }).click();
   await expect(page.getByText('E2E-IMPORT')).toBeVisible();
-  await expect(page.getByText(/Tallas:\s*37, 37.5/)).toBeVisible();
+  await expect(page.getByText(/Tallas 37, 37\.5/)).toBeVisible();
 });

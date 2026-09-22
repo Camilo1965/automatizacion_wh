@@ -49,10 +49,7 @@ export function CatalogListPage() {
         titleId="catalog-title"
         description="Referencias listas para WhatsApp: foto, tallas y disponibilidad."
         actions={
-          <UiButton
-            asChild
-            className="control-target h-11 rounded-[1.125rem]"
-          >
+          <UiButton asChild className="control-target h-11 rounded-[1.125rem]">
             <Link to="/references/new">Nueva referencia</Link>
           </UiButton>
         }

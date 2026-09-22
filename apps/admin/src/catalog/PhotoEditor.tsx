@@ -146,11 +146,7 @@ export function PhotoEditor({
       </Button>
       <ErrorMessage message={error} id="photo-error" />
       {warning !== '' ? (
-        <Alert
-          role="status"
-          aria-live="polite"
-          className="rounded-[1.125rem]"
-        >
+        <Alert role="status" aria-live="polite" className="rounded-[1.125rem]">
           <AlertDescription>{warning}</AlertDescription>
         </Alert>
       ) : null}

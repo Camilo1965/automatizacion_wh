@@ -111,10 +111,7 @@ export function CatalogImportPage() {
         >
           Descargar plantilla CSV
         </a>
-        <span>
-          {' '}
-          · Columnas: referencia, modelo, color, precio y tallas
-        </span>
+        <span> · Columnas: referencia, modelo, color, precio y tallas</span>
       </p>
       <PageSection className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <span

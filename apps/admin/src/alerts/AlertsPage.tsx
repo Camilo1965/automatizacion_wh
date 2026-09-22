@@ -10,12 +10,7 @@ import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export function AlertsPage() {
@@ -74,7 +69,11 @@ export function AlertsPage() {
           )}
         />
       )}
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Filtros de alertas">
+      <div
+        className="flex flex-wrap gap-2"
+        role="group"
+        aria-label="Filtros de alertas"
+      >
         {(
           [
             ['actionable', 'Pendientes'],

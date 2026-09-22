@@ -47,7 +47,10 @@ export function ResponsiveDataList<T>({
             {items.map((item) => (
               <TableRow key={itemKey(item)}>
                 {columns.map((column) => (
-                  <TableCell key={column.key} className="px-4 whitespace-normal">
+                  <TableCell
+                    key={column.key}
+                    className="px-4 whitespace-normal"
+                  >
                     {column.render(item)}
                   </TableCell>
                 ))}

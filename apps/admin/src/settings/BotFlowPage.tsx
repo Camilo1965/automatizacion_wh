@@ -250,10 +250,7 @@ export function BotFlowPage() {
           >
             Simular
           </TabsTrigger>
-          <TabsTrigger
-            value="history"
-            className="rounded-[0.875rem] px-3 py-2"
-          >
+          <TabsTrigger value="history" className="rounded-[0.875rem] px-3 py-2">
             Historial
           </TabsTrigger>
         </TabsList>

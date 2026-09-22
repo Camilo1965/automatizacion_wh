@@ -36,8 +36,7 @@ const labels = {
 const selectClassName =
   'h-11 w-full rounded-[1.125rem] border border-input bg-muted px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50';
 
-const checkboxClassName =
-  'size-4 rounded border border-input accent-primary';
+const checkboxClassName = 'size-4 rounded border border-input accent-primary';
 
 export function IntegrationsPage() {
   const [origin, setOrigin] = useState<LocalityPublic | null>(null);
@@ -157,7 +156,9 @@ export function IntegrationsPage() {
                   const graphApiVersion = String(
                     fields.get('graphApiVersion') ?? '',
                   ).trim();
-                  const appSecret = String(fields.get('appSecret') ?? '').trim();
+                  const appSecret = String(
+                    fields.get('appSecret') ?? '',
+                  ).trim();
                   const webhookVerifyToken = String(
                     fields.get('webhookVerifyToken') ?? '',
                   ).trim();
@@ -398,7 +399,11 @@ export function IntegrationsPage() {
                       className="h-11 rounded-[1.125rem] bg-muted"
                     />
                   </div>
-                  <Button type="submit" disabled={save.isPending} loading={save.isPending}>
+                  <Button
+                    type="submit"
+                    disabled={save.isPending}
+                    loading={save.isPending}
+                  >
                     Guardar conexión
                   </Button>
                 </CardContent>
@@ -536,7 +541,11 @@ export function IntegrationsPage() {
                       className="h-11 rounded-[1.125rem] bg-muted"
                     />
                   </div>
-                  <Button type="submit" disabled={save.isPending} loading={save.isPending}>
+                  <Button
+                    type="submit"
+                    disabled={save.isPending}
+                    loading={save.isPending}
+                  >
                     Guardar conexión
                   </Button>
                 </CardContent>

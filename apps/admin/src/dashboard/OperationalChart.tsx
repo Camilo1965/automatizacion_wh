@@ -52,7 +52,11 @@ export function OperationalChart({
       <div className="h-64 w-full" aria-hidden="true">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data}>
-            <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
+            <CartesianGrid
+              stroke={GRID}
+              strokeDasharray="3 3"
+              vertical={false}
+            />
             <XAxis
               dataKey="name"
               tick={{ fill: AXIS, fontSize: 12 }}

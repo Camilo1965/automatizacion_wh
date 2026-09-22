@@ -229,10 +229,7 @@ function PolicyFields({
         <Label htmlFor={`${prefix}-secondary`}>Transportadora secundaria</Label>
         <div className="space-y-2">
           {(policy.orderedCarriers ?? []).map((carrier, index) => (
-            <div
-              className="flex flex-wrap items-center gap-2"
-              key={carrier}
-            >
+            <div className="flex flex-wrap items-center gap-2" key={carrier}>
               <span className="text-sm text-foreground">
                 {index + 1}. {carrierName(carrier)}
               </span>
@@ -545,10 +542,7 @@ export function ShippingSettingsPage() {
         titleId="settings-title"
         description="Define la transportadora, el seguro y qué hacer cuando una transportadora no tiene cobertura. El cliente no selecciona el envío."
       />
-      <dl
-        className="grid gap-3 sm:grid-cols-3"
-        aria-label="Resumen de envío"
-      >
+      <dl className="grid gap-3 sm:grid-cols-3" aria-label="Resumen de envío">
         <div className="space-y-1 rounded-[1.125rem] border border-border bg-card p-4 shadow-[var(--shadow-card)]">
           <dt className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
             Regla general
@@ -623,9 +617,7 @@ export function ShippingSettingsPage() {
                 Nueva regla municipal
               </h2>
             </CardTitle>
-            <CardDescription>
-              {describePolicy(municipalPolicy)}
-            </CardDescription>
+            <CardDescription>{describePolicy(municipalPolicy)}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <LocalityPicker
@@ -757,7 +749,8 @@ export function ShippingSettingsPage() {
                         department: rule.department,
                         locality: rule.locality,
                         country: 'CO',
-                        normalizedName: rule.locality.toLocaleLowerCase('es-CO'),
+                        normalizedName:
+                          rule.locality.toLocaleLowerCase('es-CO'),
                       });
                       setSaved(
                         'Regla cargada para editar. Guarda para aplicar los cambios.',

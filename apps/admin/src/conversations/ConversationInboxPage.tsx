@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   useInfiniteQuery,
   useMutation,
@@ -55,9 +55,7 @@ export function ConversationInboxPage() {
     (item) => item.id === effectiveSelectedId,
   );
 
-  useEffect(() => {
-    if (requestedId) setMobileThreadOpen(true);
-  }, [requestedId]);
+  const showMobileThread = mobileThreadOpen || requestedId !== null;
 
   function selectConversation(id: string) {
     setSelectedId(id);
@@ -127,7 +125,7 @@ export function ConversationInboxPage() {
         <div
           className={cn(
             'grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_minmax(0,16rem)]',
-            mobileThreadOpen
+            showMobileThread
               ? 'max-lg:[&>[data-inbox-list]]:hidden'
               : 'max-lg:[&>[data-inbox-thread]]:hidden max-lg:[&>[data-inbox-context]]:hidden',
           )}

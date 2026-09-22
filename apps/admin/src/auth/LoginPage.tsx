@@ -91,7 +91,7 @@ export function LoginPage() {
             alt="KAIRO"
             className="size-12 rounded-[1.125rem] object-contain lg:size-14"
           />
-          <p className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+          <p className="text-xs font-medium tracking-[0.05em] text-foreground/70 uppercase">
             Operación en tiempo real
           </p>
           <h1
@@ -100,7 +100,7 @@ export function LoginPage() {
           >
             Tu negocio, organizado en un solo lugar
           </h1>
-          <p className="max-w-md text-sm text-muted-foreground sm:text-base">
+          <p className="max-w-md text-sm text-foreground/70 sm:text-base">
             Gestiona conversaciones, pedidos, catálogo, envíos e inventario
             desde una sola operación.
           </p>
@@ -122,10 +122,10 @@ export function LoginPage() {
                 className="text-2xl font-semibold tracking-tight"
               >
                 <h2 className="text-2xl font-semibold tracking-tight">
-                  Bienvenida a Camila
+                  Bienvenida a KAIRO
                 </h2>
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-foreground/70">
                 Ingresa para continuar con la operación de hoy.
               </CardDescription>
             </CardHeader>

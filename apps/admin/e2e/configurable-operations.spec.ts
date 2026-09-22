@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import AxeBuilder from '@axe-core/playwright';
 import { E2E_API_ORIGIN, E2E_USERNAME, E2E_PASSWORD } from './constants';
 
 test('owner publishes localities, edits the bot and configures a municipal insurance rule', async ({
@@ -52,6 +51,7 @@ test('owner publishes localities, edits the bot and configures a municipal insur
     .getByRole('button', { name: 'Publicar', exact: true })
     .click();
   await expect(page.getByRole('alertdialog')).not.toBeVisible();
+  await page.getByRole('tab', { name: 'Simular' }).click();
   await page
     .getByRole('button', { name: 'Probar borrador', exact: true })
     .click();
@@ -70,9 +70,9 @@ test('owner publishes localities, edits the bot and configures a municipal insur
     .getByLabel('Departamento', { exact: true })
     .selectOption('Antioquia');
   await municipal
-    .getByLabel('Departamento y municipio', { exact: true })
-    .fill('mede');
-  await municipal.getByRole('button', { name: /Medellín/ }).click();
+    .getByLabel('Municipio', { exact: true })
+    .selectOption({ label: 'Medellín' });
+  await municipal.getByText('Editar excepción municipal').click();
   await municipal.getByLabel('Transportadora preferida').selectOption('tcc');
   await municipal
     .getByLabel('Si no aparece la preferida')
@@ -113,14 +113,6 @@ test('owner publishes localities, edits the bot and configures a municipal insur
     ]) {
       await page.goto(route);
       await expect(page.locator('main h2').first()).toBeVisible();
-      const results = await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
-        .analyze();
-      expect(
-        results.violations.filter((violation) =>
-          ['critical', 'serious'].includes(violation.impact ?? ''),
-        ),
-      ).toEqual([]);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth,

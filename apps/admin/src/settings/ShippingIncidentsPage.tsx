@@ -111,7 +111,9 @@ export function ShippingIncidentsPage() {
       {query.data?.data.incidents.length === 0 && (
         <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
           <CardHeader>
-            <CardTitle className="text-lg">No hay novedades guardadas</CardTitle>
+            <CardTitle className="text-lg">
+              No hay novedades guardadas
+            </CardTitle>
             <CardDescription>
               Consulta la sucursal para actualizar esta lista.
             </CardDescription>

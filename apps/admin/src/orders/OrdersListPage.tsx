@@ -64,7 +64,11 @@ export function OrdersListPage() {
           </UiButton>
         }
       />
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Vistas de pedidos">
+      <div
+        className="flex flex-wrap gap-2"
+        role="tablist"
+        aria-label="Vistas de pedidos"
+      >
         {views.map((item) => {
           const active = (item.id === null && !view) || view === item.id;
           return (

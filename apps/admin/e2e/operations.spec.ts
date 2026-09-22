@@ -83,9 +83,9 @@ test('exposes every secondary operation from the mobile navigation', async ({
   ).toBeVisible();
   for (const name of [
     'Importar desde Treinta',
-    'Cierres de Treinta',
+    'Cierres diarios',
     'Alertas',
-    'Preferencias de envío',
+    'Políticas de envío',
     'WhatsApp Business',
     'Integraciones',
   ]) {

@@ -885,7 +885,7 @@ describe('admin HTTP API', () => {
     });
   });
 
-  it('keeps an invalid CSV from changing stock and reports existing references in preview', async () => {
+  it('previews reconciliation for existing references without changing stock until commit', async () => {
     const cookie = await login();
     await catalogService.createReference({
       code: '01',
@@ -912,15 +912,16 @@ describe('admin HTTP API', () => {
     });
     expect(preview.statusCode).toBe(201);
     expect(preview.json().data).toMatchObject({
-      status: 'invalid',
-      errors: [{ row: 2, field: 'reference_code', code: 'reference_exists' }],
+      status: 'previewed',
+      errors: [],
     });
-    const denied = await app.inject({
+    const committed = await app.inject({
       method: 'POST',
       url: `/api/admin/catalog-imports/${preview.json().data.id}/commit`,
       headers: { origin: adminOrigin, cookie },
     });
-    expect(denied.statusCode).toBe(409);
+    expect(committed.statusCode).toBe(200);
+    expect(committed.json().data.status).toBe('committed');
   });
 
   it('serves the CSV template and searchable Colombian localities only to the owner', async () => {

@@ -143,7 +143,7 @@ export class MetaWhatsAppClient {
           ? `: ${failed.error.message}`
           : `: ${JSON.stringify(failed).slice(0, 240)}`;
       } catch {
-        detail = '';
+        /* response body was not JSON */
       }
       throw new Error(
         `WhatsApp text send failed with status ${response.status}${detail}`,

@@ -6,6 +6,7 @@ import {
 } from '@camila/contracts';
 import { MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useId, useState } from 'react';
 
 import { apiRequest, getErrorMessage } from '../api/client';
@@ -49,12 +50,22 @@ export function LocalityPicker({
   const [departments, setDepartments] = useState<readonly DepartmentPublic[]>(
     [],
   );
-  const [municipalities, setMunicipalities] = useState<
-    readonly LocalityPublic[]
-  >([]);
-  const [loadingMunicipalities, setLoadingMunicipalities] = useState(false);
-  const [error, setError] = useState('');
+  const municipalitiesQuery = useQuery({
+    queryKey: ['locality-picker-municipalities', department],
+    queryFn: () => loadMunicipalities(department),
+    enabled: department !== '',
+  });
+  const municipalities = municipalitiesQuery.data ?? [];
+  const loadingMunicipalities = municipalitiesQuery.isLoading;
+  const [departmentError, setDepartmentError] = useState('');
   const [catalogEmpty, setCatalogEmpty] = useState(false);
+  const municipalityError = municipalitiesQuery.isError
+    ? getErrorMessage(
+        municipalitiesQuery.error,
+        'No fue posible cargar los municipios',
+      )
+    : '';
+  const error = departmentError || municipalityError;
 
   useEffect(() => {
     void apiRequest('/localities/departments', {
@@ -63,39 +74,14 @@ export function LocalityPicker({
       .then((response) => {
         setDepartments(response.data.items);
         setCatalogEmpty(response.data.items.length === 0);
-        setError('');
+        setDepartmentError('');
       })
       .catch(() =>
-        setError(
+        setDepartmentError(
           'No fue posible cargar los departamentos. Vuelve a abrir esta sección.',
         ),
       );
   }, []);
-
-  useEffect(() => {
-    if (department === '') {
-      setMunicipalities([]);
-      return;
-    }
-    const controller = new AbortController();
-    setLoadingMunicipalities(true);
-    void loadMunicipalities(department)
-      .then((items) => {
-        if (controller.signal.aborted) return;
-        setMunicipalities(items);
-        setError('');
-      })
-      .catch((caught) => {
-        if (!controller.signal.aborted)
-          setError(
-            getErrorMessage(caught, 'No fue posible cargar los municipios'),
-          );
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoadingMunicipalities(false);
-      });
-    return () => controller.abort();
-  }, [department]);
 
   return (
     <div className="space-y-4 rounded-3xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">

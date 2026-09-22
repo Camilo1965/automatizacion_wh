@@ -124,10 +124,7 @@ export function DashboardPage() {
             {query.data ? statusLine : 'Cargando…'}
           </p>
         </div>
-        <UiButton
-          asChild
-          className="control-target rounded-[1.125rem]"
-        >
+        <UiButton asChild className="control-target rounded-[1.125rem]">
           <Link to="/orders/new">Nuevo pedido</Link>
         </UiButton>
       </header>

@@ -13,10 +13,6 @@
   outline-offset: 2px;
 }
 
-a {
-  color: var(--foreground);
-}
-
 /* ——— Auth (minimal — login uses Tailwind) ——— */
 .auth-shell {
   min-height: 100svh;

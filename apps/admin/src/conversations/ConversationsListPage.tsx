@@ -9,12 +9,7 @@ import { Button } from '../components/Button';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { LoadingState } from '../components/LoadingState';
 import { PageHeader } from '../components/PageHeader';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export function ConversationsListPage() {
   const client = useQueryClient();
@@ -81,8 +76,7 @@ export function ConversationsListPage() {
                 mensaje(s) pendientes
               </p>
               <p className="text-sm text-muted-foreground">
-                Control:{' '}
-                {conversation.mode === 'human' ? 'propietaria' : 'bot'}
+                Control: {conversation.mode === 'human' ? 'propietaria' : 'bot'}
               </p>
             </CardHeader>
             <CardContent>

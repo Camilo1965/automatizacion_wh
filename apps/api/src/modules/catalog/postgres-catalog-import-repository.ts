@@ -11,6 +11,7 @@ import {
   CatalogConflictError,
   CatalogNotFoundError,
 } from './catalog-errors.js';
+import { parseShoeSize } from './catalog-validation.js';
 import type {
   CatalogImport,
   CatalogImportPreviewInput,
@@ -19,6 +20,10 @@ import type {
 } from './catalog-import-repository.js';
 
 type ImportRow = typeof catalogImports.$inferSelect;
+
+function stockKey(referenceId: string, size: string | number): string {
+  return `${referenceId}:${parseShoeSize(size)}`;
+}
 
 function mapImport(row: ImportRow): CatalogImport {
   return {
@@ -143,7 +148,7 @@ export class PostgresCatalogImportRepository implements CatalogImportRepository 
         }
         return reference.stock.map((stock) => ({
           referenceId,
-          size: stock.size,
+          size: parseShoeSize(stock.size),
           physicalQuantity: stock.physicalQuantity,
           reservedQuantity: 0,
         }));
@@ -164,12 +169,13 @@ export class PostgresCatalogImportRepository implements CatalogImportRepository 
           .for('update');
         const existingStock = new Map(
           existingStockRows.map((row) => [
-            `${row.referenceId}:${String(row.size)}`,
+            stockKey(row.referenceId, row.size),
             row,
           ]),
         );
         const newStockRows = stockRows.filter(
-          (stock) => !existingStock.has(`${stock.referenceId}:${stock.size}`),
+          (stock) =>
+            !existingStock.has(stockKey(stock.referenceId, stock.size)),
         );
         if (newStockRows.length > 0) {
           await tx.insert(catalogStock).values(newStockRows);
@@ -186,7 +192,7 @@ export class PostgresCatalogImportRepository implements CatalogImportRepository 
         }));
         for (const stock of stockRows) {
           const existing = existingStock.get(
-            `${stock.referenceId}:${stock.size}`,
+            stockKey(stock.referenceId, stock.size),
           );
           if (existing === undefined) continue;
           if (stock.physicalQuantity < existing.reservedQuantity) {

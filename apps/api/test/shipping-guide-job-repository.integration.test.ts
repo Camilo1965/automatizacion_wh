@@ -19,8 +19,8 @@ describe('shipping guide jobs', () => {
         VALUES ('22222222-2222-4222-8222-222222222222', '01', 'Tenis', 'Negro', 120000)
       `;
       await sql`
-        INSERT INTO sales_orders (id, reference_id, size, quantity)
-        VALUES ('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', 37, 1)
+        INSERT INTO sales_orders (id, reference_id, size, quantity, status)
+        VALUES ('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', 37, 1, 'confirmed')
       `;
     } finally {
       await sql.end({ timeout: 5 });
@@ -83,6 +83,10 @@ describe('shipping guide jobs', () => {
   it('does not claim pending jobs when the order is not confirmed', async () => {
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
     try {
+      await sql`
+        UPDATE sales_orders SET status = 'draft'
+        WHERE id = '11111111-1111-4111-8111-111111111111'
+      `;
       await sql`
         INSERT INTO shipping_guide_jobs (order_id, carrier)
         VALUES ('11111111-1111-4111-8111-111111111111', 'envia')
