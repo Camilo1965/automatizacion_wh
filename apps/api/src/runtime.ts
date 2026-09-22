@@ -1,5 +1,4 @@
 import { access } from 'node:fs/promises';
-import path from 'node:path';
 
 import { loadConfig, type AppConfig } from './config.js';
 import {
@@ -55,6 +54,7 @@ import { ShippingGuideService } from './modules/shipping/shipping-guide-service.
 import { ShippingGuideWorker } from './modules/shipping/shipping-guide-worker.js';
 import { ShippingIncidentService } from './modules/shipping/shipping-incident-service.js';
 import { ShippingQuoteService } from './modules/shipping/shipping-quote-service.js';
+import { createObjectStorage } from './modules/storage/create-object-storage.js';
 import { ConnectionCapabilityService } from './modules/whatsapp/connection-capability-service.js';
 import { OutboxWorker } from './modules/whatsapp/outbox-worker.js';
 import { PostgresOutboundRepository } from './modules/whatsapp/postgres-outbound-repository.js';
@@ -121,7 +121,9 @@ export async function createRuntime(
     },
   );
   const catalogRepository = new PostgresCatalogRepository(database);
-  const photoStorage = new LocalPhotoStorage(config.mediaRoot);
+  const photoStorage = new LocalPhotoStorage(
+    createObjectStorage(config, 'photos'),
+  );
   const catalogService = new DefaultCatalogService(
     catalogRepository,
     photoStorage,
@@ -175,7 +177,7 @@ export async function createRuntime(
           shippingClient,
         );
   const guidePdfStorage = new LocalGuidePdfStorage(
-    path.join(config.mediaRoot, 'guides'),
+    createObjectStorage(config, 'guides'),
   );
   const shippingGuideService =
     shippingClient === undefined

@@ -97,6 +97,7 @@ describe('admin unified audit', () => {
       adminOrigin,
       logLevel: 'silent',
       mediaRoot,
+      storageDriver: 'local',
       sessionIdleTtlMinutes: 60,
       sessionLastSeenThrottleSeconds: 300,
     };

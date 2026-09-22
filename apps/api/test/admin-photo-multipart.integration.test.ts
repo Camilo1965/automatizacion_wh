@@ -100,6 +100,7 @@ describe('admin photo multipart HTTP', () => {
       adminOrigin,
       logLevel: 'silent',
       mediaRoot,
+      storageDriver: 'local',
     };
 
     const photoStorage = new LocalPhotoStorage(mediaRoot);

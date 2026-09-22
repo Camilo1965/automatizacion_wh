@@ -46,6 +46,7 @@ services:
       postgres:
         condition: service_healthy
     volumes:
+      # Local migration source / emergency fallback. Runtime media uses STORAGE_DRIVER=s3.
       - media_data:/data/media
     expose:
       - '3000'
@@ -66,6 +67,7 @@ services:
       postgres:
         condition: service_healthy
     volumes:
+      # Local migration source / emergency fallback. Runtime media uses STORAGE_DRIVER=s3.
       - media_data:/data/media
     networks:
       - internal

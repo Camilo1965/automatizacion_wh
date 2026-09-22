@@ -81,6 +81,7 @@ describe('admin logout authentication', () => {
       adminOrigin,
       logLevel: 'silent',
       mediaRoot,
+      storageDriver: 'local',
     };
 
     const photoStorage = new LocalPhotoStorage(mediaRoot);

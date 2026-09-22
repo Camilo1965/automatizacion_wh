@@ -1,30 +1,61 @@
-# Runbook — Almacenamiento de media (fotos catálogo)
+# Runbook — Almacenamiento de media (fotos + PDFs de guías)
 
-## Modelo actual (Fase 7)
+## Modelo actual
 
-- Implementación: **almacenamiento local** (`LocalPhotoStorage`) bajo `MEDIA_ROOT`.
-- Producción compose: volumen Docker `media_data` montado en **api** y **worker** en `/data/media`.
-- `MEDIA_ROOT=/data/media` en `.env.prod`.
+- Contrato: `ObjectStorage` (`put` / `get` / `exists` / `delete`) con claves opacas path-safe.
+- Drivers:
+  - `STORAGE_DRIVER=local` — desarrollo y pruebas (`MEDIA_ROOT`).
+  - `STORAGE_DRIVER=s3` — **obligatorio en producción**; endpoint S3-compatible externo.
+- Adaptadores de dominio:
+  - fotos: `LocalPhotoStorage` → ObjectStorage namespace `photos`
+  - PDFs de guía: `LocalGuidePdfStorage` → ObjectStorage namespace `guides`
+- Antes de marcar un objeto listo se verifican content-type, tamaño y SHA-256.
 
-API y worker deben ver **el mismo** volumen; de lo contrario las fotos subidas por HTTP no estarán disponibles para jobs del worker.
+## Variables
+
+| Variable | Uso |
+| --- | --- |
+| `STORAGE_DRIVER` | `local` \| `s3` |
+| `MEDIA_ROOT` | raíz local / origen de migración |
+| `S3_ENDPOINT` | URL del servicio S3-compatible |
+| `S3_BUCKET` | bucket compartido por api y worker |
+| `S3_REGION` | región (requerida por el SDK) |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | credenciales (nunca en Git) |
+| `S3_FORCE_PATH_STYLE` | `true` típico para MinIO/path-style |
+| `S3_TLS_REJECT_UNAUTHORIZED` | validación TLS (`true` en prod) |
+
+API y worker deben usar **el mismo** driver y bucket.
+
+## MinIO (solo test/staging)
+
+```bash
+docker compose --profile test up -d minio minio-init
+```
+
+No montar MinIO como almacén de `compose.prod.yaml`.
+
+## Migración local → object storage
+
+Dry-run (no escribe destino, no borra origen):
+
+```bash
+pnpm --filter @camila/api storage:migrate-media
+```
+
+Execute (copia + verifica hashes; **conserva** archivos locales):
+
+```bash
+pnpm --filter @camila/api storage:migrate-media -- --execute
+```
+
+Conserve origen hasta que el reporte confirme `migrated`/`skipped_existing` y `mismatched=0`.
 
 ## Backup
 
-- Incluya el volumen `media_data` (snapshot de disco, `tar`, o backup del proveedor VPS) además de Postgres.
-- Restaurar media **y** base juntos mantiene coherentes `photo_storage_key` en DB.
-
-## S3 / object storage
-
-**No implementado en Fase 7.** No hay dependencia AWS en imágenes Docker.
-
-Si más adelante se añade S3:
-
-- Variables típicas: `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION`.
-- Migración: copiar objetos existentes y actualizar keys en DB con ventana de mantenimiento.
-
-Hasta entonces, trate el volumen como fuente de verdad.
+- Con driver `s3`: backup del bucket (proveedor) + Postgres.
+- Con driver `local`: volumen `media_data` + Postgres.
 
 ### `[HUMANO]`
 
-- Tamaño de disco monitoreado (fotos crecen con catálogo).
-- Política de retención si se eliminan referencias (orphan files — limpieza manual o job futuro).
+- Provisionar bucket S3-compatible externo y credenciales de producción.
+- Monitorear crecimiento del catálogo / guías.

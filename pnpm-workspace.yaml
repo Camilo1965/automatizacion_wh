@@ -8,3 +8,4 @@ saveExact: true
 engineStrict: true
 minimumReleaseAgeExclude:
   - lucide-react@1.44.0
+  - '@aws-sdk/client-s3@3.1137.0'

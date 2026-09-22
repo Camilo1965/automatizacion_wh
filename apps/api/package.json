@@ -19,9 +19,11 @@
     "localities:import": "tsx --env-file=../../.env src/cli/localities-import.ts",
     "shipping:acceptance": "tsx --env-file=../../.env src/cli/controlled-shipping-acceptance.ts",
     "retention:simulate": "tsx --env-file=../../.env src/cli/retention-simulate.ts",
-    "retention:execute": "tsx --env-file=../../.env src/cli/retention-execute.ts"
+    "retention:execute": "tsx --env-file=../../.env src/cli/retention-execute.ts",
+    "storage:migrate-media": "tsx --env-file=../../.env src/cli/migrate-media-to-object-storage.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1137.0",
     "@camila/contracts": "workspace:*",
     "@fastify/cookie": "11.0.2",
     "@fastify/cors": "11.3.0",
@@ -29,6 +31,7 @@
     "@fastify/multipart": "9.3.0",
     "@fastify/rate-limit": "10.3.0",
     "@inquirer/password": "4.0.23",
+    "@smithy/node-http-handler": "4.12.1",
     "drizzle-orm": "0.45.2",
     "fastify": "5.12.3",
     "fastify-raw-body": "6.0.1",

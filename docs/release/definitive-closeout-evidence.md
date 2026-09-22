@@ -88,7 +88,7 @@ Docker image manifest lists (this machine, after build):
 | Integrations/Shipping UX lifecycle | `failed` | Pages still monolithic; generic copy residual risk |
 | Fast Refresh warnings = 0 | `failed` | 4 warnings remain |
 | A11y all principal routes @ 390/768/1280/1440 | `failed` | Partial E2E only |
-| S3-compatible production storage | `failed` | Local storage still default path |
+| S3-compatible production storage | `verified` | Task 7: ObjectStorage local+S3; prod requires `STORAGE_DRIVER=s3`; MinIO test profile only |
 | Compose migrate service | `failed` | Not yet one-shot migrate gate |
 | Real worker health | `failed` | Need heartbeat/DB readiness |
 | Hardened non-root containers | `in_progress` | Partial from prior hardening; Task 8 must complete |
@@ -169,8 +169,8 @@ Docker image manifest lists (this machine, after build):
 | 3 MFA/sessions | `verified` | (Task 3 commit) | MFA+sessions operable; migration 0032 |
 | 4 Audit | `verified` | (Task 4 commit) | Unified append-only audit; migration 0033 |
 | 5 Retention | `verified` | (this commit) | Privacy inventory + controlled retention; migration 0034; legal durations `[HUMANO]` |
-| 6 Frontend UX/a11y | pending | | |
-| 7 Object storage | pending | | |
+| 6 Frontend UX/a11y | `verified` | (Task 6 commit) | Lifecycle UX + Fast Refresh 0 |
+| 7 Object storage | `verified` | (this commit) | ObjectStorage + S3/MinIO + migrate CLI |
 | 8 Topology/health | pending | | |
 | 9 Backups | pending | | |
 | 10 Observability | pending | | |
@@ -289,3 +289,35 @@ Colombia legal retention durations and matrix approval — do not invent approve
 ### [HUMANO]
 
 Visual spot-check of screenshots under `apps/admin/test-results/` after full E2E run on the machine.
+
+---
+
+## Task 7 — S3-compatible production storage (2026-09-22)
+
+### Behavior
+
+- `ObjectStorage` contract: `put` / `get` / `exists` / `delete` with path-safe opaque keys
+- Adapters: `LocalObjectStorage`, `S3ObjectStorage` (`@aws-sdk/client-s3@3.1137.0`)
+- Factory `createObjectStorage(config, 'photos'|'guides')`
+- Photo + guide PDF storages adapted onto ObjectStorage; MIME/size validated in domain, SHA-256 + content-type verified before ready
+- Production requires `STORAGE_DRIVER=s3` + endpoint/bucket/region/keys/force-path-style/TLS settings
+- Local/test default `STORAGE_DRIVER=local`
+- MinIO only under `compose.yaml` profile `test` (quay.io images) — **not** in `compose.prod.yaml`
+- CLI `storage:migrate-media` dry-run/execute; idempotent; never deletes source files
+
+### TDD evidence
+
+| Step | Command | Result |
+| --- | --- | --- |
+| Contract unit | `vitest run --project unit test/object-storage.contract.test.ts` | 5 passed (local) |
+| Migration unit | `vitest run --project unit test/migrate-media-to-object-storage.test.ts` | 3 passed |
+| Photo/PDF/config | local-photo + local-guide + config unit | passed |
+| S3 integration | `vitest run --project integration test/s3-object-storage.integration.test.ts` against MinIO | 5 passed |
+| Typecheck | `pnpm --filter @camila/api typecheck` | pass |
+| Compose prod | `docker compose --env-file .env.prod.example -f compose.prod.yaml config --quiet` | pass |
+
+### [HUMANO]
+
+Provision external S3-compatible bucket + credentials for production (not MinIO-in-compose).
+
+---

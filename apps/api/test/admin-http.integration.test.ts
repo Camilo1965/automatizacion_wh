@@ -169,6 +169,7 @@ describe('admin HTTP API', () => {
       adminOrigin,
       logLevel: 'silent',
       mediaRoot,
+      storageDriver: 'local',
     };
 
     const storage = overrides.photoStorage ?? photoStorage;

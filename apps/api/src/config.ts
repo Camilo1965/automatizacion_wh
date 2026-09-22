@@ -1,5 +1,17 @@
 import { z } from 'zod';
 
+export type StorageDriver = 'local' | 's3';
+
+export type S3StorageConfig = Readonly<{
+  endpoint: string;
+  bucket: string;
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  forcePathStyle: boolean;
+  tlsRejectUnauthorized: boolean;
+}>;
+
 export type AppConfig = Readonly<{
   nodeEnv: 'development' | 'test' | 'production';
   host: string;
@@ -8,6 +20,8 @@ export type AppConfig = Readonly<{
   adminOrigin: string;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
   mediaRoot: string;
+  storageDriver: StorageDriver;
+  s3?: S3StorageConfig;
   whatsappWebhookVerifyToken?: string;
   whatsappAppSecret?: string;
   whatsappAccessToken?: string;
@@ -157,6 +171,72 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     }
   }
 
+  const nodeEnvValue = nodeEnvResult.success
+    ? nodeEnvResult.data
+    : 'development';
+
+  const storageDriverRaw =
+    environment.STORAGE_DRIVER === undefined ||
+    environment.STORAGE_DRIVER.trim() === ''
+      ? nodeEnvValue === 'production'
+        ? ''
+        : 'local'
+      : environment.STORAGE_DRIVER.trim();
+  let storageDriver: StorageDriver | undefined;
+  if (storageDriverRaw === 'local' || storageDriverRaw === 's3') {
+    storageDriver = storageDriverRaw;
+  } else {
+    issues.push('STORAGE_DRIVER');
+  }
+  if (nodeEnvValue === 'production' && storageDriver !== 's3') {
+    issues.push('STORAGE_DRIVER');
+  }
+
+  let s3: S3StorageConfig | undefined;
+  if (storageDriver === 's3') {
+    const endpoint = environment.S3_ENDPOINT?.trim() ?? '';
+    const bucket = environment.S3_BUCKET?.trim() ?? '';
+    const region = environment.S3_REGION?.trim() ?? '';
+    const accessKeyId = environment.S3_ACCESS_KEY_ID?.trim() ?? '';
+    const secretAccessKey = environment.S3_SECRET_ACCESS_KEY?.trim() ?? '';
+    if (endpoint === '') issues.push('S3_ENDPOINT');
+    if (bucket === '') issues.push('S3_BUCKET');
+    if (region === '') issues.push('S3_REGION');
+    if (accessKeyId === '') issues.push('S3_ACCESS_KEY_ID');
+    if (secretAccessKey === '') issues.push('S3_SECRET_ACCESS_KEY');
+
+    const forcePathStyleRaw =
+      environment.S3_FORCE_PATH_STYLE?.trim().toLowerCase() ?? 'true';
+    if (forcePathStyleRaw !== 'true' && forcePathStyleRaw !== 'false') {
+      issues.push('S3_FORCE_PATH_STYLE');
+    }
+    const tlsRaw =
+      environment.S3_TLS_REJECT_UNAUTHORIZED?.trim().toLowerCase() ?? 'true';
+    if (tlsRaw !== 'true' && tlsRaw !== 'false') {
+      issues.push('S3_TLS_REJECT_UNAUTHORIZED');
+    }
+
+    if (
+      endpoint !== '' &&
+      bucket !== '' &&
+      region !== '' &&
+      accessKeyId !== '' &&
+      secretAccessKey !== '' &&
+      (forcePathStyleRaw === 'true' || forcePathStyleRaw === 'false') &&
+      (tlsRaw === 'true' || tlsRaw === 'false')
+    ) {
+      s3 = {
+        endpoint,
+        bucket,
+        region,
+        accessKeyId,
+        secretAccessKey,
+        forcePathStyle: forcePathStyleRaw === 'true',
+        tlsRejectUnauthorized: tlsRaw === 'true',
+      };
+    }
+  }
+
   const whatsappWebhookVerifyToken =
     environment.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim() || undefined;
   const whatsappAppSecret =
@@ -206,9 +286,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     issues.push('NINETYNINE_ENVIOS_CREDENTIALS');
   }
 
-  const nodeEnvValue = nodeEnvResult.success
-    ? nodeEnvResult.data
-    : 'development';
   const defaultIdleMinutes = nodeEnvValue === 'production' ? 60 : 720;
 
   let sessionAbsoluteTtlHours = 12;
@@ -267,7 +344,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     !nodeEnvResult.success ||
     port === undefined ||
     databaseUrl === undefined ||
-    !logLevelResult.success
+    !logLevelResult.success ||
+    storageDriver === undefined
   ) {
     throw new ConfigurationError(issues);
   }
@@ -280,6 +358,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     adminOrigin,
     logLevel: logLevelResult.data,
     mediaRoot,
+    storageDriver,
+    ...(s3 === undefined ? {} : { s3 }),
     whatsappGraphApiVersion,
     sessionAbsoluteTtlHours,
     sessionIdleTtlMinutes,

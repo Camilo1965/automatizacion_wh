@@ -28,6 +28,7 @@ const config: AppConfig = {
   adminOrigin,
   logLevel: 'silent',
   mediaRoot: './var/media',
+  storageDriver: 'local',
 };
 
 function cookieFromResponse(setCookie: string | string[] | undefined): string {

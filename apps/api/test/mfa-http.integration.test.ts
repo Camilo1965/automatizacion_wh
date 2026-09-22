@@ -111,6 +111,7 @@ describe('MFA HTTP enrollment and login', () => {
       adminOrigin,
       logLevel: 'silent',
       mediaRoot,
+      storageDriver: 'local',
       integrationEncryptionKey: encryptionKey,
       sessionIdleTtlMinutes: 60,
       sessionLastSeenThrottleSeconds: 300,

@@ -17,6 +17,7 @@ const config: AppConfig = {
   adminOrigin: 'http://127.0.0.1:5173',
   logLevel: 'silent',
   mediaRoot: './var/media',
+  storageDriver: 'local',
 };
 
 describe('admin conversation HTTP API', () => {

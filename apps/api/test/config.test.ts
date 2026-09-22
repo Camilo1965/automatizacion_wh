@@ -23,10 +23,49 @@ describe('loadConfig', () => {
       adminOrigin: 'http://127.0.0.1:5173',
       logLevel: 'info',
       mediaRoot: './var/media',
+      storageDriver: 'local',
       whatsappGraphApiVersion: 'v26.0',
       sessionAbsoluteTtlHours: 12,
       sessionIdleTtlMinutes: 720,
       sessionLastSeenThrottleSeconds: 300,
+      retentionExecutionEnabled: false,
+    });
+  });
+
+  it('defaults STORAGE_DRIVER to local outside production', () => {
+    expect(loadConfig(validEnvironment).storageDriver).toBe('local');
+  });
+
+  it('requires STORAGE_DRIVER=s3 in production with S3 settings', () => {
+    expect(() =>
+      loadConfig({
+        ...validEnvironment,
+        NODE_ENV: 'production',
+        ADMIN_ORIGIN: 'https://admin.example.com',
+        KAIRO_CONFIG_ENCRYPTION_KEY: Buffer.alloc(32).toString('base64'),
+      }),
+    ).toThrow(ConfigurationError);
+
+    const config = loadConfig({
+      ...validEnvironment,
+      NODE_ENV: 'production',
+      ADMIN_ORIGIN: 'https://admin.example.com',
+      KAIRO_CONFIG_ENCRYPTION_KEY: Buffer.alloc(32).toString('base64'),
+      STORAGE_DRIVER: 's3',
+      S3_ENDPOINT: 'https://s3.example.com',
+      S3_BUCKET: 'kairo-media',
+      S3_REGION: 'us-east-1',
+      S3_ACCESS_KEY_ID: 'akid',
+      S3_SECRET_ACCESS_KEY: 'secret',
+      S3_FORCE_PATH_STYLE: 'true',
+      S3_TLS_REJECT_UNAUTHORIZED: 'true',
+    });
+    expect(config.storageDriver).toBe('s3');
+    expect(config.s3).toMatchObject({
+      endpoint: 'https://s3.example.com',
+      bucket: 'kairo-media',
+      forcePathStyle: true,
+      tlsRejectUnauthorized: true,
     });
   });
 

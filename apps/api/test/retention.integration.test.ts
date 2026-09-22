@@ -124,6 +124,7 @@ describe('retention privacy integration', () => {
       adminOrigin,
       logLevel: 'silent',
       mediaRoot,
+      storageDriver: 'local',
       sessionIdleTtlMinutes: 60,
       sessionLastSeenThrottleSeconds: 300,
       retentionExecutionEnabled: executionEnabled,

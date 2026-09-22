@@ -1,6 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
-import path from 'node:path';
+
+import { LocalObjectStorage } from '../storage/local-object-storage.js';
+import {
+  ObjectStorageError,
+  type ObjectStorage,
+} from '../storage/object-storage.js';
 
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
@@ -21,16 +25,16 @@ export type StoredGuidePdf = Readonly<{
 }>;
 
 export class LocalGuidePdfStorage {
-  private readonly root: string;
-  private readonly ready: Promise<void>;
+  private readonly objects: ObjectStorage;
 
-  constructor(rootDirectory: string) {
-    this.root = path.resolve(rootDirectory);
-    this.ready = mkdir(this.root, { recursive: true }).then(() => undefined);
+  constructor(rootDirectoryOrStorage: string | ObjectStorage) {
+    this.objects =
+      typeof rootDirectoryOrStorage === 'string'
+        ? new LocalObjectStorage(rootDirectoryOrStorage)
+        : rootDirectoryOrStorage;
   }
 
   async save(bytes: Uint8Array): Promise<StoredGuidePdf> {
-    await this.ready;
     if (
       bytes.byteLength < 5 ||
       bytes.byteLength > MAX_PDF_BYTES ||
@@ -42,53 +46,58 @@ export class LocalGuidePdfStorage {
       );
     }
     const storageKey = `${randomUUID()}.pdf`;
-    const destination = this.resolveKey(storageKey);
-    const temporary = `${destination}.tmp-${randomUUID()}`;
+    const sha256 = createHash('sha256').update(bytes).digest('hex');
     try {
-      await writeFile(temporary, bytes);
-      await rename(temporary, destination);
+      await this.objects.put({
+        key: storageKey,
+        bytes,
+        contentType: 'application/pdf',
+        sha256,
+      });
     } catch (error) {
-      await unlink(temporary).catch(() => undefined);
-      throw error;
+      throw mapObjectError(error);
     }
     return {
       storageKey,
-      sha256: createHash('sha256').update(bytes).digest('hex'),
+      sha256,
       byteSize: bytes.byteLength,
     };
   }
 
   async read(storageKey: string): Promise<Uint8Array> {
-    await this.ready;
-    return new Uint8Array(await readFile(this.resolveKey(storageKey)));
+    assertGuideKey(storageKey);
+    try {
+      return await this.objects.get(storageKey);
+    } catch (error) {
+      throw mapObjectError(error);
+    }
   }
 
   async delete(storageKey: string): Promise<void> {
-    await this.ready;
-    await unlink(this.resolveKey(storageKey)).catch((error: unknown) => {
-      if (!(
-        error instanceof Error &&
-        'code' in error &&
-        error.code === 'ENOENT'
-      ))
-        throw error;
-    });
+    assertGuideKey(storageKey);
+    try {
+      await this.objects.delete(storageKey);
+    } catch (error) {
+      throw mapObjectError(error);
+    }
   }
+}
 
-  private resolveKey(storageKey: string): string {
-    if (!/^[0-9a-f-]{36}\.pdf$/.test(storageKey)) {
-      throw new GuidePdfStorageError(
-        'invalid_pdf_key',
-        'Guide PDF storage key is invalid',
-      );
-    }
-    const resolved = path.resolve(this.root, storageKey);
-    if (path.dirname(resolved) !== this.root) {
-      throw new GuidePdfStorageError(
-        'invalid_pdf_key',
-        'Guide PDF storage key is invalid',
-      );
-    }
-    return resolved;
+function assertGuideKey(storageKey: string): void {
+  if (!/^[0-9a-f-]{36}\.pdf$/.test(storageKey)) {
+    throw new GuidePdfStorageError(
+      'invalid_pdf_key',
+      'Guide PDF storage key is invalid',
+    );
   }
+}
+
+function mapObjectError(error: unknown): unknown {
+  if (error instanceof ObjectStorageError && error.code === 'invalid_key') {
+    return new GuidePdfStorageError(
+      'invalid_pdf_key',
+      'Guide PDF storage key is invalid',
+    );
+  }
+  return error;
 }

@@ -74,6 +74,7 @@ describe('admin auth login without MFA', () => {
       adminOrigin,
       logLevel: 'silent',
       mediaRoot,
+      storageDriver: 'local',
     };
 
     const photoStorage = new LocalPhotoStorage(mediaRoot);

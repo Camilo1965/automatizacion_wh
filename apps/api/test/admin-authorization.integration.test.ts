@@ -98,6 +98,7 @@ describe('admin authorization', () => {
       adminOrigin,
       logLevel: 'silent',
       mediaRoot,
+      storageDriver: 'local',
     };
 
     const photoStorage = new LocalPhotoStorage(mediaRoot);

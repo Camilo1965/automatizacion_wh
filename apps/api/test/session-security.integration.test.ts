@@ -99,6 +99,7 @@ describe('session security', () => {
       adminOrigin,
       logLevel: 'silent',
       mediaRoot,
+      storageDriver: 'local',
       integrationEncryptionKey: encryptionKey,
       sessionIdleTtlMinutes: Math.max(1, Math.round(idleMs / 60_000)),
       sessionLastSeenThrottleSeconds: Math.max(1, Math.round(throttleMs / 1000)),

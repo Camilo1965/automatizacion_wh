@@ -85,6 +85,7 @@ describe('admin HTTP explicit cases', () => {
       adminOrigin,
       logLevel: 'silent',
       mediaRoot,
+      storageDriver: 'local',
     };
     const photoStorage = new LocalPhotoStorage(mediaRoot);
     catalogService = new DefaultCatalogService(
