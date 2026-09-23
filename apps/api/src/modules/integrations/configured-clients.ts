@@ -21,6 +21,7 @@ type WhatsAppFallback = Readonly<{
 type ShippingFallback = Readonly<{
   email: string;
   password: string;
+  branchCode?: string;
   integrationToken?: string;
   integrationId?: string;
 }>;
@@ -85,6 +86,7 @@ export class ConfiguredNinetyNineEnviosClient {
     const current = saved ?? this.fallback;
     if (current === undefined)
       throw new IntegrationNotConfiguredError('99envíos');
+    const branchCode = saved?.branchCode ?? this.fallback?.branchCode;
     return new NinetyNineEnviosClient({
       email: saved?.accountEmail ?? this.fallback!.email,
       password: current.password,
@@ -92,6 +94,7 @@ export class ConfiguredNinetyNineEnviosClient {
       ...(saved?.originLocalityCode
         ? { originLocalityCode: saved.originLocalityCode }
         : {}),
+      ...(branchCode === undefined ? {} : { branchCode }),
       ...(current.integrationToken === undefined
         ? {}
         : { integrationToken: current.integrationToken }),

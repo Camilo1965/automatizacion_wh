@@ -31,6 +31,7 @@ export type AppConfig = Readonly<{
   ninetyNineEnviosPassword?: string;
   ninetyNineEnviosIntegrationToken?: string;
   ninetyNineEnviosIntegrationId?: string;
+  ninetyNineEnviosBranchCode?: string;
   integrationEncryptionKey?: string;
   /** Absolute session lifetime in hours (default 12). */
   sessionAbsoluteTtlHours?: number;
@@ -326,6 +327,14 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     environment.NINETYNINE_ENVIOS_INTEGRATION_TOKEN?.trim() || undefined;
   const ninetyNineEnviosIntegrationId =
     environment.NINETYNINE_ENVIOS_INTEGRATION_ID?.trim() || undefined;
+  const ninetyNineEnviosBranchCode =
+    environment.NINETYNINE_ENVIOS_BRANCH_CODE?.trim() || undefined;
+  if (
+    ninetyNineEnviosBranchCode !== undefined &&
+    !/^\d{1,12}$/.test(ninetyNineEnviosBranchCode)
+  ) {
+    issues.push('NINETYNINE_ENVIOS_BRANCH_CODE');
+  }
   const integrationEncryptionKey =
     environment.KAIRO_CONFIG_ENCRYPTION_KEY?.trim() ||
     environment.INTEGRATION_ENCRYPTION_KEY?.trim() ||
@@ -527,6 +536,9 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     ...(ninetyNineEnviosIntegrationId === undefined
       ? {}
       : { ninetyNineEnviosIntegrationId }),
+    ...(ninetyNineEnviosBranchCode === undefined
+      ? {}
+      : { ninetyNineEnviosBranchCode }),
     ...(integrationEncryptionKey === undefined
       ? {}
       : { integrationEncryptionKey }),

@@ -420,6 +420,67 @@ describe('NinetyNineEnviosClient', () => {
     ).toBe(false);
   });
 
+  it('falls back to the portal PDF object when 99envios cannot map TCC in its PDF endpoint', async () => {
+    const pdf = new TextEncoder().encode('%PDF-1.7\nportal guide');
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response('Transportadora no encontrada.', { status: 401 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(pdf, {
+          status: 200,
+          headers: { 'Content-Type': 'application/pdf' },
+        }),
+      );
+    const client = new NinetyNineEnviosClient({
+      email: 'owner@example.test',
+      password: 'secret',
+      branchCode: '691722',
+      fetch: request,
+    });
+
+    await expect(client.getGuidePdf('616724195', 'tcc')).resolves.toEqual(pdf);
+    expect(request.mock.calls[2]?.[0]).toBe(
+      'https://api.99envios.app/storage/adjuntos/adjuntos/pdfs/691722/tcc/691722_tcc_616724195.pdf',
+    );
+    expect(request.mock.calls[2]?.[1]).toMatchObject({
+      method: 'GET',
+      redirect: 'error',
+    });
+    expect(
+      request.mock.calls.some(([url]) => String(url).includes('/preenvio')),
+    ).toBe(false);
+  });
+
+  it('does not use the portal PDF fallback for an authentication 401', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response('Token JWT inválido, expirado o no proporcionado.', {
+          status: 401,
+        }),
+      );
+    const client = new NinetyNineEnviosClient({
+      email: 'owner@example.test',
+      password: 'secret',
+      branchCode: '691722',
+      fetch: request,
+    });
+
+    await expect(client.getGuidePdf('616724195', 'tcc')).rejects.toMatchObject({
+      name: 'ShippingRequestError',
+      message: '99envios PDF download failed with status 401',
+    });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
   it('follows the whitelisted PDF URL returned by the live provider', async () => {
     const pdf = new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55]);
     const pdfUrl =

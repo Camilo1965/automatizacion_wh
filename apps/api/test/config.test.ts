@@ -280,4 +280,22 @@ describe('loadConfig', () => {
       }),
     ).toThrow(ConfigurationError);
   });
+
+  it('accepts an optional numeric 99envios branch code for stored guide PDFs', () => {
+    expect(
+      loadConfig({
+        ...validEnvironment,
+        NINETYNINE_ENVIOS_BRANCH_CODE: '691722',
+      }).ninetyNineEnviosBranchCode,
+    ).toBe('691722');
+  });
+
+  it('rejects a nonnumeric 99envios branch code', () => {
+    expect(() =>
+      loadConfig({
+        ...validEnvironment,
+        NINETYNINE_ENVIOS_BRANCH_CODE: 'branch-691722',
+      }),
+    ).toThrow(ConfigurationError);
+  });
 });

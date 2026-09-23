@@ -10,18 +10,26 @@ Este es mi plan de trabajo, no una lista de tareas para Cursor. Las fases 0 a 3 
 | 1. Restricción de transportadora por municipio | Cerrada localmente | Filtro de ofertas, selección manual y confirmación protegidos; cotización obligatoria antes de confirmar. |
 | 2. Ajustes del dueño | Cerrada localmente | Carga/reintento seguro, regla municipal como copia completa, validaciones y simulador de bot de solo lectura. |
 | 3. Cliente y ayuda | Cerrada localmente | Teléfono de WhatsApp reutilizable, notas opcionales, municipio inválido, resumen de importes y ayuda por rol. |
-| 4. Contrato y guía 99envíos | Parcial | OpenAPI oficial: `IdServicio=1` para `/preenvio`; PDF 401 no crea otra guía. Falta PDF real TCC y aceptación controlada. |
-| 5. Puerta de lanzamiento | Parcial | `pnpm verify:local --keep-database`: 70 contratos, 320 API y 72 admin unitarias; 147 integraciones; 31 E2E aprobadas y una omitida; compilación y presupuesto de bundle correctos. `pnpm check:production-config`, `pnpm security:all` y `git diff --check` aprobaron. Falta evidencia externa. |
+| 4. Contrato y guía 99envíos | Parcial, respaldo implementado | El API devuelve `401 Transportadora no encontrada` para PDFs TCC; KAIRO recupera el PDF ya almacenado en el portal con una ruta limitada por sucursal y transportadora. Lo validé con una guía ya existente, repetí la descarga y obtuve los mismos bytes y hash. No creé preenvíos. El almacenamiento del portal no forma parte del OpenAPI y requiere confirmación de 99envíos. |
+| 5. Puerta de lanzamiento | Parcial | Tras el respaldo: 70 contratos, 324 API y 72 admin unitarias; 147 integraciones; 31 E2E aprobadas y una omitida; compilación y presupuesto de bundle correctos. También pasaron `pnpm check:production-config`, `pnpm security:all` y `git diff --check`. Falta conciliación externa de guías y confirmación del proveedor. |
 
 ### Trabajo restante, en orden de bloqueo
 
 1. **P0 — Seguridad de acceso:** rotar el token de Meta expuesto previamente antes de cualquier prueba con mensajería real. No registrar el nuevo secreto en archivos, consola o chat.
-2. **P0 — Conciliación 99envíos:** revisar en el portal *Envíos completos* los intentos anteriores de resultado incierto y resolver si ya existen guías. No reintentar `/preenvio` por un 401/5xx de PDF.
+2. **P0 — Conciliación 99envíos:** el portal muestra tres guías recientes de prueba en distribución, mientras la base local de KAIRO tiene dos trabajos correspondientes. Conciliar el tercer registro con el dueño antes de otra prueba externa. No reintentar `/preenvio` por un 401/5xx de PDF.
 3. **P0 — Aceptación real acotada:** con destinatario y teléfono de prueba dedicados y autorización de un único preenvío potencialmente facturable, ejecutar la CLI de aceptación contra una base `_test` desechable. Validar número, transportadora, estado en portal, PDF descargable y envío único por WhatsApp. Detenerse ante estado incierto.
-4. **P1 — PDF TCC:** resolver con la cuenta/proveedor el 401 observado al descargar el PDF. Probar con un PDF real y registrar hash, tamaño y lectura repetida; ningún cambio de adaptador se justifica sin evidencia del contrato.
+4. **P1 — PDF TCC:** solicitar a 99envíos que corrija el endpoint oficial, y que confirme la estabilidad del objeto de almacenamiento usado como respaldo. KAIRO recupera el PDF existente; al corregir el proveedor, validar el endpoint oficial y retirar el respaldo si ya no se necesita.
 5. **P1 — Cierre de lanzamiento:** repetir configuración, seguridad y pruebas tras cualquier ajuste de integración; revisar observabilidad, copias de seguridad, restauración y operación de incidentes en el entorno de despliegue. Declarar GO solamente cuando los cuatro puntos anteriores tengan evidencia.
 
 No se declara funcionalidad al 100 % ni lanzamiento mientras los casos externos sigan sin verificar.
+
+### Diagnóstico del 401 y respaldo aplicado
+
+- El inicio de sesión de la cuenta de pruebas funcionó y la cotización del mismo destino devolvió la clave canónica `tcc`.
+- El endpoint oficial `/pdf/1` y `/pdf/2` respondió `401` con `Transportadora no encontrada` para dos guías TCC existentes. También rechaza mayúsculas; por tanto, el formato del PDF o el JWT no explicaban ese error.
+- La acción **Ver PDF** del portal abrió un archivo PDF existente en el almacenamiento de `api.99envios.app`. La ruta del portal respondió `200 application/pdf` en guías ya existentes; el cliente KAIRO valida host fijo, catálogo de transportadoras, sucursal numérica y cabecera PDF.
+- KAIRO solo usa ese respaldo si el API PDF responde `401` con el texto exacto `Transportadora no encontrada` y tiene `NINETYNINE_ENVIOS_BRANCH_CODE` o sucursal cifrada configurada. No sigue redirecciones ni crea una guía como reintento.
+- La cuenta de pruebas muestra tres guías recientes en el portal, pero solo dos aparecen en `shipping_guide_jobs` de la base local. Queda pendiente conciliar ese registro antes de cualquier nuevo preenvío.
 
 La tabla anterior es el registro de estado; las casillas de las secciones siguientes conservan los criterios de aceptación originales y no sustituyen ese registro.
 

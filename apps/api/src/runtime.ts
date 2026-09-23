@@ -174,6 +174,9 @@ export async function createRuntime(
       ? {
           email: config.ninetyNineEnviosEmail,
           password: config.ninetyNineEnviosPassword,
+          ...(config.ninetyNineEnviosBranchCode === undefined
+            ? {}
+            : { branchCode: config.ninetyNineEnviosBranchCode }),
           ...(config.ninetyNineEnviosIntegrationToken === undefined
             ? {}
             : { integrationToken: config.ninetyNineEnviosIntegrationToken }),

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { isCarrierId } from './carrier-catalog.js';
+
 const baseUrl = 'https://integration.99envios.app/api/integration/v1';
 
 const loginSchema = z.object({ token: z.string().min(1) }).passthrough();
@@ -47,6 +49,7 @@ export type NinetyNineEnviosClientOptions = Readonly<{
   password: string;
   integrationToken?: string;
   integrationId?: string;
+  branchCode?: string;
   pdfType?: 1 | 2;
   originLocalityCode?: string;
   fetch?: typeof globalThis.fetch;
@@ -285,6 +288,17 @@ export class NinetyNineEnviosClient {
       throw new ShippingRequestError('99envios PDF download request failed');
     }
     if (!response.ok) {
+      const providerError = (await response.text().catch(() => '')).trim();
+      const branchCode = this.options.branchCode?.trim();
+      if (
+        response.status === 401 &&
+        /^transportadora no encontrada\.?$/i.test(providerError) &&
+        branchCode !== undefined &&
+        /^\d{1,12}$/.test(branchCode) &&
+        isCarrierId(carrier)
+      ) {
+        return this.getStoredGuidePdf(branchCode, carrier, preShipmentNumber);
+      }
       throw new ShippingRequestError(
         `99envios PDF download failed with status ${response.status}`,
       );
@@ -328,6 +342,47 @@ export class NinetyNineEnviosClient {
     ) {
       throw new ShippingRequestError(
         '99envios PDF download returned empty data',
+      );
+    }
+    return bytes;
+  }
+
+  private async getStoredGuidePdf(
+    branchCode: string,
+    carrier: string,
+    preShipmentNumber: string,
+  ): Promise<Uint8Array> {
+    const url = new URL(
+      `/storage/adjuntos/adjuntos/pdfs/${branchCode}/${carrier}/${branchCode}_${carrier}_${preShipmentNumber}.pdf`,
+      'https://api.99envios.app',
+    );
+    let response: Response;
+    try {
+      response = await this.request(url.href, {
+        method: 'GET',
+        redirect: 'error',
+        signal: AbortSignal.timeout(30000),
+      });
+    } catch {
+      throw new ShippingRequestError('99envios portal PDF download failed');
+    }
+    if (!response.ok) {
+      throw new ShippingRequestError(
+        `99envios portal PDF download failed with status ${response.status}`,
+      );
+    }
+    if (!response.headers.get('content-type')?.startsWith('application/pdf')) {
+      throw new ShippingRequestError(
+        '99envios portal PDF download returned invalid data',
+      );
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (
+      bytes.byteLength < 5 ||
+      new TextDecoder().decode(bytes.subarray(0, 5)) !== '%PDF-'
+    ) {
+      throw new ShippingRequestError(
+        '99envios portal PDF download returned invalid data',
       );
     }
     return bytes;
