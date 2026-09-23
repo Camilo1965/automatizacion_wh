@@ -17,6 +17,7 @@ export async function registerShippingRoutes(
   app: FastifyInstance,
   dependencies: {
     authenticate: AdminAuthenticate;
+    manageShipping: AdminAuthenticate;
     shippingQuoteService?: ShippingQuoteOperations;
     shippingGuideService?: ShippingGuideOperations;
     auditService?: AuditService;
@@ -24,6 +25,7 @@ export async function registerShippingRoutes(
 ): Promise<void> {
   const {
     authenticate,
+    manageShipping,
     shippingQuoteService,
     shippingGuideService,
     auditService,
@@ -150,7 +152,7 @@ export async function registerShippingRoutes(
       },
     );
     app.put('/shipping/carrier-rules', async (request, reply) => {
-      await authenticate(request);
+      await manageShipping(request);
       const body = CarrierRuleBodySchema.parse(request.body);
       await shippingQuoteService.setCarrierRule(
         body.localityCarrierCode,
@@ -165,7 +167,7 @@ export async function registerShippingRoutes(
       });
     });
     app.patch('/shipping/preferences', async (request, reply) => {
-      const user = await authenticate(request);
+      const user = await manageShipping(request);
       const policy = ShippingPolicySchema.parse(request.body);
       await shippingQuoteService.setDefaultPolicy(policy, user.username);
       await auditService?.record({
@@ -200,7 +202,7 @@ export async function registerShippingRoutes(
       });
     });
     app.post('/shipping/rules', async (request, reply) => {
-      const user = await authenticate(request);
+      const user = await manageShipping(request);
       const body = ShippingRuleBodySchema.parse(request.body);
       const { localityCarrierCode, ...policy } = body;
       await shippingQuoteService.setShippingPolicy(
@@ -220,7 +222,7 @@ export async function registerShippingRoutes(
       });
     });
     app.patch('/shipping/rules/:localityCode', async (request, reply) => {
-      const user = await authenticate(request);
+      const user = await manageShipping(request);
       const { localityCode } = z
         .object({ localityCode: z.string().regex(/^\d{8}$/) })
         .strict()
@@ -236,7 +238,7 @@ export async function registerShippingRoutes(
     app.post(
       '/shipping/rules/:localityCode/deactivate',
       async (request, reply) => {
-        const user = await authenticate(request);
+        const user = await manageShipping(request);
         const { localityCode } = z
           .object({ localityCode: z.string().regex(/^\d{8}$/) })
           .strict()
@@ -249,29 +251,34 @@ export async function registerShippingRoutes(
       },
     );
   } else {
-    const unavailable = async (
-      request: FastifyRequest,
-      reply: FastifyReply,
-    ) => {
-      await authenticate(request);
-      return reply.status(503).send({
-        error: {
-          code: 'shipping_not_configured',
-          message: 'Shipping provider credentials are not configured',
-        },
-      });
-    };
-    app.get('/orders/:orderId/shipping', unavailable);
-    app.post('/orders/:orderId/shipping-quotes', unavailable);
-    app.post('/orders/:orderId/shipping-quotes/:quoteId/select', unavailable);
-    app.put('/shipping/carrier-rules', unavailable);
-    app.get('/shipping/preferences', unavailable);
-    app.patch('/shipping/preferences', unavailable);
-    app.get('/shipping/rules', unavailable);
-    app.get('/shipping/carriers', unavailable);
-    app.post('/shipping/rules', unavailable);
-    app.post('/shipping/rules/preview', unavailable);
-    app.patch('/shipping/rules/:localityCode', unavailable);
-    app.post('/shipping/rules/:localityCode/deactivate', unavailable);
+    const unavailable =
+      (authorizeRequest: AdminAuthenticate) =>
+      async (request: FastifyRequest, reply: FastifyReply) => {
+        await authorizeRequest(request);
+        return reply.status(503).send({
+          error: {
+            code: 'shipping_not_configured',
+            message: 'Shipping provider credentials are not configured',
+          },
+        });
+      };
+    app.get('/orders/:orderId/shipping', unavailable(authenticate));
+    app.post('/orders/:orderId/shipping-quotes', unavailable(authenticate));
+    app.post(
+      '/orders/:orderId/shipping-quotes/:quoteId/select',
+      unavailable(authenticate),
+    );
+    app.put('/shipping/carrier-rules', unavailable(manageShipping));
+    app.get('/shipping/preferences', unavailable(authenticate));
+    app.patch('/shipping/preferences', unavailable(manageShipping));
+    app.get('/shipping/rules', unavailable(authenticate));
+    app.get('/shipping/carriers', unavailable(authenticate));
+    app.post('/shipping/rules', unavailable(manageShipping));
+    app.post('/shipping/rules/preview', unavailable(authenticate));
+    app.patch('/shipping/rules/:localityCode', unavailable(manageShipping));
+    app.post(
+      '/shipping/rules/:localityCode/deactivate',
+      unavailable(manageShipping),
+    );
   }
 }

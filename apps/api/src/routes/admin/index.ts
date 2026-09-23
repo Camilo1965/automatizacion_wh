@@ -138,6 +138,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
 
   await registerShippingRoutes(app, {
     authenticate: authorize(authenticate, 'shipping:operate'),
+    manageShipping: authorize(authenticate, 'shipping:manage'),
     ...(dependencies.shippingQuoteService === undefined
       ? {}
       : { shippingQuoteService: dependencies.shippingQuoteService }),

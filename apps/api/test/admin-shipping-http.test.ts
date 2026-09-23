@@ -91,11 +91,12 @@ describe('admin shipping HTTP API', () => {
     };
     const authService = {
       getSession: async (token?: string) => {
-        if (token !== 'good') throw new AuthenticationRequiredError();
+        if (token !== 'good' && token !== 'operator')
+          throw new AuthenticationRequiredError();
         return {
           id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-          username: 'camila',
-          role: 'owner' as const,
+          username: token === 'good' ? 'camila' : 'operator',
+          role: token === 'good' ? ('owner' as const) : ('operator' as const),
         };
       },
     } as unknown as AuthService;
@@ -129,6 +130,86 @@ describe('admin shipping HTTP API', () => {
       integrationSettingsService,
     });
     const orderId = '22222222-2222-4222-8222-222222222222';
+    const operatorCookie = 'camila_admin_session=operator';
+    const operatorHeaders = {
+      cookie: operatorCookie,
+      origin: config.adminOrigin,
+    };
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/api/admin/shipping/preferences',
+          headers: { cookie: operatorCookie },
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/admin/orders/${orderId}/shipping-quotes`,
+          headers: operatorHeaders,
+        })
+      ).statusCode,
+    ).toBe(201);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/admin/shipping/rules/preview',
+          headers: operatorHeaders,
+          payload: { localityCarrierCode: '05001000' },
+        })
+      ).statusCode,
+    ).toBe(200);
+    const policy = {
+      preferredCarrier: 'tcc',
+      fallbackPolicy: 'block',
+      offerMode: 'protected_only',
+      protectedInsurance: 'plus',
+    };
+    const policyWrites = [
+      {
+        method: 'PUT' as const,
+        url: '/api/admin/shipping/carrier-rules',
+        payload: { localityCarrierCode: '05001000', carrier: 'TCC' },
+      },
+      {
+        method: 'PATCH' as const,
+        url: '/api/admin/shipping/preferences',
+        payload: policy,
+      },
+      {
+        method: 'POST' as const,
+        url: '/api/admin/shipping/rules',
+        payload: { localityCarrierCode: '05001000', ...policy },
+      },
+      {
+        method: 'PATCH' as const,
+        url: '/api/admin/shipping/rules/05001000',
+        payload: policy,
+      },
+      {
+        method: 'POST' as const,
+        url: '/api/admin/shipping/rules/05001000/deactivate',
+      },
+    ];
+    for (const policyWrite of policyWrites) {
+      expect(
+        (
+          await app.inject({
+            ...policyWrite,
+            headers: operatorHeaders,
+          })
+        ).statusCode,
+        `${policyWrite.method} ${policyWrite.url}`,
+      ).toBe(403);
+    }
+    expect(service.setCarrierRule).not.toHaveBeenCalled();
+    expect(service.setDefaultPolicy).not.toHaveBeenCalled();
+    expect(service.setShippingPolicy).not.toHaveBeenCalled();
+    expect(service.deactivateShippingRule).not.toHaveBeenCalled();
     expect(
       (
         await app.inject({
@@ -198,6 +279,49 @@ describe('admin shipping HTTP API', () => {
         fallbackPolicy: 'block',
         protectedInsurance: 'plus',
       }),
+      'camila',
+    );
+    const ownerHeaders = {
+      cookie: 'camila_admin_session=good',
+      origin: config.adminOrigin,
+    };
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: '/api/admin/shipping/preferences',
+          headers: ownerHeaders,
+          payload: policy,
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(service.setDefaultPolicy).toHaveBeenCalledWith(policy, 'camila');
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: '/api/admin/shipping/rules/05001000',
+          headers: ownerHeaders,
+          payload: policy,
+        })
+      ).statusCode,
+    ).toBe(204);
+    expect(service.setShippingPolicy).toHaveBeenCalledWith(
+      '05001000',
+      policy,
+      'camila',
+    );
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/admin/shipping/rules/05001000/deactivate',
+          headers: ownerHeaders,
+        })
+      ).statusCode,
+    ).toBe(204);
+    expect(service.deactivateShippingRule).toHaveBeenCalledWith(
+      '05001000',
       'camila',
     );
     const pdf = await app.inject({

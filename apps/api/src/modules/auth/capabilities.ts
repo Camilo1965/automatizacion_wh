@@ -7,6 +7,7 @@ export type Capability =
   | 'orders:operate'
   | 'conversations:operate'
   | 'shipping:operate'
+  | 'shipping:manage'
   | 'inventory:operate'
   | 'alerts:operate'
   | 'integrations:manage'
@@ -24,6 +25,7 @@ const OPERATOR_CAPABILITIES: ReadonlySet<Capability> = new Set([
 
 const OWNER_CAPABILITIES: ReadonlySet<Capability> = new Set([
   ...OPERATOR_CAPABILITIES,
+  'shipping:manage',
   'integrations:manage',
   'audit:read',
   'security:manage',

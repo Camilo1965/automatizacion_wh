@@ -7,6 +7,7 @@ import {
 } from '../src/modules/auth/capabilities.js';
 
 const OWNER_ONLY: Capability[] = [
+  'shipping:manage',
   'integrations:manage',
   'audit:read',
   'security:manage',
@@ -46,8 +47,10 @@ describe('hasCapability', () => {
     }
   });
 
-  it('denies integrations, security and audit to operators', () => {
+  it('denies policy management, integrations, security and audit to operators', () => {
     const operator = user('operator');
+    expect(hasCapability(operator, 'shipping:manage')).toBe(false);
+    expect(hasCapability(operator, 'shipping:operate')).toBe(true);
     expect(hasCapability(operator, 'integrations:manage')).toBe(false);
     expect(hasCapability(operator, 'security:manage')).toBe(false);
     expect(hasCapability(operator, 'audit:read')).toBe(false);
