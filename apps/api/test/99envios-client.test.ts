@@ -118,7 +118,7 @@ describe('NinetyNineEnviosClient', () => {
     ).rejects.toMatchObject({ name: 'ShippingRequestError' });
   });
 
-  it('logs in and creates a COD pre-shipment using the documented payload', async () => {
+  it('creates a COD pre-shipment with the provider-required standard service ID 1', async () => {
     const request = vi
       .fn()
       .mockResolvedValueOnce(
@@ -393,6 +393,31 @@ describe('NinetyNineEnviosClient', () => {
       transportadora: { pais: 'colombia', nombre: 'envia' },
       AplicaContrapago: true,
     });
+  });
+
+  it('keeps a PDF 401 separate from pre-shipment creation', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response('Transportadora no encontrada', { status: 401 }),
+      );
+    const client = new NinetyNineEnviosClient({
+      email: 'owner@example.test',
+      password: 'secret',
+      fetch: request,
+    });
+
+    await expect(client.getGuidePdf('616566749', 'tcc')).rejects.toMatchObject({
+      name: 'ShippingRequestError',
+      message: '99envios PDF download failed with status 401',
+    });
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(
+      request.mock.calls.some(([url]) => String(url).includes('/preenvio')),
+    ).toBe(false);
   });
 
   it('follows the whitelisted PDF URL returned by the live provider', async () => {
