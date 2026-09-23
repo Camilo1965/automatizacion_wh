@@ -52,6 +52,13 @@ describe('conversation owner control', () => {
       ).toBe(customer!.id);
     } finally {
       await database.close();
+      const cleanup = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        await cleanup`DELETE FROM whatsapp_conversations WHERE id IN (${linked!.id}, ${unlinked!.id})`;
+        await cleanup`DELETE FROM customers WHERE id = ${customer!.id}`;
+      } finally {
+        await cleanup.end({ timeout: 5 });
+      }
     }
   });
 
