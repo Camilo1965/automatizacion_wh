@@ -130,6 +130,7 @@ function summaryText(summary: OrderSummary, flow?: BotFlowDefinition): string {
     orderNumber?: string;
     reference?: { code?: string; modelName?: string; color?: string };
     size?: string;
+    productSubtotalCop?: number;
     totalCop?: number;
     shippingCostCop?: number | null;
     shippingQuote?: {
@@ -147,6 +148,7 @@ function summaryText(summary: OrderSummary, flow?: BotFlowDefinition): string {
     `Resumen ${snapshot.orderNumber ?? ''}`.trim(),
     `REF ${snapshot.reference?.code ?? ''} · ${snapshot.reference?.modelName ?? ''} · ${snapshot.reference?.color ?? ''}`,
     `Talla ${displaySize(snapshot.size ?? '')}`,
+    `Productos: ${formatCop(snapshot.productSubtotalCop ?? 0)}`,
     shippingLine,
     `Total ${formatCop(snapshot.totalCop ?? 0)}`,
     `Cliente: ${snapshot.customer?.name ?? ''}`,
@@ -314,7 +316,11 @@ export class WhatsAppSalesService {
       result.activeOrderId !== null &&
       this.orders?.update !== undefined
     ) {
-      const patch = this.orderPatchFor(result, result.activeOrderId);
+      const patch = this.orderPatchFor(
+        result,
+        result.activeOrderId,
+        input.customerPhone,
+      );
       if (patch !== null) await this.orders.update(patch);
     }
     if (
@@ -342,6 +348,10 @@ export class WhatsAppSalesService {
             .toLocaleLowerCase('es-CO') === normalized,
       );
       if (locality === undefined) {
+        const suggestions = page.items
+          .slice(0, 3)
+          .map((item) => item.locality)
+          .join(', ');
         await this.conversations.setState?.(
           result.conversationId,
           'awaiting_locality',
@@ -349,7 +359,9 @@ export class WhatsAppSalesService {
         await this.queueText(
           result.conversationId,
           input,
-          'No encontré esa ciudad o municipio en el listado de envíos. Escríbelo de nuevo.',
+          suggestions
+            ? `No encontré esa ciudad o municipio exactamente. Opciones: ${suggestions}. Escribe el nombre completo de una opción.`
+            : 'No encontré esa ciudad o municipio en el listado de envíos. Revisa la ortografía o escribe otro municipio del departamento.',
           'unknown-locality',
         );
       } else {
@@ -562,13 +574,14 @@ export class WhatsAppSalesService {
   private orderPatchFor(
     result: ReceiveConversationResult,
     orderId: string,
+    senderPhone: string,
   ): PatchOrderInput | null {
     if (result.input === undefined) return null;
     switch (result.action) {
       case 'collect_name':
         return { orderId, customerName: result.input };
       case 'collect_phone':
-        return { orderId, customerPhone: result.input };
+        return { orderId, customerPhone: result.input || senderPhone };
       case 'collect_address':
         return { orderId, address: result.input };
       case 'collect_notes':

@@ -107,7 +107,8 @@ export function advanceConversation(
     return value.length >= 2 && value.length <= 120
       ? {
           state: 'awaiting_phone',
-          reply: '¿Cuál es tu número de celular?',
+          reply:
+            '¿Usamos el número de este WhatsApp? Responde “sí” o escribe otro celular.',
           action: 'collect_name',
           input: value,
         }
@@ -115,14 +116,19 @@ export function advanceConversation(
   }
   if (state === 'awaiting_phone') {
     const digits = value.replace(/\D/g, '');
-    return /^(?:57)?3\d{9}$/.test(digits)
+    return /^(?:57)?3\d{9}$/.test(digits) ||
+      ['si', 'mismo', 'este'].includes(normalized)
       ? {
           state: 'awaiting_department',
           reply: '¿En qué departamento recibes el pedido?',
           action: 'collect_phone',
-          input: value,
+          input: /^(?:57)?3\d{9}$/.test(digits) ? value : '',
         }
-      : { state, reply: 'Escribe un celular colombiano válido.' };
+      : {
+          state,
+          reply:
+            'Responde “sí” para usar este WhatsApp o escribe un celular colombiano válido.',
+        };
   }
   if (state === 'awaiting_department') {
     return value.length >= 3
@@ -149,7 +155,7 @@ export function advanceConversation(
       ? {
           state: 'awaiting_notes',
           reply:
-            '¿Alguna indicación de entrega? Escribe “ninguna” si no aplica.',
+            '¿Alguna indicación de entrega? Responde “no” o “saltar” si no aplica.',
           action: 'collect_address',
           input: value,
         }
@@ -160,7 +166,9 @@ export function advanceConversation(
       state: 'awaiting_confirmation',
       reply: null,
       action: 'collect_notes',
-      input: /^(ninguna|no|omitir)$/.test(normalized) ? '' : value,
+      input: /^(ninguna|no|omitir|saltar|sin indicaciones)$/.test(normalized)
+        ? ''
+        : value,
     };
   }
   if (state === 'awaiting_shipping') {

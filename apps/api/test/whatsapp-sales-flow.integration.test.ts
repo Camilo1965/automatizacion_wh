@@ -123,11 +123,12 @@ describe('complete WhatsApp sale', () => {
       '37',
       '01',
       'Camila Pérez',
-      '3158191776',
+      'sí',
       'Antioquia',
+      'Medell',
       'Medellín',
       'Calle 1 # 2-3',
-      'ninguna',
+      'saltar',
       'confirmar',
     ];
     try {
@@ -152,6 +153,11 @@ describe('complete WhatsApp sale', () => {
         const [guideJob] = await sql<{ count: number; status: string }[]>`
           SELECT count(*)::int AS count, min(status) AS status FROM shipping_guide_jobs
         `;
+        const [localityCorrection] = await sql<{ text_body: string }[]>`
+          SELECT text_body FROM whatsapp_outbound_messages
+          WHERE text_body LIKE 'No encontré esa ciudad%'
+          LIMIT 1
+        `;
         expect(order).toMatchObject({
           status: 'confirmed',
           customer_name: 'Camila Pérez',
@@ -159,6 +165,7 @@ describe('complete WhatsApp sale', () => {
         expect(stock?.reserved_quantity).toBe(1);
         expect(confirmation?.count).toBe(1);
         expect(guideJob).toMatchObject({ count: 1, status: 'pending' });
+        expect(localityCorrection?.text_body).toContain('Opciones: Medellín');
       } finally {
         await sql.end({ timeout: 5 });
       }
@@ -266,6 +273,12 @@ describe('complete WhatsApp sale', () => {
         customerPhone: '+573158191776',
         text: 'confirmar',
       });
+      const [customerSummary] = await database.orm.execute(
+        "SELECT text_body FROM whatsapp_outbound_messages WHERE text_body LIKE '%Resumen PED-%' ORDER BY created_at DESC LIMIT 1",
+      );
+      expect(customerSummary?.text_body).toContain('Productos: $120.000');
+      expect(customerSummary?.text_body).toContain('Envío: envia');
+      expect(customerSummary?.text_body).toContain('Total $136.968');
       expect(
         await new ShippingGuideWorker(
           jobs,

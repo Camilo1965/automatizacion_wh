@@ -96,6 +96,23 @@ describe('advanceConversation', () => {
     });
   });
 
+  it('accepts the WhatsApp sender number and skips optional notes with plain answers', () => {
+    expect(advanceConversation('awaiting_phone', 'sí')).toMatchObject({
+      state: 'awaiting_department',
+      action: 'collect_phone',
+      input: '',
+    });
+    expect(advanceConversation('awaiting_phone', '3158191776')).toMatchObject({
+      action: 'collect_phone',
+      input: '3158191776',
+    });
+    expect(advanceConversation('awaiting_notes', 'saltar')).toMatchObject({
+      state: 'awaiting_confirmation',
+      action: 'collect_notes',
+      input: '',
+    });
+  });
+
   it('cancels confirmation back to size selection', () => {
     expect(
       advanceConversation('awaiting_confirmation', 'cancelar'),

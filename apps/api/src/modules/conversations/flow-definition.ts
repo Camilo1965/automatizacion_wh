@@ -95,11 +95,18 @@ export function createDefaultBotFlow(): BotFlowDefinition {
         message: 'Escribe la referencia que te gustó.',
       },
       name: { enabled: true, message: '¿Cuál es tu nombre completo?' },
-      phone: { enabled: true, message: 'Comparte tu número de contacto.' },
+      phone: {
+        enabled: true,
+        message:
+          '¿Usamos el número de este WhatsApp? Responde “sí” o escribe otro celular.',
+      },
       department: { enabled: true, message: '¿En qué departamento estás?' },
       locality: { enabled: true, message: '¿En qué ciudad o municipio?' },
       address: { enabled: true, message: 'Escribe la dirección completa.' },
-      notes: { enabled: true, message: '¿Alguna indicación de entrega?' },
+      notes: {
+        enabled: true,
+        message: '¿Alguna indicación de entrega? Responde “no” o “saltar”.',
+      },
       quote: { enabled: true, message: 'Estamos calculando tu envío.' },
       summary: { enabled: true, message: 'Revisa el resumen de tu pedido.' },
       confirmation: {
