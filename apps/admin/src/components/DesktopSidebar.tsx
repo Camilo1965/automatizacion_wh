@@ -13,6 +13,7 @@ import {
   Webhook,
   History,
   Lock,
+  UsersRound,
 } from 'lucide-react';
 
 import { useAuth } from '@/auth/AuthProvider';
@@ -21,6 +22,7 @@ import { cn } from '@/lib/utils';
 const primaryItems = [
   { to: '/', label: 'Inicio', icon: House, end: true },
   { to: '/conversations', label: 'Conversaciones', icon: MessageCircle },
+  { to: '/customers', label: 'Clientes', icon: UsersRound },
   { to: '/orders', label: 'Pedidos', icon: ClipboardList },
   { to: '/catalog', label: 'Catálogo', icon: Store },
   { to: '/alerts', label: 'Alertas', icon: Bell },

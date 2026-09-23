@@ -2,12 +2,14 @@ import { useState } from 'react';
 import {
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 
 import {
   listConversationMessages,
   listConversations,
+  getConversation,
   sendConversationMessage,
   setConversationControl,
 } from '../api/conversations-api';
@@ -22,7 +24,7 @@ import { ConversationList } from './ConversationList';
 import { ConversationTimeline } from './ConversationTimeline';
 import { MessageComposer } from './MessageComposer';
 import { operationalLabel } from '../lib/operational-label';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 export function ConversationInboxPage() {
@@ -30,7 +32,9 @@ export function ConversationInboxPage() {
   const { showToast } = useToast();
   const [searchParams] = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [mobileThreadOpen, setMobileThreadOpen] = useState(false);
+  const [mobileThreadOpen, setMobileThreadOpen] = useState(
+    searchParams.has('conversation'),
+  );
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const requestedId = searchParams.get('conversation');
   const attentionOnly = searchParams.get('attention') === 'true';
@@ -43,9 +47,24 @@ export function ConversationInboxPage() {
   });
   const conversationItems =
     conversations.data?.pages.flatMap((page) => page.items) ?? [];
+  const requestedConversation = useQuery({
+    queryKey: ['conversation', requestedId],
+    queryFn: () => getConversation(requestedId!),
+    enabled:
+      requestedId !== null &&
+      conversations.isSuccess &&
+      !conversationItems.some((item) => item.id === requestedId),
+  });
+  const allConversations =
+    requestedConversation.data &&
+    !conversationItems.some(
+      (item) => item.id === requestedConversation.data?.id,
+    )
+      ? [requestedConversation.data, ...conversationItems]
+      : conversationItems;
   const visibleConversations = attentionOnly
-    ? conversationItems.filter((item) => item.mode === 'human')
-    : conversationItems;
+    ? allConversations.filter((item) => item.mode === 'human')
+    : allConversations;
   const effectiveSelectedId =
     selectedId ??
     visibleConversations?.find((item) => item.id === requestedId)?.id ??
@@ -55,7 +74,7 @@ export function ConversationInboxPage() {
     (item) => item.id === effectiveSelectedId,
   );
 
-  const showMobileThread = mobileThreadOpen || requestedId !== null;
+  const showMobileThread = mobileThreadOpen;
 
   function selectConversation(id: string) {
     setSelectedId(id);
@@ -263,6 +282,25 @@ export function ConversationInboxPage() {
                     {selected.customerPhone}
                   </dd>
                 </div>
+                {selected.customerId !== null ? (
+                  <div>
+                    <dt className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                      Cliente
+                    </dt>
+                    <dd>
+                      <Link
+                        className="text-sm underline underline-offset-2"
+                        to={`/customers/${selected.customerId}?conversation=${selected.id}`}
+                      >
+                        Abrir ficha de cliente
+                      </Link>
+                    </dd>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Identidad sin resolver
+                  </p>
+                )}
                 <div>
                   <dt className="text-xs font-medium tracking-[0.05em] text-muted-foreground uppercase">
                     Modo

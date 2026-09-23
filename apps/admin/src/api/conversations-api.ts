@@ -7,6 +7,7 @@ const conversationSchema = z
   .object({
     id: z.string().uuid(),
     customerPhone: z.string().min(1),
+    customerId: z.string().uuid().nullable(),
     state: z.string().min(1),
     mode: z.enum(['bot', 'human']),
     selectedSize: z.string().nullable().optional(),
@@ -42,6 +43,16 @@ export async function listConversations(
   if (cursor) query.set('cursor', cursor);
   return (await apiRequest(`/conversations?${query}`, { schema: listSchema }))
     .data;
+}
+
+export async function getConversation(
+  conversationId: string,
+): Promise<ConversationPublic | null> {
+  return (
+    await apiRequest(`/conversations/${encodeURIComponent(conversationId)}`, {
+      schema: detailSchema,
+    })
+  ).data;
 }
 
 const messagesResponseSchema = z

@@ -6,6 +6,7 @@ import { whatsappConversations } from '../../database/schema/index.js';
 export type AdminConversation = Readonly<{
   id: string;
   customerPhone: string;
+  customerId: string | null;
   state: string;
   mode: 'bot' | 'human';
   selectedSize: string | null;
@@ -40,6 +41,7 @@ function mapConversation(
   return {
     id: row.id,
     customerPhone: row.customerPhone,
+    customerId: row.customerId,
     state: row.state,
     mode: row.mode as 'bot' | 'human',
     selectedSize: row.selectedSize,

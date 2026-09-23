@@ -5,6 +5,22 @@ import { PageHeader } from '../components/PageHeader';
 
 const groups = [
   {
+    title: 'Clientes',
+    ownerOnly: false,
+    items: [
+      {
+        to: '/customers',
+        title: 'Directorio de clientes',
+        description: 'Contacto, historial y estado de compra acreditada.',
+      },
+      {
+        to: '/customers/reconciliation',
+        title: 'Pendientes por revisar',
+        description: 'Pedidos y conversaciones sin identidad resuelta.',
+      },
+    ],
+  },
+  {
     title: 'Inventario',
     ownerOnly: false,
     items: [

@@ -30,6 +30,7 @@ describe('admin conversation HTTP API', () => {
           {
             id: '11111111-1111-4111-8111-111111111111',
             customerPhone: '+573001234567',
+            customerId: '22222222-2222-4222-8222-222222222222',
             mode: 'bot',
             state: 'awaiting_size',
             pendingOutbound: 1,
@@ -81,6 +82,10 @@ describe('admin conversation HTTP API', () => {
     });
     expect(list.statusCode).toBe(200);
     expect(list.json().data.items).toHaveLength(1);
+    expect(list.json().data.items[0].customerId).toBe(
+      '22222222-2222-4222-8222-222222222222',
+    );
+    expect(list.json().data.items[0]).not.toHaveProperty('displayName');
     expect(list.json().data.nextCursor).toBeNull();
     const take = await app.inject({
       method: 'POST',

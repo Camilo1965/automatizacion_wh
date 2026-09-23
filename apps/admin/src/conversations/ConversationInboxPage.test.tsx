@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -15,10 +15,12 @@ function conversationFixture(
   id: string,
   customerPhone: string,
   state = 'awaiting_size',
+  customerId: string | null = null,
 ) {
   return {
     id,
     customerPhone,
+    customerId,
     state,
     mode: 'human',
     selectedSize: null,
@@ -30,6 +32,79 @@ function conversationFixture(
 }
 
 describe('ConversationInboxPage', () => {
+  it('opens a historical conversation by URL even when it is absent from the first inbox page', async () => {
+    const olderId = '88888888-8888-4888-8888-888888888888';
+    server.use(
+      http.get('/api/admin/conversations', () =>
+        HttpResponse.json({
+          data: {
+            items: [conversationFixture(conversationId, '+573001234567')],
+            nextCursor: 'more',
+          },
+        }),
+      ),
+      http.get(`/api/admin/conversations/${olderId}`, () =>
+        HttpResponse.json({
+          data: conversationFixture(olderId, '+573009876543'),
+        }),
+      ),
+      http.get('/api/admin/conversations/:conversationId/messages', () =>
+        HttpResponse.json({ data: { items: [], nextCursor: null } }),
+      ),
+    );
+    renderWithProviders(
+      <ToastProvider>
+        <ConversationInboxPage />
+      </ToastProvider>,
+      { initialEntries: [`/conversations?conversation=${olderId}`] },
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole('region', { name: 'Conversación seleccionada' }),
+      ).toHaveTextContent('+573009876543'),
+    );
+  });
+  it('links a resolved customer from conversation context and omits a link for unresolved identity', async () => {
+    const resolvedCustomerId = '77777777-7777-4777-8777-777777777777';
+    server.use(
+      http.get('/api/admin/conversations', () =>
+        HttpResponse.json({
+          data: {
+            items: [
+              conversationFixture(
+                conversationId,
+                '+573001234567',
+                'awaiting_size',
+                resolvedCustomerId,
+              ),
+              conversationFixture(secondConversationId, '+573009876543'),
+            ],
+            nextCursor: null,
+          },
+        }),
+      ),
+      http.get('/api/admin/conversations/:conversationId/messages', () =>
+        HttpResponse.json({ data: { items: [], nextCursor: null } }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(
+      <ToastProvider>
+        <ConversationInboxPage />
+      </ToastProvider>,
+      { initialEntries: [`/conversations?conversation=${conversationId}`] },
+    );
+    expect(
+      await screen.findByRole('link', { name: 'Abrir ficha de cliente' }),
+    ).toHaveAttribute(
+      'href',
+      `/customers/${resolvedCustomerId}?conversation=${conversationId}`,
+    );
+    await user.click(screen.getByText('+573009876543'));
+    expect(
+      screen.queryByRole('link', { name: 'Abrir ficha de cliente' }),
+    ).not.toBeInTheDocument();
+  });
   it('shows the WhatsApp transcript and sends an owner reply', async () => {
     const user = userEvent.setup();
     let sent: unknown;
@@ -41,6 +116,7 @@ describe('ConversationInboxPage', () => {
               {
                 id: conversationId,
                 customerPhone: '+573001234567',
+                customerId: null,
                 state: 'awaiting_size',
                 mode: 'human',
                 selectedSize: null,

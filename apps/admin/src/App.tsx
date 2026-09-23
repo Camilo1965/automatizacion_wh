@@ -39,6 +39,23 @@ const ConversationInboxPage = lazy(() =>
     }),
   ),
 );
+const CustomersPage = lazy(() =>
+  import('./customers/CustomersPage').then(({ CustomersPage }) => ({
+    default: CustomersPage,
+  })),
+);
+const CustomerReconciliationPage = lazy(() =>
+  import('./customers/CustomersPage').then(
+    ({ CustomerReconciliationPage }) => ({
+      default: CustomerReconciliationPage,
+    }),
+  ),
+);
+const CustomerDetailPage = lazy(() =>
+  import('./customers/CustomerDetailPage').then(({ CustomerDetailPage }) => ({
+    default: CustomerDetailPage,
+  })),
+);
 const DashboardPage = lazy(() =>
   import('./dashboard/DashboardPage').then(({ DashboardPage }) => ({
     default: DashboardPage,
@@ -173,6 +190,15 @@ export function App() {
           <Route path="orders/new" element={<OrderCreatePage />} />
           <Route path="orders/:orderId" element={<OrderDetailPage />} />
           <Route path="conversations" element={<ConversationInboxPage />} />
+          <Route path="customers" element={<CustomersPage />} />
+          <Route
+            path="customers/reconciliation"
+            element={<CustomerReconciliationPage />}
+          />
+          <Route
+            path="customers/:customerId"
+            element={<CustomerDetailPage />}
+          />
           <Route path="catalog-import" element={<CatalogImportPage />} />
           <Route path="settings/shipping" element={<ShippingSettingsPage />} />
           <Route path="settings/whatsapp" element={<WhatsAppSettingsPage />} />

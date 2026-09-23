@@ -19,6 +19,42 @@ describe('conversation owner control', () => {
     }
   });
 
+  it('exposes only a resolved customer ID alongside the existing conversation fields', async () => {
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const phone = `+573${Math.floor(Math.random() * 1_000_000_000)
+      .toString()
+      .padStart(9, '0')}`;
+    const [customer] = await sql<{ id: string }[]>`
+      INSERT INTO customers (normalized_phone, display_name)
+      VALUES (${phone}, 'Ana Gómez') RETURNING id
+    `;
+    const [linked] = await sql<{ id: string }[]>`
+      INSERT INTO whatsapp_conversations (customer_phone, customer_id, state, mode, last_inbound_message_at)
+      VALUES (${phone}, ${customer!.id}, 'awaiting_size', 'bot', now()) RETURNING id
+    `;
+    const [unlinked] = await sql<{ id: string }[]>`
+      INSERT INTO whatsapp_conversations (customer_phone, state, mode, last_inbound_message_at)
+      VALUES ('+573001234568', 'awaiting_size', 'bot', now()) RETURNING id
+    `;
+    await sql.end({ timeout: 5 });
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresConversationAdminRepository(database);
+    try {
+      const linkedResult = await repository.get(linked!.id);
+      const unlinkedResult = await repository.get(unlinked!.id);
+      expect(linkedResult?.customerId).toBe(customer!.id);
+      expect(unlinkedResult?.customerId).toBeNull();
+      expect(linkedResult).not.toHaveProperty('displayName');
+      expect(linkedResult).not.toHaveProperty('marketingConsent');
+      const page = await repository.list();
+      expect(
+        page.items.find((item) => item.id === linked!.id)?.customerId,
+      ).toBe(customer!.id);
+    } finally {
+      await database.close();
+    }
+  });
+
   it('takes control atomically and cancels pending bot sends', async () => {
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
     const [conversation] = await sql<{ id: string }[]>`
