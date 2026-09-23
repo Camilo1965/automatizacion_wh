@@ -231,6 +231,11 @@ describe('ShippingSettingsPage sections and simulator recovery', () => {
     expect(
       screen.getByRole('region', { name: /Incidencias y estado/i }),
     ).toBeVisible();
+    expect(
+      screen.getByRole('link', {
+        name: /Ver guía de configuración de envíos/i,
+      }),
+    ).toHaveAttribute('href', '/help');
   });
 
   it('recovers from simulator errors with a persistent next step', async () => {

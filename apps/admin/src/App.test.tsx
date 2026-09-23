@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 
 import { App } from './App';
-import { tinyPngFile } from './test/fixtures';
+import { adminUser, tinyPngFile } from './test/fixtures';
 import { seedDefaultCatalog, state } from './test/handlers';
 import { renderWithProviders } from './test/render';
 import { server } from './test/server';
@@ -22,6 +22,40 @@ async function loginAsAdmin(
 }
 
 describe('App shell', () => {
+  it('opens the operational help from its protected route', async () => {
+    state.authenticated = true;
+    renderWithProviders(<App />, { initialEntries: ['/help'] });
+    expect(
+      await screen.findByRole('heading', { name: 'Ayuda operativa' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('heading', {
+        name: 'Permitir solo una transportadora en un municipio',
+      }),
+    ).toBeVisible();
+  });
+
+  it('shows only daily-operation help to an operator', async () => {
+    server.use(
+      http.get('/api/admin/auth/session', () =>
+        HttpResponse.json({
+          data: {
+            user: { ...adminUser, username: 'operadora', role: 'operator' },
+          },
+        }),
+      ),
+    );
+    renderWithProviders(<App />, { initialEntries: ['/help'] });
+    expect(
+      await screen.findByRole('heading', { name: 'Operación diaria' }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('heading', {
+        name: 'Permitir solo una transportadora en un municipio',
+      }),
+    ).toBeNull();
+  });
+
   it('saves a municipality carrier preference', async () => {
     const user = userEvent.setup();
     state.authenticated = true;

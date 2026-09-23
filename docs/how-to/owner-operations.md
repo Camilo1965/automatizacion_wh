@@ -32,6 +32,8 @@ El historial permite restaurar un listado creando una nueva versión. No se borr
 
 En **Configuración → Envíos** define la política general y las reglas exactas por municipio. Una regla municipal activa sustituye toda la política general:
 
+Al elegir un municipio nuevo, el formulario copia la política general cargada para que puedas partir de un valor conocido. Después de guardar, la regla queda independiente: cambios futuros en la política general no se heredan. Usa **Copiar política general** si quieres reemplazar deliberadamente el borrador municipal. Para permitir solo TCC, limita la lista de permitidas a TCC, elígela como preferida y selecciona **Detener y pedir atención** si no aparece. El formulario señala contradicciones antes de guardar.
+
 - Automática: elige la cotización válida con menor flete + recaudo + recargos + seguro.
 - Preferida: se selecciona aunque cueste más; las preferencias secundarias tienen prioridad explícita.
 - Obligatoria: si no aparece la preferida, se detiene el bot y se crea atención; no se genera resumen ni guía.
@@ -43,7 +45,7 @@ El simulador de envío solicita una cotización real de solo lectura; no crea pe
 
 ## Cambiar mensajes y probar el bot
 
-En **Configuración → Flujo del bot** selecciona cada paso, escribe sus mensajes y usa los botones de variables disponibles. Configura respuestas inválidas, límite de intentos, comandos, cantidad de fotos y pasos opcionales. Guarda el borrador, simula y publica. Las conversaciones que ya comenzaron conservan su versión; reiniciar inicia el flujo vigente. Restaurar una publicación crea otra versión y mantiene el historial.
+En **Configuración → Flujo del bot** selecciona cada paso, escribe sus mensajes y usa los botones de variables disponibles. Configura respuestas inválidas, límite de intentos, comandos, cantidad de fotos y pasos opcionales en **Editor**. Guarda el borrador, simula y publica. **Simular** envía una definición temporal de solo lectura: no guarda los controles del editor. Las conversaciones que ya comenzaron conservan su versión; reiniciar inicia el flujo vigente. Restaurar una publicación crea otra versión y mantiene el historial.
 
 Los cambios locales se recuperan en la misma sesión del navegador después de una recarga. Una revisión obsoleta se rechaza para evitar sobrescribir otro cambio. La simulación controlada permite compra normal, talla agotada, municipio inválido, transportadora bloqueada, fallback y cotización vencida, sin llamar a Meta o 99envíos.
 
@@ -54,11 +56,11 @@ hola
 37
 01
 Ana Pérez
-3001234567
+sí
 Antioquia
 Medellín
 Calle 10 número 20
-ninguna
+saltar
 confirmar
 ```
 
@@ -69,6 +71,8 @@ En **Catálogo → Nueva referencia** crea código, modelo, color y precio, adju
 En **Conversaciones** revisa el chat, pedido y lo que espera el bot. Toma control antes de responder manualmente. La automatización se pausa y no continúa contestando en paralelo. Reanudar devuelve el control al punto mostrado por el panel.
 
 Una venta sigue: talla → fotos disponibles → referencia → datos → cotización automática → resumen → confirmación → reserva → guía → PDF. La guía aparece en el pedido y el PDF se envía como documento si la versión del flujo lo permite. Un webhook repetido no crea otra reserva, guía o documento. En **Pedidos** descarga el PDF y marca despachado una sola vez.
+
+El bot acepta **sí** para usar el número de WhatsApp del cliente o un celular distinto escrito en ese paso. En indicaciones acepta **no** o **saltar**. El resumen debe mostrar subtotal del producto, envío y total; sin una cotización válida no se puede confirmar ni reservar. Desde **Más → Ayuda operativa** tienes guías breves junto a cada tarea; Envíos también enlaza directamente esa ayuda.
 
 ## Alertas, novedades y Treinta
 

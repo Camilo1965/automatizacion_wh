@@ -8,6 +8,7 @@ import {
   type LocalityPublic,
 } from '@camila/contracts';
 import { useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 
 import {
   apiRequest,
@@ -184,6 +185,14 @@ export function ShippingSettingsPage() {
         title="Preferencias de envío"
         titleId="settings-title"
         description="Define la transportadora, el seguro y qué hacer cuando una transportadora no tiene cobertura. El cliente no selecciona el envío."
+        actions={
+          <Link
+            to="/help"
+            className="control-target inline-flex rounded-[1.125rem] border border-border bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground"
+          >
+            Ver guía de configuración de envíos
+          </Link>
+        }
       />
       <ShippingOperationsStatus
         globalPolicy={globalPolicy}

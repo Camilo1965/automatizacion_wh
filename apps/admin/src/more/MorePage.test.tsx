@@ -26,6 +26,7 @@ describe('MorePage', () => {
       'Integraciones',
       'Seguridad y acceso',
       'Privacidad y retención',
+      'Ayuda operativa',
     ]) {
       expect(await screen.findByRole('link', { name })).toBeVisible();
     }
@@ -54,5 +55,6 @@ describe('MorePage', () => {
     expect(
       await screen.findByRole('link', { name: 'Seguridad y acceso' }),
     ).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Ayuda operativa' })).toBeVisible();
   });
 });

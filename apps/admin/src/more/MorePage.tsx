@@ -64,6 +64,17 @@ const groups = [
     ],
   },
   {
+    title: 'Ayuda',
+    ownerOnly: false,
+    items: [
+      {
+        to: '/help',
+        title: 'Ayuda operativa',
+        description: 'Guías breves para configurar y resolver bloqueos.',
+      },
+    ],
+  },
+  {
     title: 'Sistema',
     ownerOnly: false,
     items: [

@@ -54,6 +54,11 @@ const InventoryClosuresPage = lazy(() =>
 const MorePage = lazy(() =>
   import('./more/MorePage').then(({ MorePage }) => ({ default: MorePage })),
 );
+const OwnerHelpPage = lazy(() =>
+  import('./help/OwnerHelpPage').then(({ OwnerHelpPage }) => ({
+    default: OwnerHelpPage,
+  })),
+);
 const OrderCreatePage = lazy(() =>
   import('./orders/OrderCreatePage').then(({ OrderCreatePage }) => ({
     default: OrderCreatePage,
@@ -183,6 +188,7 @@ export function App() {
           <Route path="settings/privacy" element={<PrivacySettingsPage />} />
           <Route path="alerts" element={<AlertsPage />} />
           <Route path="more" element={<MorePage />} />
+          <Route path="help" element={<OwnerHelpPage />} />
           <Route
             path="inventory/closures"
             element={<InventoryClosuresPage />}
