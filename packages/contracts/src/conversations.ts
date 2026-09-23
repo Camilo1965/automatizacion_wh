@@ -25,7 +25,7 @@ export const ConversationMessageTypeSchema = z.enum([
   'event',
 ]);
 
-export const ConversationMessagePublicSchema = z
+const ConversationWhatsAppMessagePublicSchema = z
   .object({
     id: z.uuid(),
     conversationId: z.uuid(),
@@ -38,6 +38,29 @@ export const ConversationMessagePublicSchema = z
     occurredAt: z.iso.datetime(),
   })
   .strict();
+
+const ConversationGuideEventPublicSchema = z
+  .object({
+    id: z.uuid(),
+    conversationId: z.uuid(),
+    source: z.literal('system'),
+    messageType: z.literal('event'),
+    text: z.null(),
+    mediaUrl: z.null(),
+    status: z.literal('internal'),
+    providerMessageId: z.null(),
+    occurredAt: z.iso.datetime(),
+    orderId: z.uuid(),
+    guideJobId: z.uuid(),
+    preShipmentNumber: z.string().min(1),
+    carrier: z.string().min(1),
+  })
+  .strict();
+
+export const ConversationMessagePublicSchema = z.discriminatedUnion('source', [
+  ConversationWhatsAppMessagePublicSchema,
+  ConversationGuideEventPublicSchema,
+]);
 
 export const ConversationOperationalLabelSchema = z.enum([
   'new',

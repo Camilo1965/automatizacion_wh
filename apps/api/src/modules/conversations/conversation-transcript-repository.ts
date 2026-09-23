@@ -10,17 +10,36 @@ export type TranscriptMessageStatus =
   | 'failed'
   | 'cancelled';
 
-export type TranscriptMessage = Readonly<{
+export type TranscriptWhatsAppMessage = Readonly<{
   id: string;
   conversationId: string;
   source: TranscriptMessageSource;
-  messageType: 'text' | 'image' | 'template' | 'event';
+  messageType: 'text' | 'image' | 'template' | 'document' | 'event';
   text: string | null;
   mediaUrl: string | null;
   status: TranscriptMessageStatus;
   providerMessageId: string | null;
   occurredAt: Date;
 }>;
+
+export type TranscriptGuideEvent = Readonly<{
+  id: string;
+  conversationId: string;
+  source: 'system';
+  messageType: 'event';
+  text: null;
+  mediaUrl: null;
+  status: 'internal';
+  providerMessageId: null;
+  occurredAt: Date;
+  orderId: string;
+  guideJobId: string;
+  preShipmentNumber: string;
+  carrier: string;
+}>;
+
+export type TranscriptMessage =
+  TranscriptWhatsAppMessage | TranscriptGuideEvent;
 
 export type TranscriptPage = Readonly<{
   items: readonly TranscriptMessage[];

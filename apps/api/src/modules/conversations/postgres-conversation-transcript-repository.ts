@@ -4,6 +4,7 @@ import type { PostgresDatabase } from '../../database/client.js';
 import type {
   ConversationTranscriptRepository,
   TranscriptMessage,
+  TranscriptGuideEvent,
   TranscriptMessageSource,
   TranscriptMessageStatus,
   TranscriptPage,
@@ -12,13 +13,17 @@ import type {
 type MessageRow = {
   id: string;
   conversation_id: string;
-  source: TranscriptMessageSource;
-  message_type: TranscriptMessage['messageType'];
+  source: TranscriptMessageSource | 'system';
+  message_type: 'text' | 'image' | 'template' | 'document' | 'event';
   text_body: string | null;
   media_storage_key: string | null;
-  status: TranscriptMessageStatus;
+  status: TranscriptMessageStatus | 'internal';
   provider_message_id: string | null;
   occurred_at: Date;
+  guide_order_id: string | null;
+  guide_job_id: string | null;
+  pre_shipment_number: string | null;
+  carrier: string | null;
 };
 
 type Cursor = { occurredAt: string; id: string };
@@ -55,6 +60,39 @@ function decodeCursor(value: string): Cursor {
 }
 
 function mapMessage(row: MessageRow): TranscriptMessage {
+  if (row.source === 'system') {
+    if (
+      row.message_type !== 'event' ||
+      row.status !== 'internal' ||
+      row.guide_order_id === null ||
+      row.guide_job_id === null ||
+      row.pre_shipment_number === null ||
+      row.carrier === null
+    ) {
+      throw new Error('Internal guide event is missing required metadata');
+    }
+    const guideEvent: TranscriptGuideEvent = {
+      id: row.id,
+      conversationId: row.conversation_id,
+      source: 'system',
+      messageType: 'event',
+      text: null,
+      mediaUrl: null,
+      status: 'internal',
+      providerMessageId: null,
+      occurredAt: new Date(row.occurred_at),
+      orderId: row.guide_order_id,
+      guideJobId: row.guide_job_id,
+      preShipmentNumber: row.pre_shipment_number,
+      carrier: row.carrier,
+    };
+    return guideEvent;
+  }
+
+  if (row.status === 'internal') {
+    throw new Error('WhatsApp message cannot have internal status');
+  }
+
   return {
     id: row.id,
     conversationId: row.conversation_id,
@@ -82,15 +120,19 @@ export class PostgresConversationTranscriptRepository implements ConversationTra
     const safeLimit = Math.max(1, Math.min(limit, 100));
     const decoded = cursor === undefined ? null : decodeCursor(cursor);
     const rows = await this.database.orm.execute<MessageRow>(sql`
-      SELECT id, conversation_id, source, message_type, text_body,
-        media_storage_key, status, provider_message_id, occurred_at
-      FROM whatsapp_conversation_messages
-      WHERE conversation_id = ${conversationId}
+      SELECT message.id, message.conversation_id, message.source,
+        message.message_type, message.text_body, message.media_storage_key,
+        message.status, message.provider_message_id, message.occurred_at,
+        message.guide_order_id, message.guide_job_id,
+        job.pre_shipment_number, job.carrier
+      FROM whatsapp_conversation_messages AS message
+      LEFT JOIN shipping_guide_jobs AS job ON job.id = message.guide_job_id
+      WHERE message.conversation_id = ${conversationId}
         AND (
           ${decoded?.occurredAt ?? null}::timestamptz IS NULL
-          OR (occurred_at, id) < (${decoded?.occurredAt ?? null}::timestamptz, ${decoded?.id ?? null}::uuid)
+          OR (message.occurred_at, message.id) < (${decoded?.occurredAt ?? null}::timestamptz, ${decoded?.id ?? null}::uuid)
         )
-      ORDER BY occurred_at DESC, id DESC
+      ORDER BY message.occurred_at DESC, message.id DESC
       LIMIT ${safeLimit + 1}
     `);
     const items = rows.slice(0, safeLimit).map(mapMessage).reverse();

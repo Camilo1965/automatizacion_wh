@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { ConversationMessagesPageSchema } from '@camila/contracts';
 import { buildApp } from '../src/app.js';
 import type { AppConfig } from '../src/config.js';
 import type { PostgresDatabase } from '../src/database/client.js';
@@ -172,6 +173,95 @@ describe('admin conversation HTTP API', () => {
       clientRequestId: 'owner-reply-1',
       text: 'Hola',
     });
+    await app.close();
+  });
+
+  it('returns internal guide events only after authentication and conversation existence checks', async () => {
+    const conversationId = '11111111-1111-4111-8111-111111111111';
+    const event = {
+      id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      conversationId,
+      source: 'system',
+      messageType: 'event',
+      text: null,
+      mediaUrl: null,
+      status: 'internal',
+      providerMessageId: null,
+      occurredAt: new Date('2026-09-10T12:00:00Z'),
+      orderId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      guideJobId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      preShipmentNumber: 'PRE-12345',
+      carrier: 'envia',
+    };
+    const getConversation = vi.fn().mockResolvedValue({ id: conversationId });
+    const listMessages = vi.fn().mockResolvedValue({
+      items: [event],
+      nextCursor: null,
+    });
+    const authService = {
+      getSession: async (token: string | undefined) => {
+        if (token !== 'good') throw new AuthenticationRequiredError();
+        return {
+          id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          username: 'camila',
+          role: 'owner' as const,
+        };
+      },
+    } as unknown as AuthService;
+    const app = await buildApp({
+      config,
+      database: {
+        orm: {} as PostgresDatabase['orm'],
+        ping: vi.fn(),
+        close: vi.fn(),
+      },
+      authService,
+      catalogService: {} as CatalogService,
+      photoStorage: {} as PhotoStorage,
+      conversationAdminRepository: {
+        list: vi.fn(),
+        get: getConversation,
+        takeControl: vi.fn(),
+        releaseControl: vi.fn(),
+      },
+      conversationTranscriptRepository: {
+        listMessages,
+        updateProviderStatus: vi.fn(),
+      },
+    });
+
+    const anonymous = await app.inject({
+      method: 'GET',
+      url: `/api/admin/conversations/${conversationId}/messages`,
+    });
+    expect(anonymous.statusCode).toBe(401);
+    expect(getConversation).not.toHaveBeenCalled();
+    expect(listMessages).not.toHaveBeenCalled();
+
+    getConversation.mockResolvedValueOnce(null);
+    const missing = await app.inject({
+      method: 'GET',
+      url: `/api/admin/conversations/${conversationId}/messages`,
+      headers: { cookie: 'camila_admin_session=good' },
+    });
+    expect(missing.statusCode).toBe(404);
+    expect(listMessages).not.toHaveBeenCalled();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/admin/conversations/${conversationId}/messages`,
+      headers: { cookie: 'camila_admin_session=good' },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.items[0]).toEqual({
+      ...event,
+      occurredAt: '2026-09-10T12:00:00.000Z',
+    });
+    expect(
+      ConversationMessagesPageSchema.safeParse(response.json().data).success,
+    ).toBe(true);
+    expect(getConversation).toHaveBeenCalledTimes(2);
+    expect(listMessages).toHaveBeenCalledTimes(1);
     await app.close();
   });
 });

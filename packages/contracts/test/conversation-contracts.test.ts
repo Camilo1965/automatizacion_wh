@@ -18,6 +18,22 @@ const message = {
   occurredAt: '2026-09-10T15:00:00.000Z',
 };
 
+const guideEvent = {
+  id: '33333333-3333-4333-8333-333333333333',
+  conversationId: '22222222-2222-4222-8222-222222222222',
+  source: 'system',
+  messageType: 'event',
+  text: null,
+  mediaUrl: null,
+  status: 'internal',
+  providerMessageId: null,
+  occurredAt: '2026-09-10T15:00:00.000Z',
+  orderId: '44444444-4444-4444-8444-444444444444',
+  guideJobId: '55555555-5555-4555-8555-555555555555',
+  preShipmentNumber: 'PRE-12345',
+  carrier: 'envia',
+};
+
 describe('conversation contracts', () => {
   it('accepts a normalized transcript message and rejects unknown fields', () => {
     expect(ConversationMessagePublicSchema.parse(message)).toEqual(message);
@@ -34,6 +50,33 @@ describe('conversation contracts', () => {
         nextCursor: null,
       }),
     ).toEqual({ items: [message], nextCursor: null });
+  });
+
+  it('accepts a strict internal guide event with no WhatsApp delivery fields', () => {
+    expect(ConversationMessagePublicSchema.parse(guideEvent)).toEqual(
+      guideEvent,
+    );
+  });
+
+  it.each([
+    ['missing orderId', { ...guideEvent, orderId: undefined }],
+    ['invalid guideJobId', { ...guideEvent, guideJobId: 'not-a-uuid' }],
+    ['missing pre-shipment number', { ...guideEvent, preShipmentNumber: '' }],
+    ['missing carrier', { ...guideEvent, carrier: undefined }],
+    [
+      'provider message id is not null',
+      { ...guideEvent, providerMessageId: 'wamid.1' },
+    ],
+    ['media URL is not null', { ...guideEvent, mediaUrl: '/guide.pdf' }],
+    ['internal event has a delivery status', { ...guideEvent, status: 'sent' }],
+    [
+      'unknown internal field',
+      { ...guideEvent, storageKey: 'private/path.pdf' },
+    ],
+  ])('rejects a malformed internal guide event: %s', (_name, candidate) => {
+    expect(ConversationMessagePublicSchema.safeParse(candidate).success).toBe(
+      false,
+    );
   });
 
   it('validates conversation summaries used by the inbox', () => {
