@@ -75,7 +75,7 @@ export function PolicyFields({
             })
           }
         >
-          <option value="customer_choice">Elegir el envío económico</option>
+          <option value="customer_choice">Económico automático</option>
           <option value="economy_only">Sin seguro adicional</option>
           <option value="protected_only">Siempre protegido</option>
         </select>

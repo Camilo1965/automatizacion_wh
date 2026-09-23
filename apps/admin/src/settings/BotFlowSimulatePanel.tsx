@@ -1,12 +1,9 @@
-import type { BotFlowDefinitionSchema } from '@camila/contracts';
 import type { UseMutationResult } from '@tanstack/react-query';
-import type { z } from 'zod';
 
 import { getErrorMessage } from '../api/client';
 import { Button } from '../components/Button';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Card,
@@ -15,8 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-
-type BotFlowDefinition = z.infer<typeof BotFlowDefinitionSchema>;
 
 const selectClassName =
   'h-11 w-full rounded-[1.125rem] border border-input bg-muted px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50';
@@ -32,16 +27,12 @@ type SimulationResponse = Readonly<{
 }>;
 
 export function BotFlowSimulatePanel({
-  definition,
-  update,
   scenario,
   setScenario,
   messages,
   setMessages,
   simulation,
 }: {
-  definition: BotFlowDefinition;
-  update: (next: BotFlowDefinition) => void;
   scenario: string;
   setScenario: (value: string) => void;
   messages: string;
@@ -58,42 +49,6 @@ export function BotFlowSimulatePanel({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <fieldset className="space-y-3 rounded-[1.125rem] border border-border p-4">
-          <legend className="px-1 text-sm font-medium text-foreground">
-            Opciones del flujo
-          </legend>
-          {(
-            ['notes', 'showCarrierInSummary', 'sendGuideToCustomer'] as const
-          ).map((key) => (
-            <label
-              key={key}
-              className="flex items-center justify-between gap-3 text-sm text-foreground"
-            >
-              <span>
-                {
-                  {
-                    notes: 'Solicitar indicaciones de entrega',
-                    showCarrierInSummary:
-                      'Mostrar transportadora en el resumen',
-                    sendGuideToCustomer: 'Enviar la guía como PDF al cliente',
-                  }[key]
-                }
-              </span>
-              <Switch
-                checked={definition.optionalSteps[key]}
-                onCheckedChange={(checked) =>
-                  update({
-                    ...definition,
-                    optionalSteps: {
-                      ...definition.optionalSteps,
-                      [key]: checked,
-                    },
-                  })
-                }
-              />
-            </label>
-          ))}
-        </fieldset>
         <div className="space-y-2">
           <Label htmlFor="flow-scenario">Escenario controlado</Label>
           <select

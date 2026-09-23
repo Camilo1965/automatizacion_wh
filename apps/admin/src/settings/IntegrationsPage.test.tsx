@@ -184,10 +184,10 @@ describe('IntegrationsPage provider wording and lifecycle', () => {
     renderWithProviders(<IntegrationsPage />);
 
     expect(
-      await screen.findByText(/INTEGRATION_ENCRYPTION_KEY/i),
+      await screen.findByText(/KAIRO_CONFIG_ENCRYPTION_KEY/i),
     ).toBeVisible();
     expect(
-      screen.getByText(/clave de cifrado INTEGRATION_ENCRYPTION_KEY/i),
+      screen.getByText(/clave de cifrado KAIRO_CONFIG_ENCRYPTION_KEY/i),
     ).toBeVisible();
     expect(screen.getAllByText(/Siguiente paso:/i).length).toBeGreaterThan(0);
   });

@@ -16,6 +16,7 @@ import { Button } from '@/components/Button';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -462,12 +463,55 @@ export function BotFlowPage() {
               </div>
             </CardContent>
           </Card>
+          <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
+            <CardHeader>
+              <CardTitle className="text-lg">Opciones del flujo</CardTitle>
+              <CardDescription>
+                Estos cambios afectan las conversaciones nuevas después de
+                guardar y publicar el flujo.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(
+                [
+                  'notes',
+                  'showCarrierInSummary',
+                  'sendGuideToCustomer',
+                ] as const
+              ).map((key) => {
+                const label = {
+                  notes: 'Solicitar indicaciones de entrega',
+                  showCarrierInSummary: 'Mostrar transportadora en el resumen',
+                  sendGuideToCustomer: 'Enviar la guía como PDF al cliente',
+                }[key];
+                return (
+                  <label
+                    key={key}
+                    className="flex items-center justify-between gap-3 text-sm text-foreground"
+                  >
+                    <span>{label}</span>
+                    <Switch
+                      aria-label={label}
+                      checked={definition.optionalSteps[key]}
+                      onCheckedChange={(checked) =>
+                        update({
+                          ...definition,
+                          optionalSteps: {
+                            ...definition.optionalSteps,
+                            [key]: checked,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                );
+              })}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="simulate" className="space-y-4">
           <BotFlowSimulatePanel
-            definition={definition}
-            update={update}
             scenario={scenario}
             setScenario={setScenario}
             messages={messages}

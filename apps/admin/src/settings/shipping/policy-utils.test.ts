@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ShippingPolicy } from '@camila/contracts';
 
 import {
   copyGlobalForMunicipality,
@@ -34,7 +35,7 @@ describe('municipal shipping policy helpers', () => {
     expect(describePolicy(municipal)).toMatch(/solo TCC está permitida/i);
   });
 
-  it.each([
+  const conflicts: [string, Partial<ShippingPolicy>, RegExp][] = [
     [
       'empty allowed list',
       { allowedCarriers: [] },
@@ -50,7 +51,9 @@ describe('municipal shipping policy helpers', () => {
       { orderedCarriers: ['envia'], excludedCarriers: ['envia'] },
       /transportadora secundaria Envia está excluida/i,
     ],
-  ] as const)('names the conflict for %s', (_name, changes, message) => {
+  ];
+
+  it.each(conflicts)('names the conflict for %s', (_name, changes, message) => {
     expect(policyValidationMessage({ ...DEFAULT_POLICY, ...changes })).toMatch(
       message,
     );

@@ -131,7 +131,7 @@ export function IntegrationsPage() {
         <OperationalOutcome
           tone="warning"
           outcome="La edición de credenciales está bloqueada por permisos o cifrado."
-          nextStep="configura la clave de cifrado INTEGRATION_ENCRYPTION_KEY en el servidor."
+          nextStep="configura la clave de cifrado KAIRO_CONFIG_ENCRYPTION_KEY en el servidor."
         />
       ) : null}
       {settings.isPending ? (
