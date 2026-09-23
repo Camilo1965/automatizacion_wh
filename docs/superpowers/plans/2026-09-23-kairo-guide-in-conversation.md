@@ -58,6 +58,7 @@
 - [ ] Run `pnpm --filter @camila/api exec vitest run --project unit test/shipping-guide-worker.test.ts` and confirm failure.
 - [ ] Update worker error handling so a local persistence error after provider success cannot flow to `markFailed` or a retryable pending job.
 - [ ] Add a recovery test proving review of that uncertain job creates exactly one event and does not call 99envíos again.
+- [ ] Preserve any confirmed `preShipmentNumber` in the uncertain record/incident for operator reconciliation; treat a no-op conditional uncertainty update as distinct from a persisted uncertain state.
 - [ ] Rerun the focused worker test and `pnpm --filter @camila/api exec vitest run --project integration test/shipping-guide-job-repository.integration.test.ts`.
 - [ ] Commit as `fix: keep successful guide creation uncertain on persistence error`.
 
@@ -79,6 +80,7 @@
 - [ ] Add integration test ordering an internal guide event with inbound/outbound messages and paging across equal timestamps.
 - [ ] Run the focused contract/API tests and confirm failures.
 - [ ] Update SQL union/select mapping and stable cursor encoding to preserve `(occurred_at, id)` ordering across both row kinds.
+- [ ] Preserve PostgreSQL timestamp precision in cursor values so rows with sub-millisecond timestamps cannot be skipped between pages.
 - [ ] Keep admin authentication and conversation existence checks before returning either item kind.
 - [ ] Rerun focused tests; assert no event is inserted into or returned from the outbound queue.
 - [ ] Commit as `feat: expose internal guide events in transcript API`.
@@ -99,6 +101,7 @@
 
 - [ ] Add UI tests for internal-only label, order link, carrier/pre-shipment details, pending download, failed download, and retry without another guide request.
 - [ ] Add a regression assertion that `messageType: document` is rendered as a document link/card, never an `<img>`.
+- [ ] Ensure transcript media links do not point to an unregistered route; render unavailable attachments safely or add an authenticated private media route with authorization coverage.
 - [ ] Run the focused admin tests and confirm failures.
 - [ ] Implement discriminated rendering; hide delivery statuses for internal system events and preserve delivery statuses for actual WhatsApp messages.
 - [ ] Delay temporary object URL revocation until browser download navigation has started; keep filename human-readable with order number.
