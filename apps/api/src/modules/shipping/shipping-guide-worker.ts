@@ -23,7 +23,10 @@ type JobPort = Readonly<{
     preShipmentNumber: string,
     freightCop: number,
   ): Promise<void>;
-  markUncertain(id: string): Promise<void>;
+  markUncertain(
+    id: string,
+    preShipmentNumber: string | null,
+  ): Promise<Readonly<{ status: string; preShipmentNumber: string | null }>>;
   markFailed(id: string, errorCode: string): Promise<void>;
 }>;
 
@@ -101,8 +104,10 @@ export class ShippingGuideWorker {
     if (job === null) return false;
     this.metrics?.recordJob({ queue: 'shipping_guide', outcome: 'attempt' });
     let providerCreatedGuide = false;
+    let providerPreShipmentNumber: string | undefined;
+    let order: Awaited<ReturnType<OrderPort['get']>> = null;
     try {
-      const order = await this.orders.get(job.orderId);
+      order = await this.orders.get(job.orderId);
       if (
         order === null ||
         order.status !== 'confirmed' ||
@@ -148,6 +153,7 @@ export class ShippingGuideWorker {
         notes: order.destination.deliveryNotes,
       });
       providerCreatedGuide = true;
+      providerPreShipmentNumber = guide.preShipmentNumber;
       await this.jobs.markCreated(
         job.id,
         guide.preShipmentNumber,
@@ -167,43 +173,94 @@ export class ShippingGuideWorker {
         .catch(() => undefined);
     } catch (error) {
       if (error instanceof ShippingUncertainError) {
-        let uncertaintyPersisted = true;
+        let actualState: Readonly<{
+          status: string;
+          preShipmentNumber: string | null;
+        }> | null = null;
         try {
-          await this.jobs.markUncertain(job.id);
+          actualState = await this.jobs.markUncertain(job.id, null);
         } catch {
-          uncertaintyPersisted = false;
+          // A failed status write leaves the local state unknown.
+        }
+        if (actualState?.status === 'created') {
+          this.metrics?.recordGuideOutcome('created');
+          await Promise.resolve(
+            this.incidents?.open({
+              type: 'guide_created',
+              severity: 'info',
+              title: 'Guía lista para despachar',
+              detail: `99envíos y KAIRO confirman la guía ${actualState.preShipmentNumber ?? 'registrada'}; abre el pedido para consultar el PDF.`,
+              entityUrl: `/orders/${job.orderId}`,
+              entityId: job.orderId,
+              retrySafe: false,
+            }),
+          ).catch(() => undefined);
+          return true;
         }
         this.metrics?.recordGuideOutcome('uncertain');
         this.metrics?.recordProviderFailure('shipping');
+        const stateDetail =
+          actualState?.status === 'uncertain'
+            ? 'El estado incierto está guardado y requiere revisión antes de reintentar.'
+            : actualState === null
+              ? 'KAIRO no pudo confirmar el estado local; el trabajo no se debe reintentar automáticamente.'
+              : `El estado local es ${actualState.status}; requiere revisión antes de reintentar.`;
         await Promise.resolve(
           this.incidents?.open({
             type: 'guide_uncertain',
             severity: 'critical',
             title: 'Guía con resultado incierto',
-            detail: uncertaintyPersisted
-              ? '99envíos no confirmó si la guía fue creada. Debe revisarse antes de reintentar.'
-              : '99envíos no confirmó si la guía fue creada y KAIRO no pudo guardar el estado incierto. El trabajo permanece bloqueado; requiere revisión antes de volver a operar.',
+            detail: `99envíos no confirmó si la guía fue creada. ${stateDetail}`,
             entityUrl: `/orders/${job.orderId}`,
             entityId: job.orderId,
             retrySafe: false,
           }),
         ).catch(() => undefined);
       } else if (providerCreatedGuide) {
-        let uncertaintyPersisted = true;
+        const preShipmentNumber = providerPreShipmentNumber;
+        let actualState: Readonly<{
+          status: string;
+          preShipmentNumber: string | null;
+        }> | null = null;
         try {
-          await this.jobs.markUncertain(job.id);
+          actualState = await this.jobs.markUncertain(
+            job.id,
+            preShipmentNumber ?? null,
+          );
         } catch {
-          uncertaintyPersisted = false;
+          // Keep the provider's confirmed number for the reconciliation alert.
+        }
+        if (actualState?.status === 'created') {
+          this.metrics?.recordGuideOutcome('created');
+          await Promise.resolve(
+            this.incidents?.open({
+              type: 'guide_created',
+              severity: 'info',
+              title: 'Guía lista para despachar',
+              detail: `REF ${order?.referenceCode ?? ''} · guía ${actualState.preShipmentNumber ?? preShipmentNumber ?? 'registrada'}. Abre el pedido para consultar el PDF.`,
+              entityUrl: `/orders/${job.orderId}`,
+              entityId: job.orderId,
+              retrySafe: false,
+            }),
+          ).catch(() => undefined);
+          return true;
         }
         this.metrics?.recordGuideOutcome('uncertain');
+        const stateDetail =
+          actualState?.status === 'uncertain'
+            ? 'El número quedó guardado en el trabajo para revisión y no se creará otra guía.'
+            : actualState === null
+              ? 'No se pudo confirmar el estado local; el trabajo no debe reintentarse automáticamente.'
+              : `El estado local es ${actualState.status}; no se debe crear otra guía.`;
+        const knownNumber = actualState?.preShipmentNumber ?? preShipmentNumber;
+        const numberDetail =
+          knownNumber === undefined ? '' : ` Número de guía: ${knownNumber}.`;
         await Promise.resolve(
           this.incidents?.open({
             type: 'guide_uncertain',
             severity: 'critical',
-            title: 'Guía creada; falta confirmar el registro',
-            detail: uncertaintyPersisted
-              ? '99envíos confirmó la guía, pero KAIRO no pudo guardar el resultado. Revisa 99envíos antes de resolverla; no se debe crear otra guía.'
-              : '99envíos confirmó la guía, pero KAIRO no pudo guardar el resultado ni bloquear el trabajo como incierto. El trabajo permanece en procesamiento sin reintento automático; revisa 99envíos y la base de datos antes de resolverlo.',
+            title: 'Guía creada; requiere reconciliación',
+            detail: `99envíos confirmó la guía.${numberDetail} ${stateDetail}`,
             entityUrl: `/orders/${job.orderId}`,
             entityId: job.orderId,
             retrySafe: false,

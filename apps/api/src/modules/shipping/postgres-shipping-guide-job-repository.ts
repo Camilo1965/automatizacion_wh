@@ -19,6 +19,12 @@ export type ClaimedShippingGuideJob = Readonly<{
   };
 }>;
 
+export type ShippingGuideUncertainResult = Readonly<{
+  status:
+    'pending' | 'processing' | 'created' | 'uncertain' | 'failed' | 'missing';
+  preShipmentNumber: string | null;
+}>;
+
 export class PostgresShippingGuideJobRepository {
   constructor(private readonly database: PostgresDatabase) {}
 
@@ -96,18 +102,47 @@ export class PostgresShippingGuideJobRepository {
         };
   }
 
-  async markUncertain(id: string): Promise<void> {
+  async markUncertain(
+    id: string,
+    preShipmentNumber: string | null,
+  ): Promise<ShippingGuideUncertainResult> {
     assertGuideJobTransition('processing', 'mark_uncertain');
-    await this.database.orm
+    const [updated] = await this.database.orm
       .update(shippingGuideJobs)
       .set({
         status: 'uncertain',
+        preShipmentNumber,
         errorCode: 'uncertain',
         updatedAt: new Date(),
       })
       .where(
         sql`${shippingGuideJobs.id} = ${id} AND ${shippingGuideJobs.status} = 'processing'`,
-      );
+      )
+      .returning({
+        status: shippingGuideJobs.status,
+        preShipmentNumber: shippingGuideJobs.preShipmentNumber,
+      });
+    if (updated !== undefined) {
+      return {
+        status: updated.status as ShippingGuideUncertainResult['status'],
+        preShipmentNumber: updated.preShipmentNumber,
+      };
+    }
+
+    const [current] = await this.database.orm
+      .select({
+        status: shippingGuideJobs.status,
+        preShipmentNumber: shippingGuideJobs.preShipmentNumber,
+      })
+      .from(shippingGuideJobs)
+      .where(eq(shippingGuideJobs.id, id))
+      .limit(1);
+    return current === undefined
+      ? { status: 'missing', preShipmentNumber: null }
+      : {
+          status: current.status as ShippingGuideUncertainResult['status'],
+          preShipmentNumber: current.preShipmentNumber,
+        };
   }
 
   async markCreated(

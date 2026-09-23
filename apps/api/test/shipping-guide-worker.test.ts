@@ -14,7 +14,10 @@ describe('ShippingGuideWorker', () => {
         collectionValueCop: 120000,
       }),
       markCreated: vi.fn(),
-      markUncertain: vi.fn(),
+      markUncertain: vi.fn().mockResolvedValue({
+        status: 'uncertain',
+        preShipmentNumber: null,
+      }),
       markFailed: vi.fn(),
     };
     const orders = {
@@ -58,7 +61,10 @@ describe('ShippingGuideWorker', () => {
         collectionValueCop: 136968,
       }),
       markCreated: vi.fn(),
-      markUncertain: vi.fn(),
+      markUncertain: vi.fn().mockResolvedValue({
+        status: 'uncertain',
+        preShipmentNumber: null,
+      }),
       markFailed: vi.fn(),
     };
     const orders = {
@@ -117,7 +123,10 @@ describe('ShippingGuideWorker', () => {
       markCreated: vi
         .fn()
         .mockRejectedValue(new Error('transcript_insert_failed')),
-      markUncertain: vi.fn(),
+      markUncertain: vi.fn().mockResolvedValue({
+        status: 'uncertain',
+        preShipmentNumber: 'PRE-123',
+      }),
       markFailed: vi.fn(),
     };
     const orders = {
@@ -142,15 +151,72 @@ describe('ShippingGuideWorker', () => {
         freightCop: 11900,
       }),
     };
-    const worker = new ShippingGuideWorker(jobs, orders, client);
+    const incidents = { open: vi.fn().mockResolvedValue(undefined) };
+    const worker = new ShippingGuideWorker(jobs, orders, client, incidents);
 
     await expect(worker.runOnce()).resolves.toBe(true);
     await expect(worker.runOnce()).resolves.toBe(false);
 
     expect(client.createPreShipment).toHaveBeenCalledTimes(1);
     expect(jobs.markUncertain).toHaveBeenCalledTimes(1);
-    expect(jobs.markUncertain).toHaveBeenCalledWith('job-1');
+    expect(jobs.markUncertain).toHaveBeenCalledWith('job-1', 'PRE-123');
     expect(jobs.markFailed).not.toHaveBeenCalled();
+    expect(incidents.open).toHaveBeenCalledWith(
+      expect.objectContaining({ detail: expect.stringContaining('PRE-123') }),
+    );
+  });
+
+  it('reports the committed created state instead of a false uncertainty after a lost acknowledgement', async () => {
+    const jobs = {
+      claimNext: vi.fn().mockResolvedValueOnce({
+        id: 'job-1',
+        orderId: 'order-1',
+        carrier: 'envia',
+        insuranceMode: 'standard' as const,
+        collectionValueCop: 120000,
+      }),
+      markCreated: vi.fn().mockRejectedValue(new Error('acknowledgement_lost')),
+      markUncertain: vi.fn().mockResolvedValue({
+        status: 'created',
+        preShipmentNumber: 'PRE-123',
+      }),
+      markFailed: vi.fn(),
+    };
+    const orders = {
+      get: vi.fn().mockResolvedValue({
+        status: 'confirmed',
+        referenceModelName: 'Tenis',
+        referenceCode: '01',
+        unitPriceCop: 120000,
+        size: '37',
+        quantity: 1,
+        customer: { name: 'Ana Ruiz', phone: '573001234567' },
+        destination: {
+          address: 'Calle 1',
+          localityCarrierCode: '05001000',
+          deliveryNotes: null,
+        },
+      }),
+    };
+    const client = {
+      createPreShipment: vi.fn().mockResolvedValue({
+        preShipmentNumber: 'PRE-123',
+        freightCop: 11900,
+      }),
+    };
+    const incidents = { open: vi.fn().mockResolvedValue(undefined) };
+    const worker = new ShippingGuideWorker(jobs, orders, client, incidents);
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+
+    expect(incidents.open).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'guide_created', severity: 'info' }),
+    );
+    expect(incidents.open).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'guide_uncertain' }),
+    );
+    expect(jobs.markUncertain).toHaveBeenCalledWith('job-1', 'PRE-123');
+    expect(client.createPreShipment).toHaveBeenCalledTimes(1);
   });
 
   it('never fails or retries a provider-created guide when uncertainty persistence also fails', async () => {
@@ -203,7 +269,11 @@ describe('ShippingGuideWorker', () => {
     expect(jobs.markUncertain).toHaveBeenCalledTimes(1);
     expect(jobs.markFailed).not.toHaveBeenCalled();
     expect(incidents.open).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'guide_uncertain', retrySafe: false }),
+      expect.objectContaining({
+        type: 'guide_uncertain',
+        retrySafe: false,
+        detail: expect.stringContaining('PRE-123'),
+      }),
     );
   });
 
