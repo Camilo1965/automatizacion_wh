@@ -411,6 +411,11 @@ export class PostgresOrderRepository implements OrderRepository {
         const snapshot = summary.snapshot as {
           shippingQuote?: { id: string; carrier: string };
         };
+        if (snapshot.shippingQuote === undefined)
+          throw new OrderConflictError(
+            'shipping_quote_required',
+            'Cotiza el envío y genera un nuevo resumen antes de confirmar.',
+          );
         let confirmedShippingQuote: ShippingQuoteRow | undefined;
         if (snapshot.shippingQuote !== undefined) {
           [confirmedShippingQuote] = await tx

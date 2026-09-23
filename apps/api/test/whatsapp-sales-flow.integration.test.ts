@@ -116,6 +116,22 @@ describe('complete WhatsApp sale', () => {
       orderService,
       new LocalityService(new PostgresLocalityRepository(database)),
       new PostgresShippingGuideJobRepository(database),
+      new ShippingQuoteService(
+        new PostgresShippingQuoteRepository(database),
+        orderService,
+        {
+          quote: vi.fn(async () => [
+            {
+              carrier: 'envia',
+              freightCop: 13_368,
+              cashOnDeliveryCop: 3_000,
+              surchargeCop: 600,
+              serviceId: 12,
+              estimatedDays: '1',
+            },
+          ]),
+        },
+      ),
     );
     const phone = '+573158191776';
     const messages = [

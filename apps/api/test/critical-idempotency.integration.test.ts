@@ -11,6 +11,7 @@ import { PostgresShippingGuideJobRepository } from '../src/modules/shipping/post
 import { PostgresOutboundRepository } from '../src/modules/whatsapp/postgres-outbound-repository.js';
 import { PostgresWhatsAppInboundRepository } from '../src/modules/whatsapp/postgres-whatsapp-inbound-repository.js';
 import { requireTestDatabaseUrl } from './helpers/test-database.js';
+import { seedSelectedShippingQuote } from './helpers/seed-selected-shipping-quote.js';
 
 const databaseUrl = requireTestDatabaseUrl();
 const adminId = '11111111-1111-4111-8111-111111111111';
@@ -93,6 +94,11 @@ describe('critical-path concurrent idempotency', () => {
         localityCarrierCode: '11001000',
         adminUserId: adminId,
       });
+      await seedSelectedShippingQuote(
+        databaseUrl,
+        draft.id,
+        draft.draftVersion,
+      );
       const summary = await service.createSummary(draft.id);
       const results = await Promise.all(
         Array.from({ length: 8 }, () =>
@@ -169,6 +175,16 @@ describe('critical-path concurrent idempotency', () => {
         localityCarrierCode: '11001000',
         adminUserId: adminId,
       });
+      await seedSelectedShippingQuote(
+        databaseUrl,
+        first.id,
+        first.draftVersion,
+      );
+      await seedSelectedShippingQuote(
+        databaseUrl,
+        second.id,
+        second.draftVersion,
+      );
       const summaryA = await service.createSummary(first.id);
       const summaryB = await service.createSummary(second.id);
       const outcomes = await Promise.allSettled([
@@ -299,6 +315,11 @@ describe('critical-path concurrent idempotency', () => {
         localityCarrierCode: '11001000',
         adminUserId: adminId,
       });
+      await seedSelectedShippingQuote(
+        databaseUrl,
+        draft.id,
+        draft.draftVersion,
+      );
       const summary = await service.createSummary(draft.id);
       await service.transition({
         orderId: draft.id,

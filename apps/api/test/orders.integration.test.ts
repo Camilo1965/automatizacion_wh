@@ -9,6 +9,7 @@ import {
   assertTestDatabaseName,
   requireTestDatabaseUrl,
 } from './helpers/test-database.js';
+import { seedSelectedShippingQuote } from './helpers/seed-selected-shipping-quote.js';
 
 const databaseUrl = requireTestDatabaseUrl();
 const adminId = '11111111-1111-4111-8111-111111111111';
@@ -56,6 +57,11 @@ describe('order lifecycle', () => {
         localityCarrierCode: '11001',
         adminUserId: adminId,
       });
+      await seedSelectedShippingQuote(
+        databaseUrl,
+        draft.id,
+        draft.draftVersion,
+      );
       const summary = await service.createSummary(draft.id);
       const confirmed = await service.transition({
         orderId: draft.id,
@@ -76,9 +82,9 @@ describe('order lifecycle', () => {
       const guideSql = postgres(databaseUrl, { max: 1, prepare: false });
       try {
         await guideSql`
-          INSERT INTO shipping_guide_jobs
-            (order_id, carrier, status, pre_shipment_number)
-          VALUES (${draft.id}, 'envia', 'created', '954101306101')
+          UPDATE shipping_guide_jobs
+          SET status = 'created', pre_shipment_number = '954101306101'
+          WHERE order_id = ${draft.id}
         `;
       } finally {
         await guideSql.end({ timeout: 5 });
@@ -258,6 +264,61 @@ describe('order lifecycle', () => {
     }
   });
 
+  it('does not confirm or reserve an order without a shipping quote', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const service = new OrderService(
+      new PostgresOrderRepository(database),
+      async () => ({
+        id: '22222222-2222-4222-8222-222222222222',
+        code: '01',
+        modelName: 'Ballerina',
+        color: 'Negro',
+        priceCop: 120000,
+        active: true,
+        photo: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      const draft = await service.create({
+        referenceId: '22222222-2222-4222-8222-222222222222',
+        size: '37',
+        quantity: 1,
+        customerName: 'Ana Gómez',
+        customerPhone: '3001234567',
+        address: 'Calle 1 # 2-3',
+        localityCarrierCode: '11001',
+        adminUserId: adminId,
+      });
+      const summary = await service.createSummary(draft.id);
+      expect(summary.snapshot.shippingPending).toBe(true);
+
+      await expect(
+        service.transition({
+          orderId: draft.id,
+          action: 'confirm',
+          summaryVersion: summary.version,
+          idempotencyKey: 'quote-required-confirm-0001',
+          adminUserId: adminId,
+        }),
+      ).rejects.toMatchObject({ code: 'shipping_quote_required' });
+      const [state] = await sql<
+        { reserved: number; jobs: number; status: string }[]
+      >`
+        SELECT
+          (SELECT reserved_quantity FROM catalog_stock LIMIT 1)::int AS reserved,
+          (SELECT count(*)::int FROM shipping_guide_jobs WHERE order_id = ${draft.id}) AS jobs,
+          (SELECT status FROM sales_orders WHERE id = ${draft.id}) AS status
+      `;
+      expect(state).toEqual({ reserved: 0, jobs: 0, status: 'draft' });
+    } finally {
+      await sql.end({ timeout: 5 });
+      await database.close();
+    }
+  });
+
   it('blocks dispatch until a shipping guide has been created', async () => {
     const database = createPostgresDatabase(databaseUrl);
     const repository = new PostgresOrderRepository(database);
@@ -283,6 +344,11 @@ describe('order lifecycle', () => {
         localityCarrierCode: '11001',
         adminUserId: adminId,
       });
+      await seedSelectedShippingQuote(
+        databaseUrl,
+        draft.id,
+        draft.draftVersion,
+      );
       const summary = await service.createSummary(draft.id);
       await service.transition({
         orderId: draft.id,
@@ -328,6 +394,11 @@ describe('order lifecycle', () => {
         localityCarrierCode: '11001',
         adminUserId: adminId,
       });
+      await seedSelectedShippingQuote(
+        databaseUrl,
+        draft.id,
+        draft.draftVersion,
+      );
       const summary = await service.createSummary(draft.id);
       await service.transition({
         orderId: draft.id,
@@ -336,15 +407,6 @@ describe('order lifecycle', () => {
         idempotencyKey: 'confirm-order-cancel-guide',
         adminUserId: adminId,
       });
-      const seedSql = postgres(databaseUrl, { max: 1, prepare: false });
-      try {
-        await seedSql`
-          INSERT INTO shipping_guide_jobs (order_id, carrier)
-          VALUES (${draft.id}, 'envia')
-        `;
-      } finally {
-        await seedSql.end({ timeout: 5 });
-      }
       await service.transition({
         orderId: draft.id,
         action: 'cancel',
