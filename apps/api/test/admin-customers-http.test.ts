@@ -24,22 +24,23 @@ const customerId = '11111111-1111-4111-8111-111111111111';
 
 describe('admin customer HTTP API', () => {
   it('requires a session, validates filters, and projects only minimal customer data', async () => {
+    const list = vi.fn().mockResolvedValue({
+      items: [
+        {
+          id: customerId,
+          displayName: 'Ana',
+          normalizedPhone: '+573001111111',
+          segment: 'buyer',
+          marketingConsent: 'unknown',
+          lastActivityAt: new Date('2026-09-22T12:00:00Z'),
+          createdAt: new Date('2026-09-20T10:00:00Z'),
+          marketingConsentEvidenceRef: 'must-not-leak',
+        },
+      ],
+      nextCursor: null,
+    });
     const repository: CustomerRepository = {
-      list: vi.fn().mockResolvedValue({
-        items: [
-          {
-            id: customerId,
-            displayName: 'Ana',
-            normalizedPhone: '+573001111111',
-            segment: 'buyer',
-            marketingConsent: 'unknown',
-            lastActivityAt: new Date('2026-09-22T12:00:00Z'),
-            createdAt: new Date('2026-09-20T10:00:00Z'),
-            marketingConsentEvidenceRef: 'must-not-leak',
-          },
-        ],
-        nextCursor: null,
-      }),
+      list,
       get: vi.fn().mockResolvedValue(null),
       reconciliation: vi
         .fn()
@@ -79,6 +80,7 @@ describe('admin customer HTTP API', () => {
         '?segment=paid',
         '?cursor=bad',
         '?unexpected=1',
+        `?cursor=${Buffer.from(JSON.stringify({ createdAt: '2026-02-30T10:00:00.123456Z', id: customerId })).toString('base64url')}`,
       ]) {
         expect(
           (
@@ -90,6 +92,7 @@ describe('admin customer HTTP API', () => {
           ).statusCode,
         ).toBe(400);
       }
+      expect(list).not.toHaveBeenCalled();
       const response = await app.inject({
         method: 'GET',
         url: '/api/admin/customers?segment=buyer&limit=10',
@@ -120,6 +123,14 @@ describe('admin customer HTTP API', () => {
   });
 
   it('authenticates and bounds the read-only reconciliation queue', async () => {
+    const ordersNext = {
+      createdAt: '2026-09-22T12:00:00.123456Z',
+      id: '22222222-2222-4222-8222-222222222222',
+    };
+    const conversationsNext = {
+      createdAt: '2026-09-22T12:00:00.123455Z',
+      id: '33333333-3333-4333-8333-333333333333',
+    };
     const reconciliation = vi.fn().mockResolvedValue({
       orders: [
         {
@@ -134,6 +145,8 @@ describe('admin customer HTTP API', () => {
         },
       ],
       conversations: [],
+      ordersNextCursor: ordersNext,
+      conversationsNextCursor: conversationsNext,
     });
     const repository = {
       list: vi.fn(),
@@ -181,13 +194,46 @@ describe('admin customer HTTP API', () => {
           })
         ).statusCode,
       ).toBe(400);
+      for (const cursor of [
+        'bad',
+        Buffer.from(
+          JSON.stringify({
+            createdAt: '2026-02-30T10:00:00.123456Z',
+            id: customerId,
+          }),
+        ).toString('base64url'),
+      ]) {
+        expect(
+          (
+            await app.inject({
+              method: 'GET',
+              url: `/api/admin/customers/reconciliation?ordersCursor=${cursor}`,
+              headers,
+            })
+          ).statusCode,
+        ).toBe(400);
+        expect(
+          (
+            await app.inject({
+              method: 'GET',
+              url: `/api/admin/customers/reconciliation?conversationsCursor=${cursor}`,
+              headers,
+            })
+          ).statusCode,
+        ).toBe(400);
+      }
+      expect(reconciliation).not.toHaveBeenCalled();
       const response = await app.inject({
         method: 'GET',
         url: '/api/admin/customers/reconciliation?limit=1',
         headers,
       });
       expect(response.statusCode).toBe(200);
-      expect(reconciliation).toHaveBeenCalledWith(1);
+      expect(reconciliation).toHaveBeenCalledWith({ limit: 1 });
+      expect(response.json().data.ordersNextCursor).toEqual(expect.any(String));
+      expect(response.json().data.conversationsNextCursor).toEqual(
+        expect.any(String),
+      );
       expect(response.json().data.orders[0]).toEqual({
         id: '22222222-2222-4222-8222-222222222222',
         orderNumber: 'PED-000001',
@@ -196,6 +242,17 @@ describe('admin customer HTTP API', () => {
         status: 'draft',
         createdAt: '2026-09-22T12:00:00.000Z',
         href: '/orders/22222222-2222-4222-8222-222222222222',
+      });
+      const second = await app.inject({
+        method: 'GET',
+        url: `/api/admin/customers/reconciliation?limit=1&ordersCursor=${response.json().data.ordersNextCursor}&conversationsCursor=${response.json().data.conversationsNextCursor}`,
+        headers,
+      });
+      expect(second.statusCode).toBe(200);
+      expect(reconciliation).toHaveBeenLastCalledWith({
+        limit: 1,
+        ordersAfter: ordersNext,
+        conversationsAfter: conversationsNext,
       });
       expect(
         (

@@ -15,11 +15,39 @@ import type {
   CustomerRepository,
 } from './postgres-customer-repository.js';
 
+const cursorTimestampPattern =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{6})Z$/;
+
+function isRealUtcTimestamp(value: string): boolean {
+  const parts = cursorTimestampPattern.exec(value);
+  if (parts === null) return false;
+  const year = Number(parts[1]);
+  const month = Number(parts[2]);
+  const day = Number(parts[3]);
+  const hour = Number(parts[4]);
+  const minute = Number(parts[5]);
+  const second = Number(parts[6]);
+  const milliseconds = Number(parts[7]?.slice(0, 3));
+  if (year < 1) return false;
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  date.setUTCHours(hour, minute, second, milliseconds);
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day &&
+    date.getUTCHours() === hour &&
+    date.getUTCMinutes() === minute &&
+    date.getUTCSeconds() === second &&
+    date.getUTCMilliseconds() === milliseconds
+  );
+}
+
 const cursorSchema = z
   .object({
     createdAt: z
       .string()
-      .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/),
+      .refine(isRealUtcTimestamp, 'Cursor timestamp must be a real UTC date'),
     id: z.uuid(),
   })
   .strict();
@@ -34,6 +62,12 @@ function decodeCursor(value: string): CustomerCursor {
     ]);
   }
   return cursorSchema.parse(parsed);
+}
+
+function encodeCursor(value: CustomerCursor | null): string | null {
+  return value === null
+    ? null
+    : Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
 }
 
 function toSummary(value: {
@@ -75,12 +109,7 @@ export class CustomerService {
     });
     const result = {
       items: page.items.map(toSummary),
-      nextCursor:
-        page.nextCursor === null
-          ? null
-          : Buffer.from(JSON.stringify(page.nextCursor), 'utf8').toString(
-              'base64url',
-            ),
+      nextCursor: encodeCursor(page.nextCursor),
     };
     return CustomerListResponseSchema.parse({ data: result }).data;
   }
@@ -105,8 +134,20 @@ export class CustomerService {
     });
   }
 
-  async reconciliation(limit: number): Promise<CustomerReconciliation> {
-    const queue = await this.repository.reconciliation(limit);
+  async reconciliation(input: {
+    limit: number;
+    ordersCursor?: string;
+    conversationsCursor?: string;
+  }): Promise<CustomerReconciliation> {
+    const queue = await this.repository.reconciliation({
+      limit: input.limit,
+      ...(input.ordersCursor === undefined
+        ? {}
+        : { ordersAfter: decodeCursor(input.ordersCursor) }),
+      ...(input.conversationsCursor === undefined
+        ? {}
+        : { conversationsAfter: decodeCursor(input.conversationsCursor) }),
+    });
     return CustomerReconciliationSchema.parse({
       orders: queue.orders.map((order) => ({
         id: order.id,
@@ -124,6 +165,8 @@ export class CustomerService {
         createdAt: conversation.createdAt.toISOString(),
         href: conversation.href,
       })),
+      ordersNextCursor: encodeCursor(queue.ordersNextCursor),
+      conversationsNextCursor: encodeCursor(queue.conversationsNextCursor),
     });
   }
 }

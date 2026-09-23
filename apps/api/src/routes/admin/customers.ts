@@ -33,10 +33,18 @@ export async function registerCustomerRoutes(
 
   app.get('/customers/reconciliation', async (request, reply) => {
     await authenticate(request);
-    const { limit } = CustomerReconciliationQuerySchema.parse(request.query);
-    return reply
-      .status(200)
-      .send({ data: await customerService.reconciliation(limit) });
+    const query = CustomerReconciliationQuerySchema.parse(request.query);
+    return reply.status(200).send({
+      data: await customerService.reconciliation({
+        limit: query.limit,
+        ...(query.ordersCursor === undefined
+          ? {}
+          : { ordersCursor: query.ordersCursor }),
+        ...(query.conversationsCursor === undefined
+          ? {}
+          : { conversationsCursor: query.conversationsCursor }),
+      }),
+    });
   });
 
   app.get('/customers/:customerId', async (request, reply) => {

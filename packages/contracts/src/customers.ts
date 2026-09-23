@@ -22,6 +22,8 @@ export const CustomerListQuerySchema = z
 export const CustomerReconciliationQuerySchema = z
   .object({
     limit: z.coerce.number().int().min(1).max(100).default(25),
+    ordersCursor: z.string().min(1).max(512).optional(),
+    conversationsCursor: z.string().min(1).max(512).optional(),
   })
   .strict();
 
@@ -94,6 +96,8 @@ export const CustomerReconciliationSchema = z
         })
         .strict(),
     ),
+    ordersNextCursor: z.string().nullable(),
+    conversationsNextCursor: z.string().nullable(),
   })
   .strict();
 export type CustomerReconciliation = z.infer<

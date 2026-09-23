@@ -44,10 +44,14 @@ describe('customer read model', () => {
                ('10000000-0000-4000-8000-000000000006', 'draft', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 37, 1, NULL, 'Sin enlazar', NULL, '2026-09-22T11:00:00Z'),
                ('10000000-0000-4000-8000-000000000007', 'draft', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 37, 1, ${pending}, 'Beatriz', '+573002222222', '2026-09-22T12:00:00Z'),
                ('10000000-0000-4000-8000-000000000008', 'dispatched', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 37, 1, ${pending}, 'Beatriz', '+573002222222', '2026-09-22T13:00:00Z'),
-               ('10000000-0000-4000-8000-000000000009', 'cancelled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 37, 1, ${pending}, 'Beatriz', '+573002222222', '2026-09-22T14:00:00Z')`;
+               ('10000000-0000-4000-8000-000000000009', 'cancelled', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 37, 1, ${pending}, 'Beatriz', '+573002222222', '2026-09-22T14:00:00Z'),
+               ('10000000-0000-4000-8000-000000000010', 'draft', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 37, 1, NULL, 'Sin enlazar 2', NULL, '2026-09-22T11:00:00.000001Z'),
+               ('10000000-0000-4000-8000-000000000011', 'draft', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 37, 1, NULL, 'Sin enlazar 3', NULL, '2026-09-22T11:00:00.000002Z')`;
       await sql`INSERT INTO whatsapp_conversations (id, customer_phone, customer_id, state, last_inbound_message_at, created_at)
         VALUES ('20000000-0000-4000-8000-000000000001', '+573001111111', ${buyer}, 'idle', '2026-09-22T12:00:00Z', '2026-09-22T12:00:00Z'),
-               ('20000000-0000-4000-8000-000000000002', 'invalid-phone', NULL, 'idle', '2026-09-22T12:00:00Z', '2026-09-22T12:00:00Z')`;
+               ('20000000-0000-4000-8000-000000000002', 'invalid-phone', NULL, 'idle', '2026-09-22T12:00:00Z', '2026-09-22T12:00:00Z'),
+               ('20000000-0000-4000-8000-000000000003', 'invalid-phone-2', NULL, 'idle', '2026-09-22T12:00:00.000001Z', '2026-09-22T12:00:00.000001Z'),
+               ('20000000-0000-4000-8000-000000000004', 'invalid-phone-3', NULL, 'idle', '2026-09-22T12:00:00.000002Z', '2026-09-22T12:00:00.000002Z')`;
     } finally {
       await sql.end({ timeout: 5 });
     }
@@ -122,15 +126,56 @@ describe('customer read model', () => {
       expect(
         await repository.get('99999999-9999-4999-8999-999999999999'),
       ).toBeNull();
-      const queue = await repository.reconciliation(1);
+      const queue = await repository.reconciliation({ limit: 1 });
       expect(queue.orders.map((order) => order.id)).toEqual([
-        '10000000-0000-4000-8000-000000000006',
+        '10000000-0000-4000-8000-000000000011',
       ]);
       expect(
         queue.conversations.map((conversation) => conversation.id),
-      ).toEqual(['20000000-0000-4000-8000-000000000002']);
+      ).toEqual(['20000000-0000-4000-8000-000000000004']);
       expect(queue.orders[0]).not.toHaveProperty('address');
       expect(queue.orders[0]).not.toHaveProperty('deliveryNotes');
+
+      const second = await repository.reconciliation({
+        limit: 1,
+        ordersAfter: queue.ordersNextCursor!,
+        conversationsAfter: queue.conversationsNextCursor!,
+      });
+      const third = await repository.reconciliation({
+        limit: 1,
+        ordersAfter: second.ordersNextCursor!,
+        conversationsAfter: second.conversationsNextCursor!,
+      });
+      expect(
+        [queue, second, third].flatMap((page) =>
+          page.orders.map((order) => order.id),
+        ),
+      ).toEqual([
+        '10000000-0000-4000-8000-000000000011',
+        '10000000-0000-4000-8000-000000000010',
+        '10000000-0000-4000-8000-000000000006',
+      ]);
+      expect(
+        [queue, second, third].flatMap((page) =>
+          page.conversations.map((conversation) => conversation.id),
+        ),
+      ).toEqual([
+        '20000000-0000-4000-8000-000000000004',
+        '20000000-0000-4000-8000-000000000003',
+        '20000000-0000-4000-8000-000000000002',
+      ]);
+      expect(third.ordersNextCursor).toBeNull();
+      expect(third.conversationsNextCursor).toBeNull();
+      const ordersOnly = await repository.reconciliation({
+        limit: 1,
+        ordersAfter: queue.ordersNextCursor!,
+      });
+      expect(ordersOnly.orders[0]?.id).toBe(
+        '10000000-0000-4000-8000-000000000010',
+      );
+      expect(ordersOnly.conversations[0]?.id).toBe(
+        '20000000-0000-4000-8000-000000000004',
+      );
     } finally {
       await database.close();
     }

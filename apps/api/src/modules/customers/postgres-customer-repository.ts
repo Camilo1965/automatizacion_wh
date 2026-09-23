@@ -50,6 +50,8 @@ export type CustomerReconciliation = Readonly<{
     createdAt: Date;
     href: string;
   }>[];
+  ordersNextCursor: CustomerCursor | null;
+  conversationsNextCursor: CustomerCursor | null;
 }>;
 
 export interface CustomerRepository {
@@ -63,7 +65,11 @@ export interface CustomerRepository {
     nextCursor: CustomerCursor | null;
   }>;
   get(id: string): Promise<CustomerDetail | null>;
-  reconciliation(limit: number): Promise<CustomerReconciliation>;
+  reconciliation(input: {
+    limit: number;
+    ordersAfter?: CustomerCursor;
+    conversationsAfter?: CustomerCursor;
+  }): Promise<CustomerReconciliation>;
 }
 
 const segmentSql = sql<CustomerSegment>`CASE
@@ -214,8 +220,12 @@ export class PostgresCustomerRepository implements CustomerRepository {
     };
   }
 
-  async reconciliation(limit: number): Promise<CustomerReconciliation> {
-    const boundedLimit = Math.max(1, Math.min(100, limit));
+  async reconciliation(input: {
+    limit: number;
+    ordersAfter?: CustomerCursor;
+    conversationsAfter?: CustomerCursor;
+  }): Promise<CustomerReconciliation> {
+    const boundedLimit = Math.max(1, Math.min(100, input.limit));
     const [orders, conversations] = await Promise.all([
       this.database.orm
         .select({
@@ -225,36 +235,74 @@ export class PostgresCustomerRepository implements CustomerRepository {
           customerPhone: salesOrders.customerPhone,
           status: salesOrders.status,
           createdAt: salesOrders.createdAt,
+          cursorCreatedAt: sql<string>`to_char(${salesOrders.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
         })
         .from(salesOrders)
-        .where(sql`${salesOrders.customerId} IS NULL`)
+        .where(
+          and(
+            sql`${salesOrders.customerId} IS NULL`,
+            input.ordersAfter === undefined
+              ? undefined
+              : sql`(${salesOrders.createdAt}, ${salesOrders.id}) < (${input.ordersAfter.createdAt}::timestamptz, ${input.ordersAfter.id}::uuid)`,
+          ),
+        )
         .orderBy(desc(salesOrders.createdAt), desc(salesOrders.id))
-        .limit(boundedLimit),
+        .limit(boundedLimit + 1),
       this.database.orm
         .select({
           id: whatsappConversations.id,
           customerPhone: whatsappConversations.customerPhone,
           state: whatsappConversations.state,
           createdAt: whatsappConversations.createdAt,
+          cursorCreatedAt: sql<string>`to_char(${whatsappConversations.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
         })
         .from(whatsappConversations)
-        .where(sql`${whatsappConversations.customerId} IS NULL`)
+        .where(
+          and(
+            sql`${whatsappConversations.customerId} IS NULL`,
+            input.conversationsAfter === undefined
+              ? undefined
+              : sql`(${whatsappConversations.createdAt}, ${whatsappConversations.id}) < (${input.conversationsAfter.createdAt}::timestamptz, ${input.conversationsAfter.id}::uuid)`,
+          ),
+        )
         .orderBy(
           desc(whatsappConversations.createdAt),
           desc(whatsappConversations.id),
         )
-        .limit(boundedLimit),
+        .limit(boundedLimit + 1),
     ]);
+    const pageOrders = orders.slice(0, boundedLimit);
+    const pageConversations = conversations.slice(0, boundedLimit);
+    const lastOrder = pageOrders.at(-1);
+    const lastConversation = pageConversations.at(-1);
     return {
-      orders: orders.map((order) => ({
-        ...order,
+      orders: pageOrders.map((order) => ({
+        id: order.id,
         orderNumber: orderNumber(order.orderNumber),
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        status: order.status,
+        createdAt: order.createdAt,
         href: `/orders/${order.id}`,
       })),
-      conversations: conversations.map((conversation) => ({
-        ...conversation,
+      conversations: pageConversations.map((conversation) => ({
+        id: conversation.id,
+        customerPhone: conversation.customerPhone,
+        state: conversation.state,
+        createdAt: conversation.createdAt,
         href: `/conversations?conversation=${conversation.id}`,
       })),
+      ordersNextCursor:
+        orders.length > boundedLimit && lastOrder !== undefined
+          ? { createdAt: lastOrder.cursorCreatedAt, id: lastOrder.id }
+          : null,
+      conversationsNextCursor:
+        conversations.length > boundedLimit && lastConversation !== undefined
+          ? {
+              createdAt: lastConversation.cursorCreatedAt,
+              id: lastConversation.id,
+            }
+          : null,
     };
   }
 }

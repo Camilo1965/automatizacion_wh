@@ -53,4 +53,68 @@ describe('customer service', () => {
     ).rejects.toThrow();
     expect(list).not.toHaveBeenCalled();
   });
+
+  it.each([
+    '2026-02-30T10:00:00.123456Z',
+    '2026-13-01T10:00:00.123456Z',
+    '2026-09-20T24:00:00.123456Z',
+  ])(
+    'rejects impossible cursor date %s before querying records',
+    async (createdAt) => {
+      const list = vi.fn();
+      const service = new CustomerService({
+        list,
+        get: vi.fn(),
+        reconciliation: vi.fn(),
+      } as unknown as CustomerRepository);
+      const cursor = Buffer.from(
+        JSON.stringify({ createdAt, id: customerId }),
+      ).toString('base64url');
+      await expect(service.list({ limit: 10, cursor })).rejects.toThrow();
+      expect(list).not.toHaveBeenCalled();
+    },
+  );
+
+  it('round trips independent reconciliation cursors', async () => {
+    const ordersCursor = {
+      createdAt: '2026-09-20T10:00:00.123456Z',
+      id: customerId,
+    };
+    const conversationsCursor = {
+      createdAt: '2026-09-20T10:00:00.123455Z',
+      id: '22222222-2222-4222-8222-222222222222',
+    };
+    const reconciliation = vi
+      .fn()
+      .mockResolvedValueOnce({
+        orders: [],
+        conversations: [],
+        ordersNextCursor: ordersCursor,
+        conversationsNextCursor: conversationsCursor,
+      })
+      .mockResolvedValueOnce({
+        orders: [],
+        conversations: [],
+        ordersNextCursor: null,
+        conversationsNextCursor: null,
+      });
+    const service = new CustomerService({
+      list: vi.fn(),
+      get: vi.fn(),
+      reconciliation,
+    } as unknown as CustomerRepository);
+    const first = await service.reconciliation({ limit: 1 });
+    expect(first.ordersNextCursor).toEqual(expect.any(String));
+    expect(first.conversationsNextCursor).toEqual(expect.any(String));
+    await service.reconciliation({
+      limit: 1,
+      ordersCursor: first.ordersNextCursor!,
+      conversationsCursor: first.conversationsNextCursor!,
+    });
+    expect(reconciliation).toHaveBeenLastCalledWith({
+      limit: 1,
+      ordersAfter: ordersCursor,
+      conversationsAfter: conversationsCursor,
+    });
+  });
 });
