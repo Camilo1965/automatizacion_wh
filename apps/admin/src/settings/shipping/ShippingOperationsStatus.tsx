@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import type { ShippingPolicy, ShippingRulePublic } from '@camila/contracts';
 
 import { OperationalOutcome } from '@/components/OperationalOutcome';
+import { Button } from '@/components/Button';
 import { StatusBadge } from '@/components/StatusBadge';
 import {
   Card,
@@ -16,10 +17,14 @@ export function ShippingOperationsStatus({
   globalPolicy,
   rules,
   loadError,
+  loading,
+  onRetry,
 }: {
   globalPolicy: ShippingPolicy;
   rules: readonly ShippingRulePublic[];
   loadError: string | null;
+  loading: boolean;
+  onRetry: () => void;
 }) {
   const activeRules = rules.filter((rule) => rule.active).length;
   return (
@@ -58,11 +63,21 @@ export function ShippingOperationsStatus({
         </CardHeader>
         <CardContent className="space-y-3">
           {loadError ? (
-            <OperationalOutcome
-              tone="danger"
-              outcome={loadError}
-              nextStep="reintenta cargar preferencias o revisa la API."
-            />
+            <div className="space-y-2">
+              <OperationalOutcome
+                tone="danger"
+                outcome={loadError}
+                nextStep="reintenta cargar preferencias antes de guardar cambios."
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                loading={loading}
+                onClick={onRetry}
+              >
+                Reintentar carga
+              </Button>
+            </div>
           ) : (
             <OperationalOutcome
               tone={activeRules > 0 ? 'success' : 'info'}

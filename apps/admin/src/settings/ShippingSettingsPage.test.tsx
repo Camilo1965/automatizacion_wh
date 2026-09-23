@@ -91,6 +91,47 @@ function shippingHandlers(options?: { simulateFail?: boolean }) {
 }
 
 describe('ShippingSettingsPage sections and simulator recovery', () => {
+  it('prevents saving defaults after a failed load and recovers on retry', async () => {
+    const user = userEvent.setup();
+    let requests = 0;
+    server.use(
+      http.get(`${base}/shipping/preferences`, () => {
+        requests += 1;
+        if (requests === 1)
+          return HttpResponse.json(
+            { error: { code: 'unavailable', message: 'Carga fallida' } },
+            { status: 503 },
+          );
+        return HttpResponse.json({
+          data: {
+            revision: 4,
+            preferredCarrier: 'tcc',
+            fallbackPolicy: 'block',
+            offerMode: 'economy_only',
+            protectedInsurance: 'standard',
+          },
+        });
+      }),
+      ...shippingHandlers(),
+    );
+    renderWithProviders(<ShippingSettingsPage />);
+
+    expect(await screen.findByText('Carga fallida')).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Guardar preferencia general' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Guardar regla' }),
+    ).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Reintentar carga' }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Guardar preferencia general' }),
+      ).toBeEnabled();
+    });
+    expect(requests).toBe(2);
+  });
+
   it('separates general policy, locality exceptions, simulator and incidents status', async () => {
     server.use(...shippingHandlers());
     renderWithProviders(<ShippingSettingsPage />);

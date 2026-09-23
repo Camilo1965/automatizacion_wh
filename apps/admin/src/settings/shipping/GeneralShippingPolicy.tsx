@@ -17,6 +17,7 @@ export function GeneralShippingPolicy({
   policy,
   carriers,
   pending,
+  disabled,
   onChange,
   onSave,
   saved,
@@ -25,6 +26,7 @@ export function GeneralShippingPolicy({
   policy: ShippingPolicy;
   carriers: readonly string[];
   pending: boolean;
+  disabled: boolean;
   onChange: (policy: ShippingPolicy) => void;
   onSave: (event: FormEvent<HTMLFormElement>) => void;
   saved: string | null;
@@ -59,7 +61,7 @@ export function GeneralShippingPolicy({
             </details>
             <Button
               variant="secondary"
-              disabled={pending}
+              disabled={pending || disabled}
               loading={pending}
               type="submit"
             >

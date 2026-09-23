@@ -39,10 +39,14 @@ export function ShippingSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>(
+    'loading',
+  );
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [globalSaved, setGlobalSaved] = useState<string | null>(null);
 
   async function load() {
+    setLoadState('loading');
     try {
       const [preferences, rulePage, carrierPage] = await Promise.all([
         apiRequest('/shipping/preferences', {
@@ -57,10 +61,12 @@ export function ShippingSettingsPage() {
       setRules(rulePage.data.items);
       setCarriers(carrierPage.data.items);
       setLoadError(null);
+      setLoadState('ready');
     } catch (caught) {
       setLoadError(
         getErrorMessage(caught, 'No se pudieron cargar las preferencias'),
       );
+      setLoadState('error');
     }
   }
 
@@ -70,6 +76,7 @@ export function ShippingSettingsPage() {
 
   async function saveGlobal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loadState !== 'ready') return;
     setPending(true);
     setGlobalError(null);
     setGlobalSaved(null);
@@ -96,6 +103,7 @@ export function ShippingSettingsPage() {
 
   async function saveMunicipality(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loadState !== 'ready') return;
     setPending(true);
     setError(null);
     setSaved(null);
@@ -153,11 +161,14 @@ export function ShippingSettingsPage() {
         globalPolicy={globalPolicy}
         rules={rules}
         loadError={loadError}
+        loading={loadState === 'loading'}
+        onRetry={() => void load()}
       />
       <GeneralShippingPolicy
         policy={globalPolicy}
         carriers={carriers}
         pending={pending}
+        disabled={loadState !== 'ready'}
         onChange={setGlobalPolicy}
         onSave={(event) => void saveGlobal(event)}
         saved={globalSaved}
@@ -170,6 +181,7 @@ export function ShippingSettingsPage() {
         localityCarrierCode={localityCarrierCode}
         rules={rules}
         pending={pending}
+        disabled={loadState !== 'ready'}
         invalidBlockedRule={invalidBlockedRule}
         error={error}
         saved={saved}

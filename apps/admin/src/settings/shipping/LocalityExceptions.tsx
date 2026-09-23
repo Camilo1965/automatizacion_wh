@@ -27,6 +27,7 @@ export function LocalityExceptions({
   localityCarrierCode,
   rules,
   pending,
+  disabled,
   invalidBlockedRule,
   error,
   saved,
@@ -44,6 +45,7 @@ export function LocalityExceptions({
   localityCarrierCode: string;
   rules: readonly ShippingRulePublic[];
   pending: boolean;
+  disabled: boolean;
   invalidBlockedRule: boolean;
   error: string | null;
   saved: string | null;
@@ -111,7 +113,10 @@ export function LocalityExceptions({
             <div className="flex flex-wrap gap-2">
               <Button
                 disabled={
-                  pending || invalidBlockedRule || selectedLocality === null
+                  pending ||
+                  disabled ||
+                  invalidBlockedRule ||
+                  selectedLocality === null
                 }
                 loading={pending}
                 type="submit"
@@ -195,7 +200,7 @@ export function LocalityExceptions({
                     <Button
                       type="button"
                       variant="danger"
-                      disabled={pending}
+                      disabled={pending || disabled}
                       onClick={() => onDeactivate(rule)}
                     >
                       Desactivar regla
