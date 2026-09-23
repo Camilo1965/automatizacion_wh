@@ -1,4 +1,5 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
+import { ShippingPolicySchema } from '@camila/contracts';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import {
@@ -23,6 +24,7 @@ import {
   type ShippingOfferQuote,
   type ShippingQuoteRecord,
 } from './shipping-quote-service.js';
+import { isEligibleCarrierQuote } from './shipping-selection.js';
 
 function mapQuote(
   row: typeof shippingQuotes.$inferSelect,
@@ -400,6 +402,17 @@ export class PostgresShippingQuoteRepository {
         throw new ShippingDomainError(
           'shipping_quote_expired',
           'Shipping quote has expired',
+        );
+      const quotedPolicy = ShippingPolicySchema.safeParse(quote.policySnapshot);
+      if (!quotedPolicy.success)
+        throw new ShippingDomainError(
+          'shipping_quote_requires_requote',
+          'Esta cotización necesita actualizarse. Cotiza de nuevo antes de elegir.',
+        );
+      if (!isEligibleCarrierQuote(quote, quotedPolicy.data))
+        throw new ShippingDomainError(
+          'shipping_quote_not_allowed',
+          'Esta transportadora no está permitida por la política de envío.',
         );
       await tx
         .update(shippingQuotes)

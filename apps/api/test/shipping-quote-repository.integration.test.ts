@@ -66,6 +66,12 @@ describe('shipping quote persistence', () => {
           },
         ],
         recommendedCarrier: 'tcc',
+        policy: {
+          preferredCarrier: 'tcc',
+          fallbackPolicy: 'allow',
+          offerMode: 'economy_only',
+          protectedInsurance: 'standard',
+        },
         quotedAt: now,
         expiresAt: new Date(now.getTime() + 1_800_000),
       });
@@ -85,6 +91,117 @@ describe('shipping quote persistence', () => {
       await database.close();
     }
   });
+
+  it('rejects a manually selected carrier outside the quote policy', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresShippingQuoteRepository(database);
+    const now = new Date();
+    try {
+      const rows = await repository.replaceQuotes({
+        orderId: '11111111-1111-4111-8111-111111111111',
+        draftVersion: 1,
+        quotes: [
+          {
+            carrier: 'envia',
+            serviceId: 1,
+            freightCop: 10_000,
+            cashOnDeliveryCop: 2_000,
+            surchargeCop: 0,
+            estimatedDays: '1',
+          },
+          {
+            carrier: 'tcc',
+            serviceId: 2,
+            freightCop: 15_000,
+            cashOnDeliveryCop: 3_000,
+            surchargeCop: 0,
+            estimatedDays: '2',
+          },
+        ],
+        recommendedCarrier: 'tcc',
+        policy: {
+          preferredCarrier: 'tcc',
+          fallbackPolicy: 'block',
+          offerMode: 'economy_only',
+          protectedInsurance: 'standard',
+          allowedCarriers: ['tcc'],
+        },
+        quotedAt: now,
+        expiresAt: new Date(now.getTime() + 1_800_000),
+      });
+      const envia = rows.find((row) => row.carrier === 'envia');
+      expect(envia).toBeDefined();
+
+      await expect(
+        repository.selectQuote(
+          '11111111-1111-4111-8111-111111111111',
+          envia!.id,
+          now,
+        ),
+      ).rejects.toMatchObject({ code: 'shipping_quote_not_allowed' });
+
+      const shipping = await repository.getShipping(
+        '11111111-1111-4111-8111-111111111111',
+      );
+      expect(
+        shipping.quotes.filter((row) => row.selected).map((row) => row.carrier),
+      ).toEqual(['tcc']);
+    } finally {
+      await database.close();
+    }
+  });
+
+  it('requires a new quote before manually selecting a legacy offer', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresShippingQuoteRepository(database);
+    const now = new Date();
+    try {
+      const rows = await repository.replaceQuotes({
+        orderId: '11111111-1111-4111-8111-111111111111',
+        draftVersion: 1,
+        quotes: [
+          {
+            carrier: 'tcc',
+            serviceId: 1,
+            freightCop: 15_000,
+            cashOnDeliveryCop: 3_000,
+            surchargeCop: 0,
+            estimatedDays: '2',
+          },
+          {
+            carrier: 'envia',
+            serviceId: 2,
+            freightCop: 10_000,
+            cashOnDeliveryCop: 2_000,
+            surchargeCop: 0,
+            estimatedDays: '1',
+          },
+        ],
+        recommendedCarrier: 'tcc',
+        quotedAt: now,
+        expiresAt: new Date(now.getTime() + 1_800_000),
+      });
+      const envia = rows.find((row) => row.carrier === 'envia');
+      expect(envia).toBeDefined();
+
+      await expect(
+        repository.selectQuote(
+          '11111111-1111-4111-8111-111111111111',
+          envia!.id,
+          now,
+        ),
+      ).rejects.toMatchObject({ code: 'shipping_quote_requires_requote' });
+      const shipping = await repository.getShipping(
+        '11111111-1111-4111-8111-111111111111',
+      );
+      expect(
+        shipping.quotes.filter((row) => row.selected).map((row) => row.carrier),
+      ).toEqual(['tcc']);
+    } finally {
+      await database.close();
+    }
+  });
+
   it('prevents simultaneous owner edits from overwriting a saved policy revision', async () => {
     const database = createPostgresDatabase(databaseUrl);
     const repository = new PostgresShippingQuoteRepository(database);
