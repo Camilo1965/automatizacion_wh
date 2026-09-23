@@ -4,6 +4,7 @@ export * from './shared.js';
 export * from './auth.js';
 export * from './catalog.js';
 export * from './orders.js';
+export * from './customers.js';
 export * from './inventory.js';
 export * from './shipping.js';
 export * from './integrations-settings.js';

@@ -25,11 +25,13 @@ import type { InventoryClosureService } from '../../modules/inventory/inventory-
 import type { IntegrationHealthService } from '../../modules/integrations/integration-health-service.js';
 import type { IntegrationSettingsOperations } from '../../modules/integrations/integration-settings-service.js';
 import type { RetentionService } from '../../modules/privacy/retention-service.js';
+import type { CustomerService } from '../../modules/customers/customer-service.js';
 import { requireAdminSession, authorize } from './admin-shared.js';
 import { registerAuditRoutes } from './audit.js';
 import { registerAuthRoutes } from './auth.js';
 import { registerCatalogRoutes } from './catalog.js';
 import { registerConversationsRoutes } from './conversations.js';
+import { registerCustomerRoutes } from './customers.js';
 import { registerDashboardRoute } from './dashboard.js';
 import { registerGlobalSearchRoute } from './search.js';
 import { registerIntegrationsRoutes } from './integrations.js';
@@ -73,6 +75,7 @@ export type AdminRoutesDependencies = Readonly<{
   integrationHealthService?: IntegrationHealthService;
   integrationSettingsService?: IntegrationSettingsOperations;
   retentionService?: RetentionService;
+  customerService?: CustomerService;
 }>;
 
 export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
@@ -172,6 +175,13 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesDependencies> = async (
           connectionCapabilityService: dependencies.connectionCapabilityService,
         }),
   });
+
+  if (dependencies.customerService !== undefined) {
+    await registerCustomerRoutes(app, {
+      authenticate: authorize(authenticate, 'orders:operate'),
+      customerService: dependencies.customerService,
+    });
+  }
 
   if (dependencies.localityService !== undefined) {
     await registerLocalitiesRoutes(app, {

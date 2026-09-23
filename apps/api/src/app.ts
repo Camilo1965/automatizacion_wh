@@ -23,6 +23,7 @@ import type { CatalogImportService } from './modules/catalog/catalog-import-serv
 import type { PhotoStorage } from './modules/catalog/photo-storage.js';
 import type { LocalityService } from './modules/localities/locality-service.js';
 import type { OrderService } from './modules/orders/order-service.js';
+import type { CustomerService } from './modules/customers/customer-service.js';
 import type { WhatsAppInboundRepository } from './modules/whatsapp/whatsapp-inbound-repository.js';
 import type { ConversationAdminRepository } from './modules/conversations/postgres-conversation-admin-repository.js';
 import type { ConversationTranscriptRepository } from './modules/conversations/conversation-transcript-repository.js';
@@ -65,6 +66,7 @@ export type AppDependencies = Readonly<{
   photoStorage: PhotoStorage;
   localityService?: LocalityService;
   orderService?: OrderService;
+  customerService?: CustomerService;
   inboundRepository?: WhatsAppInboundRepository;
   inboundProcessor?: Readonly<{
     process(input: {
@@ -313,6 +315,9 @@ export async function buildApp(
     ...(dependencies.orderService === undefined
       ? {}
       : { orderService: dependencies.orderService }),
+    ...(dependencies.customerService === undefined
+      ? {}
+      : { customerService: dependencies.customerService }),
     ...(dependencies.conversationAdminRepository === undefined
       ? {}
       : {

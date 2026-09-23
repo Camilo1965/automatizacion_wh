@@ -44,6 +44,8 @@ import { LocalityCatalogService } from './modules/localities/locality-catalog-se
 import { LocalityService } from './modules/localities/locality-service.js';
 import { PostgresLocalityRepository } from './modules/localities/postgres-locality-repository.js';
 import { OrderService } from './modules/orders/order-service.js';
+import { CustomerService } from './modules/customers/customer-service.js';
+import { PostgresCustomerRepository } from './modules/customers/postgres-customer-repository.js';
 import { PostgresOrderRepository } from './modules/orders/postgres-order-repository.js';
 import { GlobalSearchService } from './modules/search/global-search-service.js';
 import { GuideDeliveryService } from './modules/shipping/guide-delivery-service.js';
@@ -250,6 +252,9 @@ export async function createRuntime(
     catalogImportService,
     localityService,
     orderService,
+    customerService: new CustomerService(
+      new PostgresCustomerRepository(database),
+    ),
     inboundRepository: new PostgresWhatsAppInboundRepository(database),
     inboundProcessor,
     conversationAdminRepository,
