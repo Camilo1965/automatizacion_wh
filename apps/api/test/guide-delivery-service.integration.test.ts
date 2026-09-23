@@ -72,6 +72,16 @@ describe('guide delivery PostgreSQL eligibility', () => {
 
   it('does not fetch or enqueue when the persisted flow disables sending guides', async () => {
     await insertConversation(false);
+    await sql`
+      INSERT INTO conversation_order_links (order_id, origin_conversation_id)
+      VALUES (${orderId}, ${conversationId})
+    `;
+    await sql`
+      INSERT INTO whatsapp_conversation_messages
+        (conversation_id, source, message_type, status, occurred_at, guide_job_id, guide_order_id)
+      VALUES
+        (${conversationId}, 'system', 'event', 'internal', now(), ${guideId}, ${orderId})
+    `;
     const fetchPdf = vi.fn();
 
     await expect(service(fetchPdf).runOnce()).resolves.toBe(false);
@@ -80,8 +90,14 @@ describe('guide delivery PostgreSQL eligibility', () => {
       await sql`SELECT pdf_delivery_attempts FROM shipping_guide_jobs WHERE id = ${guideId}`;
     const [outbox] =
       await sql`SELECT count(*)::int AS count FROM whatsapp_outbound_messages`;
+    const [internalEvent] = await sql<{ count: number }[]>`
+      SELECT count(*)::int AS count
+      FROM whatsapp_conversation_messages
+      WHERE guide_job_id = ${guideId} AND source = 'system' AND status = 'internal'
+    `;
     expect(job?.pdf_delivery_attempts).toBe(0);
     expect(outbox?.count).toBe(0);
+    expect(internalEvent?.count).toBe(1);
   });
 
   it('enqueues one document and excludes it from later selection by idempotency key', async () => {
