@@ -74,6 +74,7 @@ describe('conversation transcript persistence', () => {
     const referenceId = randomUUID();
     const referenceCode = `TEST-${guideJobId.slice(0, 20).toUpperCase()}`;
     const occurredAt = new Date('2026-09-10T15:00:00.000Z');
+    let orderNumber: number;
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
     try {
       await sql`
@@ -85,10 +86,12 @@ describe('conversation transcript persistence', () => {
         INSERT INTO catalog_references (id, code, model_name, color, price_cop)
         VALUES (${referenceId}, ${referenceCode}, 'Tenis de prueba', 'Negro', 120000)
       `;
-      await sql`
+      const [createdOrder] = await sql<{ order_number: number }[]>`
         INSERT INTO sales_orders (id, reference_id, size, quantity, status)
         VALUES (${orderId}, ${referenceId}, 37, 1, 'confirmed')
+        RETURNING order_number
       `;
+      orderNumber = createdOrder!.order_number;
       await sql`
         INSERT INTO shipping_guide_jobs
           (id, order_id, status, carrier, pre_shipment_number)
@@ -148,6 +151,7 @@ describe('conversation transcript persistence', () => {
         providerMessageId: null,
         mediaUrl: null,
         orderId,
+        orderNumber: `PED-${String(orderNumber).padStart(6, '0')}`,
         guideJobId,
         preShipmentNumber: 'PRE-12345',
         carrier: 'envia',

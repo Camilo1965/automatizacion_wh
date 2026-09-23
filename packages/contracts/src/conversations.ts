@@ -51,6 +51,7 @@ const ConversationGuideEventPublicSchema = z
     providerMessageId: z.null(),
     occurredAt: z.iso.datetime(),
     orderId: z.uuid(),
+    orderNumber: z.string().regex(/^PED-\d{6,}$/),
     guideJobId: z.uuid(),
     preShipmentNumber: z.string().min(1),
     carrier: z.string().min(1),

@@ -29,6 +29,7 @@ const guideEvent = {
   providerMessageId: null,
   occurredAt: '2026-09-10T15:00:00.000Z',
   orderId: '44444444-4444-4444-8444-444444444444',
+  orderNumber: 'PED-000123',
   guideJobId: '55555555-5555-4555-8555-555555555555',
   preShipmentNumber: 'PRE-12345',
   carrier: 'envia',

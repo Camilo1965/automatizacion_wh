@@ -22,6 +22,7 @@ type MessageRow = {
   occurred_at: Date;
   cursor_occurred_at: string;
   guide_order_id: string | null;
+  order_number: string | null;
   guide_job_id: string | null;
   pre_shipment_number: string | null;
   carrier: string | null;
@@ -66,6 +67,7 @@ function mapMessage(row: MessageRow): TranscriptMessage {
       row.message_type !== 'event' ||
       row.status !== 'internal' ||
       row.guide_order_id === null ||
+      row.order_number === null ||
       row.guide_job_id === null ||
       row.pre_shipment_number === null ||
       row.carrier === null
@@ -83,6 +85,7 @@ function mapMessage(row: MessageRow): TranscriptMessage {
       providerMessageId: null,
       occurredAt: new Date(row.occurred_at),
       orderId: row.guide_order_id,
+      orderNumber: `PED-${row.order_number.padStart(6, '0')}`,
       guideJobId: row.guide_job_id,
       preShipmentNumber: row.pre_shipment_number,
       carrier: row.carrier,
@@ -126,9 +129,11 @@ export class PostgresConversationTranscriptRepository implements ConversationTra
         message.status, message.provider_message_id, message.occurred_at,
         to_char(message.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_occurred_at,
         message.guide_order_id, message.guide_job_id,
-        job.pre_shipment_number, job.carrier
+        job.pre_shipment_number, job.carrier,
+        sales_order.order_number::text AS order_number
       FROM whatsapp_conversation_messages AS message
       LEFT JOIN shipping_guide_jobs AS job ON job.id = message.guide_job_id
+      LEFT JOIN sales_orders AS sales_order ON sales_order.id = message.guide_order_id
       WHERE message.conversation_id = ${conversationId}
         AND (
           ${decoded?.occurredAt ?? null}::timestamptz IS NULL

@@ -33,6 +33,7 @@ export type TranscriptGuideEvent = Readonly<{
   providerMessageId: null;
   occurredAt: Date;
   orderId: string;
+  orderNumber: string;
   guideJobId: string;
   preShipmentNumber: string;
   carrier: string;

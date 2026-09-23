@@ -69,6 +69,22 @@ describe('ConversationInboxPage', () => {
                 providerMessageId: 'wamid.1',
                 occurredAt: '2026-09-10T12:00:00.000Z',
               },
+              {
+                id: '44444444-4444-4444-8444-444444444444',
+                conversationId,
+                source: 'system',
+                messageType: 'event',
+                text: null,
+                mediaUrl: null,
+                status: 'internal',
+                providerMessageId: null,
+                occurredAt: '2026-09-10T12:01:00.000Z',
+                orderId: '55555555-5555-4555-8555-555555555555',
+                orderNumber: 'PED-000123',
+                guideJobId: '66666666-6666-4666-8666-666666666666',
+                preShipmentNumber: 'PRE-321',
+                carrier: '99envíos',
+              },
             ],
             nextCursor: null,
           },
@@ -93,6 +109,11 @@ describe('ConversationInboxPage', () => {
     );
     const timeline = await screen.findByRole('log', { name: 'Mensajes' });
     expect(within(timeline).getByText('Hola, busco talla 37')).toBeVisible();
+    expect(within(timeline).getByText('Guía de envío creada')).toBeVisible();
+    expect(
+      within(timeline).getByText('Solo visible para el equipo de KAIRO'),
+    ).toBeVisible();
+    expect(within(timeline).queryByText(/· Interno/)).not.toBeInTheDocument();
     await user.type(
       screen.getByRole('textbox', { name: 'Responder por WhatsApp' }),
       'Sí, tenemos disponibilidad.',

@@ -139,12 +139,23 @@ export async function reviewUncertainGuide(
   });
 }
 
-export async function downloadGuidePdf(orderId: string): Promise<void> {
+export async function downloadGuidePdf(
+  orderId: string,
+  orderNumber?: string,
+  preShipmentNumber?: string,
+): Promise<void> {
   const blob = await apiDownload(`/orders/${orderId}/shipping-guide/pdf`);
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `guia-${orderId}.pdf`;
+  const safeOrderNumber = orderNumber?.replace(/[^a-zA-Z0-9_-]/g, '');
+  const safeGuideNumber = preShipmentNumber?.replace(/[^a-zA-Z0-9_-]/g, '');
+  anchor.download = safeOrderNumber
+    ? `guia-${safeOrderNumber}${safeGuideNumber ? `-preenvio-${safeGuideNumber}` : ''}.pdf`
+    : `guia-${orderId.slice(0, 8)}.pdf`;
+  anchor.hidden = true;
+  document.body.append(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

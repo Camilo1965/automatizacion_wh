@@ -189,6 +189,7 @@ describe('admin conversation HTTP API', () => {
       providerMessageId: null,
       occurredAt: new Date('2026-09-10T12:00:00Z'),
       orderId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      orderNumber: 'PED-000123',
       guideJobId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
       preShipmentNumber: 'PRE-12345',
       carrier: 'envia',
