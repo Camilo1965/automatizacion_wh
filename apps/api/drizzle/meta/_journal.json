@@ -253,6 +253,13 @@
       "when": 1790140000000,
       "tag": "0035_kairo_guide_conversation_events",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790140000001,
+      "tag": "0036_cleanup_malformed_guide_events",
+      "breakpoints": true
     }
   ]
 }

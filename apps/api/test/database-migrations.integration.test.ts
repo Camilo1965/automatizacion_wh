@@ -40,12 +40,14 @@ type MigrationJournal = {
   }>;
 };
 
-function buildPreGuideMigrationFolder(): string {
-  const folder = mkdtempSync(path.join(tmpdir(), 'camila-pre-guide-'));
+function buildMigrationFolderThrough(lastIncludedIndex: number): string {
+  const folder = mkdtempSync(path.join(tmpdir(), 'camila-migrations-through-'));
   const journal = JSON.parse(
     readFileSync(path.join(drizzleFolder, 'meta', '_journal.json'), 'utf8'),
   ) as MigrationJournal;
-  const entries = journal.entries.filter((entry) => entry.idx < 35);
+  const entries = journal.entries.filter(
+    (entry) => entry.idx <= lastIncludedIndex,
+  );
 
   for (const entry of entries) {
     copyFileSync(
@@ -63,7 +65,7 @@ function buildPreGuideMigrationFolder(): string {
 
 describe('database migrations', () => {
   let temporaryDatabaseName: string | undefined;
-  let preGuideMigrationsFolder: string | undefined;
+  let stagedMigrationsFolder: string | undefined;
 
   beforeAll(async () => {
     assertTestDatabaseName(testDatabaseUrl);
@@ -71,8 +73,8 @@ describe('database migrations', () => {
   });
 
   afterAll(async () => {
-    if (preGuideMigrationsFolder !== undefined) {
-      rmSync(preGuideMigrationsFolder, { recursive: true, force: true });
+    if (stagedMigrationsFolder !== undefined) {
+      rmSync(stagedMigrationsFolder, { recursive: true, force: true });
     }
     if (temporaryDatabaseName !== undefined) {
       await dropTemporaryTestDatabase(testDatabaseUrl, temporaryDatabaseName);
@@ -82,8 +84,8 @@ describe('database migrations', () => {
   it('backfills only guides with a provable source conversation and is idempotent', async () => {
     const created = await createTemporaryTestDatabase(testDatabaseUrl);
     temporaryDatabaseName = created.databaseName;
-    preGuideMigrationsFolder = buildPreGuideMigrationFolder();
-    await runMigrations(created.databaseUrl, preGuideMigrationsFolder);
+    stagedMigrationsFolder = buildMigrationFolderThrough(34);
+    await runMigrations(created.databaseUrl, stagedMigrationsFolder);
 
     const sql = postgres(created.databaseUrl, { max: 1, prepare: false });
     const referenceId = '11111111-1111-4111-8111-111111111111';
@@ -130,6 +132,42 @@ describe('database migrations', () => {
           (${incompleteGuideId}, ${incompleteOrderId}, 'created', 'envia', NULL)
       `;
 
+      const through0035Folder = buildMigrationFolderThrough(35);
+      try {
+        await runMigrations(created.databaseUrl, through0035Folder);
+      } finally {
+        rmSync(through0035Folder, { recursive: true, force: true });
+      }
+
+      // Simulate a legacy 0035 install that already backfilled a malformed row
+      // before the guard was added to the source migration.
+      await sql`
+        INSERT INTO whatsapp_conversation_messages
+          (conversation_id, source, message_type, status, occurred_at,
+           guide_job_id, guide_order_id)
+        VALUES
+          (${incompleteConversationId}, 'system', 'event', 'internal', now(),
+           ${incompleteGuideId}, ${incompleteOrderId})
+      `;
+      await sql`
+        INSERT INTO whatsapp_conversation_messages
+          (conversation_id, source, message_type, text_body, status, occurred_at)
+        VALUES
+          (${incompleteConversationId}, 'customer', 'text', 'Hola', 'received', now())
+      `;
+
+      const preCleanupDatabase = createPostgresDatabase(created.databaseUrl);
+      try {
+        const transcript = new PostgresConversationTranscriptRepository(
+          preCleanupDatabase,
+        );
+        await expect(
+          transcript.listMessages(incompleteConversationId),
+        ).rejects.toThrow('Internal guide event is missing required metadata');
+      } finally {
+        await preCleanupDatabase.close();
+      }
+
       await runMigrations(created.databaseUrl);
 
       const linkedEvents = await sql<
@@ -138,6 +176,7 @@ describe('database migrations', () => {
         SELECT conversation_id, guide_job_id
         FROM whatsapp_conversation_messages
         WHERE guide_job_id IN (${linkedGuideId}, ${unlinkedGuideId}, ${incompleteGuideId})
+        ORDER BY guide_job_id
       `;
       const orderLinks = await sql<
         { order_id: string; origin_conversation_id: string }[]
@@ -145,6 +184,7 @@ describe('database migrations', () => {
         SELECT order_id, origin_conversation_id
         FROM conversation_order_links
         WHERE order_id IN (${linkedOrderId}, ${unlinkedOrderId}, ${incompleteOrderId})
+        ORDER BY order_id
       `;
       const [linkedOrder] = await sql<{ order_number: string }[]>`
         SELECT order_number::text AS order_number FROM sales_orders WHERE id = ${linkedOrderId}
@@ -160,6 +200,26 @@ describe('database migrations', () => {
           origin_conversation_id: incompleteConversationId,
         },
       ]);
+
+      const [preservedMessages] = await sql<{ count: number }[]>`
+        SELECT count(*)::int AS count
+        FROM whatsapp_conversation_messages
+        WHERE conversation_id = ${incompleteConversationId}
+          AND source = 'customer' AND message_type = 'text' AND text_body = 'Hola'
+      `;
+      const [preservedJobs] = await sql<{ count: number }[]>`
+        SELECT count(*)::int AS count
+        FROM shipping_guide_jobs
+        WHERE id IN (${linkedGuideId}, ${unlinkedGuideId}, ${incompleteGuideId})
+      `;
+      const [preservedOrders] = await sql<{ count: number }[]>`
+        SELECT count(*)::int AS count
+        FROM sales_orders
+        WHERE id IN (${linkedOrderId}, ${unlinkedOrderId}, ${incompleteOrderId})
+      `;
+      expect(preservedMessages?.count).toBe(1);
+      expect(preservedJobs?.count).toBe(3);
+      expect(preservedOrders?.count).toBe(3);
 
       const database = createPostgresDatabase(created.databaseUrl);
       try {
@@ -195,7 +255,10 @@ describe('database migrations', () => {
         ).toBe(true);
         await expect(
           transcript.listMessages(incompleteConversationId),
-        ).resolves.toMatchObject({ items: [], nextCursor: null });
+        ).resolves.toMatchObject({
+          items: [{ source: 'customer', text: 'Hola' }],
+          nextCursor: null,
+        });
       } finally {
         await database.close();
       }

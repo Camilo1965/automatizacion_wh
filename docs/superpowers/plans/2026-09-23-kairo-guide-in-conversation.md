@@ -113,10 +113,13 @@
 
 **Files:**
 - Modify: `apps/api/drizzle/0035_kairo_guide_conversation_events.sql`
+- Create: `apps/api/drizzle/0036_cleanup_malformed_guide_events.sql`
+- Modify: `apps/api/drizzle/meta/_journal.json`
 - Modify: `apps/api/test/database-migrations.integration.test.ts`
 - Modify: `apps/api/test/guide-delivery-service.integration.test.ts`
 
 - [ ] Add migration fixture with a created guide whose source conversation is provable and one without a provable source.
+- [ ] Read the migrated guide through the transcript repository; never backfill an internal event for a legacy created job missing required pre-shipment metadata.
 - [ ] Run the migration integration test against an empty disposable `*_test` database and confirm only the provable guide receives a card.
 - [ ] Add a delivery test with `sendGuideToCustomer=false`; assert the internal card still exists and no outbound document was enqueued.
 - [ ] Verify duplicate migration execution and duplicate worker recovery do not create extra events or provider operations.
