@@ -67,6 +67,40 @@ describe('conversation transcript persistence', () => {
     }
   });
 
+  it('does not publish media URLs until an authenticated media route exists', async () => {
+    const conversationId = randomUUID();
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      await sql`
+        INSERT INTO whatsapp_conversations
+          (id, customer_phone, state, last_inbound_message_at)
+        VALUES (${conversationId}, '+573001234567', 'complete', NOW())
+      `;
+      await sql`
+        INSERT INTO whatsapp_conversation_messages
+          (conversation_id, source, message_type, status, occurred_at,
+           media_storage_key, media_mime_type)
+        VALUES
+          (${conversationId}, 'customer', 'image', 'received', NOW(), 'opaque/image/key', 'image/jpeg'),
+          (${conversationId}, 'customer', 'document', 'received', NOW() + INTERVAL '1 second', 'opaque/document/key', 'application/pdf')
+      `;
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+
+    const database = createPostgresDatabase(databaseUrl);
+    try {
+      const transcript = new PostgresConversationTranscriptRepository(database);
+      const page = await transcript.listMessages(conversationId, 20);
+      expect(page.items).toMatchObject([
+        { messageType: 'image', mediaUrl: null },
+        { messageType: 'document', mediaUrl: null },
+      ]);
+    } finally {
+      await database.close();
+    }
+  });
+
   it('preserves every transcript row when timestamps differ only by microseconds', async () => {
     const conversationId = '44444444-4444-4444-8444-444444444444';
     const guideJobId = randomUUID();

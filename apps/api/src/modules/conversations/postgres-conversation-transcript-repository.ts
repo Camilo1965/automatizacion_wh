@@ -16,7 +16,6 @@ type MessageRow = {
   source: TranscriptMessageSource | 'system';
   message_type: 'text' | 'image' | 'template' | 'document' | 'event';
   text_body: string | null;
-  media_storage_key: string | null;
   status: TranscriptMessageStatus | 'internal';
   provider_message_id: string | null;
   occurred_at: Date;
@@ -103,10 +102,8 @@ function mapMessage(row: MessageRow): TranscriptMessage {
     source: row.source,
     messageType: row.message_type,
     text: row.text_body,
-    mediaUrl:
-      row.media_storage_key === null
-        ? null
-        : `/api/admin/conversations/${row.conversation_id}/messages/${row.id}/media`,
+    // There is no authenticated media-serving route yet; do not advertise a dead URL.
+    mediaUrl: null,
     status: row.status,
     providerMessageId: row.provider_message_id,
     occurredAt: new Date(row.occurred_at),
@@ -125,7 +122,7 @@ export class PostgresConversationTranscriptRepository implements ConversationTra
     const decoded = cursor === undefined ? null : decodeCursor(cursor);
     const rows = await this.database.orm.execute<MessageRow>(sql`
       SELECT message.id, message.conversation_id, message.source,
-        message.message_type, message.text_body, message.media_storage_key,
+        message.message_type, message.text_body,
         message.status, message.provider_message_id, message.occurred_at,
         to_char(message.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_occurred_at,
         message.guide_order_id, message.guide_job_id,
