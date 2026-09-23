@@ -2,6 +2,7 @@
 // @ts-nocheck
 import { describe, expect, it } from 'vitest';
 
+import * as smokeHelpers from '../../../scripts/lib/production-smoke-helpers.mjs';
 import {
   assertBackupHeartbeat,
   parseBackupId,
@@ -34,6 +35,45 @@ const secrets = {
 };
 
 describe('production smoke helpers', () => {
+  it('rejects any staging service with a public published port', () => {
+    expect(typeof smokeHelpers.assertStagingNetworkIsolation).toBe('function');
+    const safe = {
+      services: {
+        caddy: {
+          ports: [{ host_ip: '127.0.0.1', target: 443, published: '18443' }],
+        },
+        postgres: {
+          ports: [{ host_ip: '127.0.0.1', target: 5432, published: '55432' }],
+        },
+        api: { ports: [] },
+      },
+    };
+    expect(() =>
+      smokeHelpers.assertStagingNetworkIsolation(safe),
+    ).not.toThrow();
+    expect(() =>
+      smokeHelpers.assertStagingNetworkIsolation({
+        services: {
+          ...safe.services,
+          api: { ports: [{ target: 3000, published: '3000' }] },
+        },
+      }),
+    ).toThrow(/api.*non-loopback/i);
+    expect(() =>
+      smokeHelpers.assertStagingNetworkIsolation({
+        services: {
+          ...safe.services,
+          caddy: {
+            ports: [
+              ...safe.services.caddy.ports,
+              { target: 80, published: '80' },
+            ],
+          },
+        },
+      }),
+    ).toThrow(/caddy.*non-loopback/i);
+  });
+
   it('isolates every smoke in a unique Compose project', () => {
     const first = smokeProjectName();
     const second = smokeProjectName();

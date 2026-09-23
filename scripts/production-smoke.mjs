@@ -22,6 +22,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 import {
   assertBackupHeartbeat,
+  assertStagingNetworkIsolation,
   parseBackupId,
   projectScopedComposeFiles,
   renderStagingEnv,
@@ -403,9 +404,11 @@ async function main() {
       '--env-file',
       envFileName,
       'config',
-      '--quiet',
+      '--format',
+      'json',
     ]);
     requireOk(config, 'compose config');
+    assertStagingNetworkIsolation(JSON.parse(config.stdout));
     passed.push('compose-config');
 
     log(`building disposable images for ${smokeProject}`);

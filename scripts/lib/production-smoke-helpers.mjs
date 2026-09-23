@@ -18,6 +18,39 @@ export function projectScopedComposeFiles(project) {
   ];
 }
 
+export function assertStagingNetworkIsolation(config) {
+  if (
+    config === null ||
+    typeof config !== 'object' ||
+    config.services === null ||
+    typeof config.services !== 'object'
+  ) {
+    throw new Error('Staging Compose config is invalid');
+  }
+  for (const [serviceName, service] of Object.entries(config.services)) {
+    if (service === null || typeof service !== 'object') {
+      throw new Error(`Staging service ${serviceName} config is invalid`);
+    }
+    if (service.network_mode === 'host') {
+      throw new Error(`Staging service ${serviceName} uses host networking`);
+    }
+    if (service.ports !== undefined && !Array.isArray(service.ports)) {
+      throw new Error(`Staging service ${serviceName} ports are invalid`);
+    }
+    for (const port of service.ports ?? []) {
+      if (
+        port === null ||
+        typeof port !== 'object' ||
+        !['127.0.0.1', '::1'].includes(port.host_ip)
+      ) {
+        throw new Error(
+          `Staging service ${serviceName} publishes a non-loopback port`,
+        );
+      }
+    }
+  }
+}
+
 export function smokeImageTags(project) {
   projectScopedComposeFiles(project);
   return ['api', 'worker', 'admin', 'backup'].map(

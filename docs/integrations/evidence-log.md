@@ -1,18 +1,19 @@
 # Registro de evidencia — integraciones reales
 
-**Estado Task 13 (2026-09-22):** plantillas y runbooks listos (`verified` automatable). **Ninguna fila real rellenada.** Toda evidencia live = **`[HUMANO]` / BLOCKING** para go-live.
+**Estado Task 13 (2026-09-22):** plantillas y runbooks listos (`verified` automatable). El 2026-09-23 UTC se hicieron pruebas de lectura con credenciales locales; **siguen faltando webhook/mensajes Meta, guía y PDF reales**, por lo que go-live permanece **`[HUMANO]` / BLOCKING**.
 
 Usar una fila por evento. Redactar PII (teléfonos → últimos 4). **Nunca** tokens, app secrets, JWT ni PII completa.
 
-| Fecha UTC | Proveedor | Acción             | Pedido / wamid (parcial) | Resultado                    | Operador   | Autorización |
-| --------- | --------- | ------------------ | ------------------------ | ---------------------------- | ---------- | ------------ |
-| —         | Meta      | inbound            | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
-| —         | Meta      | outbound           | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
-| —         | Meta      | template / ventana | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
-| —         | 99envíos  | login + quote      | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
-| —         | 99envíos  | guide (1×)         | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | explícita    |
-| —         | 99envíos  | PDF                | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
-| —         | 99envíos  | uncertain/fail     | —                        | **BLOCKING** — sin evidencia | `[HUMANO]` | —            |
+| Fecha UTC  | Proveedor | Acción                            | Pedido / wamid (parcial) | Resultado                                                                         | Operador    | Autorización                    |
+| ---------- | --------- | --------------------------------- | ------------------------ | --------------------------------------------------------------------------------- | ----------- | ------------------------------- |
+| —          | Meta      | inbound                           | —                        | **BLOCKING** — sin evidencia                                                      | `[HUMANO]`  | —                               |
+| —          | Meta      | outbound                          | —                        | **BLOCKING** — sin evidencia                                                      | `[HUMANO]`  | —                               |
+| —          | Meta      | template / ventana                | —                        | **BLOCKING** — sin evidencia                                                      | `[HUMANO]`  | —                               |
+| 2026-09-23 | 99envíos  | login + quote                     | —                        | Login HTTP 200; cotización Medellín OK con cinco transportadoras; sin guía creada | Codex local | solicitud de pruebas 2026-09-22 |
+| —          | 99envíos  | guide (1×)                        | —                        | **BLOCKING** — sin evidencia                                                      | `[HUMANO]`  | explícita                       |
+| —          | 99envíos  | PDF                               | —                        | **BLOCKING** — sin evidencia                                                      | `[HUMANO]`  | —                               |
+| —          | 99envíos  | uncertain/fail                    | —                        | **BLOCKING** — sin evidencia                                                      | `[HUMANO]`  | —                               |
+| 2026-09-23 | Meta      | consulta de número (solo lectura) | —                        | HTTP 401, OAuth 190/subcódigo 463; token local vencido, sin mensaje enviado       | Codex local | solicitud de pruebas 2026-09-22 |
 
 Adjuntos locales (fuera de git): capturas panel, IDs de preenvío sanitizados.
 
