@@ -54,29 +54,51 @@ export class ShippingGuideService {
       job.carrier,
     );
     const stored = await this.storage.save(bytes);
+    let attached: boolean;
     try {
-      const attached = await this.repository.attachPdf(job.id, stored);
-      if (!attached) {
+      attached = await this.repository.attachPdf(job.id, stored);
+    } catch (error) {
+      let current: GuideJob;
+      try {
+        current = await this.requireJob(orderId);
+      } catch {
+        throw error;
+      }
+
+      if (current.guidePdfStorageKey === stored.storageKey) {
+        return { bytes, sha256: stored.sha256 };
+      }
+      if (current.guidePdfStorageKey !== null) {
         await Promise.resolve(this.storage.delete(stored.storageKey)).catch(
           () => undefined,
         );
-        const winner = await this.requireJob(orderId);
-        if (winner.guidePdfStorageKey !== null) {
-          return {
-            bytes: await this.storage.read(winner.guidePdfStorageKey),
-            sha256: winner.guidePdfSha256 ?? null,
-          };
-        }
-        throw new ShippingDomainError(
-          'guide_changed',
-          'The shipping guide changed while fetching its PDF',
-        );
+        return {
+          bytes: await this.storage.read(current.guidePdfStorageKey),
+          sha256: current.guidePdfSha256 ?? null,
+        };
       }
-    } catch (error) {
+
       await Promise.resolve(this.storage.delete(stored.storageKey)).catch(
         () => undefined,
       );
       throw error;
+    }
+
+    if (!attached) {
+      await Promise.resolve(this.storage.delete(stored.storageKey)).catch(
+        () => undefined,
+      );
+      const winner = await this.requireJob(orderId);
+      if (winner.guidePdfStorageKey !== null) {
+        return {
+          bytes: await this.storage.read(winner.guidePdfStorageKey),
+          sha256: winner.guidePdfSha256 ?? null,
+        };
+      }
+      throw new ShippingDomainError(
+        'guide_changed',
+        'The shipping guide changed while fetching its PDF',
+      );
     }
     return { bytes, sha256: stored.sha256 };
   }
