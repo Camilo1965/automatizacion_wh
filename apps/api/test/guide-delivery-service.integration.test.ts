@@ -40,8 +40,8 @@ describe('guide delivery PostgreSQL eligibility', () => {
     `;
     await sql`
       INSERT INTO shipping_guide_jobs
-        (id, order_id, status, carrier, guide_pdf_storage_key, guide_pdf_sha256)
-      VALUES (${guideId}, ${orderId}, 'created', 'envia', 'guides/order.pdf', ${sha})
+        (id, order_id, status, carrier, pre_shipment_number, guide_pdf_storage_key, guide_pdf_sha256)
+      VALUES (${guideId}, ${orderId}, 'created', 'envia', 'PRE-DELIVERY-1', 'guides/order.pdf', ${sha})
     `;
   });
   afterAll(async () => {

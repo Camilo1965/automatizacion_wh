@@ -13,8 +13,10 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import postgres from 'postgres';
 
+import { ConversationMessagePublicSchema } from '@camila/contracts';
 import { createPostgresDatabase } from '../src/database/client.js';
 import { runMigrations } from '../src/database/migrate.js';
+import { PostgresConversationTranscriptRepository } from '../src/modules/conversations/postgres-conversation-transcript-repository.js';
 import {
   assertTestDatabaseName,
   createTemporaryTestDatabase,
@@ -87,9 +89,12 @@ describe('database migrations', () => {
     const referenceId = '11111111-1111-4111-8111-111111111111';
     const linkedOrderId = '22222222-2222-4222-8222-222222222222';
     const unlinkedOrderId = '33333333-3333-4333-8333-333333333333';
+    const incompleteOrderId = '77777777-7777-4777-8777-777777777777';
     const conversationId = '44444444-4444-4444-8444-444444444444';
+    const incompleteConversationId = '88888888-8888-4888-8888-888888888888';
     const linkedGuideId = '55555555-5555-4555-8555-555555555555';
     const unlinkedGuideId = '66666666-6666-4666-8666-666666666666';
+    const incompleteGuideId = '99999999-9999-4999-8999-999999999999';
 
     try {
       await sql`
@@ -101,7 +106,8 @@ describe('database migrations', () => {
           (id, reference_id, size, quantity, customer_name, customer_phone, status)
         VALUES
           (${linkedOrderId}, ${referenceId}, 37, 1, 'Ana', '+573001112233', 'confirmed'),
-          (${unlinkedOrderId}, ${referenceId}, 38, 1, 'Luz', '+573001112244', 'confirmed')
+          (${unlinkedOrderId}, ${referenceId}, 38, 1, 'Luz', '+573001112244', 'confirmed'),
+          (${incompleteOrderId}, ${referenceId}, 39, 1, 'Eva', '+573001112255', 'confirmed')
       `;
       await sql`
         INSERT INTO whatsapp_conversations
@@ -110,10 +116,18 @@ describe('database migrations', () => {
           (${conversationId}, '+573001112233', 'awaiting_size', 'bot', now(), ${linkedOrderId})
       `;
       await sql`
-        INSERT INTO shipping_guide_jobs (id, order_id, status, carrier)
+        INSERT INTO whatsapp_conversations
+          (id, customer_phone, state, mode, last_inbound_message_at, active_order_id)
         VALUES
-          (${linkedGuideId}, ${linkedOrderId}, 'created', 'envia'),
-          (${unlinkedGuideId}, ${unlinkedOrderId}, 'created', 'envia')
+          (${incompleteConversationId}, '+573001112255', 'awaiting_size', 'bot', now(), ${incompleteOrderId})
+      `;
+      await sql`
+        INSERT INTO shipping_guide_jobs
+          (id, order_id, status, carrier, pre_shipment_number)
+        VALUES
+          (${linkedGuideId}, ${linkedOrderId}, 'created', 'envia', 'PRE-MIGRATION-1'),
+          (${unlinkedGuideId}, ${unlinkedOrderId}, 'created', 'envia', 'PRE-MIGRATION-2'),
+          (${incompleteGuideId}, ${incompleteOrderId}, 'created', 'envia', NULL)
       `;
 
       await runMigrations(created.databaseUrl);
@@ -123,14 +137,17 @@ describe('database migrations', () => {
       >`
         SELECT conversation_id, guide_job_id
         FROM whatsapp_conversation_messages
-        WHERE guide_job_id IN (${linkedGuideId}, ${unlinkedGuideId})
+        WHERE guide_job_id IN (${linkedGuideId}, ${unlinkedGuideId}, ${incompleteGuideId})
       `;
       const orderLinks = await sql<
         { order_id: string; origin_conversation_id: string }[]
       >`
         SELECT order_id, origin_conversation_id
         FROM conversation_order_links
-        WHERE order_id IN (${linkedOrderId}, ${unlinkedOrderId})
+        WHERE order_id IN (${linkedOrderId}, ${unlinkedOrderId}, ${incompleteOrderId})
+      `;
+      const [linkedOrder] = await sql<{ order_number: string }[]>`
+        SELECT order_number::text AS order_number FROM sales_orders WHERE id = ${linkedOrderId}
       `;
 
       expect(linkedEvents).toEqual([
@@ -138,13 +155,56 @@ describe('database migrations', () => {
       ]);
       expect(orderLinks).toEqual([
         { order_id: linkedOrderId, origin_conversation_id: conversationId },
+        {
+          order_id: incompleteOrderId,
+          origin_conversation_id: incompleteConversationId,
+        },
       ]);
+
+      const database = createPostgresDatabase(created.databaseUrl);
+      try {
+        const transcript = new PostgresConversationTranscriptRepository(
+          database,
+        );
+        const linkedPage = await transcript.listMessages(conversationId);
+        expect(linkedPage.items).toHaveLength(1);
+        const guideEvent = linkedPage.items[0]!;
+        expect(guideEvent).toMatchObject({
+          id: expect.any(String),
+          conversationId,
+          source: 'system',
+          messageType: 'event',
+          text: null,
+          mediaUrl: null,
+          status: 'internal',
+          providerMessageId: null,
+          orderId: linkedOrderId,
+          orderNumber: `PED-${linkedOrder?.order_number.padStart(6, '0')}`,
+          guideJobId: linkedGuideId,
+          preShipmentNumber: 'PRE-MIGRATION-1',
+          carrier: 'envia',
+          occurredAt: expect.any(Date),
+        });
+        const serializedGuideEvent = {
+          ...guideEvent,
+          occurredAt: guideEvent.occurredAt.toISOString(),
+        };
+        expect(
+          ConversationMessagePublicSchema.safeParse(serializedGuideEvent)
+            .success,
+        ).toBe(true);
+        await expect(
+          transcript.listMessages(incompleteConversationId),
+        ).resolves.toMatchObject({ items: [], nextCursor: null });
+      } finally {
+        await database.close();
+      }
 
       await runMigrations(created.databaseUrl);
       const [eventCount] = await sql<{ count: number }[]>`
         SELECT count(*)::int AS count
         FROM whatsapp_conversation_messages
-        WHERE guide_job_id IN (${linkedGuideId}, ${unlinkedGuideId})
+        WHERE guide_job_id IN (${linkedGuideId}, ${unlinkedGuideId}, ${incompleteGuideId})
       `;
       expect(eventCount?.count).toBe(1);
     } finally {

@@ -42,4 +42,6 @@ SELECT link."origin_conversation_id", 'system', 'event', 'internal', job."update
 FROM "shipping_guide_jobs" job
 JOIN "conversation_order_links" link ON link."order_id" = job."order_id"
 WHERE job."status" = 'created'
+  AND NULLIF(BTRIM(job."pre_shipment_number"), '') IS NOT NULL
+  AND NULLIF(BTRIM(job."carrier"), '') IS NOT NULL
 ON CONFLICT ("guide_job_id") DO NOTHING;
