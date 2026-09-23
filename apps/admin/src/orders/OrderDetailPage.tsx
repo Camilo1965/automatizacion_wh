@@ -92,6 +92,9 @@ export function OrderDetailPage() {
       client.invalidateQueries({ queryKey: ['order', orderId] }),
       client.invalidateQueries({ queryKey: ['shipping', orderId] }),
     ]);
+  const summary = useMutation({
+    mutationFn: () => createOrderSummary(orderId),
+  });
   const save = useMutation({
     mutationFn: () =>
       updateOrder(orderId, {
@@ -101,18 +104,24 @@ export function OrderDetailPage() {
         localityCarrierCode:
           locality ?? query.data?.destination.localityCarrierCode ?? '',
       }),
-    onSuccess: refresh,
-  });
-  const summary = useMutation({
-    mutationFn: () => createOrderSummary(orderId),
+    onSuccess: async () => {
+      summary.reset();
+      await refresh();
+    },
   });
   const quote = useMutation({
     mutationFn: () => createShippingQuotes(orderId),
-    onSuccess: refresh,
+    onSuccess: async () => {
+      summary.reset();
+      await refresh();
+    },
   });
   const chooseQuote = useMutation({
     mutationFn: (quoteId: string) => selectShippingQuote(orderId, quoteId),
-    onSuccess: refresh,
+    onSuccess: async () => {
+      summary.reset();
+      await refresh();
+    },
   });
   const pdf = useMutation({
     mutationFn: () => downloadGuidePdf(orderId),
@@ -317,6 +326,20 @@ export function OrderDetailPage() {
                 </label>
               ))}
             </div>
+            {shipping.data?.quotes.length === 0 ? (
+              <p className="text-sm text-muted-foreground" role="status">
+                No hay cotizaciones vigentes para este pedido. Cotiza de nuevo
+                para aplicar la política de envío actual.
+              </p>
+            ) : null}
+            {shipping.isError ? (
+              <ErrorMessage
+                message={getErrorMessage(
+                  shipping.error,
+                  'No se pudieron cargar las cotizaciones. Intenta de nuevo.',
+                )}
+              />
+            ) : null}
             {selectedQuote ? (
               <p className="text-sm text-foreground">
                 Envío seleccionado: {selectedQuote.carrier} ·{' '}
@@ -345,6 +368,9 @@ export function OrderDetailPage() {
                 <Button
                   onClick={() => confirm.mutate()}
                   loading={confirm.isPending}
+                  disabled={
+                    save.isPending || quote.isPending || chooseQuote.isPending
+                  }
                   type="button"
                 >
                   Confirmar y reservar

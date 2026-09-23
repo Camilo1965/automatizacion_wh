@@ -30,6 +30,12 @@ try {
     console.log('locality ready');
   } else if (command === 'seed-quote') {
     if (!orderId) throw new Error('orderId required');
+    const policySnapshot = JSON.stringify({
+      preferredCarrier: null,
+      fallbackPolicy: 'allow',
+      offerMode: 'economy_only',
+      protectedInsurance: 'standard',
+    });
     const [order] = await sql<{ draft_version: number }[]>`
       SELECT draft_version FROM sales_orders WHERE id = ${orderId}
     `;
@@ -39,7 +45,7 @@ try {
       INSERT INTO shipping_quotes
         (order_id, draft_version, carrier, service_id, freight_cop,
          cash_on_delivery_cop, surcharge_cop, estimated_days, quoted_at,
-         expires_at, recommended, selected)
+         expires_at, recommended, selected, policy_snapshot)
       VALUES (
         ${orderId},
         ${order.draft_version},
@@ -52,7 +58,8 @@ try {
         clock_timestamp(),
         clock_timestamp() + interval '30 minutes',
         true,
-        true
+        true,
+        ${policySnapshot}::jsonb
       )
     `;
     console.log('quote seeded');

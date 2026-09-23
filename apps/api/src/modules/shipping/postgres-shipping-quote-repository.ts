@@ -448,7 +448,16 @@ export class PostgresShippingQuoteRepository {
       .where(eq(shippingGuideJobs.orderId, orderId))
       .limit(1);
     return {
-      quotes: quoteRows.map(mapQuote),
+      quotes: quoteRows
+        .filter((quote) => {
+          const policy = ShippingPolicySchema.safeParse(quote.policySnapshot);
+          return (
+            policy.success &&
+            quote.expiresAt > new Date() &&
+            isEligibleCarrierQuote(quote, policy.data)
+          );
+        })
+        .map(mapQuote),
       guide:
         guide === undefined
           ? null

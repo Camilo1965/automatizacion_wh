@@ -143,6 +143,7 @@ describe('shipping quote persistence', () => {
       const shipping = await repository.getShipping(
         '11111111-1111-4111-8111-111111111111',
       );
+      expect(shipping.quotes.map((row) => row.carrier)).toEqual(['tcc']);
       expect(
         shipping.quotes.filter((row) => row.selected).map((row) => row.carrier),
       ).toEqual(['tcc']);
@@ -194,9 +195,7 @@ describe('shipping quote persistence', () => {
       const shipping = await repository.getShipping(
         '11111111-1111-4111-8111-111111111111',
       );
-      expect(
-        shipping.quotes.filter((row) => row.selected).map((row) => row.carrier),
-      ).toEqual(['tcc']);
+      expect(shipping.quotes).toEqual([]);
     } finally {
       await database.close();
     }

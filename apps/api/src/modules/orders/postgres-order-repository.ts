@@ -1,4 +1,5 @@
 import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
+import { ShippingPolicySchema } from '@camila/contracts';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import {
@@ -16,6 +17,7 @@ import {
   shippingQuotes,
 } from '../../database/schema/index.js';
 import { parseShoeSize } from '../catalog/catalog-validation.js';
+import { isEligibleCarrierQuote } from '../shipping/shipping-selection.js';
 import {
   OrderConflictError,
   OrderNotFoundError,
@@ -38,6 +40,7 @@ import {
 
 type Row = typeof salesOrders.$inferSelect;
 type ReferenceRow = typeof catalogReferences.$inferSelect;
+type ShippingQuoteRow = typeof shippingQuotes.$inferSelect;
 type OrderTransaction = Parameters<
   Parameters<PostgresDatabase['orm']['transaction']>[0]
 >[0];
@@ -91,6 +94,20 @@ function completeOrder(row: Row): void {
       'Customer and destination details are required before confirmation',
     );
   }
+}
+
+function assertSelectedQuotePolicy(quote: ShippingQuoteRow): void {
+  const quotedPolicy = ShippingPolicySchema.safeParse(quote.policySnapshot);
+  if (!quotedPolicy.success)
+    throw new OrderConflictError(
+      'shipping_quote_requires_requote',
+      'Esta cotización necesita actualizarse. Cotiza de nuevo antes de continuar.',
+    );
+  if (!isEligibleCarrierQuote(quote, quotedPolicy.data))
+    throw new OrderConflictError(
+      'shipping_quote_not_allowed',
+      'Esta transportadora no está permitida por la política de envío. Cotiza de nuevo.',
+    );
 }
 
 export class PostgresOrderRepository implements OrderRepository {
@@ -260,6 +277,7 @@ export class PostgresOrderRepository implements OrderRepository {
           'shipping_quote_expired',
           'Generate a new shipping quote before continuing',
         );
+      if (selectedQuote !== undefined) assertSelectedQuotePolicy(selectedQuote);
       const version = order.latestSummaryVersion + 1;
       const shippingCostCop =
         selectedQuote === undefined
@@ -393,8 +411,7 @@ export class PostgresOrderRepository implements OrderRepository {
         const snapshot = summary.snapshot as {
           shippingQuote?: { id: string; carrier: string };
         };
-        let confirmedShippingQuote:
-          typeof shippingQuotes.$inferSelect | undefined;
+        let confirmedShippingQuote: ShippingQuoteRow | undefined;
         if (snapshot.shippingQuote !== undefined) {
           [confirmedShippingQuote] = await tx
             .select()
@@ -419,6 +436,7 @@ export class PostgresOrderRepository implements OrderRepository {
               'shipping_quote_expired',
               'Generate a new shipping quote before confirming',
             );
+          assertSelectedQuotePolicy(confirmedShippingQuote);
         }
         const [stock] = await tx
           .select()
