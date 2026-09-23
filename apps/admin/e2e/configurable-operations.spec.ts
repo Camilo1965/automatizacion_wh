@@ -152,3 +152,70 @@ test('owner publishes localities, edits the bot and configures a municipal insur
     });
   }
 });
+
+test('owner saves the general shipping preferences and package defaults', async ({
+  page,
+}) => {
+  await page.setExtraHTTPHeaders({
+    'x-camila-test-client': 'general-shipping-policy-e2e',
+  });
+  await page.goto('/login');
+  await page.getByLabel('Usuario').fill(E2E_USERNAME);
+  await page.getByLabel('Contraseña', { exact: true }).fill(E2E_PASSWORD);
+  await page.getByRole('button', { name: 'Entrar al panel' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Cerrar sesión' }),
+  ).toBeVisible();
+
+  await page.goto('/settings/shipping');
+  const general = page.getByRole('region', { name: 'Política general' });
+  await general.getByText('Editar transportadora, seguro y paquete').click();
+  await general.getByLabel('Transportadora preferida').selectOption('tcc');
+  await general.getByLabel('Si no aparece la preferida').selectOption('block');
+  await general
+    .getByLabel('Política automática de seguro')
+    .selectOption('protected_only');
+  await general.getByLabel('Seguro protegido').selectOption('plus');
+  await general.getByLabel('Servientrega').check();
+  const allowed = general.getByRole('group', {
+    name: 'Transportadoras permitidas',
+  });
+  await allowed.getByLabel('Limitar a una lista de transportadoras').check();
+  await allowed.getByLabel('Interrapidísimo').uncheck();
+  await allowed.getByLabel('Coordinadora').uncheck();
+  await general.getByLabel('Transportadora secundaria').selectOption('envia');
+  await general
+    .getByLabel('Asegurar desde este valor del producto (COP)')
+    .fill('150000');
+  await general.getByLabel('Contenido declarado').fill('Calzado KAIRO');
+  await general.getByLabel('Peso (kg)').fill('1.5');
+  await general.getByLabel('Largo (cm)').fill('30');
+  await general.getByLabel('Ancho (cm)').fill('20');
+  await general.getByLabel('Alto (cm)').fill('12');
+  await general
+    .getByRole('button', { name: 'Guardar preferencia general' })
+    .click();
+  await expect(general.getByText('Preferencia general guardada')).toBeVisible();
+
+  const response = await page.request.get(
+    `${E2E_API_ORIGIN}/api/admin/shipping/preferences`,
+  );
+  expect(response.status()).toBe(200);
+  expect((await response.json()).data).toMatchObject({
+    preferredCarrier: 'tcc',
+    fallbackPolicy: 'block',
+    offerMode: 'protected_only',
+    protectedInsurance: 'plus',
+    allowedCarriers: ['tcc', 'envia'],
+    excludedCarriers: ['servientrega'],
+    orderedCarriers: ['envia'],
+    insuranceThresholdCop: 150000,
+    packageDefaults: {
+      contents: 'Calzado KAIRO',
+      weightKg: 1.5,
+      lengthCm: 30,
+      widthCm: 20,
+      heightCm: 12,
+    },
+  });
+});

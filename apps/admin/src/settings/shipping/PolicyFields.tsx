@@ -274,8 +274,9 @@ export function PolicyFields({
           Paquete para cotizar
         </legend>
         <div className="space-y-2">
-          <Label>Contenido declarado</Label>
+          <Label htmlFor={`${prefix}-contents`}>Contenido declarado</Label>
           <Input
+            id={`${prefix}-contents`}
             value={policy.packageDefaults?.contents ?? ''}
             maxLength={200}
             placeholder="Calzado (se completará con la referencia y talla)"
@@ -299,7 +300,7 @@ export function PolicyFields({
           {(['weightKg', 'lengthCm', 'widthCm', 'heightCm'] as const).map(
             (key) => (
               <div className="space-y-2" key={key}>
-                <Label>
+                <Label htmlFor={`${prefix}-${key}`}>
                   {
                     {
                       weightKg: 'Peso (kg)',
@@ -310,6 +311,7 @@ export function PolicyFields({
                   }
                 </Label>
                 <Input
+                  id={`${prefix}-${key}`}
                   type="number"
                   min={0.1}
                   step={0.1}
