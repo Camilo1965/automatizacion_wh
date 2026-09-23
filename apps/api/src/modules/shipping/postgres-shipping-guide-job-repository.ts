@@ -105,7 +105,9 @@ export class PostgresShippingGuideJobRepository {
         errorCode: 'uncertain',
         updatedAt: new Date(),
       })
-      .where(eq(shippingGuideJobs.id, id));
+      .where(
+        sql`${shippingGuideJobs.id} = ${id} AND ${shippingGuideJobs.status} = 'processing'`,
+      );
   }
 
   async markCreated(

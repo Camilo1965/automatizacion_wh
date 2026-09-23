@@ -167,6 +167,56 @@ describe('shipping guide jobs', () => {
     }
   });
 
+  it('does not downgrade a guide already persisted as created during late uncertainty classification', async () => {
+    const orderId = '11111111-1111-4111-8111-111111111111';
+    const conversationId = '44444444-4444-4444-8444-444444444444';
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      await sql`
+        INSERT INTO whatsapp_conversations
+          (id, customer_phone, state, last_inbound_message_at)
+        VALUES (${conversationId}, '+573001111222', 'complete', clock_timestamp())
+      `;
+      await sql`
+        INSERT INTO conversation_order_links (order_id, origin_conversation_id)
+        VALUES (${orderId}, ${conversationId})
+      `;
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+    const database = createPostgresDatabase(databaseUrl);
+    try {
+      const repository = new PostgresShippingGuideJobRepository(database);
+      const job = await repository.enqueue(orderId);
+      await repository.claimNext();
+      await repository.markCreated(job.id, 'PRE-ALREADY-CREATED', 11900);
+      await repository.markUncertain(job.id);
+
+      const check = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        const [guide] = await check<
+          { status: string; pre_shipment_number: string | null }[]
+        >`
+          SELECT status, pre_shipment_number FROM shipping_guide_jobs
+          WHERE id = ${job.id}
+        `;
+        expect(guide).toEqual({
+          status: 'created',
+          pre_shipment_number: 'PRE-ALREADY-CREATED',
+        });
+        const [event] = await check<{ count: number }[]>`
+          SELECT count(*)::int AS count FROM whatsapp_conversation_messages
+          WHERE guide_job_id = ${job.id}
+        `;
+        expect(event?.count).toBe(1);
+      } finally {
+        await check.end({ timeout: 5 });
+      }
+    } finally {
+      await database.close();
+    }
+  });
+
   it('persists an internal guide event when an uncertain guide is reviewed', async () => {
     const orderId = '11111111-1111-4111-8111-111111111111';
     const conversationId = '44444444-4444-4444-8444-444444444444';
@@ -209,6 +259,86 @@ describe('shipping guide jobs', () => {
       }
     } finally {
       await database.close();
+    }
+  });
+
+  it('rolls back the created guide status when inserting its conversation event fails', async () => {
+    const orderId = '11111111-1111-4111-8111-111111111111';
+    const conversationId = '44444444-4444-4444-8444-444444444444';
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      await sql`
+        INSERT INTO whatsapp_conversations
+          (id, customer_phone, state, last_inbound_message_at)
+        VALUES (${conversationId}, '+573001111222', 'complete', clock_timestamp())
+      `;
+      await sql`
+        INSERT INTO conversation_order_links (order_id, origin_conversation_id)
+        VALUES (${orderId}, ${conversationId})
+      `;
+      await sql.unsafe(`
+        CREATE FUNCTION reject_guide_event_insert() RETURNS trigger
+        LANGUAGE plpgsql AS $$
+        BEGIN
+          IF NEW.guide_job_id IS NOT NULL THEN
+            RAISE EXCEPTION 'injected guide event insert failure';
+          END IF;
+          RETURN NEW;
+        END;
+        $$
+      `);
+      await sql.unsafe(`
+        CREATE TRIGGER reject_guide_event_insert
+        BEFORE INSERT ON whatsapp_conversation_messages
+        FOR EACH ROW EXECUTE FUNCTION reject_guide_event_insert()
+      `);
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+
+    const database = createPostgresDatabase(databaseUrl);
+    try {
+      const repository = new PostgresShippingGuideJobRepository(database);
+      const job = await repository.enqueue(orderId);
+      await repository.claimNext();
+
+      await expect(
+        repository.markCreated(job.id, 'PRE-FAIL', 11900),
+      ).rejects.toThrow();
+
+      const check = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        const [guide] = await check<{ status: string }[]>`
+          SELECT status FROM shipping_guide_jobs WHERE id = ${job.id}
+        `;
+        expect(guide?.status).toBe('processing');
+        const [event] = await check<{ count: number }[]>`
+          SELECT count(*)::int AS count FROM whatsapp_conversation_messages
+          WHERE guide_job_id = ${job.id}
+        `;
+        expect(event?.count).toBe(0);
+        await check`
+          UPDATE shipping_guide_jobs
+          SET updated_at = clock_timestamp() - interval '1 hour'
+          WHERE id = ${job.id}
+        `;
+        await expect(repository.claimNext()).resolves.toBeNull();
+      } finally {
+        await check.end({ timeout: 5 });
+      }
+    } finally {
+      await database.close();
+      const cleanup = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        await cleanup.unsafe(
+          'DROP TRIGGER IF EXISTS reject_guide_event_insert ON whatsapp_conversation_messages',
+        );
+        await cleanup.unsafe(
+          'DROP FUNCTION IF EXISTS reject_guide_event_insert()',
+        );
+      } finally {
+        await cleanup.end({ timeout: 5 });
+      }
     }
   });
 
