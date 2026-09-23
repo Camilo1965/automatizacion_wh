@@ -37,6 +37,7 @@ import {
   normalizeColombianPhone,
   validateOrderQuantity,
 } from './order-validation.js';
+import { resolveCustomerContact } from '../customers/customer-contact.js';
 
 type Row = typeof salesOrders.$inferSelect;
 type ReferenceRow = typeof catalogReferences.$inferSelect;
@@ -117,34 +118,61 @@ export class PostgresOrderRepository implements OrderRepository {
     const size = parseShoeSize(input.size);
     const quantity = validateOrderQuantity(input.quantity);
     const locality = await this.findLocality(input.localityCarrierCode);
-    const [created] = await this.database.orm
-      .insert(salesOrders)
-      .values({
-        referenceId: input.referenceId,
-        size,
-        quantity,
-        customerName: nullable(input.customerName),
-        customerPhone:
-          input.customerPhone === undefined || input.customerPhone === null
-            ? null
-            : normalizeColombianPhone(input.customerPhone),
-        address: nullable(input.address),
-        localityCarrierCode: locality?.carrierCode ?? null,
-        localityDepartment: locality?.department ?? null,
-        localityName: locality?.locality ?? null,
-        deliveryNotes: nullable(input.deliveryNotes),
-      })
-      .returning();
-    if (created === undefined) throw new Error('Failed to create order');
-    await this.database.orm.insert(orderStatusEvents).values({
-      orderId: created.id,
-      previousStatus: null,
-      nextStatus: 'draft',
-      ...(input.adminUserId === undefined
-        ? {}
-        : { adminUserId: input.adminUserId }),
-      createdAt: sql`clock_timestamp()`,
+    const normalizedPhone =
+      input.customerPhone === undefined || input.customerPhone === null
+        ? null
+        : normalizeColombianPhone(input.customerPhone);
+    const [created] = await this.database.orm.transaction(async (tx) => {
+      let customerId: string | null = null;
+      if (normalizedPhone !== null) {
+        customerId = await resolveCustomerContact(tx, {
+          normalizedPhone,
+          ...(input.customerName === undefined
+            ? {}
+            : { displayName: input.customerName }),
+        });
+        if (input.customerId != null && input.customerId !== customerId) {
+          throw new OrderConflictError(
+            'customer_identity_mismatch',
+            'El contacto del pedido cambió o requiere revisión.',
+          );
+        }
+      } else if (input.customerId != null) {
+        throw new OrderConflictError(
+          'customer_phone_required',
+          'No se puede vincular el cliente sin un teléfono verificado.',
+        );
+      }
+
+      const [order] = await tx
+        .insert(salesOrders)
+        .values({
+          referenceId: input.referenceId,
+          size,
+          quantity,
+          customerName: nullable(input.customerName),
+          customerPhone: normalizedPhone,
+          customerId,
+          address: nullable(input.address),
+          localityCarrierCode: locality?.carrierCode ?? null,
+          localityDepartment: locality?.department ?? null,
+          localityName: locality?.locality ?? null,
+          deliveryNotes: nullable(input.deliveryNotes),
+        })
+        .returning();
+      if (order === undefined) throw new Error('Failed to create order');
+      await tx.insert(orderStatusEvents).values({
+        orderId: order.id,
+        previousStatus: null,
+        nextStatus: 'draft',
+        ...(input.adminUserId === undefined
+          ? {}
+          : { adminUserId: input.adminUserId }),
+        createdAt: sql`clock_timestamp()`,
+      });
+      return [order] as const;
     });
+    if (created === undefined) throw new Error('Failed to create order');
     return this.requireMapped(created);
   }
 
@@ -235,13 +263,47 @@ export class PostgresOrderRepository implements OrderRepository {
       values.localityDepartment = locality?.department ?? null;
       values.localityName = locality?.locality ?? null;
     }
-    const [updated] = await this.database.orm
-      .update(salesOrders)
-      .set(values as Partial<typeof salesOrders.$inferInsert>)
-      .where(
-        and(eq(salesOrders.id, input.orderId), eq(salesOrders.status, 'draft')),
-      )
-      .returning();
+    const [updated] = await this.database.orm.transaction(async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(salesOrders)
+        .where(eq(salesOrders.id, input.orderId))
+        .limit(1)
+        .for('update');
+      if (current === undefined || current.status !== 'draft') return [];
+
+      const nextPhone =
+        input.customerPhone === undefined
+          ? current.customerPhone
+          : (values.customerPhone as string | null);
+      if (
+        input.customerPhone !== undefined &&
+        nextPhone !== current.customerPhone
+      ) {
+        // A changed phone is not enough evidence to silently merge identities.
+        values.customerId = null;
+      } else if (
+        current.customerId !== null &&
+        nextPhone !== null &&
+        input.customerName !== undefined
+      ) {
+        values.customerId = await resolveCustomerContact(tx, {
+          normalizedPhone: nextPhone,
+          displayName: input.customerName,
+        });
+      }
+
+      return tx
+        .update(salesOrders)
+        .set(values as Partial<typeof salesOrders.$inferInsert>)
+        .where(
+          and(
+            eq(salesOrders.id, input.orderId),
+            eq(salesOrders.status, 'draft'),
+          ),
+        )
+        .returning();
+    });
     if (updated === undefined)
       throw new OrderConflictError(
         'order_not_editable',

@@ -67,7 +67,7 @@ describe('complete WhatsApp sale', () => {
   beforeEach(async () => {
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
     try {
-      await sql`TRUNCATE TABLE whatsapp_outbound_messages, whatsapp_catalog_menu_options,
+      await sql`TRUNCATE TABLE customers, whatsapp_outbound_messages, whatsapp_catalog_menu_options,
         whatsapp_catalog_menus, whatsapp_conversation_events, whatsapp_conversations,
         order_confirmations, reservation_movements, order_status_events, order_summaries,
         sales_orders, catalog_stock, inventory_movements, catalog_references,
@@ -160,6 +160,18 @@ describe('complete WhatsApp sale', () => {
         const [order] = await sql<{ status: string; customer_name: string }[]>`
           SELECT status, customer_name FROM sales_orders
         `;
+        const [customerLink] = await sql<
+          {
+            order_customer_id: string | null;
+            conversation_customer_id: string | null;
+          }[]
+        >`
+          SELECT sales_order.customer_id AS order_customer_id,
+            conversation.customer_id AS conversation_customer_id
+          FROM sales_orders AS sales_order
+          JOIN whatsapp_conversations AS conversation
+            ON conversation.customer_phone = sales_order.customer_phone
+        `;
         const [stock] = await sql<{ reserved_quantity: number }[]>`
           SELECT reserved_quantity FROM catalog_stock
         `;
@@ -178,6 +190,10 @@ describe('complete WhatsApp sale', () => {
           status: 'confirmed',
           customer_name: 'Camila Pérez',
         });
+        expect(customerLink?.order_customer_id).not.toBeNull();
+        expect(customerLink?.order_customer_id).toBe(
+          customerLink?.conversation_customer_id,
+        );
         expect(stock?.reserved_quantity).toBe(1);
         expect(confirmation?.count).toBe(1);
         expect(guideJob).toMatchObject({ count: 1, status: 'pending' });

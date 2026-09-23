@@ -32,42 +32,43 @@
 - Test: `apps/api/test/database-migrations.integration.test.ts`
 
 **Interfaces:**
-- `customers`: UUID ID, display name, normalized phone, marketing consent state/evidence fields, needs-review flag, timestamps.
+- `customers`: UUID ID, display name, normalized phone, marketing consent `unknown | granted | denied | revoked`, traceable channel/purpose/notice-version/evidence-reference/date fields, needs-review flag, timestamps. `unknown` has no evidence; non-unknown states require the full evidence set.
 - `sales_orders.customer_id` and `whatsapp_conversations.customer_id`: nullable during safe migration, FK-protected, indexed.
 
-- [ ] Write migration integration fixtures for one unambiguous phone, a phone with differing names, missing/invalid phones, and repeat execution.
-- [ ] Run `pnpm --filter @camila/api exec vitest run --project integration test/database-migrations.integration.test.ts` and confirm the new assertions fail.
-- [ ] Add a migration that creates the customer table, adds nullable customer IDs, normalizes Colombian phone numbers using the project’s existing rules, and groups only valid contact data.
-- [ ] Mark profiles with differing customer names on a shared phone as `needs_review`; do not mark consent as granted during backfill.
-- [ ] Link conversations and orders only when deterministic; leave unresolved records unlinked for operator review.
-- [ ] Add indexes, check constraints, consent fields defaulting to `unknown` with null evidence, and audit-safe timestamps; do not make `customer_id` non-null in this release.
-- [ ] Rerun migration tests, verify counts and associations, and run the migration a second time to prove idempotency.
-- [ ] Commit as `feat: add stable customer contact identities`.
+- [x] Write migration integration fixtures for one unambiguous phone, a phone with differing names, missing/invalid phones, and repeat execution.
+- [x] Run `pnpm --filter @camila/api exec vitest run --project integration test/database-migrations.integration.test.ts` and confirm the new assertions fail.
+- [x] Add a migration that creates the customer table, adds nullable customer IDs, normalizes Colombian phone numbers using the project’s existing rules, and groups only valid contact data.
+- [x] Mark profiles with differing customer names on a shared phone as `needs_review`; do not mark consent as granted during backfill.
+- [x] Link conversations and orders only when deterministic; leave unresolved records unlinked for operator review.
+- [x] Add indexes, check constraints, consent fields defaulting to `unknown` with null evidence, and audit-safe timestamps; do not make `customer_id` non-null in this release.
+- [x] Rerun migration tests, verify counts and associations, and run the migration a second time to prove idempotency.
+- [x] Commit as `feat: add stable customer contact identities`.
 
 ### Task 2: Link new WhatsApp conversations and bot orders to customer IDs
 
 **Files:**
 - Modify: `apps/api/src/modules/conversations/postgres-conversation-repository.ts`
-- Modify: `apps/api/src/modules/conversations/postgres-conversation-repository.ts`
 - Modify: `apps/api/src/modules/conversations/whatsapp-sales-service.ts`
 - Modify: `apps/api/src/modules/orders/order-types.ts`
 - Modify: `apps/api/src/modules/orders/postgres-order-repository.ts`
-- Modify: `apps/api/src/modules/conversations/whatsapp-sales-service.ts`
+- Create: `apps/api/src/modules/customers/customer-contact.ts`
 - Test: `apps/api/test/conversation-repository.integration.test.ts`
 - Test: `apps/api/test/orders.integration.test.ts`
+- Test: `apps/api/test/whatsapp-sales-service.test.ts`
+- Test: `apps/api/test/whatsapp-sales-flow.integration.test.ts`
 
 **Interfaces:**
 - `PostgresConversationRepository.receive()` resolves or creates a customer contact by normalized phone and stores `customerId` on the conversation.
 - `CreateOrderInput.customerId?: string | null` permits bot orders to explicitly inherit the conversation contact; manual orders may resolve by phone when safe.
 
-- [ ] Add tests that repeat inbound messages for one phone reuse the same customer ID and create distinct IDs for different phones.
-- [ ] Add tests that bot orders inherit the conversation ID and no customer is silently attached when phone resolution is ambiguous.
-- [ ] Run focused repository/order integration tests and confirm failure.
-- [ ] Implement transactional get-or-create with race-safe uniqueness on the normalized contact key; handle unique conflict by rereading the committed profile.
-- [ ] Persist customerId when creating conversations and their bot orders, preserving the current order and transcript behavior.
-- [ ] Keep manual order creation compatible; resolve a profile only where an unambiguous contact match exists.
-- [ ] Rerun focused integration tests and the relevant conversation/bot-flow tests.
-- [ ] Commit as `feat: link conversations and orders to customer contacts`.
+- [x] Add tests that repeat inbound messages for one phone reuse the same customer ID and create distinct IDs for different phones.
+- [x] Add tests that bot orders inherit the conversation ID and no customer is silently attached when phone resolution is ambiguous.
+- [x] Run focused repository/order integration tests and confirm failure.
+- [x] Implement transactional get-or-create with race-safe uniqueness on the normalized contact key; handle unique conflict by rereading the committed profile.
+- [x] Persist customerId when creating conversations and their bot orders, preserving the current order and transcript behavior.
+- [x] Keep manual order creation compatible; resolve a profile only where an unambiguous contact match exists.
+- [x] Rerun focused integration tests and the relevant conversation/bot-flow tests.
+- [x] Commit as `feat: link conversations and orders to customer contacts`.
 
 ### Task 3: Derive customer segments and add authenticated API contracts
 

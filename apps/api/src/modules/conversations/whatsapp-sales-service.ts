@@ -287,6 +287,9 @@ export class WhatsAppSalesService {
           size: result.selectedSize,
           quantity: 1,
           customerPhone: input.customerPhone,
+          ...(result.customerId === undefined
+            ? {}
+            : { customerId: result.customerId }),
         });
         await this.conversations.attachOrder(
           result.conversationId,

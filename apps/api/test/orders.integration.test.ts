@@ -22,7 +22,7 @@ describe('order lifecycle', () => {
   beforeEach(async () => {
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
     try {
-      await sql`TRUNCATE TABLE order_status_events, reservation_movements, order_confirmations, order_summaries, sales_orders, inventory_movements, catalog_stock, shipping_localities, catalog_references, admin_sessions, admin_users CASCADE`;
+      await sql`TRUNCATE TABLE customers, order_status_events, reservation_movements, order_confirmations, order_summaries, sales_orders, inventory_movements, catalog_stock, shipping_localities, catalog_references, admin_sessions, admin_users CASCADE`;
       await sql`INSERT INTO admin_users (id, username, password_hash) VALUES (${adminId}, 'owner', 'hash')`;
       await sql`INSERT INTO catalog_references (id, code, model_name, color, price_cop) VALUES ('22222222-2222-4222-8222-222222222222', '01', 'Ballerina', 'Negro', 120000)`;
       await sql`INSERT INTO catalog_stock (reference_id, size, physical_quantity, reserved_quantity) VALUES ('22222222-2222-4222-8222-222222222222', 37, 3, 0)`;
@@ -111,6 +111,88 @@ describe('order lifecycle', () => {
         await sql.end({ timeout: 5 });
       }
     } finally {
+      await database.close();
+    }
+  });
+
+  it('links manual orders only to a safe matching customer and flags a conflicting name', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresOrderRepository(database);
+    try {
+      const first = await repository.create({
+        referenceId: '22222222-2222-4222-8222-222222222222',
+        size: '37',
+        quantity: 1,
+        customerName: 'Ana Gómez',
+        customerPhone: '3001234567',
+      });
+      const second = await repository.create({
+        referenceId: '22222222-2222-4222-8222-222222222222',
+        size: '38',
+        quantity: 1,
+        customerName: 'Ana Gómez',
+        customerPhone: '+57 300 123 4567',
+      });
+      const conflicting = await repository.create({
+        referenceId: '22222222-2222-4222-8222-222222222222',
+        size: '39',
+        quantity: 1,
+        customerName: 'Lucía Rojas',
+        customerPhone: '+573001234567',
+      });
+      const sql = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        const links = await sql<{ id: string; customer_id: string | null }[]>`
+          SELECT id, customer_id FROM sales_orders
+          WHERE id IN (${first.id}, ${second.id}, ${conflicting.id})
+          ORDER BY order_number
+        `;
+        expect(links[0]?.customer_id).not.toBeNull();
+        expect(links[0]?.customer_id).toBe(links[1]?.customer_id);
+        expect(links[2]?.customer_id).toBeNull();
+        const [profile] = await sql<
+          { needs_review: boolean; display_name: string | null }[]
+        >`
+          SELECT needs_review, display_name
+          FROM customers WHERE normalized_phone = '+573001234567'
+        `;
+        expect(profile).toEqual({
+          needs_review: true,
+          display_name: 'Ana Gómez',
+        });
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } finally {
+      await database.close();
+    }
+  });
+
+  it('creates one contact when manual orders race for the same normalized phone', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresOrderRepository(database);
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      await Promise.all(
+        Array.from({ length: 6 }, (_, index) =>
+          repository.create({
+            referenceId: '22222222-2222-4222-8222-222222222222',
+            size: String(37 + index),
+            quantity: 1,
+            customerName: 'Elena Ruiz',
+            customerPhone: index % 2 === 0 ? '3001234567' : '+573001234567',
+          }),
+        ),
+      );
+      const [counts] = await sql<{ profiles: number; linkedOrders: number }[]>`
+        SELECT count(DISTINCT customer.id)::int AS profiles,
+          count(order_row.id)::int AS "linkedOrders"
+        FROM sales_orders AS order_row
+        JOIN customers AS customer ON customer.id = order_row.customer_id
+      `;
+      expect(counts).toEqual({ profiles: 1, linkedOrders: 6 });
+    } finally {
+      await sql.end({ timeout: 5 });
       await database.close();
     }
   });

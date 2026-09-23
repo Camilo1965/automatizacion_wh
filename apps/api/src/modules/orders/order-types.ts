@@ -35,6 +35,7 @@ export type OrderRecord = Readonly<{
 
 export type CreateOrderInput = Readonly<{
   referenceId: string;
+  customerId?: string | null;
   size: string | number;
   quantity: number;
   customerName?: string | null;

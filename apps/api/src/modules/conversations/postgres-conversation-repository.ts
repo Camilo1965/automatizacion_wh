@@ -12,6 +12,10 @@ import {
   catalogReferences,
 } from '../../database/schema/index.js';
 import { type ConversationTransition } from './conversation-state.js';
+import {
+  normalizeCustomerPhone,
+  resolveCustomerContact,
+} from '../customers/customer-contact.js';
 import { BotFlowDefinitionSchema } from '@camila/contracts';
 import { advanceConfiguredConversation } from './configured-flow.js';
 import {
@@ -39,6 +43,7 @@ export type ReceiveConversationResult = Readonly<{
   input?: string;
   flow?: BotFlowDefinition;
   variables?: Record<string, string>;
+  customerId?: string | null;
 }>;
 
 export class PostgresConversationRepository {
@@ -51,9 +56,10 @@ export class PostgresConversationRepository {
   }
 
   receive(input: ReceiveConversationInput): Promise<ReceiveConversationResult> {
+    const customerPhone = normalizeCustomerPhone(input.customerPhone);
     return this.database.orm.transaction(async (tx) => {
       await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtext(${input.customerPhone}))`,
+        sql`SELECT pg_advisory_xact_lock(hashtext(${customerPhone}))`,
       );
 
       const [duplicate] = await tx
@@ -69,7 +75,7 @@ export class PostgresConversationRepository {
       const [existing] = await tx
         .select()
         .from(whatsappConversations)
-        .where(eq(whatsappConversations.customerPhone, input.customerPhone))
+        .where(eq(whatsappConversations.customerPhone, customerPhone))
         .limit(1);
 
       if (duplicate !== undefined) {
@@ -79,6 +85,10 @@ export class PostgresConversationRepository {
           reply: null,
         };
       }
+
+      const customerId = await resolveCustomerContact(tx, {
+        normalizedPhone: customerPhone,
+      });
 
       const now = input.occurredAt ?? new Date();
       const [published] = await tx
@@ -165,7 +175,8 @@ export class PostgresConversationRepository {
           await tx
             .insert(whatsappConversations)
             .values({
-              customerPhone: input.customerPhone,
+              customerPhone,
+              customerId,
               state: transition.state,
               lastInboundMessageAt: now,
               flowVersionId: published?.activeVersionId ?? null,
@@ -208,6 +219,7 @@ export class PostgresConversationRepository {
         .update(whatsappConversations)
         .set({
           state: transition.state,
+          customerId,
           ...(transition.selectedSize === undefined
             ? {}
             : { selectedSize: transition.selectedSize }),
@@ -232,12 +244,13 @@ export class PostgresConversationRepository {
         .where(
           and(
             eq(whatsappConversations.id, conversation.id),
-            eq(whatsappConversations.customerPhone, input.customerPhone),
+            eq(whatsappConversations.customerPhone, customerPhone),
           ),
         );
       return {
         duplicate: false,
         conversationId: conversation.id,
+        customerId,
         state: transition.state,
         reply,
         flow,

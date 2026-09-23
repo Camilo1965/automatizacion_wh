@@ -319,6 +319,7 @@ describe('WhatsAppSalesService', () => {
       receive: vi.fn().mockResolvedValue({
         duplicate: false,
         conversationId: 'conversation-1',
+        customerId: 'customer-1',
         state: 'showing_models',
         reply: null,
         selectedSize: '37.0',
@@ -357,6 +358,7 @@ describe('WhatsAppSalesService', () => {
       size: '37.0',
       quantity: 1,
       customerPhone: '+573001234567',
+      customerId: 'customer-1',
     });
     expect(conversations.attachOrder).toHaveBeenCalledWith(
       'conversation-1',

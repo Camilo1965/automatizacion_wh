@@ -20,7 +20,7 @@ describe('conversation persistence', () => {
   beforeEach(async () => {
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
     try {
-      await sql`TRUNCATE TABLE whatsapp_conversation_events, whatsapp_conversations, bot_flow_drafts, bot_flow_versions, catalog_references CASCADE`;
+      await sql`TRUNCATE TABLE customers, whatsapp_conversation_events, whatsapp_conversations, bot_flow_drafts, bot_flow_versions, catalog_references CASCADE`;
     } finally {
       await sql.end({ timeout: 5 });
     }
@@ -60,6 +60,79 @@ describe('conversation persistence', () => {
     }
   });
 
+  it('reuses one customer identity per normalized phone and separates other phones', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresConversationRepository(database);
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      await repository.receive({
+        whatsappMessageId: 'wamid.identity-first',
+        customerPhone: '+573001212121',
+        text: 'Hola',
+      });
+      await repository.receive({
+        whatsappMessageId: 'wamid.identity-second',
+        customerPhone: '573001212121',
+        text: '37',
+      });
+      await repository.receive({
+        whatsappMessageId: 'wamid.identity-other',
+        customerPhone: '+573001212122',
+        text: 'Hola',
+      });
+
+      const identities = await sql<
+        { customer_id: string | null; customer_phone: string }[]
+      >`
+        SELECT customer_phone, customer_id
+        FROM whatsapp_conversations
+        ORDER BY customer_phone
+      `;
+      expect(identities).toHaveLength(2);
+      expect(identities[0]?.customer_id).not.toBeNull();
+      expect(identities[1]?.customer_id).not.toBeNull();
+      expect(identities[0]?.customer_id).not.toBe(identities[1]?.customer_id);
+      const [profileCount] = await sql<{ count: number }[]>`
+        SELECT count(*)::int AS count FROM customers
+      `;
+      expect(profileCount?.count).toBe(2);
+    } finally {
+      await sql.end({ timeout: 5 });
+      await database.close();
+    }
+  });
+
+  it('leaves conversations unlinked when the matching contact needs review', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresConversationRepository(database);
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      await repository.receive({
+        whatsappMessageId: 'wamid.review-first',
+        customerPhone: '+573001919191',
+        text: 'Hola',
+      });
+      await sql`
+        UPDATE customers SET needs_review = true
+        WHERE normalized_phone = '+573001919191'
+      `;
+      const result = await repository.receive({
+        whatsappMessageId: 'wamid.review-second',
+        customerPhone: '+573001919191',
+        text: '37',
+      });
+      const [conversation] = await sql<{ customer_id: string | null }[]>`
+        SELECT customer_id FROM whatsapp_conversations
+        WHERE customer_phone = '+573001919191'
+      `;
+      expect(result.customerId).toBeNull();
+      expect(conversation?.customer_id).toBeNull();
+    } finally {
+      await sql.end({ timeout: 5 });
+      await database.close();
+    }
+  });
+
   it('assigns distinct ordered sequences to concurrent messages', async () => {
     const database = createPostgresDatabase(databaseUrl);
     const repository = new PostgresConversationRepository(database);
@@ -81,6 +154,13 @@ describe('conversation persistence', () => {
         expect(rows.map((row) => row.sequence)).toEqual([
           1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
         ]);
+        const [identities] = await sql<{ customers: number; linked: number }[]>`
+          SELECT count(DISTINCT customer.id)::int AS customers,
+            count(DISTINCT conversation.customer_id)::int AS linked
+          FROM whatsapp_conversations AS conversation
+          LEFT JOIN customers AS customer ON customer.id = conversation.customer_id
+        `;
+        expect(identities).toEqual({ customers: 1, linked: 1 });
       } finally {
         await sql.end({ timeout: 5 });
       }
