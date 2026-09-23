@@ -1,5 +1,8 @@
 import type { CarrierQuote, QuoteInput } from './99envios-client.js';
-import { selectRecommendedCarrier } from './shipping-selection.js';
+import {
+  isEligibleCarrierQuote,
+  selectRecommendedCarrier,
+} from './shipping-selection.js';
 import {
   shippingOfferInsurances,
   type InsuranceMode,
@@ -172,11 +175,13 @@ export class ShippingQuoteService {
         );
       }
       offers.push(
-        ...quotes.map((quote) => ({
-          ...quote,
-          insuranceMode: insurance,
-          insuranceCop: quote.insuranceCop ?? 0,
-        })),
+        ...quotes
+          .filter((quote) => isEligibleCarrierQuote(quote, policy))
+          .map((quote) => ({
+            ...quote,
+            insuranceMode: insurance,
+            insuranceCop: quote.insuranceCop ?? 0,
+          })),
       );
       recommendedQuotes.push({
         carrier: recommendedCarrier,

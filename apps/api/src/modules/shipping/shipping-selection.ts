@@ -23,22 +23,31 @@ function normalizePolicy(
   return policy;
 }
 
+export function isEligibleCarrierQuote(
+  quote: SelectableCarrierQuote,
+  policy: CarrierSelectionPolicy,
+): boolean {
+  const carrier = quote.carrier.toLowerCase();
+  return (
+    (!policy.allowedCarriers?.length ||
+      policy.allowedCarriers.includes(carrier)) &&
+    !policy.excludedCarriers?.includes(carrier) &&
+    [
+      quote.freightCop,
+      quote.cashOnDeliveryCop,
+      quote.surchargeCop,
+      quote.insuranceCop ?? 0,
+    ].every((cost) => Number.isFinite(cost) && cost >= 0)
+  );
+}
+
 export function selectRecommendedCarrier(
   quotes: readonly SelectableCarrierQuote[],
   policyInput: string | null | CarrierSelectionPolicy,
 ): string | null {
   const policy = normalizePolicy(policyInput);
-  const eligible = quotes.filter(
-    (quote) =>
-      (!policy.allowedCarriers?.length ||
-        policy.allowedCarriers.includes(quote.carrier.toLowerCase())) &&
-      !policy.excludedCarriers?.includes(quote.carrier.toLowerCase()) &&
-      [
-        quote.freightCop,
-        quote.cashOnDeliveryCop,
-        quote.surchargeCop,
-        quote.insuranceCop ?? 0,
-      ].every((cost) => Number.isFinite(cost) && cost >= 0),
+  const eligible = quotes.filter((quote) =>
+    isEligibleCarrierQuote(quote, policy),
   );
   const normalizedRule = policy.preferredCarrier?.trim().toLowerCase() ?? null;
   const configured = eligible.find(

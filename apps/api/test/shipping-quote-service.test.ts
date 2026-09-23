@@ -3,6 +3,63 @@ import { describe, expect, it, vi } from 'vitest';
 import { ShippingQuoteService } from '../src/modules/shipping/shipping-quote-service.js';
 
 describe('ShippingQuoteService', () => {
+  it('stores only the carrier allowed for a municipality', async () => {
+    const quotes = [
+      {
+        carrier: 'envia',
+        freightCop: 10_000,
+        cashOnDeliveryCop: 2_000,
+        surchargeCop: 0,
+        serviceId: 1,
+        estimatedDays: '1',
+      },
+      {
+        carrier: 'tcc',
+        freightCop: 15_000,
+        cashOnDeliveryCop: 3_000,
+        surchargeCop: 0,
+        serviceId: 2,
+        estimatedDays: '2',
+      },
+    ];
+    const repository = {
+      shippingPolicy: vi.fn().mockResolvedValue({
+        preferredCarrier: 'tcc',
+        fallbackPolicy: 'block',
+        offerMode: 'economy_only',
+        protectedInsurance: 'standard',
+        allowedCarriers: ['tcc'],
+      }),
+      replaceQuotes: vi.fn().mockImplementation(async (input) => input.quotes),
+      selectQuote: vi.fn(),
+      getShipping: vi.fn(),
+      upsertCarrierRule: vi.fn(),
+      upsertShippingPolicy: vi.fn(),
+      defaultShippingPolicy: vi.fn(),
+      setDefaultShippingPolicy: vi.fn(),
+      listShippingRules: vi.fn(),
+      deactivateShippingRule: vi.fn(),
+      listObservedCarriers: vi.fn(),
+    };
+    const service = new ShippingQuoteService(
+      repository,
+      {
+        get: vi.fn().mockResolvedValue({
+          id: 'order-1',
+          status: 'draft',
+          draftVersion: 1,
+          unitPriceCop: 120_000,
+          quantity: 1,
+          destination: { localityCarrierCode: '05001000' },
+        }),
+      },
+      { quote: vi.fn().mockResolvedValue(quotes) },
+    );
+
+    const storedOffers = await service.createQuotes('order-1');
+    expect(storedOffers.map((offer) => offer.carrier)).toEqual(['tcc']);
+  });
+
   it('persists all quotes and recommends the municipality carrier', async () => {
     const quotes = [
       {
