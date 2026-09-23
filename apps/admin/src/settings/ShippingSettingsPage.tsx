@@ -19,7 +19,26 @@ import { GeneralShippingPolicy } from './shipping/GeneralShippingPolicy';
 import { LocalityExceptions } from './shipping/LocalityExceptions';
 import { ShippingDecisionSimulator } from './shipping/ShippingDecisionSimulator';
 import { ShippingOperationsStatus } from './shipping/ShippingOperationsStatus';
-import { DEFAULT_POLICY } from './shipping/policy-utils';
+import {
+  copyGlobalForMunicipality,
+  DEFAULT_POLICY,
+  policyValidationMessage,
+} from './shipping/policy-utils';
+
+function policyFromRule(rule: ShippingRulePublic): ShippingPolicy {
+  return {
+    revision: rule.revision ?? 0,
+    preferredCarrier: rule.preferredCarrier,
+    fallbackPolicy: rule.fallbackPolicy,
+    offerMode: rule.offerMode,
+    protectedInsurance: rule.protectedInsurance,
+    allowedCarriers: rule.allowedCarriers,
+    excludedCarriers: rule.excludedCarriers,
+    orderedCarriers: rule.orderedCarriers,
+    insuranceThresholdCop: rule.insuranceThresholdCop,
+    packageDefaults: rule.packageDefaults,
+  };
+}
 
 export function ShippingSettingsPage() {
   const [globalPolicy, setGlobalPolicy] =
@@ -77,6 +96,11 @@ export function ShippingSettingsPage() {
   async function saveGlobal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (loadState !== 'ready') return;
+    const validationError = policyValidationMessage(globalPolicy);
+    if (validationError) {
+      setGlobalError(validationError);
+      return;
+    }
     setPending(true);
     setGlobalError(null);
     setGlobalSaved(null);
@@ -104,6 +128,11 @@ export function ShippingSettingsPage() {
   async function saveMunicipality(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (loadState !== 'ready') return;
+    const validationError = policyValidationMessage(municipalPolicy);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setPending(true);
     setError(null);
     setSaved(null);
@@ -145,9 +174,8 @@ export function ShippingSettingsPage() {
     }
   }
 
-  const invalidBlockedRule =
-    municipalPolicy.fallbackPolicy === 'block' &&
-    municipalPolicy.preferredCarrier === null;
+  const globalValidationError = policyValidationMessage(globalPolicy);
+  const municipalValidationError = policyValidationMessage(municipalPolicy);
 
   return (
     <section className="space-y-6" aria-labelledby="settings-title">
@@ -169,6 +197,7 @@ export function ShippingSettingsPage() {
         carriers={carriers}
         pending={pending}
         disabled={loadState !== 'ready'}
+        validationError={globalValidationError}
         onChange={setGlobalPolicy}
         onSave={(event) => void saveGlobal(event)}
         saved={globalSaved}
@@ -182,7 +211,7 @@ export function ShippingSettingsPage() {
         rules={rules}
         pending={pending}
         disabled={loadState !== 'ready'}
-        invalidBlockedRule={invalidBlockedRule}
+        validationError={municipalValidationError}
         error={error}
         saved={saved}
         preview={preview}
@@ -190,22 +219,29 @@ export function ShippingSettingsPage() {
         onLocalityChange={(locality) => {
           setSelectedLocality(locality);
           setLocalityCarrierCode(locality?.carrierCode ?? '');
+          setPreview(null);
+          setSaved(null);
+          const existingRule = rules.find(
+            (rule) => rule.localityCarrierCode === locality?.carrierCode,
+          );
+          setMunicipalPolicy(
+            existingRule
+              ? policyFromRule(existingRule)
+              : copyGlobalForMunicipality(globalPolicy),
+          );
         }}
+        onCopyGlobal={() =>
+          setMunicipalPolicy(
+            copyGlobalForMunicipality(
+              globalPolicy,
+              municipalPolicy.revision ?? 0,
+            ),
+          )
+        }
         onSave={(event) => void saveMunicipality(event)}
         onSimulate={() => void simulatePolicy()}
         onEditRule={(rule) => {
-          setMunicipalPolicy({
-            revision: rule.revision ?? 0,
-            preferredCarrier: rule.preferredCarrier,
-            fallbackPolicy: rule.fallbackPolicy,
-            offerMode: rule.offerMode,
-            protectedInsurance: rule.protectedInsurance,
-            allowedCarriers: rule.allowedCarriers,
-            excludedCarriers: rule.excludedCarriers,
-            orderedCarriers: rule.orderedCarriers,
-            insuranceThresholdCop: rule.insuranceThresholdCop,
-            packageDefaults: rule.packageDefaults,
-          });
+          setMunicipalPolicy(policyFromRule(rule));
           setLocalityCarrierCode(rule.localityCarrierCode);
           setSelectedLocality({
             carrierCode: rule.localityCarrierCode,

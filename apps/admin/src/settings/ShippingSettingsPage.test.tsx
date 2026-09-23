@@ -132,6 +132,86 @@ describe('ShippingSettingsPage sections and simulator recovery', () => {
     expect(requests).toBe(2);
   });
 
+  it('starts a new municipal rule from the loaded global policy and explains replacement', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get(`${base}/shipping/preferences`, () =>
+        HttpResponse.json({
+          data: {
+            revision: 3,
+            preferredCarrier: 'tcc',
+            fallbackPolicy: 'block',
+            offerMode: 'protected_only',
+            protectedInsurance: 'plus',
+            allowedCarriers: ['tcc'],
+          },
+        }),
+      ),
+      ...shippingHandlers(),
+    );
+    renderWithProviders(<ShippingSettingsPage />);
+    const municipal = await screen.findByRole('region', {
+      name: 'Excepciones por localidad',
+    });
+    await waitFor(() =>
+      expect(
+        within(municipal).getByRole('button', { name: 'Guardar regla' }),
+      ).toBeDisabled(),
+    );
+    await user.selectOptions(
+      within(municipal).getByLabelText('Departamento', { exact: true }),
+      'Antioquia',
+    );
+    await user.selectOptions(
+      within(municipal).getByLabelText('Municipio', { exact: true }),
+      '05001000',
+    );
+    await user.click(within(municipal).getByText('Editar excepción municipal'));
+    expect(
+      within(municipal).getByLabelText('Transportadora preferida'),
+    ).toHaveValue('tcc');
+    expect(
+      within(municipal).getByText(/reemplaza todos los campos/i),
+    ).toBeVisible();
+    expect(
+      within(municipal).getByRole('button', {
+        name: 'Copiar política general',
+      }),
+    ).toBeVisible();
+  });
+
+  it('blocks a contradictory municipal rule before sending it', async () => {
+    const user = userEvent.setup();
+    server.use(...shippingHandlers());
+    renderWithProviders(<ShippingSettingsPage />);
+    const municipal = await screen.findByRole('region', {
+      name: 'Excepciones por localidad',
+    });
+    await user.selectOptions(
+      within(municipal).getByLabelText('Departamento', { exact: true }),
+      'Antioquia',
+    );
+    await user.selectOptions(
+      within(municipal).getByLabelText('Municipio', { exact: true }),
+      '05001000',
+    );
+    await user.click(within(municipal).getByText('Editar excepción municipal'));
+    await user.selectOptions(
+      within(municipal).getByLabelText('Transportadora preferida'),
+      'tcc',
+    );
+    const excluded = within(municipal).getByRole('group', {
+      name: 'Transportadoras excluidas',
+    });
+    await user.click(within(excluded).getByLabelText('TCC'));
+    expect(
+      within(municipal).getByText(/transportadora preferida.*excluida/i),
+    ).toBeVisible();
+    expect(
+      within(municipal).getByRole('button', { name: 'Guardar regla' }),
+    ).toBeDisabled();
+  });
+
   it('separates general policy, locality exceptions, simulator and incidents status', async () => {
     server.use(...shippingHandlers());
     renderWithProviders(<ShippingSettingsPage />);

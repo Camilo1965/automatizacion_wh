@@ -18,6 +18,7 @@ export function GeneralShippingPolicy({
   carriers,
   pending,
   disabled,
+  validationError,
   onChange,
   onSave,
   saved,
@@ -27,6 +28,7 @@ export function GeneralShippingPolicy({
   carriers: readonly string[];
   pending: boolean;
   disabled: boolean;
+  validationError: string | null;
   onChange: (policy: ShippingPolicy) => void;
   onSave: (event: FormEvent<HTMLFormElement>) => void;
   saved: string | null;
@@ -61,12 +63,19 @@ export function GeneralShippingPolicy({
             </details>
             <Button
               variant="secondary"
-              disabled={pending || disabled}
+              disabled={pending || disabled || validationError !== null}
               loading={pending}
               type="submit"
             >
               Guardar preferencia general
             </Button>
+            {validationError ? (
+              <OperationalOutcome
+                tone="danger"
+                outcome={validationError}
+                nextStep="corrige el control indicado antes de guardar."
+              />
+            ) : null}
             {error ? (
               <OperationalOutcome
                 tone="danger"

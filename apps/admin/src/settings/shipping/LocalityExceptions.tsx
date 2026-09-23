@@ -28,12 +28,13 @@ export function LocalityExceptions({
   rules,
   pending,
   disabled,
-  invalidBlockedRule,
+  validationError,
   error,
   saved,
   preview,
   onMunicipalChange,
   onLocalityChange,
+  onCopyGlobal,
   onSave,
   onSimulate,
   onEditRule,
@@ -46,7 +47,7 @@ export function LocalityExceptions({
   rules: readonly ShippingRulePublic[];
   pending: boolean;
   disabled: boolean;
-  invalidBlockedRule: boolean;
+  validationError: string | null;
   error: string | null;
   saved: string | null;
   preview: {
@@ -55,6 +56,7 @@ export function LocalityExceptions({
   } | null;
   onMunicipalChange: (policy: ShippingPolicy) => void;
   onLocalityChange: (locality: LocalityPublic | null) => void;
+  onCopyGlobal: () => void;
   onSave: (event: FormEvent<HTMLFormElement>) => void;
   onSimulate: () => void;
   onEditRule: (rule: ShippingRulePublic) => void;
@@ -76,10 +78,23 @@ export function LocalityExceptions({
             <CardDescription>{describePolicy(municipalPolicy)}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Esta regla reemplaza todos los campos de la política general en
+              este municipio. Los cambios futuros de la política general no se
+              heredan automáticamente.
+            </p>
             <LocalityPicker
               value={selectedLocality}
               onChange={onLocalityChange}
             />
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={disabled || selectedLocality === null}
+              onClick={onCopyGlobal}
+            >
+              Copiar política general
+            </Button>
             <details className="rounded-[1.125rem] border border-border p-4">
               <summary className="cursor-pointer text-sm font-medium text-foreground">
                 Editar excepción municipal
@@ -93,8 +108,8 @@ export function LocalityExceptions({
                 />
               </div>
             </details>
-            {invalidBlockedRule ? (
-              <ErrorMessage message="Elige una transportadora antes de bloquear el fallback." />
+            {validationError ? (
+              <ErrorMessage message={validationError} />
             ) : null}
             {error ? (
               <OperationalOutcome
@@ -115,7 +130,7 @@ export function LocalityExceptions({
                 disabled={
                   pending ||
                   disabled ||
-                  invalidBlockedRule ||
+                  validationError !== null ||
                   selectedLocality === null
                 }
                 loading={pending}
