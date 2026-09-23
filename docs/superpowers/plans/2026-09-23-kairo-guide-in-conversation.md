@@ -47,12 +47,14 @@
 
 **Files:**
 - Modify: `apps/api/src/modules/shipping/shipping-guide-worker.ts`
+- Test: `apps/api/test/shipping-guide-job-repository.integration.test.ts`
 - Test: `apps/api/test/shipping-guide-worker.test.ts`
 
 **Interfaces:**
 - `ShippingGuideWorker.runOnce()` records when 99envíos returned a successful pre-shipment response; if local `markCreated` then fails, it transitions/retains the job as uncertain and emits no second provider request.
 
 - [ ] Add a test where `createPreShipment` succeeds and `markCreated` throws; assert exactly one provider call and one uncertain classification attempt.
+- [ ] Inject a transcript event insertion failure in PostgreSQL; assert the `markCreated` transaction rolls back the guide status and event together.
 - [ ] Run `pnpm --filter @camila/api exec vitest run --project unit test/shipping-guide-worker.test.ts` and confirm failure.
 - [ ] Update worker error handling so a local persistence error after provider success cannot flow to `markFailed` or a retryable pending job.
 - [ ] Add a recovery test proving review of that uncertain job creates exactly one event and does not call 99envíos again.
