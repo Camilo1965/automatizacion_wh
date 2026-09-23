@@ -27,7 +27,7 @@
 - Modify: `apps/api/src/database/schema/index.ts`
 - Modify: `apps/api/src/database/schema/orders.ts`
 - Modify: `apps/api/src/database/schema/whatsapp.ts`
-- Create: `apps/api/drizzle/0036_kairo_customer_contacts.sql`
+- Create: `apps/api/drizzle/0038_kairo_customer_contacts.sql`
 - Modify: `apps/api/drizzle/meta/_journal.json`
 - Test: `apps/api/test/database-migrations.integration.test.ts`
 

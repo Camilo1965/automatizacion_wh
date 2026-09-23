@@ -192,7 +192,8 @@ export const whatsappConversationMessages = pgTable(
     ),
     check(
       'whatsapp_conversation_messages_guide_event_valid',
-      sql`(${table.guideJobId} IS NULL AND ${table.guideOrderId} IS NULL)
+      sql`(${table.guideJobId} IS NULL AND ${table.guideOrderId} IS NULL
+          AND ${table.source} <> 'system')
         OR (${table.guideJobId} IS NOT NULL AND ${table.guideOrderId} IS NOT NULL
           AND ${table.source} = 'system' AND ${table.messageType} = 'event'
           AND ${table.status} = 'internal')`,

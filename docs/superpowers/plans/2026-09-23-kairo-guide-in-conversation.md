@@ -129,9 +129,14 @@
 ### Task 6: Release verification for the guide feature
 
 **Files:**
-- No code files unless a regression is found.
+- Modify: `apps/api/src/database/schema/whatsapp.ts`
+- Create: `apps/api/drizzle/0037_require_guide_metadata_for_system_messages.sql`
+- Modify: `apps/api/drizzle/meta/_journal.json`
+- Modify: `apps/api/test/database-migrations.integration.test.ts`
 
 - [ ] Run `pnpm verify` from a clean worktree after all guide commits.
 - [ ] Review `git diff --check`, migration SQL, authorization, transcript pagination, and the absence of any public PDF URL.
+- [x] Ensure every `system` transcript row is a complete internal guide event; remove malformed legacy `system` rows that lack guide references, reject new incomplete rows at the database boundary, and cover migration of existing installs.
+- [x] Validate the actual guide card in a real browser at a 390px viewport; confirm order link, download action, and no horizontal overflow.
 - [ ] Record any external Meta/99envíos acceptance still required without treating local verification as production approval.
 - [ ] Commit any documentation-only test evidence as `docs: record guide conversation verification`.

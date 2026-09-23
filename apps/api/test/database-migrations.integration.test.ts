@@ -279,6 +279,76 @@ describe('database migrations', () => {
     await expect(runMigrations(testDatabaseUrl)).resolves.toBeUndefined();
   });
 
+  it('rejects system transcript rows that are not complete guide events', async () => {
+    const created = await createTemporaryTestDatabase(testDatabaseUrl);
+    temporaryDatabaseName = created.databaseName;
+    stagedMigrationsFolder = buildMigrationFolderThrough(36);
+    await runMigrations(created.databaseUrl, stagedMigrationsFolder);
+
+    const sql = postgres(created.databaseUrl, { max: 1, prepare: false });
+    const conversationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const malformedMessageId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    try {
+      await sql`
+        INSERT INTO whatsapp_conversations
+          (id, customer_phone, state, last_inbound_message_at)
+        VALUES (${conversationId}, '+573000000001', 'idle', now())
+      `;
+      await sql`
+        INSERT INTO whatsapp_conversation_messages
+          (id, conversation_id, source, message_type, status, occurred_at)
+        VALUES
+          (${malformedMessageId}, ${conversationId}, 'system', 'text', 'internal', now())
+      `;
+
+      const preMigrationDatabase = createPostgresDatabase(created.databaseUrl);
+      try {
+        const transcript = new PostgresConversationTranscriptRepository(
+          preMigrationDatabase,
+        );
+        await expect(transcript.listMessages(conversationId)).rejects.toThrow(
+          'Internal guide event is missing required metadata',
+        );
+      } finally {
+        await preMigrationDatabase.close();
+      }
+
+      await runMigrations(created.databaseUrl);
+
+      const [removedMalformedRow] = await sql<{ count: number }[]>`
+        SELECT count(*)::int AS count
+        FROM whatsapp_conversation_messages
+        WHERE id = ${malformedMessageId}
+      `;
+      expect(removedMalformedRow?.count).toBe(0);
+
+      const migratedDatabase = createPostgresDatabase(created.databaseUrl);
+      try {
+        const transcript = new PostgresConversationTranscriptRepository(
+          migratedDatabase,
+        );
+        await expect(
+          transcript.listMessages(conversationId),
+        ).resolves.toMatchObject({
+          items: [],
+          nextCursor: null,
+        });
+      } finally {
+        await migratedDatabase.close();
+      }
+
+      await expect(sql`
+        INSERT INTO whatsapp_conversation_messages
+          (conversation_id, source, message_type, status, occurred_at)
+        VALUES (${conversationId}, 'system', 'text', 'internal', now())
+      `).rejects.toThrow('whatsapp_conversation_messages_guide_event_valid');
+    } finally {
+      await sql.end({ timeout: 5 });
+      rmSync(stagedMigrationsFolder, { recursive: true, force: true });
+      stagedMigrationsFolder = undefined;
+    }
+  });
+
   it('creates the catalog tables and drizzle migrations journal', async () => {
     const sql = postgres(testDatabaseUrl, { max: 1, prepare: false });
     try {
