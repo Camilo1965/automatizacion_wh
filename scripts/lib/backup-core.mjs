@@ -304,7 +304,7 @@ export async function applyRetention({
 /**
  * @param {object} deps
  * @param {(key: string) => Promise<Buffer>} deps.downloadObject
- * @param {(dbName: string) => Promise<void>} deps.createDatabase
+ * @param {(dbName: string) => Promise<boolean>} deps.createDatabase
  * @param {(dbName: string, dumpPath: string) => Promise<void>} deps.restoreDump
  * @param {(dbName: string) => Promise<{ ok: boolean, details: object }>} deps.validateRestore
  * @param {(dbName: string) => Promise<void>} deps.dropDatabase
@@ -318,13 +318,30 @@ export async function runRestoreDrill(deps, env, options = {}) {
   const log = deps.log ?? (() => {});
   const key = decodeEncryptionKey(env.BACKUP_ENCRYPTION_KEY);
   const upload = requireBackupUploadEnv(env);
-  parseDatabaseUrl(env.DATABASE_URL);
+  const sourceDatabase = parseDatabaseUrl(env.DATABASE_URL).database;
 
   const backupId = options.backupId || env.BACKUP_ID;
   if (!backupId?.trim()) {
     throw new BackupError(
       'missing_credentials',
       'BACKUP_ID is required for restore drill',
+    );
+  }
+
+  const drillDb =
+    options.drillDb ||
+    env.DRILL_DB ||
+    `camila_restore_drill_${backupId.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40)}`;
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(drillDb)) {
+    throw new BackupError(
+      'invalid_config',
+      'Unsafe restore drill database name',
+    );
+  }
+  if (drillDb === sourceDatabase) {
+    throw new BackupError(
+      'invalid_config',
+      'Restore drill database must differ from DATABASE_URL database',
     );
   }
 
@@ -354,11 +371,6 @@ export async function runRestoreDrill(deps, env, options = {}) {
     );
   }
 
-  const drillDb =
-    options.drillDb ||
-    env.DRILL_DB ||
-    `camila_restore_drill_${backupId.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40)}`;
-
   const tempDir = options.tempDir || path.join('backups', 'tmp');
   await deps.ensureTempDir?.(tempDir);
   const dumpPath = path.join(tempDir, `${drillDb}.dump`);
@@ -367,7 +379,13 @@ export async function runRestoreDrill(deps, env, options = {}) {
   let validation;
   let cleaned = false;
   try {
-    await deps.createDatabase(drillDb);
+    const createdDatabase = await deps.createDatabase(drillDb);
+    if (createdDatabase !== true) {
+      throw new BackupError(
+        'restore_failed',
+        'Refusing to restore into a database that already exists',
+      );
+    }
     await deps.restoreDump(drillDb, dumpPath);
     validation = await deps.validateRestore(drillDb);
     if (!validation?.ok) {

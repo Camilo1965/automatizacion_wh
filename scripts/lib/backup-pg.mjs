@@ -117,7 +117,7 @@ export async function createDatabase(databaseUrl, dbName, env = process.env) {
       `psql exists-check failed: ${sanitizePgOutput(exists.stderr)}`,
     );
   }
-  if (exists.stdout.toString('utf8').trim() === '1') return;
+  if (exists.stdout.toString('utf8').trim() === '1') return false;
   const created = await runCaptured(
     'psql',
     [
@@ -135,6 +135,7 @@ export async function createDatabase(databaseUrl, dbName, env = process.env) {
       `CREATE DATABASE failed: ${sanitizePgOutput(created.stderr)}`,
     );
   }
+  return true;
 }
 
 export async function dropDatabase(databaseUrl, dbName, env = process.env) {
@@ -175,10 +176,11 @@ export async function restoreDumpFile(
   dbName,
   dumpPath,
   env = process.env,
+  runCommand = runCaptured,
 ) {
   assertSafeIdent(dbName);
   const conn = parseDatabaseUrl(databaseUrl);
-  const result = await runCaptured(
+  const result = await runCommand(
     'pg_restore',
     [
       '--clean',
@@ -197,19 +199,11 @@ export async function restoreDumpFile(
     ],
     pgEnv(conn, env),
   );
-  // pg_restore may return 1 for non-fatal warnings; treat only hard failures.
-  if (result.code !== 0 && result.code !== 1) {
+  if (result.code !== 0) {
     throw new BackupError(
       'restore_failed',
-      `pg_restore exit ${result.code}: ${sanitizePgOutput(result.stderr)}`,
+      `pg_restore exit ${result.code}: ${sanitizePgOutput(result.stderr || result.stdout.toString('utf8'))}`,
     );
-  }
-  if (
-    result.code === 1 &&
-    /FATAL|ERROR:/i.test(result.stderr) &&
-    !/WARNING/i.test(result.stderr)
-  ) {
-    // Keep permissive for extension noise; fatal still fails validation later.
   }
   return result;
 }

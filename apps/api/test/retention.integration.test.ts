@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -353,5 +354,88 @@ describe('retention privacy integration', () => {
     });
     expect(audit.statusCode).toBe(200);
     expect(audit.json().data.total).toBeGreaterThan(0);
+  });
+
+  it('removes nested customer PII from persisted order summaries when anonymizing', async () => {
+    const sql = postgres(testDatabaseUrl, { max: 1, prepare: false });
+    const referenceId = randomUUID();
+    const orderId = randomUUID();
+    const referenceCode = `TEST-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const customerPhone = `57300${randomUUID().replaceAll('-', '').slice(0, 7)}`;
+    const snapshot = {
+      schemaVersion: 1,
+      customer: { name: 'Ana Gómez', phone: customerPhone },
+      destination: {
+        address: 'Calle 1 # 2-3',
+        localityCarrierCode: '11001',
+        locality: 'Bogotá',
+        deliveryNotes: 'Portería azul',
+      },
+    };
+    const legacySnapshot = {
+      schemaVersion: 0,
+      customerName: 'Ana Gómez',
+      customerPhone,
+      address: 'Calle 1 # 2-3',
+      deliveryNotes: 'Portería azul',
+    };
+
+    try {
+      await sql`
+        INSERT INTO catalog_references (id, code, model_name, color, price_cop)
+        VALUES (${referenceId}, ${referenceCode}, 'Prueba', 'Negro', 120000)
+      `;
+      await sql`
+        INSERT INTO sales_orders (
+          id, reference_id, size, quantity, customer_name, customer_phone,
+          address, locality_carrier_code, locality_name, delivery_notes
+        ) VALUES (
+          ${orderId}, ${referenceId}, 37, 1, 'Ana Gómez', ${customerPhone},
+          'Calle 1 # 2-3', '11001', 'Bogotá', 'Portería azul'
+        )
+      `;
+      await sql`
+        INSERT INTO order_summaries (order_id, version, draft_version, snapshot)
+        VALUES
+          (${orderId}, 1, 1, ${sql.json(snapshot)}),
+          (${orderId}, 2, 1, ${sql.json(legacySnapshot)})
+      `;
+
+      await new PostgresRetentionDataStore(database).anonymizeCustomer(
+        customerPhone,
+      );
+
+      const summaries = await sql<
+        { version: number; snapshot: Record<string, unknown> }[]
+      >`
+        SELECT version, snapshot FROM order_summaries
+        WHERE order_id = ${orderId} ORDER BY version
+      `;
+      const nested = summaries.find((item) => item.version === 1)?.snapshot;
+      expect(nested).toMatchObject({
+        customer: { name: 'ANONIMIZADO', phone: '0000000000' },
+        destination: {
+          address: null,
+          localityCarrierCode: '11001',
+          locality: 'Bogotá',
+          deliveryNotes: null,
+        },
+      });
+      const legacy = summaries.find((item) => item.version === 2)?.snapshot;
+      expect(legacy).toMatchObject({
+        customerName: 'ANONIMIZADO',
+        customerPhone: '0000000000',
+      });
+      expect(legacy).not.toHaveProperty('address');
+      expect(legacy).not.toHaveProperty('deliveryNotes');
+      expect(JSON.stringify(summaries)).not.toMatch(
+        /Ana Gómez|57300|Calle 1|Portería azul/,
+      );
+    } finally {
+      await sql`DELETE FROM order_summaries WHERE order_id = ${orderId}`;
+      await sql`DELETE FROM sales_orders WHERE id = ${orderId}`;
+      await sql`DELETE FROM catalog_references WHERE id = ${referenceId}`;
+      await sql.end({ timeout: 5 });
+    }
   });
 });

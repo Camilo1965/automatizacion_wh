@@ -281,16 +281,58 @@ export class PostgresRetentionDataStore implements RetentionDataStore {
           })
           .where(inArray(salesOrders.id, ids))
           .returning({ id: salesOrders.id });
+        const objectSnapshot = sql`CASE
+          WHEN jsonb_typeof(${orderSummaries.snapshot}) = 'object'
+            THEN ${orderSummaries.snapshot}
+          ELSE '{}'::jsonb
+        END`;
+        const redactedRootSnapshot = sql`(
+          ${objectSnapshot}
+          #- '{customerName}'::text[]
+          #- '{customerPhone}'::text[]
+          #- '{address}'::text[]
+          #- '{deliveryNotes}'::text[]
+        ) || jsonb_build_object(
+          'customerName', 'ANONIMIZADO',
+          'customerPhone', '0000000000'
+        )`;
         await orm
           .update(orderSummaries)
           .set({
             snapshot: sql`(
-              COALESCE(${orderSummaries.snapshot}, '{}'::jsonb)
-              - 'customerName'
-              - 'customerPhone'
-              - 'address'
-              - 'deliveryNotes'
-            ) || jsonb_build_object('customerName', 'ANONIMIZADO', 'customerPhone', '0000000000')`,
+              ${redactedRootSnapshot}
+            ) || CASE
+              WHEN jsonb_typeof((${objectSnapshot})->'customer') = 'object'
+                THEN jsonb_build_object(
+                  'customer',
+                  jsonb_set(
+                    jsonb_set(
+                      (${objectSnapshot})->'customer',
+                      '{name}'::text[],
+                      to_jsonb('ANONIMIZADO'::text)
+                    ),
+                    '{phone}'::text[],
+                    to_jsonb('0000000000'::text)
+                  )
+                )
+              ELSE '{}'::jsonb
+            END
+            || CASE
+              WHEN jsonb_typeof((${objectSnapshot})->'destination') = 'object'
+                THEN jsonb_build_object(
+                  'destination',
+                  jsonb_set(
+                    jsonb_set(
+                      (${objectSnapshot})->'destination',
+                      '{address}'::text[],
+                      'null'::jsonb
+                    ),
+                    '{deliveryNotes}'::text[],
+                    'null'::jsonb
+                  )
+                )
+              ELSE '{}'::jsonb
+            END`,
           })
           .where(inArray(orderSummaries.orderId, ids));
         return updated.length;

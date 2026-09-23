@@ -16,6 +16,7 @@ import {
   stampId,
   verifyBackupArtifact,
 } from '../../../scripts/lib/backup-core.mjs';
+import { restoreDumpFile } from '../../../scripts/lib/backup-pg.mjs';
 
 const KEY = randomBytes(32).toString('base64');
 
@@ -193,7 +194,7 @@ describe('backup-core checksum + restore validation', () => {
     });
 
     const dropDatabase = vi.fn(async () => {});
-    const createDatabase = vi.fn(async () => {});
+    const createDatabase = vi.fn(async () => true);
     const restoreDump = vi.fn(async () => {});
 
     await expect(
@@ -226,6 +227,78 @@ describe('backup-core checksum + restore validation', () => {
     expect(dropDatabase).not.toHaveBeenCalled();
   });
 
+  it('refuses the source database as the drill target before downloading a backup', async () => {
+    const downloadObject = vi.fn(async () => Buffer.from('unused'));
+    const createDatabase = vi.fn(async () => true);
+    const restoreDump = vi.fn(async () => {});
+    const dropDatabase = vi.fn(async () => {});
+
+    await expect(
+      runRestoreDrill(
+        {
+          downloadObject,
+          createDatabase,
+          restoreDump,
+          validateRestore: async () => ({ ok: true, details: {} }),
+          dropDatabase,
+        },
+        baseEnv({ BACKUP_ID: '20260922T140000Z' }),
+        { drillDb: 'camila' },
+      ),
+    ).rejects.toMatchObject({ code: 'invalid_config' });
+
+    expect(downloadObject).not.toHaveBeenCalled();
+    expect(createDatabase).not.toHaveBeenCalled();
+    expect(restoreDump).not.toHaveBeenCalled();
+    expect(dropDatabase).not.toHaveBeenCalled();
+  });
+
+  it('refuses an existing drill database without restoring or dropping it', async () => {
+    const plaintext = Buffer.from('restorable-dump');
+    const digest = sha256Hex(plaintext);
+    const enc = encryptDump(plaintext, Buffer.from(KEY, 'base64'));
+    const id = '20260922T140000Z';
+    const manifest = buildManifest({
+      id,
+      timestamp: '2026-09-22T14:00:00.000Z',
+      schemaVersion: 's1',
+      sha256: digest,
+      plaintextBytes: plaintext.length,
+      encryptedBytes: enc.length,
+      retentionDays: 7,
+    });
+    const createDatabase = vi.fn(async () => false);
+    const restoreDump = vi.fn(async () => {});
+    const dropDatabase = vi.fn(async () => {});
+
+    await expect(
+      runRestoreDrill(
+        {
+          downloadObject: async (key: string) =>
+            key.endsWith('.manifest.json')
+              ? Buffer.from(JSON.stringify(manifest), 'utf8')
+              : enc,
+          createDatabase,
+          restoreDump,
+          validateRestore: async () => ({ ok: true, details: {} }),
+          dropDatabase,
+          writeTempFile: async () => {},
+          removeTempFile: async () => {},
+          ensureTempDir: async () => {},
+        },
+        baseEnv({ BACKUP_ID: id }),
+        {
+          drillDb: 'camila_existing_restore_test',
+          tempDir: 'backups/tmp-test',
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'restore_failed' });
+
+    expect(createDatabase).toHaveBeenCalledWith('camila_existing_restore_test');
+    expect(restoreDump).not.toHaveBeenCalled();
+    expect(dropDatabase).not.toHaveBeenCalled();
+  });
+
   it('drops drill DB only after successful validation', async () => {
     const plaintext = Buffer.from('restorable-dump');
     const digest = sha256Hex(plaintext);
@@ -251,7 +324,7 @@ describe('backup-core checksum + restore validation', () => {
           }
           return enc;
         },
-        createDatabase: async () => {},
+        createDatabase: async () => true,
         restoreDump: async () => {},
         validateRestore: async () => ({
           ok: true,
@@ -271,5 +344,25 @@ describe('backup-core checksum + restore validation', () => {
 
     expect(result.cleaned).toBe(true);
     expect(dropDatabase).toHaveBeenCalledWith('camila_restore_drill_ok');
+  });
+});
+
+describe('pg_restore result handling', () => {
+  it('fails closed when pg_restore returns exit 1 after a COPY error', async () => {
+    const runCommand = vi.fn(async () => ({
+      code: 1,
+      stdout: Buffer.alloc(0),
+      stderr: 'pg_restore: error: COPY failed for table sales_orders',
+    }));
+
+    await expect(
+      restoreDumpFile(
+        'postgresql://camila:secret@127.0.0.1:5432/camila',
+        'camila_restore_test',
+        'restore.dump',
+        {},
+        runCommand,
+      ),
+    ).rejects.toMatchObject({ code: 'restore_failed' });
   });
 });
