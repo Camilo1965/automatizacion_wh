@@ -15,13 +15,16 @@ function sha256Hex(bytes: Uint8Array): string {
 
 export class LocalObjectStorage implements ObjectStorage {
   private readonly rootDirectory: string;
-  private readonly ready: Promise<void>;
+  private ready: Promise<void> | undefined;
 
   constructor(rootDirectory: string) {
     this.rootDirectory = path.resolve(rootDirectory);
-    this.ready = mkdir(this.rootDirectory, { recursive: true }).then(
+  }
+
+  private ensureReady(): Promise<void> {
+    return (this.ready ??= mkdir(this.rootDirectory, { recursive: true }).then(
       () => undefined,
-    );
+    ));
   }
 
   async put(input: {
@@ -30,7 +33,7 @@ export class LocalObjectStorage implements ObjectStorage {
     contentType: string;
     sha256: string;
   }): Promise<void> {
-    await this.ready;
+    await this.ensureReady();
     assertObjectStorageKey(input.key);
     assertSha256Hex(input.sha256);
     if (input.contentType.trim() === '') {
@@ -81,7 +84,7 @@ export class LocalObjectStorage implements ObjectStorage {
   }
 
   async get(key: string): Promise<Uint8Array> {
-    await this.ready;
+    await this.ensureReady();
     try {
       return new Uint8Array(await readFile(this.resolveKey(key)));
     } catch (error) {
@@ -93,7 +96,7 @@ export class LocalObjectStorage implements ObjectStorage {
   }
 
   async exists(key: string): Promise<boolean> {
-    await this.ready;
+    await this.ensureReady();
     try {
       await readFile(this.resolveKey(key));
       return true;
@@ -106,7 +109,7 @@ export class LocalObjectStorage implements ObjectStorage {
   }
 
   async delete(key: string): Promise<void> {
-    await this.ready;
+    await this.ensureReady();
     const absolutePath = this.resolveKey(key);
     try {
       await unlink(absolutePath);

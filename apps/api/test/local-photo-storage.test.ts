@@ -13,6 +13,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>();
   return {
     ...actual,
+    mkdir: vi.fn(actual.mkdir),
     rename: vi.fn(actual.rename),
   };
 });
@@ -60,6 +61,14 @@ describe('LocalPhotoStorage', () => {
 
   afterEach(async () => {
     await rm(rootDirectory, { recursive: true, force: true });
+  });
+
+  it('does not start filesystem initialization for an unused storage instance', () => {
+    vi.mocked(fsp.mkdir).mockClear();
+
+    new LocalPhotoStorage(path.join(rootDirectory, 'unused'));
+
+    expect(fsp.mkdir).not.toHaveBeenCalled();
   });
 
   it('saves and reads a valid PNG', async () => {
