@@ -15,6 +15,7 @@ import {
 
 import { adminUsers } from './admin.js';
 import { catalogReferences } from './catalog.js';
+import { customers } from './customers.js';
 
 export const salesOrders = pgTable(
   'sales_orders',
@@ -31,6 +32,9 @@ export const salesOrders = pgTable(
     quantity: integer('quantity').notNull(),
     customerName: varchar('customer_name', { length: 120 }),
     customerPhone: varchar('customer_phone', { length: 13 }),
+    customerId: uuid('customer_id').references(() => customers.id, {
+      onDelete: 'restrict',
+    }),
     address: varchar('address', { length: 180 }),
     localityCarrierCode: varchar('locality_carrier_code', { length: 32 }),
     localityDepartment: varchar('locality_department', { length: 100 }),
@@ -75,6 +79,10 @@ export const salesOrders = pgTable(
       table.createdAt,
     ),
     index('sales_orders_reference_size_idx').on(table.referenceId, table.size),
+    index('sales_orders_customer_id_created_at_idx').on(
+      table.customerId,
+      table.createdAt,
+    ),
   ],
 );
 

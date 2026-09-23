@@ -267,6 +267,13 @@
       "when": 1790140000002,
       "tag": "0037_require_guide_metadata_for_system_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790140000003,
+      "tag": "0038_kairo_customer_contacts",
+      "breakpoints": true
     }
   ]
 }

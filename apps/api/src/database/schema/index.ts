@@ -1,5 +1,6 @@
 export * from './admin.js';
 export * from './catalog.js';
+export * from './customers.js';
 export * from './integrations.js';
 export * from './orders.js';
 export * from './whatsapp.js';
@@ -20,6 +21,7 @@ import {
   catalogStock,
   inventoryMovements,
 } from './catalog.js';
+import { customers } from './customers.js';
 import {
   integrationDrafts,
   integrationSettings,
@@ -60,6 +62,7 @@ import { inventoryClosures, ownerAlertDeliveries, ownerAlerts } from './ops.js';
 import { retentionPolicies, retentionRuns } from './privacy.js';
 
 export const schema = {
+  customers,
   shippingIncidents,
   integrationDrafts,
   integrationVersions,

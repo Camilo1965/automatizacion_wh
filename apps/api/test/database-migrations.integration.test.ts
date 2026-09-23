@@ -349,6 +349,145 @@ describe('database migrations', () => {
     }
   });
 
+  it('backfills stable customers only from valid and reconcilable phone data', async () => {
+    const created = await createTemporaryTestDatabase(testDatabaseUrl);
+    temporaryDatabaseName = created.databaseName;
+    stagedMigrationsFolder = buildMigrationFolderThrough(37);
+    await runMigrations(created.databaseUrl, stagedMigrationsFolder);
+
+    const sql = postgres(created.databaseUrl, { max: 1, prepare: false });
+    const referenceId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const anaOrder1 = 'dddddddd-dddd-4ddd-8ddd-dddddddddd01';
+    const anaOrder2 = 'dddddddd-dddd-4ddd-8ddd-dddddddddd02';
+    const ambiguousOrder1 = 'dddddddd-dddd-4ddd-8ddd-dddddddddd03';
+    const ambiguousOrder2 = 'dddddddd-dddd-4ddd-8ddd-dddddddddd04';
+    const invalidOrder = 'dddddddd-dddd-4ddd-8ddd-dddddddddd05';
+    const missingOrder = 'dddddddd-dddd-4ddd-8ddd-dddddddddd06';
+    const anaConversation = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee01';
+    const ambiguousConversation = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee02';
+    const invalidConversation = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee03';
+
+    try {
+      await sql`
+        INSERT INTO catalog_references (id, code, model_name, color, price_cop)
+        VALUES (${referenceId}, 'MIG-CUSTOMER', 'Tenis', 'Negro', 120000)
+      `;
+      await sql`
+        INSERT INTO sales_orders
+          (id, reference_id, size, quantity, customer_name, customer_phone, status)
+        VALUES
+          (${anaOrder1}, ${referenceId}, 37, 1, 'Ana Ruiz', '3001234567', 'confirmed'),
+          (${anaOrder2}, ${referenceId}, 38, 1, 'Ana Ruiz', '+573001234567', 'delivered'),
+          (${ambiguousOrder1}, ${referenceId}, 37, 1, 'Luis Rojas', '+573001234568', 'confirmed'),
+          (${ambiguousOrder2}, ${referenceId}, 38, 1, 'Lucía Rojas', '+573001234568', 'delivered'),
+          (${invalidOrder}, ${referenceId}, 37, 1, 'Inválida', '2001234567', 'confirmed'),
+          (${missingOrder}, ${referenceId}, 39, 1, 'Sin teléfono', NULL, 'confirmed')
+      `;
+      await sql`
+        INSERT INTO whatsapp_conversations
+          (id, customer_phone, state, last_inbound_message_at)
+        VALUES
+          (${anaConversation}, '+573001234567', 'idle', now()),
+          (${ambiguousConversation}, '+573001234568', 'idle', now()),
+          (${invalidConversation}, '2001234567', 'idle', now())
+      `;
+
+      await runMigrations(created.databaseUrl);
+
+      const profiles = await sql<
+        {
+          id: string;
+          normalized_phone: string;
+          display_name: string | null;
+          needs_review: boolean;
+          marketing_consent: string;
+          marketing_consent_channel: string | null;
+          marketing_consent_purpose: string | null;
+          marketing_consent_notice_version: string | null;
+          marketing_consent_evidence_ref: string | null;
+          marketing_consent_recorded_at: Date | null;
+        }[]
+      >`
+        SELECT id, normalized_phone, display_name, needs_review,
+          marketing_consent, marketing_consent_channel,
+          marketing_consent_purpose, marketing_consent_notice_version,
+          marketing_consent_evidence_ref,
+          marketing_consent_recorded_at
+        FROM customers
+        ORDER BY normalized_phone
+      `;
+      expect(profiles).toHaveLength(2);
+      const ana = profiles.find(
+        (profile) => profile.normalized_phone === '+573001234567',
+      );
+      const ambiguous = profiles.find(
+        (profile) => profile.normalized_phone === '+573001234568',
+      );
+      expect(ana).toMatchObject({
+        display_name: 'Ana Ruiz',
+        needs_review: false,
+        marketing_consent: 'unknown',
+        marketing_consent_channel: null,
+        marketing_consent_purpose: null,
+        marketing_consent_notice_version: null,
+        marketing_consent_evidence_ref: null,
+        marketing_consent_recorded_at: null,
+      });
+      expect(ambiguous).toMatchObject({
+        display_name: null,
+        needs_review: true,
+        marketing_consent: 'unknown',
+        marketing_consent_channel: null,
+        marketing_consent_purpose: null,
+        marketing_consent_notice_version: null,
+        marketing_consent_evidence_ref: null,
+        marketing_consent_recorded_at: null,
+      });
+
+      await expect(sql`
+        INSERT INTO customers
+          (normalized_phone, marketing_consent, marketing_consent_channel)
+        VALUES ('+573001234569', 'granted', 'whatsapp')
+      `).rejects.toThrow('customers_marketing_consent_evidence_consistent');
+
+      const linkedOrders = await sql<
+        { id: string; customer_id: string | null }[]
+      >`
+        SELECT id, customer_id FROM sales_orders ORDER BY id
+      `;
+      expect(linkedOrders).toEqual([
+        { id: anaOrder1, customer_id: ana?.id },
+        { id: anaOrder2, customer_id: ana?.id },
+        { id: ambiguousOrder1, customer_id: null },
+        { id: ambiguousOrder2, customer_id: null },
+        { id: invalidOrder, customer_id: null },
+        { id: missingOrder, customer_id: null },
+      ]);
+      const linkedConversations = await sql<
+        { id: string; customer_id: string | null }[]
+      >`
+        SELECT id, customer_id FROM whatsapp_conversations ORDER BY id
+      `;
+      expect(linkedConversations).toEqual([
+        { id: anaConversation, customer_id: ana?.id },
+        { id: ambiguousConversation, customer_id: null },
+        { id: invalidConversation, customer_id: null },
+      ]);
+
+      await runMigrations(created.databaseUrl);
+      const [profileCount] = await sql<{ count: number }[]>`
+        SELECT count(*)::int AS count FROM customers
+      `;
+      expect(profileCount?.count).toBe(2);
+    } finally {
+      await sql.end({ timeout: 5 });
+      if (stagedMigrationsFolder !== undefined) {
+        rmSync(stagedMigrationsFolder, { recursive: true, force: true });
+        stagedMigrationsFolder = undefined;
+      }
+    }
+  });
+
   it('creates the catalog tables and drizzle migrations journal', async () => {
     const sql = postgres(testDatabaseUrl, { max: 1, prepare: false });
     try {

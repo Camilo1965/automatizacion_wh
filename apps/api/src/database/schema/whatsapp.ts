@@ -16,6 +16,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { catalogReferences } from './catalog.js';
+import { customers } from './customers.js';
 import { salesOrders } from './orders.js';
 import { shippingGuideJobs } from './shipping.js';
 
@@ -77,6 +78,9 @@ export const whatsappConversations = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     customerPhone: varchar('customer_phone', { length: 20 }).notNull(),
+    customerId: uuid('customer_id').references(() => customers.id, {
+      onDelete: 'restrict',
+    }),
     state: varchar('state', { length: 32 }).notNull(),
     flowVersionId: uuid('flow_version_id').references(() => botFlowVersions.id),
     flowSnapshot: jsonb('flow_snapshot'),
@@ -108,6 +112,7 @@ export const whatsappConversations = pgTable(
     unique('whatsapp_conversations_customer_phone_unique').on(
       table.customerPhone,
     ),
+    index('whatsapp_conversations_customer_id_idx').on(table.customerId),
     check(
       'whatsapp_conversations_mode_allowed',
       sql`${table.mode} IN ('bot', 'human')`,
