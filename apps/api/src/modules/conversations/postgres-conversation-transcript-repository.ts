@@ -20,6 +20,7 @@ type MessageRow = {
   status: TranscriptMessageStatus | 'internal';
   provider_message_id: string | null;
   occurred_at: Date;
+  cursor_occurred_at: string;
   guide_order_id: string | null;
   guide_job_id: string | null;
   pre_shipment_number: string | null;
@@ -28,11 +29,11 @@ type MessageRow = {
 
 type Cursor = { occurredAt: string; id: string };
 
-function encodeCursor(message: TranscriptMessage): string {
+function encodeCursor(occurredAt: string, id: string): string {
   return Buffer.from(
     JSON.stringify({
-      occurredAt: message.occurredAt.toISOString(),
-      id: message.id,
+      occurredAt,
+      id,
     }),
   ).toString('base64url');
 }
@@ -123,6 +124,7 @@ export class PostgresConversationTranscriptRepository implements ConversationTra
       SELECT message.id, message.conversation_id, message.source,
         message.message_type, message.text_body, message.media_storage_key,
         message.status, message.provider_message_id, message.occurred_at,
+        to_char(message.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_occurred_at,
         message.guide_order_id, message.guide_job_id,
         job.pre_shipment_number, job.carrier
       FROM whatsapp_conversation_messages AS message
@@ -136,11 +138,12 @@ export class PostgresConversationTranscriptRepository implements ConversationTra
       LIMIT ${safeLimit + 1}
     `);
     const items = rows.slice(0, safeLimit).map(mapMessage).reverse();
+    const cursorRow = rows[safeLimit - 1];
     return {
       items,
       nextCursor:
-        rows.length > safeLimit && items.length > 0
-          ? encodeCursor(items[0]!)
+        rows.length > safeLimit && cursorRow !== undefined
+          ? encodeCursor(cursorRow.cursor_occurred_at, cursorRow.id)
           : null,
     };
   }

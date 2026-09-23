@@ -67,7 +67,7 @@ describe('conversation transcript persistence', () => {
     }
   });
 
-  it('pages equal-time WhatsApp messages and an internal guide event by timestamp and id without enqueueing the event', async () => {
+  it('preserves every transcript row when timestamps differ only by microseconds', async () => {
     const conversationId = '44444444-4444-4444-8444-444444444444';
     const guideJobId = randomUUID();
     const orderId = randomUUID();
@@ -99,9 +99,11 @@ describe('conversation transcript persistence', () => {
           (id, conversation_id, source, message_type, text_body, status,
            provider_message_id, occurred_at, guide_job_id, guide_order_id)
         VALUES
-          ('00000000-0000-4000-8000-000000000001', ${conversationId}, 'customer', 'text', 'Hola', 'received', 'wamid.in-1', ${occurredAt}, NULL, NULL),
-          ('00000000-0000-4000-8000-000000000002', ${conversationId}, 'system', 'event', NULL, 'internal', NULL, ${occurredAt}, ${guideJobId}, ${orderId}),
-          ('00000000-0000-4000-8000-000000000003', ${conversationId}, 'bot', 'text', 'Enseguida te ayudo', 'sent', 'wamid.out-1', ${occurredAt}, NULL, NULL)
+          ('00000000-0000-4000-8000-000000000001', ${conversationId}, 'customer', 'text', 'Hola', 'received', 'wamid.in-1', TIMESTAMPTZ '2026-09-10 15:00:00.000100+00', NULL, NULL),
+          ('00000000-0000-4000-8000-000000000002', ${conversationId}, 'bot', 'text', 'Mensaje en el mismo instante', 'sent', 'wamid.out-tie', TIMESTAMPTZ '2026-09-10 15:00:00.000400+00', NULL, NULL),
+          ('00000000-0000-4000-8000-000000000003', ${conversationId}, 'system', 'event', NULL, 'internal', NULL, TIMESTAMPTZ '2026-09-10 15:00:00.000400+00', ${guideJobId}, ${orderId}),
+          ('00000000-0000-4000-8000-000000000004', ${conversationId}, 'bot', 'text', 'Mensaje posterior', 'sent', 'wamid.out-1', TIMESTAMPTZ '2026-09-10 15:00:00.000700+00', NULL, NULL),
+          ('00000000-0000-4000-8000-000000000005', ${conversationId}, 'customer', 'text', 'Mensaje más reciente', 'received', 'wamid.in-2', TIMESTAMPTZ '2026-09-10 15:00:00.000900+00', NULL, NULL)
       `;
     } finally {
       await sql.end({ timeout: 5 });
@@ -121,12 +123,25 @@ describe('conversation transcript persistence', () => {
         1,
         page2.nextCursor ?? undefined,
       );
+      const page4 = await transcript.listMessages(
+        conversationId,
+        1,
+        page3.nextCursor ?? undefined,
+      );
+      const page5 = await transcript.listMessages(
+        conversationId,
+        1,
+        page4.nextCursor ?? undefined,
+      );
 
       expect(page1.items.map((item) => item.id)).toEqual([
-        '00000000-0000-4000-8000-000000000003',
+        '00000000-0000-4000-8000-000000000005',
       ]);
-      expect(page2.items[0]).toMatchObject({
-        id: '00000000-0000-4000-8000-000000000002',
+      expect(page2.items.map((item) => item.id)).toEqual([
+        '00000000-0000-4000-8000-000000000004',
+      ]);
+      expect(page3.items[0]).toMatchObject({
+        id: '00000000-0000-4000-8000-000000000003',
         source: 'system',
         messageType: 'event',
         status: 'internal',
@@ -137,10 +152,24 @@ describe('conversation transcript persistence', () => {
         preShipmentNumber: 'PRE-12345',
         carrier: 'envia',
       });
-      expect(page3.items.map((item) => item.id)).toEqual([
+      expect(page4.items.map((item) => item.id)).toEqual([
+        '00000000-0000-4000-8000-000000000002',
+      ]);
+      expect(page5.items.map((item) => item.id)).toEqual([
         '00000000-0000-4000-8000-000000000001',
       ]);
-      expect(page3.nextCursor).toBeNull();
+      expect(page5.nextCursor).toBeNull();
+      expect(
+        [page1, page2, page3, page4, page5].flatMap((page) =>
+          page.items.map((item) => item.id),
+        ),
+      ).toEqual([
+        '00000000-0000-4000-8000-000000000005',
+        '00000000-0000-4000-8000-000000000004',
+        '00000000-0000-4000-8000-000000000003',
+        '00000000-0000-4000-8000-000000000002',
+        '00000000-0000-4000-8000-000000000001',
+      ]);
 
       const outbound = new PostgresOutboundRepository(database);
       await expect(outbound.claimNext()).resolves.toBeNull();
