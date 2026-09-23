@@ -59,7 +59,7 @@
 - Verify only; do not alter integration credentials or production data.
 
 - [x] Start only the disposable `postgres-test` service before integration tests; never redirect tests to `.env`'s local business database.
-- [x] Run `pnpm verify`; secret scanning from the Windows-linked worktree was invalid and is pending rerun from the normal checkout.
-- [ ] Request a read-only code review of the completed diff and resolve any important findings.
-- [ ] Commit the approved existing UI/E2E changes together with these fixes and the design/plan documents, fast-forward `main`, and push `main` only after verification succeeds.
-- [ ] Back up and migrate the real local database, create the requested owner login, and start the UI/API on loopback without starting the outbound worker.
+- [x] Run `pnpm verify`: 70 contracts tests, 331 API unit tests, 72 admin tests, 148 API integration tests, 31 E2E passed (1 configured skip), build and bundle budget passed. Run `pnpm security:secrets` from the normal checkout: 171 commits scanned, no leaks.
+- [x] Request read-only code review of the completed diff and resolve the three additional findings: nested order-summary PII, restore-drill target safety, and `pg_restore` exit handling. The follow-up review passed.
+- [x] Commit the approved existing UI/E2E changes together with these fixes and the design/plan documents, fast-forward `main`, and push `main` after verification. `main` and `origin/main` now point to `d6e17fd`.
+- [x] Create and verify a fresh local pre-migration database backup, apply all 4 pending migrations (31 → 35), create the owner login `kairo_local_review`, and start API/UI on `127.0.0.1` without starting the outbound worker.
