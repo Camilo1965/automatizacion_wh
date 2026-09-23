@@ -103,4 +103,136 @@ describe('shipping guide jobs', () => {
       await database.close();
     }
   });
+
+  it('persists one internal guide event for the original conversation, even after the active order changes', async () => {
+    const orderId = '11111111-1111-4111-8111-111111111111';
+    const conversationId = '44444444-4444-4444-8444-444444444444';
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      await sql`
+        INSERT INTO whatsapp_conversations
+          (id, customer_phone, state, last_inbound_message_at)
+        VALUES (${conversationId}, '+573001111222', 'complete', clock_timestamp())
+      `;
+      await sql`
+        INSERT INTO conversation_order_links (order_id, origin_conversation_id)
+        VALUES (${orderId}, ${conversationId})
+      `;
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+    const database = createPostgresDatabase(databaseUrl);
+    try {
+      const repository = new PostgresShippingGuideJobRepository(database);
+      const job = await repository.enqueue(orderId);
+      await repository.claimNext();
+      await repository.markCreated(job.id, 'PRE-123', 11900);
+      await repository.markCreated(job.id, 'PRE-123', 11900);
+      const check = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        const rows = await check<
+          {
+            conversation_id: string;
+            guide_order_id: string;
+            guide_job_id: string;
+            source: string;
+            message_type: string;
+            status: string;
+          }[]
+        >`
+          SELECT conversation_id, guide_order_id, guide_job_id,
+            source, message_type, status
+          FROM whatsapp_conversation_messages
+          WHERE guide_job_id = ${job.id}
+        `;
+        expect(rows).toEqual([
+          {
+            conversation_id: conversationId,
+            guide_order_id: orderId,
+            guide_job_id: job.id,
+            source: 'system',
+            message_type: 'event',
+            status: 'internal',
+          },
+        ]);
+        const [outbound] = await check<{ count: number }[]>`
+          SELECT count(*)::int AS count FROM whatsapp_outbound_messages
+        `;
+        expect(outbound?.count).toBe(0);
+      } finally {
+        await check.end({ timeout: 5 });
+      }
+    } finally {
+      await database.close();
+    }
+  });
+
+  it('persists an internal guide event when an uncertain guide is reviewed', async () => {
+    const orderId = '11111111-1111-4111-8111-111111111111';
+    const conversationId = '44444444-4444-4444-8444-444444444444';
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      await sql`
+        INSERT INTO whatsapp_conversations
+          (id, customer_phone, state, last_inbound_message_at)
+        VALUES (${conversationId}, '+573001111222', 'complete', clock_timestamp())
+      `;
+      await sql`
+        INSERT INTO conversation_order_links (order_id, origin_conversation_id)
+        VALUES (${orderId}, ${conversationId})
+      `;
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+    const database = createPostgresDatabase(databaseUrl);
+    try {
+      const repository = new PostgresShippingGuideJobRepository(database);
+      const job = await repository.enqueue(orderId);
+      await repository.claimNext();
+      await repository.markUncertain(job.id);
+      await expect(repository.reviewUncertain(job.id, 'PRE-456')).resolves.toBe(
+        true,
+      );
+      await expect(repository.reviewUncertain(job.id, 'PRE-456')).resolves.toBe(
+        false,
+      );
+      const check = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        const [row] = await check<{ count: number }[]>`
+          SELECT count(*)::int AS count FROM whatsapp_conversation_messages
+          WHERE guide_job_id = ${job.id} AND conversation_id = ${conversationId}
+            AND source = 'system' AND status = 'internal'
+        `;
+        expect(row?.count).toBe(1);
+      } finally {
+        await check.end({ timeout: 5 });
+      }
+    } finally {
+      await database.close();
+    }
+  });
+
+  it('creates no conversation event for a guide from a panel order', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    try {
+      const repository = new PostgresShippingGuideJobRepository(database);
+      const job = await repository.enqueue(
+        '11111111-1111-4111-8111-111111111111',
+      );
+      await repository.claimNext();
+      await repository.markCreated(job.id, 'PRE-PANEL', 11900);
+      const sql = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        const [row] = await sql<{ count: number }[]>`
+          SELECT count(*)::int AS count FROM whatsapp_conversation_messages
+          WHERE source = 'system'
+        `;
+        expect(row?.count).toBe(0);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } finally {
+      await database.close();
+    }
+  });
 });

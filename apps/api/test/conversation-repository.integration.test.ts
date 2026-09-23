@@ -20,7 +20,7 @@ describe('conversation persistence', () => {
   beforeEach(async () => {
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
     try {
-      await sql`TRUNCATE TABLE whatsapp_conversation_events, whatsapp_conversations CASCADE`;
+      await sql`TRUNCATE TABLE whatsapp_conversation_events, whatsapp_conversations, bot_flow_drafts, bot_flow_versions, catalog_references CASCADE`;
     } finally {
       await sql.end({ timeout: 5 });
     }
@@ -111,6 +111,54 @@ describe('conversation persistence', () => {
       });
       expect(result).toMatchObject({ duplicate: false, reply: null });
     } finally {
+      await database.close();
+    }
+  });
+
+  it('keeps each order linked to its original conversation when a later order becomes active', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresConversationRepository(database);
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      const first = await repository.receive({
+        whatsappMessageId: 'wamid.guide-origin',
+        customerPhone: '+573001111222',
+        text: 'Hola',
+      });
+      const conversationId = first.conversationId!;
+      const referenceId = '22222222-2222-4222-8222-222222222222';
+      const firstOrderId = '11111111-1111-4111-8111-111111111111';
+      const secondOrderId = '33333333-3333-4333-8333-333333333333';
+      await sql`
+        INSERT INTO catalog_references (id, code, model_name, color, price_cop)
+        VALUES (${referenceId}, '01', 'Tenis', 'Negro', 120000)
+      `;
+      await sql`
+        INSERT INTO sales_orders (id, reference_id, size, quantity, status)
+        VALUES (${firstOrderId}, ${referenceId}, 37, 1, 'draft'),
+               (${secondOrderId}, ${referenceId}, 38, 1, 'draft')
+      `;
+
+      await repository.attachOrder(conversationId, referenceId, firstOrderId);
+      await repository.attachOrder(conversationId, referenceId, firstOrderId);
+      await repository.attachOrder(conversationId, referenceId, secondOrderId);
+
+      const links = await sql<
+        { order_id: string; origin_conversation_id: string }[]
+      >`
+        SELECT order_id, origin_conversation_id FROM conversation_order_links
+        ORDER BY order_id
+      `;
+      expect(links).toEqual([
+        { order_id: firstOrderId, origin_conversation_id: conversationId },
+        { order_id: secondOrderId, origin_conversation_id: conversationId },
+      ]);
+      const [active] = await sql<{ active_order_id: string }[]>`
+        SELECT active_order_id FROM whatsapp_conversations WHERE id = ${conversationId}
+      `;
+      expect(active?.active_order_id).toBe(secondOrderId);
+    } finally {
+      await sql.end({ timeout: 5 });
       await database.close();
     }
   });

@@ -35,6 +35,7 @@ import {
 import {
   botFlowDrafts,
   botFlowVersions,
+  conversationOrderLinks,
   whatsappCatalogMenuOptions,
   whatsappCatalogMenus,
   whatsappConversationEvents,
@@ -84,6 +85,7 @@ export const schema = {
   orderStatusEvents,
   whatsappInboundMessages,
   whatsappConversations,
+  conversationOrderLinks,
   whatsappConversationMessages,
   whatsappConversationEvents,
   whatsappCatalogMenus,

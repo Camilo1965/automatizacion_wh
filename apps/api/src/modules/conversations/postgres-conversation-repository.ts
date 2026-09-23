@@ -5,6 +5,7 @@ import {
   whatsappConversationEvents,
   whatsappConversationMessages,
   whatsappConversations,
+  conversationOrderLinks,
   botFlowDrafts,
   botFlowVersions,
   salesOrders,
@@ -279,15 +280,35 @@ export class PostgresConversationRepository {
     referenceId: string,
     orderId: string,
   ): Promise<void> {
-    await this.database.orm
-      .update(whatsappConversations)
-      .set({
-        state: 'awaiting_name',
-        selectedReferenceId: referenceId,
-        activeOrderId: orderId,
-        updatedAt: new Date(),
-      })
-      .where(eq(whatsappConversations.id, conversationId));
+    await this.database.orm.transaction(async (tx) => {
+      const [link] = await tx
+        .insert(conversationOrderLinks)
+        .values({ orderId, originConversationId: conversationId })
+        .onConflictDoNothing({ target: conversationOrderLinks.orderId })
+        .returning({
+          originConversationId: conversationOrderLinks.originConversationId,
+        });
+      if (link === undefined) {
+        const [existing] = await tx
+          .select({
+            originConversationId: conversationOrderLinks.originConversationId,
+          })
+          .from(conversationOrderLinks)
+          .where(eq(conversationOrderLinks.orderId, orderId));
+        if (existing?.originConversationId !== conversationId) {
+          throw new Error('Order is already linked to another conversation');
+        }
+      }
+      await tx
+        .update(whatsappConversations)
+        .set({
+          state: 'awaiting_name',
+          selectedReferenceId: referenceId,
+          activeOrderId: orderId,
+          updatedAt: new Date(),
+        })
+        .where(eq(whatsappConversations.id, conversationId));
+    });
   }
 
   async setSummaryVersion(

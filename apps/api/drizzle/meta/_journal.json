@@ -246,6 +246,13 @@
       "when": 1790053000000,
       "tag": "0034_retention_privacy",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790140000000,
+      "tag": "0035_kairo_guide_conversation_events",
+      "breakpoints": true
     }
   ]
 }

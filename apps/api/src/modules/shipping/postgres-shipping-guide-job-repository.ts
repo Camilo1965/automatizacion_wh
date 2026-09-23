@@ -114,16 +114,33 @@ export class PostgresShippingGuideJobRepository {
     freightCop: number,
   ): Promise<void> {
     assertGuideJobTransition('processing', 'mark_created');
-    await this.database.orm
-      .update(shippingGuideJobs)
-      .set({
-        status: 'created',
-        preShipmentNumber,
-        freightCop,
-        errorCode: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(shippingGuideJobs.id, id));
+    await this.database.orm.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(shippingGuideJobs)
+        .set({
+          status: 'created',
+          preShipmentNumber,
+          freightCop,
+          errorCode: null,
+          updatedAt: new Date(),
+        })
+        .where(
+          sql`${shippingGuideJobs.id} = ${id} AND ${shippingGuideJobs.status} = 'processing'`,
+        )
+        .returning({ id: shippingGuideJobs.id });
+      if (updated === undefined) return;
+      await tx.execute(sql`
+        INSERT INTO whatsapp_conversation_messages
+          (conversation_id, source, message_type, status, occurred_at,
+           guide_job_id, guide_order_id)
+        SELECT link.origin_conversation_id, 'system', 'event', 'internal',
+          job.updated_at, job.id, job.order_id
+        FROM shipping_guide_jobs job
+        JOIN conversation_order_links link ON link.order_id = job.order_id
+        WHERE job.id = ${id}
+        ON CONFLICT (guide_job_id) DO NOTHING
+      `);
+    });
   }
 
   async markFailed(id: string, errorCode: string): Promise<void> {
@@ -175,18 +192,32 @@ export class PostgresShippingGuideJobRepository {
     preShipmentNumber: string,
   ): Promise<boolean> {
     assertGuideJobTransition('uncertain', 'resolve_uncertain');
-    const [updated] = await this.database.orm
-      .update(shippingGuideJobs)
-      .set({
-        status: 'created',
-        preShipmentNumber,
-        errorCode: null,
-        updatedAt: new Date(),
-      })
-      .where(
-        sql`${shippingGuideJobs.id} = ${id} AND ${shippingGuideJobs.status} = 'uncertain'`,
-      )
-      .returning({ id: shippingGuideJobs.id });
-    return updated !== undefined;
+    return this.database.orm.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(shippingGuideJobs)
+        .set({
+          status: 'created',
+          preShipmentNumber,
+          errorCode: null,
+          updatedAt: new Date(),
+        })
+        .where(
+          sql`${shippingGuideJobs.id} = ${id} AND ${shippingGuideJobs.status} = 'uncertain'`,
+        )
+        .returning({ id: shippingGuideJobs.id });
+      if (updated === undefined) return false;
+      await tx.execute(sql`
+        INSERT INTO whatsapp_conversation_messages
+          (conversation_id, source, message_type, status, occurred_at,
+           guide_job_id, guide_order_id)
+        SELECT link.origin_conversation_id, 'system', 'event', 'internal',
+          job.updated_at, job.id, job.order_id
+        FROM shipping_guide_jobs job
+        JOIN conversation_order_links link ON link.order_id = job.order_id
+        WHERE job.id = ${id}
+        ON CONFLICT (guide_job_id) DO NOTHING
+      `);
+      return true;
+    });
   }
 }

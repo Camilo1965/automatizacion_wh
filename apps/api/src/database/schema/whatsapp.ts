@@ -17,6 +17,7 @@ import {
 
 import { catalogReferences } from './catalog.js';
 import { salesOrders } from './orders.js';
+import { shippingGuideJobs } from './shipping.js';
 
 export const whatsappInboundMessages = pgTable(
   'whatsapp_inbound_messages',
@@ -118,6 +119,26 @@ export const whatsappConversations = pgTable(
   ],
 );
 
+export const conversationOrderLinks = pgTable(
+  'conversation_order_links',
+  {
+    orderId: uuid('order_id')
+      .primaryKey()
+      .references(() => salesOrders.id, { onDelete: 'restrict' }),
+    originConversationId: uuid('origin_conversation_id')
+      .notNull()
+      .references(() => whatsappConversations.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('conversation_order_links_conversation_idx').on(
+      table.originConversationId,
+    ),
+  ],
+);
+
 export const whatsappConversationMessages = pgTable(
   'whatsapp_conversation_messages',
   {
@@ -132,6 +153,12 @@ export const whatsappConversationMessages = pgTable(
     textBody: text('text_body'),
     mediaStorageKey: varchar('media_storage_key', { length: 255 }),
     mediaMimeType: varchar('media_mime_type', { length: 32 }),
+    guideJobId: uuid('guide_job_id').references(() => shippingGuideJobs.id, {
+      onDelete: 'restrict',
+    }),
+    guideOrderId: uuid('guide_order_id').references(() => salesOrders.id, {
+      onDelete: 'restrict',
+    }),
     status: varchar('status', { length: 16 }).notNull(),
     occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
@@ -148,9 +175,12 @@ export const whatsappConversationMessages = pgTable(
     unique('whatsapp_conversation_messages_outbound_unique').on(
       table.outboundMessageId,
     ),
+    unique('whatsapp_conversation_messages_guide_job_unique').on(
+      table.guideJobId,
+    ),
     check(
       'whatsapp_conversation_messages_source_allowed',
-      sql`${table.source} IN ('customer', 'bot', 'owner_panel', 'owner_mobile')`,
+      sql`${table.source} IN ('customer', 'bot', 'owner_panel', 'owner_mobile', 'system')`,
     ),
     check(
       'whatsapp_conversation_messages_type_allowed',
@@ -158,7 +188,14 @@ export const whatsappConversationMessages = pgTable(
     ),
     check(
       'whatsapp_conversation_messages_status_allowed',
-      sql`${table.status} IN ('received', 'queued', 'sent', 'delivered', 'read', 'failed', 'cancelled')`,
+      sql`${table.status} IN ('received', 'queued', 'sent', 'delivered', 'read', 'failed', 'cancelled', 'internal')`,
+    ),
+    check(
+      'whatsapp_conversation_messages_guide_event_valid',
+      sql`(${table.guideJobId} IS NULL AND ${table.guideOrderId} IS NULL)
+        OR (${table.guideJobId} IS NOT NULL AND ${table.guideOrderId} IS NOT NULL
+          AND ${table.source} = 'system' AND ${table.messageType} = 'event'
+          AND ${table.status} = 'internal')`,
     ),
     index('whatsapp_conversation_messages_conversation_time_idx').on(
       table.conversationId,
