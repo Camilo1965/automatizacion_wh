@@ -139,13 +139,11 @@ describe('ShippingGuideService', () => {
     };
     const storage = {
       read: vi.fn(),
-      save: vi
-        .fn()
-        .mockResolvedValue({
-          storageKey: 'generated.pdf',
-          sha256: null,
-          byteSize: bytes.byteLength,
-        }),
+      save: vi.fn().mockResolvedValue({
+        storageKey: 'generated.pdf',
+        sha256: null,
+        byteSize: bytes.byteLength,
+      }),
       delete: vi.fn(),
     };
     const service = new ShippingGuideService(
@@ -177,13 +175,11 @@ describe('ShippingGuideService', () => {
     };
     const storage = {
       read: vi.fn(),
-      save: vi
-        .fn()
-        .mockResolvedValue({
-          storageKey: 'generated.pdf',
-          sha256: null,
-          byteSize: bytes.byteLength,
-        }),
+      save: vi.fn().mockResolvedValue({
+        storageKey: 'generated.pdf',
+        sha256: null,
+        byteSize: bytes.byteLength,
+      }),
       delete: vi.fn(),
     };
     const service = new ShippingGuideService(
