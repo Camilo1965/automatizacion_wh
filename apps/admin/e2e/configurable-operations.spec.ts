@@ -4,7 +4,7 @@ import { E2E_API_ORIGIN, E2E_USERNAME, E2E_PASSWORD } from './constants';
 
 test('owner publishes localities, edits the bot and configures a municipal insurance rule', async ({
   page,
-}) => {
+}, testInfo) => {
   await page.setExtraHTTPHeaders({
     'x-camila-test-client': 'configurable-owner-e2e',
   });
@@ -35,9 +35,10 @@ test('owner publishes localities, edits the bot and configures a municipal insur
     page.getByRole('heading', { name: 'Listado activo' }),
   ).toBeVisible();
   await page.goto('/settings/bot-flow');
+  const welcomeMessage = `¡Hola! Bienvenida a KAIRO. ¿Qué talla buscas? (${testInfo.repeatEachIndex + 1})`;
   await page
     .getByLabel('Mensaje para el cliente', { exact: true })
-    .fill('¡Hola! Bienvenida a KAIRO. ¿Qué talla buscas?');
+    .fill(welcomeMessage);
   await page
     .getByRole('button', { name: 'Guardar borrador', exact: true })
     .click();
@@ -57,7 +58,7 @@ test('owner publishes localities, edits the bot and configures a municipal insur
     .getByRole('button', { name: 'Probar borrador', exact: true })
     .click();
   await expect(
-    page.getByText('Bot: ¡Hola! Bienvenida a KAIRO. ¿Qué talla buscas?', {
+    page.getByText(`Bot: ${welcomeMessage}`, {
       exact: true,
     }),
   ).toBeVisible();
