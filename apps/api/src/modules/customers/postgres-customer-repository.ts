@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableName, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import {
@@ -73,11 +73,16 @@ export interface CustomerRepository {
   }): Promise<CustomerReconciliation>;
 }
 
+const customerTableName = sql.identifier(getTableName(customers));
+const customerIdIdentifier = sql.identifier(customers.id.name);
+const customerNeedsReviewIdentifier = sql.identifier(
+  customers.needsReview.name,
+);
 const segmentSql = sql<CustomerSegment>`CASE
-  WHEN ${customers.needsReview} THEN 'needs_review'
+  WHEN ${customerTableName}.${customerNeedsReviewIdentifier} THEN 'needs_review'
   WHEN EXISTS (
     SELECT 1 FROM sales_orders AS delivered_order
-    WHERE delivered_order.customer_id = ${customers.id}
+    WHERE delivered_order.customer_id = ${customerTableName}.${customerIdIdentifier}
       AND delivered_order.status = 'delivered'
   ) THEN 'buyer'
   ELSE 'not_yet_buyer'
@@ -87,7 +92,7 @@ const lastActivitySql = sql<Date>`GREATEST(
   ${customers.updatedAt},
   COALESCE((SELECT MAX(o.updated_at) FROM sales_orders AS o WHERE o.customer_id = ${customers.id}), ${customers.updatedAt}),
   COALESCE((SELECT MAX(c.updated_at) FROM whatsapp_conversations AS c WHERE c.customer_id = ${customers.id}), ${customers.updatedAt})
-)`;
+)`.mapWith((value) => new Date(String(value)));
 
 function escapeLikePattern(value: string): string {
   return value

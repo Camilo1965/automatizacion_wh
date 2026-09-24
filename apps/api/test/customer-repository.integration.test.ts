@@ -4,6 +4,7 @@ import postgres from 'postgres';
 import { createPostgresDatabase } from '../src/database/client.js';
 import { runMigrations } from '../src/database/migrate.js';
 import { PostgresCustomerRepository } from '../src/modules/customers/postgres-customer-repository.js';
+import { CustomerService } from '../src/modules/customers/customer-service.js';
 import {
   assertTestDatabaseName,
   requireTestDatabaseUrl,
@@ -61,11 +62,10 @@ describe('customer read model', () => {
     const database = createPostgresDatabase(databaseUrl);
     try {
       const repository = new PostgresCustomerRepository(database);
-      expect(
-        (await repository.list({ segment: 'buyer', limit: 20 })).items.map(
-          (item) => item.id,
-        ),
-      ).toEqual([buyer]);
+      const buyers = await repository.list({ segment: 'buyer', limit: 20 });
+      expect(buyers.items.map((item) => item.id)).toEqual([buyer]);
+      expect(buyers.items[0]?.segment).toBe('buyer');
+      expect((await repository.get(buyer))?.segment).toBe('buyer');
       expect(
         (
           await repository.list({ segment: 'not_yet_buyer', limit: 20 })
@@ -76,6 +76,24 @@ describe('customer read model', () => {
           await repository.list({ segment: 'needs_review', limit: 20 })
         ).items.map((item) => item.id),
       ).toEqual([review]);
+    } finally {
+      await database.close();
+    }
+  });
+
+  it('serializes aggregate activity timestamps from PostgreSQL as ISO strings', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    try {
+      const service = new CustomerService(
+        new PostgresCustomerRepository(database),
+      );
+      const page = await service.list({ limit: 20 });
+      expect(page.items).toHaveLength(4);
+      expect(
+        page.items.every((item) =>
+          Number.isFinite(Date.parse(item.lastActivityAt)),
+        ),
+      ).toBe(true);
     } finally {
       await database.close();
     }
