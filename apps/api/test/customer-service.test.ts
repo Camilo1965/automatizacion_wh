@@ -113,6 +113,7 @@ describe('customer service', () => {
     });
     expect(reconciliation).toHaveBeenLastCalledWith({
       limit: 1,
+      kind: 'all',
       ordersAfter: ordersCursor,
       conversationsAfter: conversationsCursor,
     });

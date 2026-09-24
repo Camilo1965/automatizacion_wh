@@ -22,6 +22,7 @@ export const CustomerListQuerySchema = z
 export const CustomerReconciliationQuerySchema = z
   .object({
     limit: z.coerce.number().int().min(1).max(100).default(25),
+    kind: z.enum(['all', 'orders', 'conversations']).default('all'),
     ordersCursor: z.string().min(1).max(512).optional(),
     conversationsCursor: z.string().min(1).max(512).optional(),
   })

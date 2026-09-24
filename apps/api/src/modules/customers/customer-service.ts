@@ -136,11 +136,14 @@ export class CustomerService {
 
   async reconciliation(input: {
     limit: number;
+    kind?: 'all' | 'orders' | 'conversations';
     ordersCursor?: string;
     conversationsCursor?: string;
   }): Promise<CustomerReconciliation> {
+    const kind = input.kind ?? 'all';
     const queue = await this.repository.reconciliation({
       limit: input.limit,
+      kind,
       ...(input.ordersCursor === undefined
         ? {}
         : { ordersAfter: decodeCursor(input.ordersCursor) }),
@@ -149,7 +152,7 @@ export class CustomerService {
         : { conversationsAfter: decodeCursor(input.conversationsCursor) }),
     });
     return CustomerReconciliationSchema.parse({
-      orders: queue.orders.map((order) => ({
+      orders: (kind === 'conversations' ? [] : queue.orders).map((order) => ({
         id: order.id,
         orderNumber: order.orderNumber,
         customerName: order.customerName,
@@ -158,15 +161,19 @@ export class CustomerService {
         createdAt: order.createdAt.toISOString(),
         href: order.href,
       })),
-      conversations: queue.conversations.map((conversation) => ({
-        id: conversation.id,
-        customerPhone: conversation.customerPhone,
-        state: conversation.state,
-        createdAt: conversation.createdAt.toISOString(),
-        href: conversation.href,
-      })),
-      ordersNextCursor: encodeCursor(queue.ordersNextCursor),
-      conversationsNextCursor: encodeCursor(queue.conversationsNextCursor),
+      conversations: (kind === 'orders' ? [] : queue.conversations).map(
+        (conversation) => ({
+          id: conversation.id,
+          customerPhone: conversation.customerPhone,
+          state: conversation.state,
+          createdAt: conversation.createdAt.toISOString(),
+          href: conversation.href,
+        }),
+      ),
+      ordersNextCursor:
+        kind === 'conversations' ? null : encodeCursor(queue.ordersNextCursor),
+      conversationsNextCursor:
+        kind === 'orders' ? null : encodeCursor(queue.conversationsNextCursor),
     });
   }
 }

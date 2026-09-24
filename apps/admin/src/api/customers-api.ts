@@ -33,11 +33,13 @@ export async function getCustomer(id: string) {
 
 export async function getCustomerReconciliation(
   input: {
+    kind?: 'all' | 'orders' | 'conversations';
     ordersCursor?: string | null;
     conversationsCursor?: string | null;
   } = {},
 ) {
   const params = new URLSearchParams({ limit: '25' });
+  params.set('kind', input.kind ?? 'all');
   if (input.ordersCursor) params.set('ordersCursor', input.ordersCursor);
   if (input.conversationsCursor)
     params.set('conversationsCursor', input.conversationsCursor);

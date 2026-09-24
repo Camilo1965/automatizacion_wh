@@ -67,6 +67,7 @@ export interface CustomerRepository {
   get(id: string): Promise<CustomerDetail | null>;
   reconciliation(input: {
     limit: number;
+    kind?: 'all' | 'orders' | 'conversations';
     ordersAfter?: CustomerCursor;
     conversationsAfter?: CustomerCursor;
   }): Promise<CustomerReconciliation>;
@@ -222,54 +223,60 @@ export class PostgresCustomerRepository implements CustomerRepository {
 
   async reconciliation(input: {
     limit: number;
+    kind?: 'all' | 'orders' | 'conversations';
     ordersAfter?: CustomerCursor;
     conversationsAfter?: CustomerCursor;
   }): Promise<CustomerReconciliation> {
     const boundedLimit = Math.max(1, Math.min(100, input.limit));
+    const kind = input.kind ?? 'all';
     const [orders, conversations] = await Promise.all([
-      this.database.orm
-        .select({
-          id: salesOrders.id,
-          orderNumber: salesOrders.orderNumber,
-          customerName: salesOrders.customerName,
-          customerPhone: salesOrders.customerPhone,
-          status: salesOrders.status,
-          createdAt: salesOrders.createdAt,
-          cursorCreatedAt: sql<string>`to_char(${salesOrders.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
-        })
-        .from(salesOrders)
-        .where(
-          and(
-            sql`${salesOrders.customerId} IS NULL`,
-            input.ordersAfter === undefined
-              ? undefined
-              : sql`(${salesOrders.createdAt}, ${salesOrders.id}) < (${input.ordersAfter.createdAt}::timestamptz, ${input.ordersAfter.id}::uuid)`,
-          ),
-        )
-        .orderBy(desc(salesOrders.createdAt), desc(salesOrders.id))
-        .limit(boundedLimit + 1),
-      this.database.orm
-        .select({
-          id: whatsappConversations.id,
-          customerPhone: whatsappConversations.customerPhone,
-          state: whatsappConversations.state,
-          createdAt: whatsappConversations.createdAt,
-          cursorCreatedAt: sql<string>`to_char(${whatsappConversations.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
-        })
-        .from(whatsappConversations)
-        .where(
-          and(
-            sql`${whatsappConversations.customerId} IS NULL`,
-            input.conversationsAfter === undefined
-              ? undefined
-              : sql`(${whatsappConversations.createdAt}, ${whatsappConversations.id}) < (${input.conversationsAfter.createdAt}::timestamptz, ${input.conversationsAfter.id}::uuid)`,
-          ),
-        )
-        .orderBy(
-          desc(whatsappConversations.createdAt),
-          desc(whatsappConversations.id),
-        )
-        .limit(boundedLimit + 1),
+      kind === 'conversations'
+        ? Promise.resolve([])
+        : this.database.orm
+            .select({
+              id: salesOrders.id,
+              orderNumber: salesOrders.orderNumber,
+              customerName: salesOrders.customerName,
+              customerPhone: salesOrders.customerPhone,
+              status: salesOrders.status,
+              createdAt: salesOrders.createdAt,
+              cursorCreatedAt: sql<string>`to_char(${salesOrders.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+            })
+            .from(salesOrders)
+            .where(
+              and(
+                sql`${salesOrders.customerId} IS NULL`,
+                input.ordersAfter === undefined
+                  ? undefined
+                  : sql`(${salesOrders.createdAt}, ${salesOrders.id}) < (${input.ordersAfter.createdAt}::timestamptz, ${input.ordersAfter.id}::uuid)`,
+              ),
+            )
+            .orderBy(desc(salesOrders.createdAt), desc(salesOrders.id))
+            .limit(boundedLimit + 1),
+      kind === 'orders'
+        ? Promise.resolve([])
+        : this.database.orm
+            .select({
+              id: whatsappConversations.id,
+              customerPhone: whatsappConversations.customerPhone,
+              state: whatsappConversations.state,
+              createdAt: whatsappConversations.createdAt,
+              cursorCreatedAt: sql<string>`to_char(${whatsappConversations.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+            })
+            .from(whatsappConversations)
+            .where(
+              and(
+                sql`${whatsappConversations.customerId} IS NULL`,
+                input.conversationsAfter === undefined
+                  ? undefined
+                  : sql`(${whatsappConversations.createdAt}, ${whatsappConversations.id}) < (${input.conversationsAfter.createdAt}::timestamptz, ${input.conversationsAfter.id}::uuid)`,
+              ),
+            )
+            .orderBy(
+              desc(whatsappConversations.createdAt),
+              desc(whatsappConversations.id),
+            )
+            .limit(boundedLimit + 1),
     ]);
     const pageOrders = orders.slice(0, boundedLimit);
     const pageConversations = conversations.slice(0, boundedLimit);

@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import postgres from 'postgres';
 
 import { createPostgresDatabase } from '../src/database/client.js';
@@ -166,16 +166,27 @@ describe('customer read model', () => {
       ]);
       expect(third.ordersNextCursor).toBeNull();
       expect(third.conversationsNextCursor).toBeNull();
+      const select = vi.spyOn(database.orm, 'select');
       const ordersOnly = await repository.reconciliation({
         limit: 1,
+        kind: 'orders',
         ordersAfter: queue.ordersNextCursor!,
       });
       expect(ordersOnly.orders[0]?.id).toBe(
         '10000000-0000-4000-8000-000000000010',
       );
-      expect(ordersOnly.conversations[0]?.id).toBe(
-        '20000000-0000-4000-8000-000000000004',
-      );
+      expect(ordersOnly.conversations).toEqual([]);
+      expect(ordersOnly.conversationsNextCursor).toBeNull();
+      expect(select).toHaveBeenCalledTimes(1);
+      select.mockClear();
+      const conversationsOnly = await repository.reconciliation({
+        limit: 1,
+        kind: 'conversations',
+        conversationsAfter: queue.conversationsNextCursor!,
+      });
+      expect(conversationsOnly.orders).toEqual([]);
+      expect(conversationsOnly.ordersNextCursor).toBeNull();
+      expect(select).toHaveBeenCalledTimes(1);
     } finally {
       await database.close();
     }

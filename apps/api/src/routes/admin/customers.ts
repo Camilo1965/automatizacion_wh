@@ -37,6 +37,7 @@ export async function registerCustomerRoutes(
     return reply.status(200).send({
       data: await customerService.reconciliation({
         limit: query.limit,
+        kind: query.kind,
         ...(query.ordersCursor === undefined
           ? {}
           : { ordersCursor: query.ordersCursor }),

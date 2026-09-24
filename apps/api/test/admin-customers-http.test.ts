@@ -144,7 +144,15 @@ describe('admin customer HTTP API', () => {
           address: 'secret',
         },
       ],
-      conversations: [],
+      conversations: [
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          customerPhone: '+573009999999',
+          state: 'idle',
+          createdAt: new Date('2026-09-22T11:00:00Z'),
+          href: '/conversations?conversation=33333333-3333-4333-8333-333333333333',
+        },
+      ],
       ordersNextCursor: ordersNext,
       conversationsNextCursor: conversationsNext,
     });
@@ -223,13 +231,22 @@ describe('admin customer HTTP API', () => {
         ).toBe(400);
       }
       expect(reconciliation).not.toHaveBeenCalled();
+      expect(
+        (
+          await app.inject({
+            method: 'GET',
+            url: '/api/admin/customers/reconciliation?kind=other',
+            headers,
+          })
+        ).statusCode,
+      ).toBe(400);
       const response = await app.inject({
         method: 'GET',
         url: '/api/admin/customers/reconciliation?limit=1',
         headers,
       });
       expect(response.statusCode).toBe(200);
-      expect(reconciliation).toHaveBeenCalledWith({ limit: 1 });
+      expect(reconciliation).toHaveBeenCalledWith({ limit: 1, kind: 'all' });
       expect(response.json().data.ordersNextCursor).toEqual(expect.any(String));
       expect(response.json().data.conversationsNextCursor).toEqual(
         expect.any(String),
@@ -251,9 +268,22 @@ describe('admin customer HTTP API', () => {
       expect(second.statusCode).toBe(200);
       expect(reconciliation).toHaveBeenLastCalledWith({
         limit: 1,
+        kind: 'all',
         ordersAfter: ordersNext,
         conversationsAfter: conversationsNext,
       });
+      const ordersOnly = await app.inject({
+        method: 'GET',
+        url: '/api/admin/customers/reconciliation?kind=orders&limit=1',
+        headers,
+      });
+      expect(ordersOnly.statusCode).toBe(200);
+      expect(reconciliation).toHaveBeenLastCalledWith({
+        limit: 1,
+        kind: 'orders',
+      });
+      expect(ordersOnly.json().data.conversations).toEqual([]);
+      expect(ordersOnly.json().data.conversationsNextCursor).toBeNull();
       expect(
         (
           await app.inject({

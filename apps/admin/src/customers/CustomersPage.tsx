@@ -1,5 +1,10 @@
 import { useState, type FormEvent } from 'react';
-import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import type {
   CustomerReconciliation,
@@ -144,47 +149,73 @@ export function CustomersPage() {
 }
 
 export function CustomerReconciliationPage() {
+  const client = useQueryClient();
   const query = useQuery({
     queryKey: ['customers-reconciliation'],
     queryFn: () => getCustomerReconciliation(),
   });
-  const [loaded, setLoaded] = useState<CustomerReconciliation | null>(null);
-  const current = loaded ?? query.data;
+  const [loaded, setLoaded] = useState<{
+    base: CustomerReconciliation;
+    value: CustomerReconciliation;
+  } | null>(null);
+  const current =
+    loaded !== null && loaded.base === query.data ? loaded.value : query.data;
   const more = useMutation({
-    mutationFn: async (kind: 'orders' | 'conversations') => ({
-      kind,
-      page: await getCustomerReconciliation({
-        ordersCursor: current?.ordersNextCursor ?? null,
-        conversationsCursor: current?.conversationsNextCursor ?? null,
-      }),
-    }),
-    onSuccess: ({ kind, page }) => {
+    mutationFn: (input: {
+      kind: 'orders' | 'conversations';
+      base: CustomerReconciliation;
+      ordersCursor: string | null;
+      conversationsCursor: string | null;
+    }) => getCustomerReconciliation(input),
+    onSuccess: (page, input) => {
+      if (
+        client.getQueryData<CustomerReconciliation>([
+          'customers-reconciliation',
+        ]) !== input.base
+      )
+        return;
       setLoaded((previous) => {
-        const existing = previous ?? query.data;
-        if (!existing) return page;
-        if (kind === 'orders') {
+        const existing =
+          previous?.base === input.base ? previous.value : input.base;
+        if (input.kind === 'orders') {
           const ids = new Set(existing.orders.map((item) => item.id));
           return {
-            ...existing,
-            orders: [
-              ...existing.orders,
-              ...page.orders.filter((item) => !ids.has(item.id)),
-            ],
-            ordersNextCursor: page.ordersNextCursor,
+            base: input.base,
+            value: {
+              ...existing,
+              orders: [
+                ...existing.orders,
+                ...page.orders.filter((item) => !ids.has(item.id)),
+              ],
+              ordersNextCursor: page.ordersNextCursor,
+            },
           };
         }
         const ids = new Set(existing.conversations.map((item) => item.id));
         return {
-          ...existing,
-          conversations: [
-            ...existing.conversations,
-            ...page.conversations.filter((item) => !ids.has(item.id)),
-          ],
-          conversationsNextCursor: page.conversationsNextCursor,
+          base: input.base,
+          value: {
+            ...existing,
+            conversations: [
+              ...existing.conversations,
+              ...page.conversations.filter((item) => !ids.has(item.id)),
+            ],
+            conversationsNextCursor: page.conversationsNextCursor,
+          },
         };
       });
     },
   });
+
+  function loadMore(kind: 'orders' | 'conversations') {
+    if (!query.data || !current || more.isPending) return;
+    more.mutate({
+      kind,
+      base: query.data,
+      ordersCursor: current.ordersNextCursor,
+      conversationsCursor: current.conversationsNextCursor,
+    });
+  }
 
   return (
     <section className="space-y-6" aria-label="Pendientes por revisar">
@@ -249,7 +280,7 @@ export function CustomerReconciliationPage() {
               <Button
                 variant="secondary"
                 loading={more.isPending}
-                onClick={() => more.mutate('orders')}
+                onClick={() => loadMore('orders')}
               >
                 Cargar más pedidos pendientes
               </Button>
@@ -283,7 +314,7 @@ export function CustomerReconciliationPage() {
               <Button
                 variant="secondary"
                 loading={more.isPending}
-                onClick={() => more.mutate('conversations')}
+                onClick={() => loadMore('conversations')}
               >
                 Cargar más conversaciones pendientes
               </Button>
