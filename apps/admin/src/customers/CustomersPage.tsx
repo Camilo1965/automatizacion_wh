@@ -156,14 +156,20 @@ export function CustomerReconciliationPage() {
   });
   const [loaded, setLoaded] = useState<{
     base: CustomerReconciliation;
+    baseUpdatedAt: number;
     value: CustomerReconciliation;
   } | null>(null);
   const current =
-    loaded !== null && loaded.base === query.data ? loaded.value : query.data;
+    loaded !== null &&
+    loaded.base === query.data &&
+    loaded.baseUpdatedAt === query.dataUpdatedAt
+      ? loaded.value
+      : query.data;
   const more = useMutation({
     mutationFn: (input: {
       kind: 'orders' | 'conversations';
       base: CustomerReconciliation;
+      baseUpdatedAt: number;
       ordersCursor: string | null;
       conversationsCursor: string | null;
     }) => getCustomerReconciliation(input),
@@ -171,16 +177,22 @@ export function CustomerReconciliationPage() {
       if (
         client.getQueryData<CustomerReconciliation>([
           'customers-reconciliation',
-        ]) !== input.base
+        ]) !== input.base ||
+        client.getQueryState(['customers-reconciliation'])?.dataUpdatedAt !==
+          input.baseUpdatedAt
       )
         return;
       setLoaded((previous) => {
         const existing =
-          previous?.base === input.base ? previous.value : input.base;
+          previous?.base === input.base &&
+          previous.baseUpdatedAt === input.baseUpdatedAt
+            ? previous.value
+            : input.base;
         if (input.kind === 'orders') {
           const ids = new Set(existing.orders.map((item) => item.id));
           return {
             base: input.base,
+            baseUpdatedAt: input.baseUpdatedAt,
             value: {
               ...existing,
               orders: [
@@ -194,6 +206,7 @@ export function CustomerReconciliationPage() {
         const ids = new Set(existing.conversations.map((item) => item.id));
         return {
           base: input.base,
+          baseUpdatedAt: input.baseUpdatedAt,
           value: {
             ...existing,
             conversations: [
@@ -212,6 +225,7 @@ export function CustomerReconciliationPage() {
     more.mutate({
       kind,
       base: query.data,
+      baseUpdatedAt: query.dataUpdatedAt,
       ordersCursor: current.ordersNextCursor,
       conversationsCursor: current.conversationsNextCursor,
     });

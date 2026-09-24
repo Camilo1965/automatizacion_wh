@@ -12,6 +12,7 @@ import { state } from '../test/handlers';
 const customerId = '11111111-1111-4111-8111-111111111111';
 const orderA = '22222222-2222-4222-8222-222222222222';
 const orderB = '33333333-3333-4333-8333-333333333333';
+const orderC = '66666666-6666-4666-8666-666666666666';
 const chatA = '44444444-4444-4444-8444-444444444444';
 const chatB = '55555555-5555-4555-8555-555555555555';
 const timestamp = '2026-09-22T12:00:00.000Z';
@@ -327,5 +328,145 @@ describe('CustomersPage', () => {
     expect(
       within(orderSection).queryByRole('link', { name: 'PED-000002' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('invalidates appended orders after a refetch with an unchanged first page', async () => {
+    state.authenticated = true;
+    let firstPageCalls = 0;
+    let secondPageCalls = 0;
+    server.use(
+      http.get('/api/admin/customers/reconciliation', ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        if (params.get('kind') === 'orders') {
+          secondPageCalls += 1;
+          return HttpResponse.json({
+            data: {
+              orders: [
+                secondPageCalls === 1
+                  ? unlinkedOrder(orderB, 'PED-000002')
+                  : unlinkedOrder(orderC, 'PED-000003'),
+              ],
+              conversations: [],
+              ordersNextCursor: null,
+              conversationsNextCursor: null,
+            },
+          });
+        }
+        firstPageCalls += 1;
+        return HttpResponse.json({
+          data: {
+            orders: [unlinkedOrder(orderA, 'PED-000001')],
+            conversations: [unlinkedConversation(chatA)],
+            ordersNextCursor: 'order-page-2',
+            conversationsNextCursor: null,
+          },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <App />
+        <RefreshReconciliationButton />
+      </>,
+      { initialEntries: ['/customers/reconciliation'] },
+    );
+    const orderSection = await screen.findByRole('region', {
+      name: 'Pedidos pendientes',
+    });
+    expect(
+      await within(orderSection).findByRole('link', { name: 'PED-000001' }),
+    ).toBeVisible();
+    await user.click(
+      within(orderSection).getByRole('button', {
+        name: 'Cargar más pedidos pendientes',
+      }),
+    );
+    expect(
+      await within(orderSection).findByRole('link', { name: 'PED-000002' }),
+    ).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Refrescar prueba' }));
+    await waitFor(() => expect(firstPageCalls).toBe(2));
+    await waitFor(() =>
+      expect(
+        within(orderSection).queryByRole('link', { name: 'PED-000002' }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      within(orderSection).getByRole('link', { name: 'PED-000001' }),
+    ).toBeVisible();
+    await user.click(
+      within(orderSection).getByRole('button', {
+        name: 'Cargar más pedidos pendientes',
+      }),
+    );
+    expect(
+      await within(orderSection).findByRole('link', { name: 'PED-000003' }),
+    ).toBeVisible();
+  });
+
+  it('ignores a late order page from before an unchanged first-page refetch', async () => {
+    state.authenticated = true;
+    let firstPageCalls = 0;
+    let releaseSecondPage!: () => void;
+    const secondPagePending = new Promise<void>((resolve) => {
+      releaseSecondPage = resolve;
+    });
+    server.use(
+      http.get('/api/admin/customers/reconciliation', async ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        if (params.get('kind') === 'orders') {
+          await secondPagePending;
+          return HttpResponse.json({
+            data: {
+              orders: [unlinkedOrder(orderB, 'PED-000002')],
+              conversations: [],
+              ordersNextCursor: null,
+              conversationsNextCursor: null,
+            },
+          });
+        }
+        firstPageCalls += 1;
+        return HttpResponse.json({
+          data: {
+            orders: [unlinkedOrder(orderA, 'PED-000001')],
+            conversations: [unlinkedConversation(chatA)],
+            ordersNextCursor: 'order-page-2',
+            conversationsNextCursor: null,
+          },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <App />
+        <RefreshReconciliationButton />
+      </>,
+      { initialEntries: ['/customers/reconciliation'] },
+    );
+    const orderSection = await screen.findByRole('region', {
+      name: 'Pedidos pendientes',
+    });
+    expect(
+      await within(orderSection).findByRole('link', { name: 'PED-000001' }),
+    ).toBeVisible();
+    const loadButton = within(orderSection).getByRole('button', {
+      name: 'Cargar más pedidos pendientes',
+    });
+    await user.click(loadButton);
+    await waitFor(() =>
+      expect(loadButton).toHaveAttribute('aria-busy', 'true'),
+    );
+    await user.click(screen.getByRole('button', { name: 'Refrescar prueba' }));
+    await waitFor(() => expect(firstPageCalls).toBe(2));
+    releaseSecondPage();
+    await waitFor(() => expect(loadButton).not.toHaveAttribute('aria-busy'));
+    expect(
+      within(orderSection).queryByRole('link', { name: 'PED-000002' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(orderSection).getByRole('link', { name: 'PED-000001' }),
+    ).toBeVisible();
   });
 });
