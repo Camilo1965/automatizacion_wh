@@ -10,12 +10,13 @@
 
 ## Global Constraints
 
-- `customer_id` is the stable primary identity; a phone number is a contact field and a reconciliation key.
+- `customer_id` is the stable primary identity; a phone number is a contact field and a reconciliation key, and may be null only after explicit customer anonymization.
 - A buyer has an order marked `delivered` that is not `returned`; confirmed or dispatched orders alone do not qualify.
 - There is no payment evidence in the present data model; do not invent or infer a paid state.
 - Unknown marketing consent is the default. This MVP has no Ads export, audience sync, or promotional messaging.
 - Ambiguous shared-phone contacts are marked for review and excluded from future marketing audiences.
 - Do not silently merge profiles when contact details change.
+- Explicit customer anonymization clears direct profile PII and consent evidence while retaining the stable UUID and operational record history; it does not add an automatic retention duration.
 - All customer APIs require existing admin authentication and apply the least-privilege PII patterns in the app.
 
 ---
@@ -88,15 +89,19 @@
 - `CustomerSegment = 'buyer' | 'not_yet_buyer' | 'needs_review'` is derived in SQL from delivery and profile review state; no writable segment field.
 - `GET /api/admin/customers?segment=&query=&limit=&cursor=` returns a paged summary.
 - `GET /api/admin/customers/:customerId` returns contact history with associated conversations and orders.
+- `GET /api/admin/customers/reconciliation?kind=orders|conversations|all&limit=&ordersCursor=&conversationsCursor=` returns separate, bounded, independently cursor-paginated lists of historical orders and conversations whose `customer_id` is null. `kind=all` is the initial-load default; a one-kind request must query and return only that type. Every pending row must be reachable. Invalid cursors are rejected as 400 before database access. This is a read-only review queue; it must not guess identities, merge profiles, or mutate records.
 
-- [ ] Test the buyer predicate: delivered qualifies; draft, confirmed, dispatched, cancelled, and returned alone do not; another valid delivered order keeps the customer a buyer after one return.
-- [ ] Test 401 unauthenticated access, 404 unknown customer, strict query validation, stable cursor pagination, and PII projection.
-- [ ] Run focused contract/service/API tests and confirm failures.
-- [ ] Implement queries with parameterized search, bounded page size, stable sort, and no raw consent evidence in list responses.
-- [ ] Make `needs_review` visible as a separate segment, excluded from “buyers” and “sin compra acreditada” filters until reviewed.
-- [ ] Register routes with existing admin authentication and ensure no write route or export route is introduced.
-- [ ] Rerun focused API tests and typecheck contracts/API.
-- [ ] Commit as `feat: add customer history and purchase filters API`.
+- [x] Test the buyer predicate: delivered qualifies; draft, confirmed, dispatched, cancelled, and returned alone do not; another valid delivered order keeps the customer a buyer after one return.
+- [x] Test 401 unauthenticated access, 404 unknown customer, strict query validation, stable cursor pagination, and PII projection.
+- [x] Test that the reconciliation API returns only unlinked orders/conversations, is authenticated, bounds and cursor-paginates each type until all pending rows are reachable, rejects invalid cursors with 400, and omits address/provider payloads and consent evidence.
+- [x] Test malformed or impossible customer/reconciliation cursor timestamps return 400 without surfacing database errors.
+- [x] Run focused contract/service/API tests and confirm failures.
+- [x] Implement queries with parameterized search, bounded page size, stable sort, and no raw consent evidence in list responses.
+- [x] Make `needs_review` visible as a separate segment, excluded from “buyers” and “sin compra acreditada” filters until reviewed.
+- [x] Register routes with existing admin authentication and ensure no write route or export route is introduced.
+- [x] Add the read-only reconciliation query using stable, bounded, independently cursor-paginated per-type ordering and minimal operator-review fields (record ID, display name/phone when available, timestamp, status, and existing detail-route ID); reject invalid timestamp/UUID cursors before query execution; do not auto-link records.
+- [x] Rerun focused API tests and typecheck contracts/API.
+- [x] Commit as `feat: add customer history and purchase filters API` (fix commit `43776f2` after scoped re-review).
 
 ### Task 4: Add the customer directory and history view
 
@@ -109,33 +114,55 @@
 - Modify: `apps/admin/src/more/MorePage.tsx`
 - Modify: `apps/admin/src/conversations/ConversationInboxPage.tsx`
 - Modify: `apps/admin/src/conversations/ConversationInboxPage.test.tsx`
+- Modify: admin conversation API response/repository typing to include nullable `customerId` for the selected conversation.
+- Test: admin conversation API projection returns `customerId` without exposing other customer PII.
+- Modify: customer reconciliation contract/service/repository/API to allow requesting only orders, only conversations, or both; a one-type page must not query the other type.
 - Create: `apps/admin/src/customers/CustomersPage.test.tsx`
 - Create: `apps/admin/src/customers/CustomerDetailPage.test.tsx`
 
 **Interfaces:**
 - Directory filters: `Todos`, `Compradores`, `Sin compra acreditada`, and `Revisar identidad`.
+- A distinct `Pendientes por revisar` view lists historical orders and conversations without a resolved customer ID; each type has independent “cargar más” pagination until exhausted. It offers navigation to the existing record only, with no link/merge action.
 - Conversation context links to the selected customer only when `customerId` is resolved.
 - Detail view links each historic order and conversation to existing routes.
 
-- [ ] Add tests for segment filters, search, empty/error/loading states, customer history links, review state, and missing customer ID.
-- [ ] Run focused admin tests and confirm failure.
-- [ ] Implement typed API client and paginated directory with mobile-friendly controls and accessible labels.
-- [ ] Implement customer detail with contact summary, derived segment, order statuses, and conversation history.
-- [ ] Add navigation from conversations to customer detail and back while preserving selected conversation IDs.
-- [ ] Ensure there is no edit control for derived purchase status, no Ads export action, and no consent state shown as granted without evidence.
-- [ ] Rerun focused tests, admin typecheck, and E2E tests for navigation/filter behavior.
-- [ ] Commit as `feat: add customer directory and order history`.
+- [x] Add tests for segment filters, search, empty/error/loading states, customer history links, review state, missing customer ID, and read-only unlinked-record queue pagination for both record types; when loading more one type, preserve the other type's cursor, request only that type from the API, and do not append duplicate rows from the other list. Invalidate appended pages after every successful refetch, even when the first page is structurally unchanged; reject late load-more responses based on the base-query fetch epoch.
+- [x] Test that any successful reconciliation refetch after loading additional pages invalidates appended pages even when the first page is structurally identical, preventing stale rows from remaining authoritative.
+- [x] Run focused admin tests and confirm failure.
+- [x] Implement typed API client and paginated directory with mobile-friendly controls and accessible labels.
+- [x] Implement customer detail with contact summary, derived segment, order statuses, and conversation history.
+- [x] Add navigation from conversations to customer detail and back while preserving selected conversation IDs.
+- [x] Add an authenticated, accessible unlinked-record queue with independent “cargar más” controls, preserving the other queue's cursor, requesting only the selected type from the API, and ignoring exhausted-list data; clear copy that identity is unresolved, and links to existing order/conversation detail routes without implying a match.
+- [x] Ensure there is no edit control for derived purchase status, no Ads export action, and no consent state shown as granted without evidence.
+- [x] Rerun focused tests, admin typecheck, and E2E tests for navigation/filter behavior.
+- [x] Commit as `feat: add customer directory and order history` (subsequent fixes: `fdeb6b0`, `f1ff4c3`; final segment/date fixes are in Task 5).
 
 ### Task 5: Verify privacy, historical reconciliation, and release behavior
 
 **Files:**
+- Create: `apps/api/drizzle/0039_nullable_anonymized_customer_phone.sql`
+- Modify: `apps/api/drizzle/meta/_journal.json`
+- Modify: `apps/api/src/database/schema/customers.ts`
+- Modify: `packages/contracts/src/customers.ts`
+- Modify: `apps/api/src/modules/privacy/postgres-retention-data-store.ts`
+- Modify: `apps/api/src/modules/privacy/retention-service.ts`
+- Modify: `apps/admin/src/customers/CustomersPage.tsx`
+- Modify: `apps/admin/src/customers/CustomerDetailPage.tsx`
+- Test: `apps/api/test/retention.integration.test.ts`
+- Test: `apps/api/test/customer-repository.integration.test.ts`
+- Test: `apps/admin/src/customers/CustomersPage.test.tsx`
+- Test: `apps/admin/src/customers/CustomerDetailPage.test.tsx`
 - Modify: `apps/api/test/database-migrations.integration.test.ts`
-- Modify: `apps/api/test/customer-repository.integration.test.ts`
-- Modify: `apps/admin/src/customers/CustomersPage.test.tsx`
 - Modify: `docs/compliance/pii-inventory.md`
+- Create: `docs/superpowers/specs/2026-09-23-kairo-customer-anonymization-design.md`
 - Modify: `docs/release/definitive-closeout-evidence.md` only if release evidence format requires a new note.
 
 - [ ] Reconcile a sanitized sample: total historic conversations/orders, linked/unlinked counts, ambiguous contacts, and duplicate normalized-phone candidates.
+- [ ] Write a PostgreSQL integration regression test proving explicit customer anonymization clears the linked customer profile's name, phone, and consent evidence; retains its stable UUID and operational history; redacts linked orders/conversations even when their stored phone changed; and does not let a future inbound contact resolve to the anonymized profile. Run it and confirm the current implementation fails for the missing profile cleanup.
+- [ ] Allow `customers.normalized_phone` to be null only for anonymized profiles while keeping non-null phones normalized and unique; update the generated migration journal and validate upgrade behavior from the previous schema.
+- [ ] Make customer lookup, detail contracts, and directory/detail UI represent a cleared phone as unavailable without substituting an order/conversation phone or enabling identity matching.
+- [ ] Extend the existing explicit data-subject anonymization operation to find linked records by stable customer ID plus unlinked legacy records by phone; clear profile name/phone and consent evidence, reset consent to `unknown`, mark identity for review, and preserve operational records and stable foreign keys.
+- [ ] Update the PII inventory to identify the customer profile fields, the explicit anonymization relationship, and that no automatic customer-profile retention duration is approved; do not invent a legal retention period or enable automatic execution.
 - [ ] Confirm marketing consent remains `unknown`, no endpoint can export customer PII, and no outbound/ads integration consumes the customer segment.
 - [ ] Verify role boundaries and that no UI response leaks full consent proof or unnecessary address data.
 - [ ] Run `pnpm verify` from a clean worktree after both plans are implemented.
