@@ -16,6 +16,7 @@ import {
   normalizeCustomerPhone,
   resolveCustomerContact,
   lockCustomerPhone,
+  lockCustomerIds,
 } from '../customers/customer-contact.js';
 import { BotFlowDefinitionSchema } from '@camila/contracts';
 import { advanceConfiguredConversation } from './configured-flow.js';
@@ -71,11 +72,26 @@ export class PostgresConversationRepository {
           ),
         )
         .limit(1);
+      const [observed] = await tx
+        .select()
+        .from(whatsappConversations)
+        .where(eq(whatsappConversations.customerPhone, customerPhone))
+        .limit(1);
+      if (observed?.customerId !== null && observed?.customerId !== undefined)
+        await lockCustomerIds(tx, [observed.customerId]);
       const [existing] = await tx
         .select()
         .from(whatsappConversations)
         .where(eq(whatsappConversations.customerPhone, customerPhone))
         .limit(1);
+      if (
+        existing !== undefined &&
+        observed !== undefined &&
+        (existing.id !== observed.id ||
+          existing.customerId !== observed.customerId)
+      ) {
+        throw new Error('Conversation identity changed during receive');
+      }
 
       if (duplicate !== undefined) {
         return {

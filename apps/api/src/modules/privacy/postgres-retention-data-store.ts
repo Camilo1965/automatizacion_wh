@@ -17,6 +17,7 @@ import type { PrivacyDataClass, RetentionAction } from '@camila/contracts';
 import type { PostgresDatabase } from '../../database/client.js';
 import {
   lockCustomerPhone,
+  lockCustomerIds,
   type CustomerTransaction,
 } from '../customers/customer-contact.js';
 import {
@@ -451,7 +452,23 @@ export class PostgresRetentionDataStore implements RetentionDataStore {
   }> {
     return this.database.orm.transaction(async (tx) => {
       await lockCustomerPhone(tx, customerPhone);
+      const profiles = await tx
+        .select({ id: customers.id })
+        .from(customers)
+        .where(eq(customers.normalizedPhone, customerPhone));
+      await lockCustomerIds(
+        tx,
+        profiles.map((profile) => profile.id),
+      );
       const related = await this.findCustomerRelated(customerPhone, tx);
+      if (
+        related.customerIds.length !== profiles.length ||
+        related.customerIds.some(
+          (id) => !profiles.some((profile) => profile.id === id),
+        )
+      ) {
+        throw new Error('Customer identity changed during anonymization');
+      }
       const orderIds = related.orders.map((o) => o.id);
       await this.applyAction(
         'sales_orders_customer_pii',

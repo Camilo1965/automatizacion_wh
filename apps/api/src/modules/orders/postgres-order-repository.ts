@@ -40,6 +40,7 @@ import {
 } from './order-validation.js';
 import {
   lockCustomerPhones,
+  lockCustomerIds,
   resolveCustomerContact,
 } from '../customers/customer-contact.js';
 
@@ -289,6 +290,11 @@ export class PostgresOrderRepository implements OrderRepository {
           ? [values.customerPhone]
           : []),
       ]);
+      if (
+        initialIdentity?.customerId !== null &&
+        initialIdentity?.customerId !== undefined
+      )
+        await lockCustomerIds(tx, [initialIdentity.customerId]);
       const [current] = await tx
         .select()
         .from(salesOrders)
@@ -367,7 +373,45 @@ export class PostgresOrderRepository implements OrderRepository {
 
   async createSummary(orderId: string): Promise<OrderSummary> {
     return this.database.orm.transaction(async (tx) => {
+      const [observed] = await tx
+        .select({
+          customerId: salesOrders.customerId,
+          customerPhone: salesOrders.customerPhone,
+          profilePhone: customers.normalizedPhone,
+        })
+        .from(salesOrders)
+        .leftJoin(customers, eq(salesOrders.customerId, customers.id))
+        .where(eq(salesOrders.id, orderId))
+        .limit(1);
+      await lockCustomerPhones(tx, [
+        ...(observed?.customerPhone == null ? [] : [observed.customerPhone]),
+        ...(observed?.profilePhone == null ? [] : [observed.profilePhone]),
+      ]);
+      if (observed?.customerId != null)
+        await lockCustomerIds(tx, [observed.customerId]);
       const order = await this.lockOrder(tx, orderId);
+      if (
+        observed === undefined ||
+        order.customerId !== observed?.customerId ||
+        order.customerPhone !== observed.customerPhone
+      ) {
+        throw new OrderConflictError(
+          'customer_identity_mismatch',
+          'El contacto del pedido cambió o requiere revisión.',
+        );
+      }
+      if (order.customerId !== null) {
+        const [profile] = await tx
+          .select({ normalizedPhone: customers.normalizedPhone })
+          .from(customers)
+          .where(eq(customers.id, order.customerId))
+          .limit(1);
+        if (profile?.normalizedPhone == null)
+          throw new OrderConflictError(
+            'customer_identity_mismatch',
+            'El contacto del pedido cambió o requiere revisión.',
+          );
+      }
       if (order.status !== 'draft')
         throw new OrderConflictError(
           'summary_not_available',

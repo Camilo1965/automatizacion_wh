@@ -25,6 +25,7 @@ import { resolveCustomerContact } from '../src/modules/customers/customer-contac
 import { PostgresWhatsAppInboundRepository } from '../src/modules/whatsapp/postgres-whatsapp-inbound-repository.js';
 import { PostgresOutboundRepository } from '../src/modules/whatsapp/postgres-outbound-repository.js';
 import { PostgresOrderRepository } from '../src/modules/orders/postgres-order-repository.js';
+import { PostgresConversationRepository } from '../src/modules/conversations/postgres-conversation-repository.js';
 import { PostgresRetentionDataStore } from '../src/modules/privacy/postgres-retention-data-store.js';
 import { PostgresRetentionRepository } from '../src/modules/privacy/postgres-retention-repository.js';
 import {
@@ -681,8 +682,11 @@ describe('retention privacy integration', () => {
         VALUES (${referenceId}, ${`TEST-${randomUUID().slice(0, 8).toUpperCase()}`}, 'Prueba', 'Negro', 120000)`;
       await sql`INSERT INTO customers (id, display_name, normalized_phone)
         VALUES (${customerId}, 'Ana', ${phone})`;
-      await sql`INSERT INTO sales_orders (id, reference_id, size, quantity, customer_id, customer_name, customer_phone)
-        VALUES (${orderId}, ${referenceId}, 37, 1, ${customerId}, 'Ana', ${changedPhone})`;
+      await sql`INSERT INTO sales_orders
+        (id, reference_id, size, quantity, customer_id, customer_name, customer_phone,
+         address, locality_carrier_code, locality_department, locality_name)
+        VALUES (${orderId}, ${referenceId}, 37, 1, ${customerId}, 'Ana', ${changedPhone},
+          'Calle 1', '11001000', 'Bogotá', 'Bogotá')`;
       await sql`INSERT INTO whatsapp_conversations (id, customer_phone, customer_id, state, last_inbound_message_at)
         VALUES (${conversationId}, ${changedPhone}, ${customerId}, 'idle', now())`;
 
@@ -722,6 +726,27 @@ describe('retention privacy integration', () => {
           idempotencyKey: `reply-${messageId}`,
         }),
       );
+      await expectWriterWaitsOnCustomerId(sql, customerId, () =>
+        new PostgresOrderRepository(database).update({
+          orderId,
+          address: 'Calle 3',
+        }),
+      );
+      const summary = await expectWriterWaitsOnCustomerId(sql, customerId, () =>
+        new PostgresOrderRepository(database).createSummary(orderId),
+      );
+      expect(summary.snapshot).toMatchObject({
+        customer: { name: 'Ana', phone: changedPhone },
+        destination: { address: 'Calle 3' },
+      });
+      await expectWriterWaitsOnCustomerId(sql, customerId, () =>
+        new PostgresOutboundRepository(database).enqueueText({
+          conversationId,
+          customerPhone: changedPhone,
+          body: 'Otra respuesta',
+          idempotencyKey: `reply-id-${messageId}`,
+        }),
+      );
       const [counts] = await sql`SELECT
         (SELECT count(*)::int FROM whatsapp_inbound_messages WHERE whatsapp_message_id = ${`wamid.${messageId}`}) AS inbound,
         (SELECT count(*)::int FROM whatsapp_outbound_messages WHERE idempotency_key = ${`reply-${messageId}`}) AS outbound`;
@@ -731,13 +756,103 @@ describe('retention privacy integration', () => {
       await sql`DELETE FROM whatsapp_outbound_messages WHERE conversation_id = ${conversationId}`;
       await sql`DELETE FROM whatsapp_inbound_messages WHERE whatsapp_message_id = ${`wamid.${messageId}`}`;
       await sql`DELETE FROM whatsapp_conversations WHERE id = ${conversationId}`;
+      await sql`DELETE FROM order_summaries WHERE order_id = ${orderId}`;
       await sql`DELETE FROM sales_orders WHERE id = ${orderId}`;
       await sql`DELETE FROM customers WHERE id = ${customerId}`;
       await sql`DELETE FROM catalog_references WHERE id = ${referenceId}`;
       await sql.end({ timeout: 5 });
     }
   }, 20_000);
+
+  it('does not leave a concurrent changed-phone transcript linked to an anonymized customer', async () => {
+    const sql = postgres(testDatabaseUrl, { max: 4, prepare: false });
+    const profilePhone = `+573${Date.now().toString().slice(-9)}`;
+    const incomingPhone = `${profilePhone.slice(0, -1)}${(Number(profilePhone.slice(-1)) + 1) % 10}`;
+    const customerId = randomUUID();
+    const oldConversationId = randomUUID();
+    const inboundMessageId = `race-${randomUUID()}`;
+    let releaseRow!: () => void;
+    let rowLocked!: () => void;
+    const released = new Promise<void>((resolve) => {
+      releaseRow = resolve;
+    });
+    const locked = new Promise<void>((resolve) => {
+      rowLocked = resolve;
+    });
+    let holder: Promise<unknown> | undefined;
+    let anonymizing: Promise<unknown> | undefined;
+    let receiving:
+      ReturnType<PostgresConversationRepository['receive']> | undefined;
+    try {
+      await sql`INSERT INTO customers (id, display_name, normalized_phone)
+        VALUES (${customerId}, 'Ana', ${profilePhone})`;
+      await sql`INSERT INTO whatsapp_conversations (id, customer_phone, customer_id, state, last_inbound_message_at)
+        VALUES (${oldConversationId}, ${incomingPhone}, ${customerId}, 'awaiting_size', now())`;
+      holder = sql.begin(async (tx) => {
+        await tx`SELECT id FROM whatsapp_conversations WHERE id = ${oldConversationId} FOR UPDATE`;
+        rowLocked();
+        await released;
+      });
+      await locked;
+      anonymizing = new PostgresRetentionDataStore(database).anonymizeCustomer(
+        profilePhone,
+      );
+      await waitForBlockedTransactions(sql, 1);
+      receiving = new PostgresConversationRepository(database).receive({
+        whatsappMessageId: inboundMessageId,
+        customerPhone: incomingPhone,
+        text: 'Mensaje nuevo identificable',
+      });
+      await waitForBlockedTransactions(sql, 2);
+      releaseRow();
+      await holder;
+      await anonymizing;
+      const result = await receiving;
+      const [oldConversation] =
+        await sql`SELECT customer_id, customer_phone FROM whatsapp_conversations WHERE id = ${oldConversationId}`;
+      const [oldPii] =
+        await sql`SELECT count(*)::int AS count FROM whatsapp_conversation_messages
+        WHERE conversation_id = ${oldConversationId} AND text_body IS NOT NULL`;
+      const [profile] =
+        await sql`SELECT normalized_phone FROM customers WHERE id = ${customerId}`;
+      expect(profile?.normalized_phone).toBeNull();
+      expect(oldConversation?.customer_id).toBe(customerId);
+      expect(oldConversation?.customer_phone).not.toBe(incomingPhone);
+      expect(oldPii?.count).toBe(0);
+      expect(result.conversationId).not.toBe(oldConversationId);
+      expect(result.customerId).not.toBe(customerId);
+    } finally {
+      releaseRow();
+      if (holder !== undefined) await holder;
+      if (anonymizing !== undefined) await anonymizing.catch(() => undefined);
+      if (receiving !== undefined) await receiving.catch(() => undefined);
+      await sql`DELETE FROM whatsapp_conversation_messages WHERE conversation_id IN
+        (SELECT id FROM whatsapp_conversations WHERE id = ${oldConversationId} OR customer_phone = ${incomingPhone})`;
+      await sql`DELETE FROM whatsapp_conversation_events WHERE conversation_id IN
+        (SELECT id FROM whatsapp_conversations WHERE id = ${oldConversationId} OR customer_phone = ${incomingPhone})`;
+      await sql`DELETE FROM whatsapp_conversations WHERE id = ${oldConversationId} OR customer_phone = ${incomingPhone}`;
+      await sql`DELETE FROM customers WHERE id = ${customerId} OR normalized_phone = ${incomingPhone}`;
+      await sql.end({ timeout: 5 });
+    }
+  }, 20_000);
 });
+
+async function waitForBlockedTransactions(
+  sql: postgres.Sql,
+  count: number,
+): Promise<void> {
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const [row] = await sql<{ blocked: number }[]>`
+      SELECT count(*)::int AS blocked FROM pg_stat_activity
+      WHERE datname = current_database() AND wait_event_type = 'Lock'
+        AND pid <> pg_backend_pid()
+    `;
+    if ((row?.blocked ?? 0) >= count) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`Expected ${count} blocked database transactions`);
+}
 
 async function expectWriterWaitsOnPhone<T>(
   sql: postgres.Sql,
@@ -754,6 +869,35 @@ async function expectWriterWaitsOnPhone<T>(
   });
   const holder = sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(hashtext(${phone}))`;
+    locked();
+    await released;
+  });
+  await held;
+  const pending = write();
+  try {
+    await waitForAdvisoryWait(sql);
+  } finally {
+    release();
+    await holder;
+  }
+  return pending;
+}
+
+async function expectWriterWaitsOnCustomerId<T>(
+  sql: postgres.Sql,
+  customerId: string,
+  write: () => Promise<T>,
+): Promise<T> {
+  let locked!: () => void;
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    locked = resolve;
+  });
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const holder = sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext(${`kairo.customer.id:${customerId}`}))`;
     locked();
     await released;
   });

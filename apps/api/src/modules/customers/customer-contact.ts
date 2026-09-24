@@ -36,6 +36,17 @@ export async function lockCustomerPhones(
     await lockCustomerPhone(transaction, phone);
 }
 
+export async function lockCustomerIds(
+  transaction: CustomerTransaction,
+  ids: readonly string[],
+): Promise<void> {
+  for (const id of [...new Set(ids)].sort()) {
+    await transaction.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext(${`kairo.customer.id:${id}`}))`,
+    );
+  }
+}
+
 export function normalizeCustomerPhone(phone: string): string {
   return normalizeColombianPhone(phone);
 }

@@ -9,6 +9,7 @@ import {
 } from '../../database/schema/index.js';
 import {
   lockCustomerPhones,
+  lockCustomerIds,
   normalizeCustomerPhone,
   type CustomerTransaction,
 } from '../customers/customer-contact.js';
@@ -48,6 +49,7 @@ async function lockOutboundIdentity(
   const [linked] = await tx
     .select({
       customerPhone: whatsappConversations.customerPhone,
+      customerId: whatsappConversations.customerId,
       profilePhone: customers.normalizedPhone,
     })
     .from(whatsappConversations)
@@ -59,6 +61,8 @@ async function lockOutboundIdentity(
     ...(linked === undefined ? [] : [linked.customerPhone]),
     ...(linked?.profilePhone == null ? [] : [linked.profilePhone]),
   ]);
+  if (linked?.customerId !== null && linked?.customerId !== undefined)
+    await lockCustomerIds(tx, [linked.customerId]);
   const [current] = await tx
     .select({
       customerPhone: whatsappConversations.customerPhone,
@@ -80,6 +84,7 @@ async function lockOutboundIdentity(
   }
   if (
     current === undefined ||
+    current.customerId !== linked?.customerId ||
     currentPhone !== requestedPhone ||
     (current.customerId !== null && current.profilePhone === null)
   ) {
