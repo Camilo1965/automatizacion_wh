@@ -16,6 +16,10 @@ import type { PrivacyDataClass, RetentionAction } from '@camila/contracts';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import {
+  lockCustomerPhone,
+  type CustomerTransaction,
+} from '../customers/customer-contact.js';
+import {
   adminSessions,
   customers,
   orderSummaries,
@@ -33,6 +37,7 @@ import type {
 
 const ANON_PHONE = '0000000000';
 const ANON_NAME = 'ANONIMIZADO';
+type RetentionOrm = PostgresDatabase['orm'] | CustomerTransaction;
 
 function opaqueCustomerId(phone: string): string {
   return createHash('sha256').update(phone).digest('hex').slice(0, 16);
@@ -173,12 +178,11 @@ export class PostgresRetentionDataStore implements RetentionDataStore {
     dataClass: PrivacyDataClass,
     action: RetentionAction,
     ids: string[],
+    orm: RetentionOrm = this.database.orm,
   ): Promise<number> {
     if (ids.length === 0 || action === 'retain') {
       return 0;
     }
-    const orm = this.database.orm;
-
     if (action === 'delete') {
       switch (dataClass) {
         case 'whatsapp_inbound_messages': {
@@ -345,8 +349,8 @@ export class PostgresRetentionDataStore implements RetentionDataStore {
 
   async findCustomerRelated(
     customerPhone: string,
+    orm: RetentionOrm = this.database.orm,
   ): Promise<CustomerRelatedSnapshot> {
-    const orm = this.database.orm;
     const profiles = await orm
       .select({ id: customers.id })
       .from(customers)
@@ -445,56 +449,68 @@ export class PostgresRetentionDataStore implements RetentionDataStore {
     customerOpaqueId: string;
     relatedCounts: Record<string, number>;
   }> {
-    const related = await this.findCustomerRelated(customerPhone);
-    const orderIds = related.orders.map((o) => o.id);
-    await this.applyAction('sales_orders_customer_pii', 'anonymize', orderIds);
-    await this.applyAction(
-      'whatsapp_inbound_messages',
-      'anonymize',
-      related.inboundIds,
-    );
-    await this.applyAction(
-      'whatsapp_conversation_messages',
-      'anonymize',
-      related.conversationMessageIds,
-    );
-    await this.applyAction(
-      'whatsapp_outbound_messages',
-      'anonymize',
-      related.outboundIds,
-    );
-    await this.applyAction(
-      'whatsapp_conversations',
-      'anonymize',
-      related.conversationIds,
-    );
-    if (related.customerIds.length > 0) {
-      await this.database.orm
-        .update(customers)
-        .set({
-          displayName: null,
-          normalizedPhone: null,
-          marketingConsent: 'unknown',
-          marketingConsentChannel: null,
-          marketingConsentPurpose: null,
-          marketingConsentNoticeVersion: null,
-          marketingConsentEvidenceRef: null,
-          marketingConsentRecordedAt: null,
-          needsReview: true,
-          updatedAt: new Date(),
-        })
-        .where(inArray(customers.id, related.customerIds));
-    }
-    return {
-      customerOpaqueId: related.customerOpaqueId,
-      relatedCounts: {
-        customers: related.customerIds.length,
-        orders: orderIds.length,
-        inbound: related.inboundIds.length,
-        conversationMessages: related.conversationMessageIds.length,
-        outbound: related.outboundIds.length,
-        conversations: related.conversationIds.length,
-      },
-    };
+    return this.database.orm.transaction(async (tx) => {
+      await lockCustomerPhone(tx, customerPhone);
+      const related = await this.findCustomerRelated(customerPhone, tx);
+      const orderIds = related.orders.map((o) => o.id);
+      await this.applyAction(
+        'sales_orders_customer_pii',
+        'anonymize',
+        orderIds,
+        tx,
+      );
+      await this.applyAction(
+        'whatsapp_inbound_messages',
+        'anonymize',
+        related.inboundIds,
+        tx,
+      );
+      await this.applyAction(
+        'whatsapp_conversation_messages',
+        'anonymize',
+        related.conversationMessageIds,
+        tx,
+      );
+      await this.applyAction(
+        'whatsapp_outbound_messages',
+        'anonymize',
+        related.outboundIds,
+        tx,
+      );
+      await this.applyAction(
+        'whatsapp_conversations',
+        'anonymize',
+        related.conversationIds,
+        tx,
+      );
+      if (related.customerIds.length > 0) {
+        await tx
+          .update(customers)
+          .set({
+            displayName: null,
+            normalizedPhone: null,
+            marketingConsent: 'unknown',
+            marketingConsentChannel: null,
+            marketingConsentPurpose: null,
+            marketingConsentNoticeVersion: null,
+            marketingConsentEvidenceRef: null,
+            marketingConsentRecordedAt: null,
+            needsReview: true,
+            updatedAt: new Date(),
+          })
+          .where(inArray(customers.id, related.customerIds));
+      }
+      return {
+        customerOpaqueId: related.customerOpaqueId,
+        relatedCounts: {
+          customers: related.customerIds.length,
+          orders: orderIds.length,
+          inbound: related.inboundIds.length,
+          conversationMessages: related.conversationMessageIds.length,
+          outbound: related.outboundIds.length,
+          conversations: related.conversationIds.length,
+        },
+      };
+    });
   }
 }

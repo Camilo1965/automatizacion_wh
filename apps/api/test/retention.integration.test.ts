@@ -22,6 +22,9 @@ import { DefaultCatalogService } from '../src/modules/catalog/catalog-service.js
 import { LocalPhotoStorage } from '../src/modules/catalog/local-photo-storage.js';
 import { PostgresCatalogRepository } from '../src/modules/catalog/postgres-catalog-repository.js';
 import { resolveCustomerContact } from '../src/modules/customers/customer-contact.js';
+import { PostgresWhatsAppInboundRepository } from '../src/modules/whatsapp/postgres-whatsapp-inbound-repository.js';
+import { PostgresOutboundRepository } from '../src/modules/whatsapp/postgres-outbound-repository.js';
+import { PostgresOrderRepository } from '../src/modules/orders/postgres-order-repository.js';
 import { PostgresRetentionDataStore } from '../src/modules/privacy/postgres-retention-data-store.js';
 import { PostgresRetentionRepository } from '../src/modules/privacy/postgres-retention-repository.js';
 import {
@@ -524,6 +527,26 @@ describe('retention privacy integration', () => {
       });
       expect(conversation).toMatchObject({ customer_id: customerId });
       expect(conversation?.customer_phone).not.toBe(changedPhone);
+      await expect(
+        new PostgresOrderRepository(database).update({
+          orderId,
+          address: 'Nueva dirección identificable',
+        }),
+      ).rejects.toThrow('El contacto del pedido cambió');
+      await expect(
+        new PostgresOrderRepository(database).update({
+          orderId,
+          customerPhone: null,
+        }),
+      ).rejects.toThrow('El contacto del pedido cambió');
+      await expect(
+        new PostgresOutboundRepository(database).enqueueText({
+          conversationId,
+          customerPhone: changedPhone,
+          body: 'Texto posterior',
+          idempotencyKey: `after-anonymize-${conversationId}`,
+        }),
+      ).rejects.toThrow('Conversation identity changed or was anonymized');
 
       const reopenedCustomerId = await database.orm.transaction((transaction) =>
         resolveCustomerContact(transaction, {
@@ -540,4 +563,224 @@ describe('retention privacy integration', () => {
       await sql.end({ timeout: 5 });
     }
   });
+
+  it('rolls back every redaction and the profile when a later database write fails', async () => {
+    const sql = postgres(testDatabaseUrl, { max: 2, prepare: false });
+    const customerId = randomUUID();
+    const referenceId = randomUUID();
+    const orderId = randomUUID();
+    const inboundId = randomUUID();
+    const customerPhone = `+573${Date.now().toString().slice(-9)}`;
+    const constraintName = `test_anon_failure_${inboundId.replaceAll('-', '')}`;
+    try {
+      await sql`INSERT INTO catalog_references (id, code, model_name, color, price_cop)
+        VALUES (${referenceId}, ${`TEST-${randomUUID().slice(0, 8).toUpperCase()}`}, 'Prueba', 'Negro', 120000)`;
+      await sql`INSERT INTO customers (id, display_name, normalized_phone)
+        VALUES (${customerId}, 'Ana Gómez', ${customerPhone})`;
+      await sql`INSERT INTO sales_orders (id, reference_id, size, quantity, customer_id, customer_name, customer_phone, address)
+        VALUES (${orderId}, ${referenceId}, 37, 1, ${customerId}, 'Ana Gómez', ${customerPhone}, 'Calle 1')`;
+      await sql`INSERT INTO whatsapp_inbound_messages
+        (id, whatsapp_message_id, business_phone_number_id, customer_phone, message_type, text_body, received_at, payload)
+        VALUES (${inboundId}, ${`wamid.${inboundId}`}, 'business-test', ${customerPhone}, 'text', 'Hola Ana', now(), '{}'::jsonb)`;
+      await sql.unsafe(
+        `ALTER TABLE whatsapp_inbound_messages ADD CONSTRAINT "${constraintName}" CHECK (id <> '${inboundId}' OR customer_phone <> '0000000000')`,
+      );
+
+      await expect(
+        new PostgresRetentionDataStore(database).anonymizeCustomer(
+          customerPhone,
+        ),
+      ).rejects.toThrow();
+      const [customer] =
+        await sql`SELECT display_name, normalized_phone, marketing_consent FROM customers WHERE id = ${customerId}`;
+      const [order] =
+        await sql`SELECT customer_name, customer_phone, address FROM sales_orders WHERE id = ${orderId}`;
+      const [inbound] =
+        await sql`SELECT customer_phone, text_body FROM whatsapp_inbound_messages WHERE id = ${inboundId}`;
+      expect(customer).toMatchObject({
+        display_name: 'Ana Gómez',
+        normalized_phone: customerPhone,
+        marketing_consent: 'unknown',
+      });
+      expect(order).toMatchObject({
+        customer_name: 'Ana Gómez',
+        customer_phone: customerPhone,
+        address: 'Calle 1',
+      });
+      expect(inbound).toMatchObject({
+        customer_phone: customerPhone,
+        text_body: 'Hola Ana',
+      });
+    } finally {
+      await sql.unsafe(
+        `ALTER TABLE whatsapp_inbound_messages DROP CONSTRAINT IF EXISTS "${constraintName}"`,
+      );
+      await sql`DELETE FROM whatsapp_inbound_messages WHERE id = ${inboundId}`;
+      await sql`DELETE FROM sales_orders WHERE id = ${orderId}`;
+      await sql`DELETE FROM customers WHERE id = ${customerId}`;
+      await sql`DELETE FROM catalog_references WHERE id = ${referenceId}`;
+      await sql.end({ timeout: 5 });
+    }
+  }, 10_000);
+
+  it('waits for same-phone inbound ingress before snapshotting and redacts that row', async () => {
+    const sql = postgres(testDatabaseUrl, { max: 3, prepare: false });
+    const phone = `+573${Date.now().toString().slice(-9)}`;
+    const inboundId = randomUUID();
+    let releaseIngress!: () => void;
+    let ingressLocked!: () => void;
+    const release = new Promise<void>((resolve) => {
+      releaseIngress = resolve;
+    });
+    const locked = new Promise<void>((resolve) => {
+      ingressLocked = resolve;
+    });
+    const ingress = sql.begin(async (tx) => {
+      await tx`SELECT pg_advisory_xact_lock(hashtext(${phone}))`;
+      await tx`INSERT INTO whatsapp_inbound_messages
+        (id, whatsapp_message_id, business_phone_number_id, customer_phone, message_type, text_body, received_at, payload)
+        VALUES (${inboundId}, ${`wamid.${inboundId}`}, 'business-test', ${phone}, 'text', 'Mensaje concurrente', now(), '{}'::jsonb)`;
+      ingressLocked();
+      await release;
+    });
+    try {
+      await locked;
+      const anonymizing = new PostgresRetentionDataStore(
+        database,
+      ).anonymizeCustomer(phone);
+      await waitForAdvisoryWait(sql);
+      releaseIngress();
+      const result = await anonymizing;
+      await ingress;
+      const [inbound] =
+        await sql`SELECT customer_phone, text_body FROM whatsapp_inbound_messages WHERE id = ${inboundId}`;
+      expect(result.relatedCounts.inbound).toBe(1);
+      expect(inbound).toMatchObject({
+        customer_phone: '0000000000',
+        text_body: null,
+      });
+    } finally {
+      releaseIngress();
+      await ingress;
+      await sql`DELETE FROM whatsapp_inbound_messages WHERE id = ${inboundId}`;
+      await sql.end({ timeout: 5 });
+    }
+  }, 10_000);
+
+  it('serializes inbox, contact, order edit, and outbound ingress on the same phone', async () => {
+    const sql = postgres(testDatabaseUrl, { max: 5, prepare: false });
+    const phone = `+573${Date.now().toString().slice(-9)}`;
+    const changedPhone = `${phone.slice(0, -1)}${(Number(phone.slice(-1)) + 1) % 10}`;
+    const customerId = randomUUID();
+    const referenceId = randomUUID();
+    const orderId = randomUUID();
+    const conversationId = randomUUID();
+    const messageId = randomUUID();
+    try {
+      await sql`INSERT INTO catalog_references (id, code, model_name, color, price_cop)
+        VALUES (${referenceId}, ${`TEST-${randomUUID().slice(0, 8).toUpperCase()}`}, 'Prueba', 'Negro', 120000)`;
+      await sql`INSERT INTO customers (id, display_name, normalized_phone)
+        VALUES (${customerId}, 'Ana', ${phone})`;
+      await sql`INSERT INTO sales_orders (id, reference_id, size, quantity, customer_id, customer_name, customer_phone)
+        VALUES (${orderId}, ${referenceId}, 37, 1, ${customerId}, 'Ana', ${changedPhone})`;
+      await sql`INSERT INTO whatsapp_conversations (id, customer_phone, customer_id, state, last_inbound_message_at)
+        VALUES (${conversationId}, ${changedPhone}, ${customerId}, 'idle', now())`;
+
+      await expectWriterWaitsOnPhone(sql, phone, () =>
+        new PostgresWhatsAppInboundRepository(database).storeMany([
+          {
+            whatsappMessageId: `wamid.${messageId}`,
+            businessPhoneNumberId: 'business-test',
+            customerPhone: phone,
+            messageType: 'text',
+            textBody: 'Nuevo mensaje',
+            receivedAt: new Date(),
+            payload: {},
+          },
+        ]),
+      );
+      const resolvedId = await expectWriterWaitsOnPhone(sql, phone, () =>
+        database.orm.transaction((tx) =>
+          resolveCustomerContact(tx, {
+            normalizedPhone: phone,
+            displayName: 'Ana',
+          }),
+        ),
+      );
+      expect(resolvedId).toBe(customerId);
+      await expectWriterWaitsOnPhone(sql, phone, () =>
+        new PostgresOrderRepository(database).update({
+          orderId,
+          address: 'Calle 2',
+        }),
+      );
+      await expectWriterWaitsOnPhone(sql, phone, () =>
+        new PostgresOutboundRepository(database).enqueueText({
+          conversationId,
+          customerPhone: changedPhone,
+          body: 'Respuesta',
+          idempotencyKey: `reply-${messageId}`,
+        }),
+      );
+      const [counts] = await sql`SELECT
+        (SELECT count(*)::int FROM whatsapp_inbound_messages WHERE whatsapp_message_id = ${`wamid.${messageId}`}) AS inbound,
+        (SELECT count(*)::int FROM whatsapp_outbound_messages WHERE idempotency_key = ${`reply-${messageId}`}) AS outbound`;
+      expect(counts).toMatchObject({ inbound: 1, outbound: 1 });
+    } finally {
+      await sql`DELETE FROM whatsapp_conversation_messages WHERE conversation_id = ${conversationId}`;
+      await sql`DELETE FROM whatsapp_outbound_messages WHERE conversation_id = ${conversationId}`;
+      await sql`DELETE FROM whatsapp_inbound_messages WHERE whatsapp_message_id = ${`wamid.${messageId}`}`;
+      await sql`DELETE FROM whatsapp_conversations WHERE id = ${conversationId}`;
+      await sql`DELETE FROM sales_orders WHERE id = ${orderId}`;
+      await sql`DELETE FROM customers WHERE id = ${customerId}`;
+      await sql`DELETE FROM catalog_references WHERE id = ${referenceId}`;
+      await sql.end({ timeout: 5 });
+    }
+  }, 20_000);
 });
+
+async function expectWriterWaitsOnPhone<T>(
+  sql: postgres.Sql,
+  phone: string,
+  write: () => Promise<T>,
+): Promise<T> {
+  let locked!: () => void;
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    locked = resolve;
+  });
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const holder = sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext(${phone}))`;
+    locked();
+    await released;
+  });
+  await held;
+  const pending = write();
+  try {
+    await waitForAdvisoryWait(sql);
+  } finally {
+    release();
+    await holder;
+  }
+  return pending;
+}
+
+async function waitForAdvisoryWait(sql: postgres.Sql): Promise<void> {
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const [row] = await sql<{ waiting: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM pg_stat_activity
+        WHERE datname = current_database() AND wait_event = 'advisory'
+          AND query LIKE '%pg_advisory_xact_lock%'
+          AND pid <> pg_backend_pid()
+      ) AS waiting
+    `;
+    if (row?.waiting) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error('Expected a same-phone advisory-lock wait');
+}

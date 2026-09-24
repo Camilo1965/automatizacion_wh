@@ -2,9 +2,16 @@ import { eq, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import {
+  customers,
   whatsappConversationMessages,
+  whatsappConversations,
   whatsappOutboundMessages,
 } from '../../database/schema/index.js';
+import {
+  lockCustomerPhones,
+  normalizeCustomerPhone,
+  type CustomerTransaction,
+} from '../customers/customer-contact.js';
 import type {
   ClaimedOutboundMessage,
   OutboxWorkerRepository,
@@ -29,6 +36,57 @@ export type EnqueueImageInput = Readonly<{
   source?: 'bot' | 'owner_panel' | 'owner_mobile';
 }>;
 
+async function lockOutboundIdentity(
+  tx: CustomerTransaction,
+  customerPhone: string,
+  conversationId?: string,
+): Promise<void> {
+  if (conversationId === undefined) {
+    await lockCustomerPhones(tx, [customerPhone]);
+    return;
+  }
+  const [linked] = await tx
+    .select({
+      customerPhone: whatsappConversations.customerPhone,
+      profilePhone: customers.normalizedPhone,
+    })
+    .from(whatsappConversations)
+    .leftJoin(customers, eq(whatsappConversations.customerId, customers.id))
+    .where(eq(whatsappConversations.id, conversationId))
+    .limit(1);
+  await lockCustomerPhones(tx, [
+    customerPhone,
+    ...(linked === undefined ? [] : [linked.customerPhone]),
+    ...(linked?.profilePhone == null ? [] : [linked.profilePhone]),
+  ]);
+  const [current] = await tx
+    .select({
+      customerPhone: whatsappConversations.customerPhone,
+      customerId: whatsappConversations.customerId,
+      profilePhone: customers.normalizedPhone,
+    })
+    .from(whatsappConversations)
+    .leftJoin(customers, eq(whatsappConversations.customerId, customers.id))
+    .where(eq(whatsappConversations.id, conversationId))
+    .limit(1);
+  let requestedPhone = customerPhone;
+  let currentPhone = current?.customerPhone;
+  try {
+    requestedPhone = normalizeCustomerPhone(customerPhone);
+    if (currentPhone !== undefined)
+      currentPhone = normalizeCustomerPhone(currentPhone);
+  } catch {
+    // An anonymized conversation has an opaque, non-phone value.
+  }
+  if (
+    current === undefined ||
+    currentPhone !== requestedPhone ||
+    (current.customerId !== null && current.profilePhone === null)
+  ) {
+    throw new Error('Conversation identity changed or was anonymized');
+  }
+}
+
 export class PostgresOutboundRepository implements OutboxWorkerRepository {
   constructor(private readonly database: PostgresDatabase) {}
   async enqueueDocument(input: {
@@ -39,6 +97,7 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
     idempotencyKey: string;
   }) {
     return this.database.orm.transaction(async (tx) => {
+      await lockOutboundIdentity(tx, input.customerPhone, input.conversationId);
       const [message] = await tx
         .insert(whatsappOutboundMessages)
         .values({
@@ -74,6 +133,7 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
     input: EnqueueTextInput,
   ): Promise<Readonly<{ id: string }>> {
     return this.database.orm.transaction(async (tx) => {
+      await lockOutboundIdentity(tx, input.customerPhone, input.conversationId);
       const now = new Date();
       const [inserted] = await tx
         .insert(whatsappOutboundMessages)
@@ -122,6 +182,7 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
     input: EnqueueImageInput,
   ): Promise<Readonly<{ id: string }>> {
     return this.database.orm.transaction(async (tx) => {
+      await lockOutboundIdentity(tx, input.customerPhone, input.conversationId);
       const now = new Date();
       const [inserted] = await tx
         .insert(whatsappOutboundMessages)

@@ -4,6 +4,7 @@ import { ShippingPolicySchema } from '@camila/contracts';
 import type { PostgresDatabase } from '../../database/client.js';
 import {
   catalogReferences,
+  customers,
   catalogStock,
   inventoryMovements,
   orderConfirmations,
@@ -37,7 +38,10 @@ import {
   normalizeColombianPhone,
   validateOrderQuantity,
 } from './order-validation.js';
-import { resolveCustomerContact } from '../customers/customer-contact.js';
+import {
+  lockCustomerPhones,
+  resolveCustomerContact,
+} from '../customers/customer-contact.js';
 
 type Row = typeof salesOrders.$inferSelect;
 type ReferenceRow = typeof catalogReferences.$inferSelect;
@@ -240,6 +244,16 @@ export class PostgresOrderRepository implements OrderRepository {
   }
 
   async update(input: PatchOrderInput): Promise<OrderRecord> {
+    const [initialIdentity] = await this.database.orm
+      .select({
+        customerPhone: salesOrders.customerPhone,
+        customerId: salesOrders.customerId,
+        profilePhone: customers.normalizedPhone,
+      })
+      .from(salesOrders)
+      .leftJoin(customers, eq(salesOrders.customerId, customers.id))
+      .where(eq(salesOrders.id, input.orderId))
+      .limit(1);
     const locality =
       input.localityCarrierCode === undefined
         ? undefined
@@ -264,6 +278,17 @@ export class PostgresOrderRepository implements OrderRepository {
       values.localityName = locality?.locality ?? null;
     }
     const [updated] = await this.database.orm.transaction(async (tx) => {
+      await lockCustomerPhones(tx, [
+        ...(initialIdentity?.customerPhone == null
+          ? []
+          : [initialIdentity.customerPhone]),
+        ...(initialIdentity?.profilePhone == null
+          ? []
+          : [initialIdentity.profilePhone]),
+        ...(typeof values.customerPhone === 'string'
+          ? [values.customerPhone]
+          : []),
+      ]);
       const [current] = await tx
         .select()
         .from(salesOrders)
@@ -271,6 +296,34 @@ export class PostgresOrderRepository implements OrderRepository {
         .limit(1)
         .for('update');
       if (current === undefined || current.status !== 'draft') return [];
+      if (
+        initialIdentity?.customerPhone !== current.customerPhone ||
+        initialIdentity.customerId !== current.customerId
+      ) {
+        throw new OrderConflictError(
+          'customer_identity_mismatch',
+          'El contacto del pedido cambió o requiere revisión.',
+        );
+      }
+      if (current.customerId !== null) {
+        const [profile] = await tx
+          .select({ normalizedPhone: customers.normalizedPhone })
+          .from(customers)
+          .where(eq(customers.id, current.customerId))
+          .limit(1);
+        if (
+          profile?.normalizedPhone === null &&
+          (input.customerPhone !== undefined ||
+            [values.customerName, values.address, values.deliveryNotes].some(
+              (value) => typeof value === 'string',
+            ))
+        ) {
+          throw new OrderConflictError(
+            'customer_identity_mismatch',
+            'El contacto del pedido cambió o requiere revisión.',
+          );
+        }
+      }
 
       const nextPhone =
         input.customerPhone === undefined

@@ -15,6 +15,7 @@ import { type ConversationTransition } from './conversation-state.js';
 import {
   normalizeCustomerPhone,
   resolveCustomerContact,
+  lockCustomerPhone,
 } from '../customers/customer-contact.js';
 import { BotFlowDefinitionSchema } from '@camila/contracts';
 import { advanceConfiguredConversation } from './configured-flow.js';
@@ -58,9 +59,7 @@ export class PostgresConversationRepository {
   receive(input: ReceiveConversationInput): Promise<ReceiveConversationResult> {
     const customerPhone = normalizeCustomerPhone(input.customerPhone);
     return this.database.orm.transaction(async (tx) => {
-      await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtext(${customerPhone}))`,
-      );
+      await lockCustomerPhone(tx, customerPhone);
 
       const [duplicate] = await tx
         .select({ id: whatsappConversationEvents.id })

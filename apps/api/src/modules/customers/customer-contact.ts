@@ -1,12 +1,40 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import { customers } from '../../database/schema/customers.js';
 import { normalizeColombianPhone } from '../orders/order-validation.js';
 
-type CustomerTransaction = Parameters<
+export type CustomerTransaction = Parameters<
   Parameters<PostgresDatabase['orm']['transaction']>[0]
 >[0];
+
+function phoneLockKey(phone: string): string {
+  if (/[a-z]/i.test(phone)) return phone;
+  try {
+    return normalizeCustomerPhone(phone);
+  } catch {
+    return phone;
+  }
+}
+
+export async function lockCustomerPhone(
+  transaction: CustomerTransaction,
+  phone: string,
+): Promise<void> {
+  await transaction.execute(
+    sql`SELECT pg_advisory_xact_lock(hashtext(${phoneLockKey(phone)}))`,
+  );
+}
+
+export async function lockCustomerPhones(
+  transaction: CustomerTransaction,
+  phones: readonly string[],
+): Promise<void> {
+  const keys = new Set<string>();
+  for (const phone of phones) keys.add(phoneLockKey(phone));
+  for (const phone of [...keys].sort())
+    await lockCustomerPhone(transaction, phone);
+}
 
 export function normalizeCustomerPhone(phone: string): string {
   return normalizeColombianPhone(phone);
@@ -24,6 +52,7 @@ export async function resolveCustomerContact(
   transaction: CustomerTransaction,
   input: Readonly<{ normalizedPhone: string; displayName?: string | null }>,
 ): Promise<string | null> {
+  await lockCustomerPhone(transaction, input.normalizedPhone);
   const displayName = input.displayName?.trim() || null;
   const [inserted] = await transaction
     .insert(customers)
