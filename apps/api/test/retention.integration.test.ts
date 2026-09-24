@@ -28,6 +28,7 @@ import { PostgresOrderRepository } from '../src/modules/orders/postgres-order-re
 import { PostgresConversationRepository } from '../src/modules/conversations/postgres-conversation-repository.js';
 import { PostgresRetentionDataStore } from '../src/modules/privacy/postgres-retention-data-store.js';
 import { PostgresRetentionRepository } from '../src/modules/privacy/postgres-retention-repository.js';
+import { LocalGuidePdfStorage } from '../src/modules/shipping/local-guide-pdf-storage.js';
 import {
   PRIVACY_INVENTORY,
   RetentionService,
@@ -65,6 +66,7 @@ describe('retention privacy integration', () => {
   let database: PostgresDatabase;
   let allowDatabaseClose = false;
   let mediaRoot: string;
+  let guidePdfStorage: LocalGuidePdfStorage;
   let authService: AuthService;
   let auditService: AuditService;
   let retentionService: RetentionService;
@@ -141,7 +143,7 @@ describe('retention privacy integration', () => {
     });
     retentionService = new RetentionService(
       new PostgresRetentionRepository(database),
-      new PostgresRetentionDataStore(database),
+      new PostgresRetentionDataStore(database, guidePdfStorage),
       auditService,
       {
         executionEnabled,
@@ -176,6 +178,7 @@ describe('retention privacy integration', () => {
     await runMigrations(testDatabaseUrl);
     database = createPostgresDatabase(testDatabaseUrl);
     mediaRoot = await mkdtemp(path.join(tmpdir(), 'kairo-privacy-'));
+    guidePdfStorage = new LocalGuidePdfStorage(path.join(mediaRoot, 'guides'));
     await buildTestApp(false);
   });
 
@@ -361,12 +364,17 @@ describe('retention privacy integration', () => {
     expect(audit.json().data.total).toBeGreaterThan(0);
   });
 
-  it('removes nested customer PII from persisted order summaries when anonymizing', async () => {
+  it('removes nested order PII and guide PDFs during retention anonymization', async () => {
     const sql = postgres(testDatabaseUrl, { max: 1, prepare: false });
     const referenceId = randomUUID();
     const orderId = randomUUID();
+    const guideJobId = randomUUID();
     const referenceCode = `TEST-${randomUUID().slice(0, 8).toUpperCase()}`;
-    const customerPhone = `57300${randomUUID().replaceAll('-', '').slice(0, 7)}`;
+    const customerPhone = `+573${Date.now().toString().slice(-9)}`;
+    const preShipmentNumber = `pre-${guideJobId}`;
+    const pdf = await guidePdfStorage.save(
+      new TextEncoder().encode('%PDF-retention-test'),
+    );
     const snapshot = {
       schemaVersion: 1,
       customer: { name: 'Ana Gómez', phone: customerPhone },
@@ -400,15 +408,26 @@ describe('retention privacy integration', () => {
         )
       `;
       await sql`
+        INSERT INTO shipping_guide_jobs (
+          id, order_id, status, carrier, pre_shipment_number,
+          guide_pdf_storage_key, guide_pdf_sha256, guide_pdf_byte_size,
+          guide_pdf_fetched_at
+        ) VALUES (
+          ${guideJobId}, ${orderId}, 'created', 'envia', ${preShipmentNumber},
+          ${pdf.storageKey}, ${pdf.sha256}, ${pdf.byteSize}, now()
+        )
+      `;
+      await sql`
         INSERT INTO order_summaries (order_id, version, draft_version, snapshot)
         VALUES
           (${orderId}, 1, 1, ${sql.json(snapshot)}),
           (${orderId}, 2, 1, ${sql.json(legacySnapshot)})
       `;
 
-      await new PostgresRetentionDataStore(database).anonymizeCustomer(
-        customerPhone,
-      );
+      const store = new PostgresRetentionDataStore(database, guidePdfStorage);
+      await store.applyAction('sales_orders_customer_pii', 'anonymize', [
+        orderId,
+      ]);
 
       const summaries = await sql<
         { version: number; snapshot: Record<string, unknown> }[]
@@ -427,16 +446,24 @@ describe('retention privacy integration', () => {
         },
       });
       const legacy = summaries.find((item) => item.version === 2)?.snapshot;
+      const [guide] = await sql`
+        SELECT guide_pdf_storage_key, guide_pdf_retired_at
+        FROM shipping_guide_jobs WHERE id = ${guideJobId}
+      `;
       expect(legacy).toMatchObject({
         customerName: 'ANONIMIZADO',
         customerPhone: '0000000000',
       });
+      expect(guide).toMatchObject({ guide_pdf_storage_key: null });
+      expect(guide?.guide_pdf_retired_at).not.toBeNull();
+      await expect(guidePdfStorage.read(pdf.storageKey)).rejects.toThrow();
       expect(legacy).not.toHaveProperty('address');
       expect(legacy).not.toHaveProperty('deliveryNotes');
       expect(JSON.stringify(summaries)).not.toMatch(
         /Ana Gómez|57300|Calle 1|Portería azul/,
       );
     } finally {
+      await sql`DELETE FROM shipping_guide_jobs WHERE id = ${guideJobId}`;
       await sql`DELETE FROM order_summaries WHERE order_id = ${orderId}`;
       await sql`DELETE FROM sales_orders WHERE id = ${orderId}`;
       await sql`DELETE FROM catalog_references WHERE id = ${referenceId}`;
@@ -449,10 +476,15 @@ describe('retention privacy integration', () => {
     const customerId = randomUUID();
     const referenceId = randomUUID();
     const orderId = randomUUID();
+    const guideJobId = randomUUID();
     const conversationId = randomUUID();
     const customerPhone = `+573${Date.now().toString().slice(-9)}`;
     const changedPhone = `${customerPhone.slice(0, -1)}${(Number(customerPhone.slice(-1)) + 1) % 10}`;
     const referenceCode = `TEST-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const preShipmentNumber = `pre-${guideJobId}`;
+    const pdf = await guidePdfStorage.save(
+      new TextEncoder().encode('%PDF-privacy-test'),
+    );
 
     try {
       await sql`
@@ -480,6 +512,16 @@ describe('retention privacy integration', () => {
         )
       `;
       await sql`
+        INSERT INTO shipping_guide_jobs (
+          id, order_id, status, carrier, pre_shipment_number,
+          guide_pdf_storage_key, guide_pdf_sha256, guide_pdf_byte_size,
+          guide_pdf_fetched_at
+        ) VALUES (
+          ${guideJobId}, ${orderId}, 'created', 'envia', ${preShipmentNumber},
+          ${pdf.storageKey}, ${pdf.sha256}, ${pdf.byteSize}, now()
+        )
+      `;
+      await sql`
         INSERT INTO whatsapp_conversations (
           id, customer_phone, customer_id, state, last_inbound_message_at
         ) VALUES (
@@ -487,9 +529,13 @@ describe('retention privacy integration', () => {
         )
       `;
 
-      const result = await new PostgresRetentionDataStore(
-        database,
-      ).anonymizeCustomer(customerPhone);
+      const store = new PostgresRetentionDataStore(database, guidePdfStorage);
+      const localPhone = customerPhone.slice(3);
+      const preview = await store.findCustomerRelated(localPhone);
+      expect(preview.customerIds).toEqual([customerId]);
+      expect(preview.orders.map((order) => order.id)).toEqual([orderId]);
+
+      const result = await store.anonymizeCustomer(localPhone);
 
       const [customer] = await sql`
         SELECT id, display_name, normalized_phone, marketing_consent,
@@ -506,8 +552,22 @@ describe('retention privacy integration', () => {
         SELECT customer_id, customer_phone
         FROM whatsapp_conversations WHERE id = ${conversationId}
       `;
+      const [guide] = await sql`
+        SELECT guide_pdf_storage_key, guide_pdf_sha256,
+          guide_pdf_byte_size, guide_pdf_fetched_at, guide_pdf_retired_at
+        FROM shipping_guide_jobs WHERE id = ${guideJobId}
+      `;
 
       expect(result.relatedCounts.customers).toBe(1);
+      expect(result.relatedCounts.shippingGuides).toBe(1);
+      expect(guide).toMatchObject({
+        guide_pdf_storage_key: null,
+        guide_pdf_sha256: null,
+        guide_pdf_byte_size: null,
+        guide_pdf_fetched_at: null,
+      });
+      expect(guide?.guide_pdf_retired_at).not.toBeNull();
+      await expect(guidePdfStorage.read(pdf.storageKey)).rejects.toThrow();
       expect(customer).toMatchObject({
         id: customerId,
         display_name: null,
@@ -557,6 +617,7 @@ describe('retention privacy integration', () => {
       );
       expect(reopenedCustomerId).not.toBe(customerId);
     } finally {
+      await sql`DELETE FROM shipping_guide_jobs WHERE id = ${guideJobId}`;
       await sql`DELETE FROM whatsapp_conversations WHERE id = ${conversationId}`;
       await sql`DELETE FROM sales_orders WHERE id = ${orderId}`;
       await sql`DELETE FROM customers WHERE id = ${customerId} OR normalized_phone = ${customerPhone}`;
@@ -588,9 +649,10 @@ describe('retention privacy integration', () => {
       );
 
       await expect(
-        new PostgresRetentionDataStore(database).anonymizeCustomer(
-          customerPhone,
-        ),
+        new PostgresRetentionDataStore(
+          database,
+          guidePdfStorage,
+        ).anonymizeCustomer(customerPhone),
       ).rejects.toThrow();
       const [customer] =
         await sql`SELECT display_name, normalized_phone, marketing_consent FROM customers WHERE id = ${customerId}`;
@@ -648,6 +710,7 @@ describe('retention privacy integration', () => {
       await locked;
       const anonymizing = new PostgresRetentionDataStore(
         database,
+        guidePdfStorage,
       ).anonymizeCustomer(phone);
       await waitForAdvisoryWait(sql);
       releaseIngress();
@@ -794,9 +857,10 @@ describe('retention privacy integration', () => {
         await released;
       });
       await locked;
-      anonymizing = new PostgresRetentionDataStore(database).anonymizeCustomer(
-        profilePhone,
-      );
+      anonymizing = new PostgresRetentionDataStore(
+        database,
+        guidePdfStorage,
+      ).anonymizeCustomer(profilePhone);
       await waitForBlockedTransactions(sql, 1);
       receiving = new PostgresConversationRepository(database).receive({
         whatsappMessageId: inboundMessageId,

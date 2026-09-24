@@ -218,6 +218,7 @@ export class PostgresShippingGuideJobRepository {
       .where(
         sql`${shippingGuideJobs.id} = ${id}
           AND ${shippingGuideJobs.status} = 'created'
+          AND ${shippingGuideJobs.guidePdfRetiredAt} IS NULL
           AND ${shippingGuideJobs.guidePdfStorageKey} IS NULL`,
       )
       .returning({ id: shippingGuideJobs.id });

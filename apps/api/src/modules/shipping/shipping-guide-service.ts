@@ -7,6 +7,7 @@ type GuideJob = Readonly<{
   carrier: string;
   preShipmentNumber: string | null;
   guidePdfStorageKey: string | null;
+  guidePdfRetiredAt?: Date | null;
   guidePdfSha256?: string | null;
 }>;
 
@@ -37,6 +38,12 @@ export class ShippingGuideService {
     orderId: string,
   ): Promise<Readonly<{ bytes: Uint8Array; sha256: string | null }>> {
     const job = await this.requireJob(orderId);
+    if (job.guidePdfRetiredAt != null) {
+      throw new ShippingDomainError(
+        'guide_not_created',
+        'The shipping guide PDF has been removed for privacy',
+      );
+    }
     if (job.guidePdfStorageKey !== null) {
       return {
         bytes: await this.storage.read(job.guidePdfStorageKey),

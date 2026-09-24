@@ -260,6 +260,63 @@ describe('ShippingGuideService', () => {
     expect(client.getGuidePdf).not.toHaveBeenCalled();
   });
 
+  it('does not serve a stored PDF after its guide has been retired for privacy', async () => {
+    const repository = {
+      findByOrderId: vi.fn().mockResolvedValue({
+        id: 'job-1',
+        status: 'created',
+        carrier: 'envia',
+        preShipmentNumber: '123',
+        guidePdfStorageKey: 'stored.pdf',
+        guidePdfRetiredAt: new Date(),
+      }),
+      attachPdf: vi.fn(),
+      reviewUncertain: vi.fn(),
+    };
+    const storage = {
+      read: vi.fn(),
+      save: vi.fn(),
+      delete: vi.fn(),
+    };
+    const client = { getGuidePdf: vi.fn() };
+    const service = new ShippingGuideService(repository, client, storage);
+
+    await expect(service.fetchPdf('order-1')).rejects.toMatchObject({
+      code: 'guide_not_created',
+    });
+    expect(storage.read).not.toHaveBeenCalled();
+    expect(client.getGuidePdf).not.toHaveBeenCalled();
+  });
+
+  it('does not refetch a provider PDF after its guide has been retired for privacy', async () => {
+    const repository = {
+      findByOrderId: vi.fn().mockResolvedValue({
+        id: 'job-1',
+        status: 'created',
+        carrier: 'envia',
+        preShipmentNumber: '123',
+        guidePdfStorageKey: null,
+        guidePdfRetiredAt: new Date(),
+      }),
+      attachPdf: vi.fn(),
+      reviewUncertain: vi.fn(),
+    };
+    const storage = {
+      read: vi.fn(),
+      save: vi.fn(),
+      delete: vi.fn(),
+    };
+    const client = { getGuidePdf: vi.fn() };
+    const service = new ShippingGuideService(repository, client, storage);
+
+    await expect(service.fetchPdf('order-1')).rejects.toMatchObject({
+      code: 'guide_not_created',
+    });
+    expect(storage.read).not.toHaveBeenCalled();
+    expect(storage.save).not.toHaveBeenCalled();
+    expect(client.getGuidePdf).not.toHaveBeenCalled();
+  });
+
   it('uses the winning stored file when concurrent PDF requests race', async () => {
     const downloaded = new TextEncoder().encode('%PDF-downloaded');
     const winner = new TextEncoder().encode('%PDF-winner');

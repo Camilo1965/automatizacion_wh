@@ -319,6 +319,9 @@ export const shippingGuideJobs = pgTable(
     guidePdfSha256: char('guide_pdf_sha256', { length: 64 }),
     guidePdfByteSize: integer('guide_pdf_byte_size'),
     guidePdfStorageKey: varchar('guide_pdf_storage_key', { length: 255 }),
+    guidePdfRetiredAt: timestamp('guide_pdf_retired_at', {
+      withTimezone: true,
+    }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

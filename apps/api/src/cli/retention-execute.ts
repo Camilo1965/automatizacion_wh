@@ -1,12 +1,20 @@
 import { createHash } from 'node:crypto';
 
+import { loadConfig } from '../config.js';
 import { createPostgresDatabase } from '../database/client.js';
 import { AuditService } from '../modules/audit/audit-service.js';
 import { PostgresAuditRepository } from '../modules/audit/postgres-audit-repository.js';
 import { PostgresRetentionDataStore } from '../modules/privacy/postgres-retention-data-store.js';
 import { PostgresRetentionRepository } from '../modules/privacy/postgres-retention-repository.js';
 import { RetentionService } from '../modules/privacy/retention-service.js';
+import { LocalGuidePdfStorage } from '../modules/shipping/local-guide-pdf-storage.js';
+import { createObjectStorage } from '../modules/storage/create-object-storage.js';
 import { requireDatabaseUrl } from './cli-args.js';
+
+function createGuidePdfStorage(databaseUrl: string): LocalGuidePdfStorage {
+  const config = loadConfig({ ...process.env, DATABASE_URL: databaseUrl });
+  return new LocalGuidePdfStorage(createObjectStorage(config, 'guides'));
+}
 
 function readFlag(argv: readonly string[], name: string): string | undefined {
   const flagIndex = argv.findIndex((value) => value === `--${name}`);
@@ -34,10 +42,11 @@ export async function executeRetention(options: {
 }): Promise<unknown> {
   const database = createPostgresDatabase(options.databaseUrl);
   try {
+    const guidePdfStorage = createGuidePdfStorage(options.databaseUrl);
     const audit = new AuditService(new PostgresAuditRepository(database));
     const service = new RetentionService(
       new PostgresRetentionRepository(database),
-      new PostgresRetentionDataStore(database),
+      new PostgresRetentionDataStore(database, guidePdfStorage),
       audit,
       {
         executionEnabled: options.executionEnabled,
@@ -84,7 +93,10 @@ export async function simulateRetention(options: {
 }): Promise<unknown> {
   const database = createPostgresDatabase(options.databaseUrl);
   try {
-    const store = new PostgresRetentionDataStore(database);
+    const store = new PostgresRetentionDataStore(
+      database,
+      createGuidePdfStorage(options.databaseUrl),
+    );
     const cutoff = new Date(
       Date.now() - (options.days ?? 365) * 24 * 60 * 60 * 1000,
     );

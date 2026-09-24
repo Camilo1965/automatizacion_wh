@@ -87,6 +87,9 @@ export async function createRuntime(
 ): Promise<AppRuntime> {
   const config = loadConfig(env);
   const database = createPostgresDatabase(config.databaseUrl);
+  const guidePdfStorage = new LocalGuidePdfStorage(
+    createObjectStorage(config, 'guides'),
+  );
   const metrics = new MetricsRegistry();
   const errorReporter = new ErrorReporter({
     ...(config.errorTrackingDsn === undefined
@@ -123,7 +126,7 @@ export async function createRuntime(
   // RETENTION_EXECUTION_ENABLED=true and an approved active policy exists.
   const retentionService = new RetentionService(
     new PostgresRetentionRepository(database),
-    new PostgresRetentionDataStore(database),
+    new PostgresRetentionDataStore(database, guidePdfStorage),
     auditService,
     {
       executionEnabled: config.retentionExecutionEnabled === true,
@@ -202,9 +205,6 @@ export async function createRuntime(
           orderService,
           shippingClient,
         );
-  const guidePdfStorage = new LocalGuidePdfStorage(
-    createObjectStorage(config, 'guides'),
-  );
   const shippingGuideService =
     shippingClient === undefined
       ? undefined

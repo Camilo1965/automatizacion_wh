@@ -19,7 +19,8 @@ export class GuideDeliveryService {
         conversation.id AS conversation_id, conversation.customer_phone, conversation.flow_snapshot->'steps'->'guide'->>'message' AS caption
       FROM shipping_guide_jobs job JOIN whatsapp_conversations conversation ON conversation.active_order_id = job.order_id
         JOIN sales_orders orders ON orders.id = job.order_id JOIN catalog_references reference ON reference.id = orders.reference_id
-      WHERE job.status = 'created' AND job.pdf_delivery_attempts < 3
+      WHERE job.status = 'created' AND job.guide_pdf_retired_at IS NULL
+        AND job.pdf_delivery_attempts < 3
         AND (job.pdf_last_attempt_at IS NULL OR job.pdf_last_attempt_at < now() - interval '60 seconds')
         AND COALESCE((conversation.flow_snapshot->'optionalSteps'->>'sendGuideToCustomer')::boolean, true)
         AND NOT EXISTS (SELECT 1 FROM whatsapp_outbound_messages outbound WHERE outbound.idempotency_key = concat('guide:', job.id, ':', job.guide_pdf_sha256))

@@ -281,6 +281,13 @@
       "when": 1790140000004,
       "tag": "0039_nullable_anonymized_customer_phone",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1790210000000,
+      "tag": "0040_retire_redacted_guide_pdfs",
+      "breakpoints": true
     }
   ]
 }
