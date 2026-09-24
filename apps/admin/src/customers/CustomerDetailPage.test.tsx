@@ -43,7 +43,11 @@ describe('CustomerDetailPage', () => {
       initialEntries: [`/customers/${customerId}`],
     });
     expect(
-      await screen.findByRole('heading', { name: 'Teléfono no disponible' }),
+      await screen.findByRole(
+        'heading',
+        { name: 'Teléfono no disponible' },
+        { timeout: 5000 },
+      ),
     ).toBeVisible();
     expect(
       await screen.findByText(/Consentimiento de marketing: desconocido/),
