@@ -17,6 +17,7 @@ import type { PrivacyDataClass, RetentionAction } from '@camila/contracts';
 import type { PostgresDatabase } from '../../database/client.js';
 import {
   adminSessions,
+  customers,
   orderSummaries,
   ownerAlerts,
   salesOrders,
@@ -346,6 +347,11 @@ export class PostgresRetentionDataStore implements RetentionDataStore {
     customerPhone: string,
   ): Promise<CustomerRelatedSnapshot> {
     const orm = this.database.orm;
+    const profiles = await orm
+      .select({ id: customers.id })
+      .from(customers)
+      .where(eq(customers.normalizedPhone, customerPhone));
+    const customerIds = profiles.map((profile) => profile.id);
     const orders = await orm
       .select({
         id: salesOrders.id,
@@ -356,7 +362,17 @@ export class PostgresRetentionDataStore implements RetentionDataStore {
         address: salesOrders.address,
       })
       .from(salesOrders)
-      .where(eq(salesOrders.customerPhone, customerPhone));
+      .where(
+        or(
+          and(
+            sql`${salesOrders.customerId} IS NULL`,
+            eq(salesOrders.customerPhone, customerPhone),
+          ),
+          customerIds.length === 0
+            ? undefined
+            : inArray(salesOrders.customerId, customerIds),
+        ),
+      );
 
     const inbound = await orm
       .select({ id: whatsappInboundMessages.id })
@@ -366,7 +382,17 @@ export class PostgresRetentionDataStore implements RetentionDataStore {
     const conversations = await orm
       .select({ id: whatsappConversations.id })
       .from(whatsappConversations)
-      .where(eq(whatsappConversations.customerPhone, customerPhone));
+      .where(
+        or(
+          and(
+            sql`${whatsappConversations.customerId} IS NULL`,
+            eq(whatsappConversations.customerPhone, customerPhone),
+          ),
+          customerIds.length === 0
+            ? undefined
+            : inArray(whatsappConversations.customerId, customerIds),
+        ),
+      );
 
     const conversationIds = conversations.map((c) => c.id);
     const conversationMessages =
@@ -385,10 +411,21 @@ export class PostgresRetentionDataStore implements RetentionDataStore {
     const outbound = await orm
       .select({ id: whatsappOutboundMessages.id })
       .from(whatsappOutboundMessages)
-      .where(eq(whatsappOutboundMessages.customerPhone, customerPhone));
+      .where(
+        or(
+          and(
+            sql`${whatsappOutboundMessages.conversationId} IS NULL`,
+            eq(whatsappOutboundMessages.customerPhone, customerPhone),
+          ),
+          conversationIds.length === 0
+            ? undefined
+            : inArray(whatsappOutboundMessages.conversationId, conversationIds),
+        ),
+      );
 
     return {
       customerOpaqueId: opaqueCustomerId(customerPhone),
+      customerIds,
       orders: orders.map((o) => ({
         id: o.id,
         status: o.status,
@@ -431,9 +468,27 @@ export class PostgresRetentionDataStore implements RetentionDataStore {
       'anonymize',
       related.conversationIds,
     );
+    if (related.customerIds.length > 0) {
+      await this.database.orm
+        .update(customers)
+        .set({
+          displayName: null,
+          normalizedPhone: null,
+          marketingConsent: 'unknown',
+          marketingConsentChannel: null,
+          marketingConsentPurpose: null,
+          marketingConsentNoticeVersion: null,
+          marketingConsentEvidenceRef: null,
+          marketingConsentRecordedAt: null,
+          needsReview: true,
+          updatedAt: new Date(),
+        })
+        .where(inArray(customers.id, related.customerIds));
+    }
     return {
       customerOpaqueId: related.customerOpaqueId,
       relatedCounts: {
+        customers: related.customerIds.length,
         orders: orderIds.length,
         inbound: related.inboundIds.length,
         conversationMessages: related.conversationMessageIds.length,

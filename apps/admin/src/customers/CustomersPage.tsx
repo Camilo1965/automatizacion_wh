@@ -124,10 +124,12 @@ export function CustomersPage() {
               className="font-semibold text-foreground underline-offset-2 hover:underline"
               to={`/customers/${item.id}`}
             >
-              {item.displayName ?? item.normalizedPhone}
+              {item.displayName ??
+                item.normalizedPhone ??
+                'Teléfono no disponible'}
             </Link>
             <p className="mt-1 break-all text-sm text-muted-foreground">
-              {item.normalizedPhone}
+              {item.normalizedPhone ?? 'Teléfono no disponible'}
             </p>
             <p className="mt-2 text-sm text-foreground">
               {segmentLabel(item.segment)}

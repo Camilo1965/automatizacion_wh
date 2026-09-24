@@ -104,6 +104,7 @@ function createStore(seed: RetentionRecordSnapshot[]): RetentionDataStore & {
       );
       return {
         customerOpaqueId: opaqueId(customerPhone),
+        customerIds: [],
         orders: related
           .filter((row) => row.dataClass === 'sales_orders_customer_pii')
           .map((row) => ({

@@ -68,6 +68,37 @@ function RefreshReconciliationButton() {
 }
 
 describe('CustomersPage', () => {
+  it('shows a neutral label when an anonymized customer has no phone', async () => {
+    state.authenticated = true;
+    server.use(
+      http.get('/api/admin/customers', () =>
+        HttpResponse.json({
+          data: {
+            items: [
+              {
+                ...customer('needs_review'),
+                displayName: null,
+                normalizedPhone: null,
+              },
+            ],
+            nextCursor: null,
+          },
+        }),
+      ),
+    );
+    renderWithProviders(<App />, { initialEntries: ['/customers'] });
+    const link = await screen.findByRole(
+      'link',
+      {
+        name: 'Teléfono no disponible',
+      },
+      { timeout: 5000 },
+    );
+    expect(link).toHaveAttribute('href', `/customers/${customerId}`);
+    expect(screen.getAllByText('Teléfono no disponible')).toHaveLength(2);
+    expect(screen.queryByText('+573001234567')).not.toBeInTheDocument();
+  });
+
   it('filters by confirmed buyer segment and searches contact information', async () => {
     state.authenticated = true;
     const user = userEvent.setup();

@@ -21,6 +21,7 @@ import { PostgresAdminAuthRepository } from '../src/modules/auth/postgres-admin-
 import { DefaultCatalogService } from '../src/modules/catalog/catalog-service.js';
 import { LocalPhotoStorage } from '../src/modules/catalog/local-photo-storage.js';
 import { PostgresCatalogRepository } from '../src/modules/catalog/postgres-catalog-repository.js';
+import { resolveCustomerContact } from '../src/modules/customers/customer-contact.js';
 import { PostgresRetentionDataStore } from '../src/modules/privacy/postgres-retention-data-store.js';
 import { PostgresRetentionRepository } from '../src/modules/privacy/postgres-retention-repository.js';
 import {
@@ -434,6 +435,107 @@ describe('retention privacy integration', () => {
     } finally {
       await sql`DELETE FROM order_summaries WHERE order_id = ${orderId}`;
       await sql`DELETE FROM sales_orders WHERE id = ${orderId}`;
+      await sql`DELETE FROM catalog_references WHERE id = ${referenceId}`;
+      await sql.end({ timeout: 5 });
+    }
+  });
+
+  it('anonymizes a linked customer profile without deleting its operational identity', async () => {
+    const sql = postgres(testDatabaseUrl, { max: 1, prepare: false });
+    const customerId = randomUUID();
+    const referenceId = randomUUID();
+    const orderId = randomUUID();
+    const conversationId = randomUUID();
+    const customerPhone = `+573${Date.now().toString().slice(-9)}`;
+    const changedPhone = `${customerPhone.slice(0, -1)}${(Number(customerPhone.slice(-1)) + 1) % 10}`;
+    const referenceCode = `TEST-${randomUUID().slice(0, 8).toUpperCase()}`;
+
+    try {
+      await sql`
+        INSERT INTO catalog_references (id, code, model_name, color, price_cop)
+        VALUES (${referenceId}, ${referenceCode}, 'Prueba', 'Negro', 120000)
+      `;
+      await sql`
+        INSERT INTO customers (
+          id, display_name, normalized_phone, marketing_consent,
+          marketing_consent_channel, marketing_consent_purpose,
+          marketing_consent_notice_version, marketing_consent_evidence_ref,
+          marketing_consent_recorded_at
+        ) VALUES (
+          ${customerId}, 'Ana Gómez', ${customerPhone}, 'granted', 'whatsapp',
+          'marketing', 'notice-v1', ${`evidence-${customerId}`}, now()
+        )
+      `;
+      await sql`
+        INSERT INTO sales_orders (
+          id, reference_id, size, quantity, customer_name, customer_phone,
+          customer_id, address
+        ) VALUES (
+          ${orderId}, ${referenceId}, 37, 1, 'Ana Gómez', ${changedPhone},
+          ${customerId}, 'Calle 1 # 2-3'
+        )
+      `;
+      await sql`
+        INSERT INTO whatsapp_conversations (
+          id, customer_phone, customer_id, state, last_inbound_message_at
+        ) VALUES (
+          ${conversationId}, ${changedPhone}, ${customerId}, 'idle', now()
+        )
+      `;
+
+      const result = await new PostgresRetentionDataStore(
+        database,
+      ).anonymizeCustomer(customerPhone);
+
+      const [customer] = await sql`
+        SELECT id, display_name, normalized_phone, marketing_consent,
+          marketing_consent_channel, marketing_consent_purpose,
+          marketing_consent_notice_version, marketing_consent_evidence_ref,
+          marketing_consent_recorded_at, needs_review
+        FROM customers WHERE id = ${customerId}
+      `;
+      const [order] = await sql`
+        SELECT customer_id, customer_name, customer_phone, address
+        FROM sales_orders WHERE id = ${orderId}
+      `;
+      const [conversation] = await sql`
+        SELECT customer_id, customer_phone
+        FROM whatsapp_conversations WHERE id = ${conversationId}
+      `;
+
+      expect(result.relatedCounts.customers).toBe(1);
+      expect(customer).toMatchObject({
+        id: customerId,
+        display_name: null,
+        normalized_phone: null,
+        marketing_consent: 'unknown',
+        marketing_consent_channel: null,
+        marketing_consent_purpose: null,
+        marketing_consent_notice_version: null,
+        marketing_consent_evidence_ref: null,
+        marketing_consent_recorded_at: null,
+        needs_review: true,
+      });
+      expect(order).toMatchObject({
+        customer_id: customerId,
+        customer_name: 'ANONIMIZADO',
+        customer_phone: '0000000000',
+        address: null,
+      });
+      expect(conversation).toMatchObject({ customer_id: customerId });
+      expect(conversation?.customer_phone).not.toBe(changedPhone);
+
+      const reopenedCustomerId = await database.orm.transaction((transaction) =>
+        resolveCustomerContact(transaction, {
+          normalizedPhone: customerPhone,
+          displayName: 'Ana Gómez',
+        }),
+      );
+      expect(reopenedCustomerId).not.toBe(customerId);
+    } finally {
+      await sql`DELETE FROM whatsapp_conversations WHERE id = ${conversationId}`;
+      await sql`DELETE FROM sales_orders WHERE id = ${orderId}`;
+      await sql`DELETE FROM customers WHERE id = ${customerId} OR normalized_phone = ${customerPhone}`;
       await sql`DELETE FROM catalog_references WHERE id = ${referenceId}`;
       await sql.end({ timeout: 5 });
     }

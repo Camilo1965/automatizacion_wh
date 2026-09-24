@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   copyFileSync,
   mkdirSync,
@@ -485,6 +486,63 @@ describe('database migrations', () => {
         rmSync(stagedMigrationsFolder, { recursive: true, force: true });
         stagedMigrationsFolder = undefined;
       }
+    }
+  });
+
+  it('permits a cleared phone only on an anonymized customer profile after upgrade', async () => {
+    const created = await createTemporaryTestDatabase(testDatabaseUrl);
+    temporaryDatabaseName = created.databaseName;
+    stagedMigrationsFolder = buildMigrationFolderThrough(38);
+    await runMigrations(created.databaseUrl, stagedMigrationsFolder);
+
+    const sql = postgres(created.databaseUrl, { max: 1, prepare: false });
+    const anonymizedCustomerId = randomUUID();
+    const activeCustomerId = randomUUID();
+    const duplicateCustomerId = randomUUID();
+    const unreviewedCustomerId = randomUUID();
+
+    try {
+      await runMigrations(created.databaseUrl);
+      await sql`
+        INSERT INTO customers (id, normalized_phone, needs_review)
+        VALUES (${anonymizedCustomerId}, NULL, true)
+      `;
+      await sql`
+        INSERT INTO customers (id, normalized_phone)
+        VALUES (${activeCustomerId}, '+573001112233')
+      `;
+      await expect(
+        sql`
+          INSERT INTO customers (id, normalized_phone)
+          VALUES (${duplicateCustomerId}, '+573001112233')
+        `,
+      ).rejects.toThrow('customers_normalized_phone_unique');
+      await expect(
+        sql`
+          INSERT INTO customers (id, normalized_phone, needs_review)
+          VALUES (${unreviewedCustomerId}, NULL, false)
+        `,
+      ).rejects.toThrow('customers_anonymized_phone_profile_consistent');
+
+      const [anonymizedProfile] = await sql<
+        { id: string; normalized_phone: string | null; needs_review: boolean }[]
+      >`
+        SELECT id, normalized_phone, needs_review
+        FROM customers WHERE id = ${anonymizedCustomerId}
+      `;
+      expect(anonymizedProfile).toEqual({
+        id: anonymizedCustomerId,
+        normalized_phone: null,
+        needs_review: true,
+      });
+    } finally {
+      await sql.end({ timeout: 5 });
+      if (stagedMigrationsFolder !== undefined) {
+        rmSync(stagedMigrationsFolder, { recursive: true, force: true });
+        stagedMigrationsFolder = undefined;
+      }
+      await dropTemporaryTestDatabase(testDatabaseUrl, created.databaseName);
+      temporaryDatabaseName = undefined;
     }
   });
 

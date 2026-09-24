@@ -36,7 +36,10 @@ export const CustomerSummarySchema = z
   .object({
     id: z.uuid(),
     displayName: z.string().nullable(),
-    normalizedPhone: z.string().regex(/^\+573\d{9}$/),
+    normalizedPhone: z
+      .string()
+      .regex(/^\+573\d{9}$/)
+      .nullable(),
     segment: CustomerSegmentSchema,
     marketingConsent: z.enum(['unknown', 'granted', 'denied', 'revoked']),
     lastActivityAt: z.string().datetime(),

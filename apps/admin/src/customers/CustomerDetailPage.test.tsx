@@ -13,6 +13,45 @@ const conversationId = '33333333-3333-4333-8333-333333333333';
 const timestamp = '2026-09-22T12:00:00.000Z';
 
 describe('CustomerDetailPage', () => {
+  it('shows a cleared identity without recovering a linked conversation phone', async () => {
+    state.authenticated = true;
+    server.use(
+      http.get(`/api/admin/customers/${customerId}`, () =>
+        HttpResponse.json({
+          data: {
+            id: customerId,
+            displayName: null,
+            normalizedPhone: null,
+            segment: 'needs_review',
+            marketingConsent: 'unknown',
+            lastActivityAt: timestamp,
+            createdAt: timestamp,
+            orders: [],
+            conversations: [
+              {
+                id: conversationId,
+                customerPhone: 'A123456789012345',
+                state: 'idle',
+                updatedAt: timestamp,
+              },
+            ],
+          },
+        }),
+      ),
+    );
+    renderWithProviders(<App />, {
+      initialEntries: [`/customers/${customerId}`],
+    });
+    expect(
+      await screen.findByRole('heading', { name: 'Teléfono no disponible' }),
+    ).toBeVisible();
+    expect(
+      await screen.findByText(/Consentimiento de marketing: desconocido/),
+    ).toBeVisible();
+    expect(screen.queryByText('+573001234567')).not.toBeInTheDocument();
+    expect(screen.queryByText('A123456789012345')).not.toBeInTheDocument();
+  });
+
   it('shows derived status and links to historic orders and conversations', async () => {
     state.authenticated = true;
     server.use(

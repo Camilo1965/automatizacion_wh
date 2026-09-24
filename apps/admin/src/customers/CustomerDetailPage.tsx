@@ -26,9 +26,11 @@ export function CustomerDetailPage() {
       <PageHeader
         eyebrow="Clientes"
         title={
-          customer?.displayName ??
-          customer?.normalizedPhone ??
-          'Ficha de cliente'
+          customer === undefined
+            ? 'Ficha de cliente'
+            : (customer.displayName ??
+              customer.normalizedPhone ??
+              'Teléfono no disponible')
         }
         description="Historial de este contacto comercial."
         actions={
@@ -62,7 +64,7 @@ export function CustomerDetailPage() {
               <div>
                 <dt className="text-muted-foreground">Teléfono</dt>
                 <dd className="break-all text-foreground">
-                  {customer.normalizedPhone}
+                  {customer.normalizedPhone ?? 'Teléfono no disponible'}
                 </dd>
               </div>
               <div>
@@ -144,7 +146,9 @@ export function CustomerDetailPage() {
                     className="rounded-3xl border border-border bg-card p-4"
                   >
                     <p className="break-all text-sm text-foreground">
-                      {conversation.customerPhone}
+                      {customer.normalizedPhone === null
+                        ? 'Teléfono no disponible'
+                        : conversation.customerPhone}
                     </p>
                     <Link
                       to={`/conversations?conversation=${conversation.id}`}

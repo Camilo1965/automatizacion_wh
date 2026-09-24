@@ -74,6 +74,7 @@ export type RetentionRecordSnapshot = {
 
 export type CustomerRelatedSnapshot = {
   customerOpaqueId: string;
+  customerIds: string[];
   orders: Array<{
     id: string;
     status: string;
@@ -418,6 +419,7 @@ export class RetentionService {
       kind: input.kind,
       customerOpaqueId: related.customerOpaqueId,
       relatedCounts: {
+        customers: related.customerIds.length,
         orders: related.orders.length,
         inbound: related.inboundIds.length,
         conversationMessages: related.conversationMessageIds.length,
@@ -463,6 +465,7 @@ export class RetentionService {
         kind: 'export',
         customerOpaqueId: related.customerOpaqueId,
         relatedCounts: {
+          customers: related.customerIds.length,
           orders: related.orders.length,
           inbound: related.inboundIds.length,
           conversationMessages: related.conversationMessageIds.length,

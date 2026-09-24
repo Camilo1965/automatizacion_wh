@@ -15,7 +15,7 @@ export const customers = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     displayName: varchar('display_name', { length: 120 }),
-    normalizedPhone: varchar('normalized_phone', { length: 13 }).notNull(),
+    normalizedPhone: varchar('normalized_phone', { length: 13 }),
     marketingConsent: varchar('marketing_consent', { length: 16 })
       .notNull()
       .default('unknown'),
@@ -47,6 +47,10 @@ export const customers = pgTable(
     check(
       'customers_normalized_phone_format',
       sql`${table.normalizedPhone} ~ '^\\+573[0-9]{9}$'`,
+    ),
+    check(
+      'customers_anonymized_phone_profile_consistent',
+      sql`${table.normalizedPhone} IS NOT NULL OR (${table.displayName} IS NULL AND ${table.needsReview} = true AND ${table.marketingConsent} = 'unknown' AND ${table.marketingConsentChannel} IS NULL AND ${table.marketingConsentPurpose} IS NULL AND ${table.marketingConsentNoticeVersion} IS NULL AND ${table.marketingConsentEvidenceRef} IS NULL AND ${table.marketingConsentRecordedAt} IS NULL)`,
     ),
     check(
       'customers_marketing_consent_allowed',

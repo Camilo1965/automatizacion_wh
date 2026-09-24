@@ -83,7 +83,11 @@ describe('customer read model', () => {
 
   it('serializes aggregate activity timestamps from PostgreSQL as ISO strings', async () => {
     const database = createPostgresDatabase(databaseUrl);
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
     try {
+      await sql`UPDATE customers SET updated_at = '2026-09-20T10:00:00Z' WHERE id = ${buyer}`;
+      await sql`UPDATE sales_orders SET updated_at = '2026-09-21T10:00:00Z' WHERE customer_id = ${buyer}`;
+      await sql`UPDATE whatsapp_conversations SET updated_at = '2026-09-22T12:00:00Z' WHERE customer_id = ${buyer}`;
       const service = new CustomerService(
         new PostgresCustomerRepository(database),
       );
@@ -94,7 +98,40 @@ describe('customer read model', () => {
           Number.isFinite(Date.parse(item.lastActivityAt)),
         ),
       ).toBe(true);
+      expect(page.items.find((item) => item.id === buyer)?.lastActivityAt).toBe(
+        '2026-09-22T12:00:00.000Z',
+      );
     } finally {
+      await sql.end({ timeout: 5 });
+      await database.close();
+    }
+  });
+
+  it('returns a cleared profile phone as null while preserving its linked history', async () => {
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const database = createPostgresDatabase(databaseUrl);
+    try {
+      await sql`UPDATE customers SET display_name = NULL, normalized_phone = NULL, needs_review = true WHERE id = ${buyer}`;
+      const service = new CustomerService(
+        new PostgresCustomerRepository(database),
+      );
+      const detail = await service.get(buyer);
+      expect(detail).toMatchObject({
+        id: buyer,
+        displayName: null,
+        normalizedPhone: null,
+        segment: 'needs_review',
+        marketingConsent: 'unknown',
+      });
+      expect(detail?.orders).toHaveLength(2);
+      expect(detail?.conversations).toHaveLength(1);
+      expect(
+        (await service.list({ limit: 20 })).items.find(
+          (item) => item.id === buyer,
+        )?.normalizedPhone,
+      ).toBeNull();
+    } finally {
+      await sql.end({ timeout: 5 });
       await database.close();
     }
   });

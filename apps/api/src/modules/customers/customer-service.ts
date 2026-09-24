@@ -73,7 +73,7 @@ function encodeCursor(value: CustomerCursor | null): string | null {
 function toSummary(value: {
   id: string;
   displayName: string | null;
-  normalizedPhone: string;
+  normalizedPhone: string | null;
   segment: CustomerSegment;
   marketingConsent: 'unknown' | 'granted' | 'denied' | 'revoked';
   lastActivityAt: Date;

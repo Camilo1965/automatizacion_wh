@@ -12,7 +12,7 @@ export type CustomerCursor = Readonly<{ createdAt: string; id: string }>;
 export type CustomerSummary = Readonly<{
   id: string;
   displayName: string | null;
-  normalizedPhone: string;
+  normalizedPhone: string | null;
   segment: CustomerSegment;
   marketingConsent: 'unknown' | 'granted' | 'denied' | 'revoked';
   lastActivityAt: Date;
@@ -90,8 +90,8 @@ END`;
 
 const lastActivitySql = sql<Date>`GREATEST(
   ${customers.updatedAt},
-  COALESCE((SELECT MAX(o.updated_at) FROM sales_orders AS o WHERE o.customer_id = ${customers.id}), ${customers.updatedAt}),
-  COALESCE((SELECT MAX(c.updated_at) FROM whatsapp_conversations AS c WHERE c.customer_id = ${customers.id}), ${customers.updatedAt})
+  COALESCE((SELECT MAX(o.updated_at) FROM sales_orders AS o WHERE o.customer_id = ${customerTableName}.${customerIdIdentifier}), ${customers.updatedAt}),
+  COALESCE((SELECT MAX(c.updated_at) FROM whatsapp_conversations AS c WHERE c.customer_id = ${customerTableName}.${customerIdIdentifier}), ${customers.updatedAt})
 )`.mapWith((value) => new Date(String(value)));
 
 function escapeLikePattern(value: string): string {

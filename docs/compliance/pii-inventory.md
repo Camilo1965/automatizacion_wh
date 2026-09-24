@@ -8,6 +8,8 @@ Inventario técnico de tablas y campos que pueden contener datos personales iden
 
 **Ejecución automática:** OFF salvo `RETENTION_EXECUTION_ENABLED=true` **y** política activa con `legalStatus=approved` por clase.
 
+**Ficha de cliente:** no hay duración automática de retención aprobada para `customers`. La anonimización de la ficha ocurre únicamente mediante la solicitud explícita de titular confirmada por el owner; no se añadió una clase programada ni se habilitó su ejecución automática.
+
 ## Clases de retención (modelo explícito)
 
 | data class                       | Tablas                            | Estrategia de relación                                                        | Acciones permitidas         |
@@ -30,13 +32,19 @@ Inventario técnico de tablas y campos que pueden contener datos personales iden
 
 ## Pedidos y clientes
 
-| Tabla             | Campo            | Clase                                           |
-| ----------------- | ---------------- | ----------------------------------------------- |
-| `sales_orders`    | `customer_name`  | Nombre                                          |
-| `sales_orders`    | `customer_phone` | Teléfono                                        |
-| `sales_orders`    | `address`        | Dirección                                       |
-| `sales_orders`    | `delivery_notes` | Notas que pueden incluir PII                    |
-| `order_summaries` | `payload` (JSON) | Resumen de pedido; puede repetir datos de envío |
+| Tabla             | Campo                                                                                                                                                           | Clase                                                                  |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `sales_orders`    | `customer_name`                                                                                                                                                 | Nombre                                                                 |
+| `sales_orders`    | `customer_phone`                                                                                                                                                | Teléfono                                                               |
+| `sales_orders`    | `address`                                                                                                                                                       | Dirección                                                              |
+| `sales_orders`    | `delivery_notes`                                                                                                                                                | Notas que pueden incluir PII                                           |
+| `order_summaries` | `payload` (JSON)                                                                                                                                                | Resumen de pedido; puede repetir datos de envío                        |
+| `customers`       | `display_name`                                                                                                                                                  | Nombre del contacto; se borra en la anonimización explícita            |
+| `customers`       | `normalized_phone`                                                                                                                                              | Identificador de teléfono; pasa a `NULL` en la anonimización explícita |
+| `customers`       | `marketing_consent`                                                                                                                                             | Estado del consentimiento; se restablece a `unknown`                   |
+| `customers`       | `marketing_consent_channel`, `marketing_consent_purpose`, `marketing_consent_notice_version`, `marketing_consent_evidence_ref`, `marketing_consent_recorded_at` | Evidencia de consentimiento; se borra en la anonimización explícita    |
+
+`customers.id` se conserva como referencia interna estable a pedidos y conversaciones. La operación explícita también redacta registros enlazados por `customer_id` aunque su teléfono almacenado haya cambiado, y registros históricos sin enlace que coincidan con el teléfono suministrado. La ficha anonimizada queda marcada para revisión y no se usa para resolver contactos nuevos.
 
 ## WhatsApp / conversaciones
 
