@@ -288,6 +288,13 @@
       "when": 1790210000000,
       "tag": "0040_retire_redacted_guide_pdfs",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1790280000000,
+      "tag": "0041_whatsapp_cancellation_replay",
+      "breakpoints": true
     }
   ]
 }

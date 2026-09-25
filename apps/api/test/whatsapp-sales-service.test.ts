@@ -135,6 +135,122 @@ describe('WhatsAppSalesService', () => {
     );
     expect(outbound.enqueueText.mock.calls[0]?.[0].body).not.toMatch(/Cancelé/);
   });
+
+  it('states that cancellation succeeded when clearing its active link fails', async () => {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'c1',
+        state: 'awaiting_size',
+        reply: null,
+        action: 'cancel_order',
+        activeOrderId: 'o1',
+      }),
+      returnToSize: vi.fn(),
+      clearActiveOrder: vi
+        .fn()
+        .mockRejectedValue(new Error('link write failed')),
+      takeOver: vi.fn(),
+    };
+    const orders = {
+      create: vi.fn(),
+      transition: vi.fn().mockResolvedValue({ id: 'o1', status: 'cancelled' }),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const alerts = { open: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      orders,
+      undefined,
+      undefined,
+      undefined,
+      alerts,
+    );
+
+    await service.process({
+      whatsappMessageId: 'clear-failed',
+      customerPhone: '573000000001',
+      text: 'cancelar',
+    });
+
+    expect(conversations.takeOver).toHaveBeenCalledExactlyOnceWith('c1');
+    expect(alerts.open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'order_cancellation_attention',
+        entityId: 'o1',
+        severity: 'critical',
+      }),
+    );
+    expect(outbound.enqueueText).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        body: expect.stringMatching(/cancelado.*revisará/is),
+        source: 'owner_panel',
+      }),
+    );
+    expect(outbound.enqueueText.mock.calls[0]?.[0].body).not.toMatch(
+      /No se completó/,
+    );
+  });
+
+  it('records an alert even if both cancellation replies fail to enqueue', async () => {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'c1',
+        state: 'awaiting_size',
+        reply: null,
+        action: 'cancel_order',
+        activeOrderId: 'o1',
+      }),
+      returnToSize: vi.fn(),
+      clearActiveOrder: vi.fn(),
+      takeOver: vi.fn(),
+    };
+    const orders = {
+      create: vi.fn(),
+      transition: vi.fn().mockResolvedValue({ id: 'o1', status: 'cancelled' }),
+    };
+    const outbound = {
+      enqueueText: vi.fn().mockRejectedValue(new Error('outbox unavailable')),
+      enqueueImage: vi.fn(),
+    };
+    const alerts = { open: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      orders,
+      undefined,
+      undefined,
+      undefined,
+      alerts,
+    );
+
+    await expect(
+      service.process({
+        whatsappMessageId: 'reply-failed',
+        customerPhone: '573000000001',
+        text: 'cancelar',
+      }),
+    ).rejects.toThrow('outbox unavailable');
+
+    expect(conversations.takeOver).toHaveBeenCalledExactlyOnceWith('c1');
+    expect(outbound.enqueueText).toHaveBeenCalledTimes(2);
+    expect(outbound.enqueueText.mock.calls[1]?.[0].body).toMatch(
+      /cancelado.*revisará/is,
+    );
+    expect(alerts.open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'order_cancellation_attention',
+        entityId: 'o1',
+        severity: 'critical',
+      }),
+    );
+  });
   it('reopens confirmation when a quote expires without creating a guide', async () => {
     const conversations = {
       receive: vi.fn().mockResolvedValue({

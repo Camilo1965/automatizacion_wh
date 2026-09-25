@@ -63,7 +63,11 @@ export class PostgresConversationRepository {
       await lockCustomerPhone(tx, customerPhone);
 
       const [duplicate] = await tx
-        .select({ id: whatsappConversationEvents.id })
+        .select({
+          id: whatsappConversationEvents.id,
+          conversationId: whatsappConversationEvents.conversationId,
+          cancellationOrderId: whatsappConversationEvents.cancellationOrderId,
+        })
         .from(whatsappConversationEvents)
         .where(
           eq(
@@ -94,10 +98,21 @@ export class PostgresConversationRepository {
       }
 
       if (duplicate !== undefined) {
+        const recoverCancellation =
+          duplicate.conversationId === existing?.id &&
+          existing.mode === 'bot' &&
+          duplicate.cancellationOrderId !== null;
         return {
           duplicate: true,
           state: existing?.state ?? 'awaiting_size',
           reply: null,
+          ...(recoverCancellation
+            ? {
+                conversationId: duplicate.conversationId,
+                action: 'cancel_order' as const,
+                activeOrderId: duplicate.cancellationOrderId,
+              }
+            : {}),
         };
       }
 
@@ -212,6 +227,10 @@ export class PostgresConversationRepository {
       await tx.insert(whatsappConversationEvents).values({
         conversationId: conversation.id,
         whatsappMessageId: input.whatsappMessageId,
+        cancellationOrderId:
+          transition.action === 'cancel_order'
+            ? (existing?.activeOrderId ?? null)
+            : null,
         sequence: lastSequence + 1,
         stateBefore: existing?.state ?? null,
         stateAfter: transition.state,

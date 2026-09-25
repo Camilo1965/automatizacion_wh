@@ -74,6 +74,9 @@ type OrderPort = Readonly<{
   >;
   update?(input: PatchOrderInput): Promise<unknown>;
   createSummary?(orderId: string): Promise<OrderSummary>;
+  get?(
+    orderId: string,
+  ): Promise<Pick<OrderRecord, 'status' | 'orderNumber'> | null>;
   transition?(input: {
     orderId: string;
     action: 'confirm' | 'cancel';
@@ -205,7 +208,11 @@ export class WhatsAppSalesService {
 
   async process(input: ReceiveConversationInput): Promise<void> {
     const result = await this.conversations.receive(input);
-    if (result.duplicate || result.conversationId === undefined) return;
+    if (
+      result.conversationId === undefined ||
+      (result.duplicate && result.action !== 'cancel_order')
+    )
+      return;
     if (result.reply !== null) {
       const availability =
         result.action === 'human_takeover' && this.getOwnerSettings
@@ -233,24 +240,55 @@ export class WhatsAppSalesService {
       return;
     }
     if (result.action === 'cancel_order') {
+      if (
+        result.activeOrderId == null ||
+        this.orders?.transition === undefined ||
+        this.conversations.clearActiveOrder === undefined
+      ) {
+        await this.handoffCancellation(result, input, false);
+        return;
+      }
+      let observedOrder: Pick<OrderRecord, 'status' | 'orderNumber'> | null =
+        null;
       try {
-        if (
-          result.activeOrderId == null ||
-          this.orders?.transition === undefined ||
-          this.conversations.clearActiveOrder === undefined
-        ) {
-          throw new Error('Cancellation dependencies are unavailable');
+        if (result.duplicate) {
+          if (this.orders.get === undefined)
+            throw new Error(
+              'Order status lookup is unavailable for cancellation replay',
+            );
+          observedOrder = await this.orders.get(result.activeOrderId);
+          if (observedOrder === null)
+            throw new Error('Cancellation order was not found');
         }
-        await this.orders.transition({
-          orderId: result.activeOrderId,
-          action: 'cancel',
-          idempotencyKey: `whatsapp:${input.whatsappMessageId}`,
-        });
+        if (observedOrder?.status !== 'cancelled') {
+          await this.orders.transition({
+            orderId: result.activeOrderId,
+            action: 'cancel',
+            idempotencyKey: `whatsapp:${input.whatsappMessageId}`,
+          });
+        }
+      } catch {
+        try {
+          observedOrder =
+            (await this.orders.get?.(result.activeOrderId)) ?? null;
+        } catch {
+          observedOrder = null;
+        }
+        if (observedOrder?.status !== 'cancelled') {
+          await this.handoffCancellation(result, input, false);
+          return;
+        }
+      }
+      try {
         await this.conversations.clearActiveOrder(
           result.conversationId,
           result.activeOrderId,
         );
-        const orderId = result.variables?.pedido || result.activeOrderId;
+        const orderId =
+          result.variables?.pedido ||
+          (observedOrder?.orderNumber == null
+            ? result.activeOrderId
+            : `PED-${String(observedOrder.orderNumber).padStart(6, '0')}`);
         await this.queueText(
           result.conversationId,
           input,
@@ -258,24 +296,7 @@ export class WhatsAppSalesService {
           'cancelled',
         );
       } catch {
-        await this.conversations.takeOver?.(result.conversationId);
-        await this.outbound.enqueueText({
-          conversationId: result.conversationId,
-          customerPhone: input.customerPhone,
-          body: 'La propietaria revisará la cancelación de tu pedido antes de continuar.',
-          source: 'owner_panel',
-          idempotencyKey: `cancellation-attention:${input.whatsappMessageId}`,
-        });
-        await this.alerts?.open({
-          type: 'order_cancellation_attention',
-          severity: 'critical',
-          title: 'Revisar cancelación de pedido',
-          detail:
-            'No se completó la cancelación automáticamente. Revisar el estado del pedido antes de continuar.',
-          entityUrl: `/orders/${result.activeOrderId ?? ''}`,
-          entityId: result.activeOrderId ?? result.conversationId,
-          retrySafe: false,
-        });
+        await this.handoffCancellation(result, input, true);
       }
       return;
     }
@@ -711,5 +732,42 @@ export class WhatsAppSalesService {
       ...(source === undefined ? {} : { source }),
       idempotencyKey: `${suffix}:${inbound.whatsappMessageId}`,
     });
+  }
+
+  private async handoffCancellation(
+    result: ReceiveConversationResult,
+    input: ReceiveConversationInput,
+    cancelled: boolean,
+  ): Promise<void> {
+    if (result.conversationId === undefined)
+      throw new Error('Cancellation conversation is unavailable');
+    let handoffError: unknown;
+    try {
+      await this.conversations.takeOver?.(result.conversationId);
+      await this.outbound.enqueueText({
+        conversationId: result.conversationId,
+        customerPhone: input.customerPhone,
+        body: cancelled
+          ? 'El pedido ya fue cancelado, pero la propietaria revisará los detalles antes de continuar.'
+          : 'La propietaria revisará la cancelación de tu pedido antes de continuar.',
+        source: 'owner_panel',
+        idempotencyKey: `cancellation-attention:${input.whatsappMessageId}`,
+      });
+    } catch (error) {
+      handoffError = error;
+    } finally {
+      await this.alerts?.open({
+        type: 'order_cancellation_attention',
+        severity: 'critical',
+        title: 'Revisar cancelación de pedido',
+        detail: cancelled
+          ? 'El pedido fue cancelado, pero no se completó el vínculo activo o el aviso al cliente.'
+          : 'No se completó la cancelación automáticamente. Revisar el estado del pedido antes de continuar.',
+        entityUrl: `/orders/${result.activeOrderId ?? ''}`,
+        entityId: result.activeOrderId ?? result.conversationId,
+        retrySafe: false,
+      });
+    }
+    if (handoffError !== undefined) throw handoffError;
   }
 }

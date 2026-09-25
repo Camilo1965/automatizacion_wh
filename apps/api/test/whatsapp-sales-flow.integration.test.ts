@@ -32,6 +32,180 @@ import { requireTestDatabaseUrl } from './helpers/test-database.js';
 const databaseUrl = requireTestDatabaseUrl();
 
 describe('complete WhatsApp sale', () => {
+  it('recovers cancellation when the inbound event committed before processing', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const conversations = new PostgresConversationRepository(database);
+    const catalogRepository = new PostgresCatalogRepository(database);
+    const orders = new OrderService(
+      new PostgresOrderRepository(database),
+      (id) => catalogRepository.findReferenceById(id),
+    );
+    const outbound = new PostgresOutboundRepository(database);
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      orders,
+    );
+    const customerPhone = '+573158191776';
+    const cancel = {
+      whatsappMessageId: 'cancel-interrupted',
+      customerPhone,
+      text: 'cancelar',
+    };
+    try {
+      const welcome = {
+        whatsappMessageId: 'cancel-interrupted-welcome',
+        customerPhone,
+        text: 'hola',
+      };
+      const started = await conversations.receive(welcome);
+      await service.process(welcome);
+      const order = await orders.create({
+        referenceId: '11111111-1111-4111-8111-111111111111',
+        size: '37',
+        quantity: 1,
+        customerPhone,
+      });
+      await conversations.attachOrder(
+        started.conversationId!,
+        order.referenceId,
+        order.id,
+      );
+      const sql = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        await sql`UPDATE whatsapp_conversations SET state = 'awaiting_confirmation', active_summary_version = 1 WHERE id = ${started.conversationId!}`;
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+      expect((await conversations.receive(cancel)).action).toBe('cancel_order');
+
+      await service.process(cancel);
+      await service.process(cancel);
+
+      const check = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        const [state] = await check<
+          {
+            status: string;
+            active_order_id: string | null;
+            active_summary_version: number | null;
+          }[]
+        >`
+          SELECT o.status, c.active_order_id, c.active_summary_version
+          FROM sales_orders o JOIN whatsapp_conversations c ON c.id = ${started.conversationId!}
+          WHERE o.id = ${order.id}
+        `;
+        const [reply] = await check<{ count: number }[]>`
+          SELECT count(*)::int AS count FROM whatsapp_outbound_messages
+          WHERE idempotency_key = 'cancelled:cancel-interrupted'
+        `;
+        const [events] = await check<{ count: number }[]>`
+          SELECT count(*)::int AS count FROM order_status_events
+          WHERE order_id = ${order.id} AND next_status = 'cancelled'
+        `;
+        const [guides] = await check<{ count: number }[]>`
+          SELECT count(*)::int AS count FROM shipping_guide_jobs
+        `;
+        const [welcomeReplies] = await check<{ count: number }[]>`
+          SELECT count(*)::int AS count FROM whatsapp_outbound_messages
+          WHERE idempotency_key = 'reply:cancel-interrupted-welcome'
+        `;
+        expect(state).toMatchObject({
+          status: 'cancelled',
+          active_order_id: null,
+          active_summary_version: null,
+        });
+        expect(reply?.count).toBe(1);
+        expect(events?.count).toBe(1);
+        expect(guides?.count).toBe(0);
+        expect(welcomeReplies?.count).toBe(0);
+      } finally {
+        await check.end({ timeout: 5 });
+      }
+    } finally {
+      await database.close();
+    }
+  });
+
+  it('recovers the reply after cancellation committed and its active link was cleared', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const conversations = new PostgresConversationRepository(database);
+    const catalogRepository = new PostgresCatalogRepository(database);
+    const orders = new OrderService(
+      new PostgresOrderRepository(database),
+      (id) => catalogRepository.findReferenceById(id),
+    );
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      new PostgresOutboundRepository(database),
+      orders,
+    );
+    const customerPhone = '+573158191776';
+    const cancel = {
+      whatsappMessageId: 'cancel-after-clear',
+      customerPhone,
+      text: 'cancelar',
+    };
+    try {
+      const started = await conversations.receive({
+        whatsappMessageId: 'cancel-after-clear-welcome',
+        customerPhone,
+        text: 'hola',
+      });
+      const order = await orders.create({
+        referenceId: '11111111-1111-4111-8111-111111111111',
+        size: '37',
+        quantity: 1,
+        customerPhone,
+      });
+      await conversations.attachOrder(
+        started.conversationId!,
+        order.referenceId,
+        order.id,
+      );
+      const sql = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        await sql`UPDATE whatsapp_conversations SET state = 'awaiting_confirmation', active_summary_version = 1 WHERE id = ${started.conversationId!}`;
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+      await conversations.receive(cancel);
+      await orders.transition({
+        orderId: order.id,
+        action: 'cancel',
+        idempotencyKey: 'whatsapp:cancel-after-clear',
+      });
+      await conversations.clearActiveOrder(started.conversationId!, order.id);
+
+      await service.process(cancel);
+      await service.process(cancel);
+
+      const check = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        const [reply] = await check<{ count: number; body: string }[]>`
+          SELECT count(*)::int AS count, min(text_body) AS body FROM whatsapp_outbound_messages
+          WHERE idempotency_key = 'cancelled:cancel-after-clear'
+        `;
+        const [events] = await check<{ count: number }[]>`
+          SELECT count(*)::int AS count FROM order_status_events
+          WHERE order_id = ${order.id} AND next_status = 'cancelled'
+        `;
+        expect(reply?.count).toBe(1);
+        expect(reply?.body).toContain(
+          `PED-${String(order.orderNumber).padStart(6, '0')}`,
+        );
+        expect(events?.count).toBe(1);
+      } finally {
+        await check.end({ timeout: 5 });
+      }
+    } finally {
+      await database.close();
+    }
+  });
   it('cancels a summarized draft once and preserves its historical link', async () => {
     const database = createPostgresDatabase(databaseUrl);
     const catalogRepository = new PostgresCatalogRepository(database);

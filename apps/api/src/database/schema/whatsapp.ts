@@ -221,6 +221,10 @@ export const whatsappConversationEvents = pgTable(
     whatsappMessageId: varchar('whatsapp_message_id', {
       length: 128,
     }).notNull(),
+    cancellationOrderId: uuid('cancellation_order_id').references(
+      () => salesOrders.id,
+      { onDelete: 'restrict' },
+    ),
     sequence: integer('sequence').notNull(),
     stateBefore: varchar('state_before', { length: 32 }),
     stateAfter: varchar('state_after', { length: 32 }).notNull(),
