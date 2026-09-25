@@ -126,4 +126,28 @@ describe('configurable flow', () => {
     });
     expect(transition.reply).toMatch(/asesora|continuar/i);
   });
+
+  it('uses exactly two failures even when a legacy snapshot requested one', () => {
+    const flow = createDefaultBotFlow();
+    flow.steps.size = {
+      enabled: true,
+      message: 'Dime tu talla',
+      maxAttempts: 1,
+    };
+    const first = advanceConfiguredConversation(
+      'awaiting_size',
+      'inválida',
+      0,
+      flow,
+    );
+    expect(first.action).toBeUndefined();
+    expect(first.invalidAttempts).toBe(1);
+    const second = advanceConfiguredConversation(
+      'awaiting_size',
+      'inválida',
+      1,
+      flow,
+    );
+    expect(second.action).toBe('human_takeover');
+  });
 });

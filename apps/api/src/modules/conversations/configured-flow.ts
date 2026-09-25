@@ -79,7 +79,7 @@ export function advanceConfiguredConversation(
     transition.state === state &&
     transition.action === undefined &&
     state !== 'completed';
-  if (invalid && attempts + 1 >= Math.min(step.maxAttempts ?? 2, 2))
+  if (invalid && attempts + 1 >= 2)
     return {
       ...transition,
       invalidAttempts: attempts + 1,

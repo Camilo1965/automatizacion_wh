@@ -37,7 +37,14 @@ const StepSchema = z
     invalidMessage: z.string().max(4096).optional(),
     maxAttempts: z.number().int().min(1).max(10).optional(),
   })
-  .strict();
+  .strict()
+  .transform((step) => ({
+    enabled: step.enabled,
+    message: step.message,
+    ...(step.invalidMessage === undefined
+      ? {}
+      : { invalidMessage: step.invalidMessage }),
+  }));
 export const BotFlowDefinitionSchema = z
   .object({
     commands: z

@@ -287,11 +287,12 @@ describe('WhatsAppSalesService', () => {
       customerPhone: '573000000001',
       text: 'Belx',
     });
-    expect(conversations.setLocalitySuggestions).toHaveBeenCalledWith('c1', [
-      'Bello',
-      'Belmira',
-      'Belén',
-    ]);
+    expect(conversations.setLocalitySuggestions).toHaveBeenCalledWith(
+      'c1',
+      ['Bello', 'Belmira', 'Belén'],
+      'unknown-edited-locality',
+      expect.stringMatching(/Una asesora continuará/i),
+    );
     expect(orders.update).not.toHaveBeenCalled();
     expect(orders.createSummary).not.toHaveBeenCalled();
     expect(outbound.enqueueText).toHaveBeenCalledWith(
@@ -884,6 +885,8 @@ describe('WhatsAppSalesService', () => {
     });
     expect(conversations.recordInvalidReference).toHaveBeenCalledWith(
       'conversation-1',
+      'invalid-reference-twice',
+      expect.stringMatching(/Una asesora continuará/i),
     );
     expect(outbound.enqueueText).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -896,6 +899,174 @@ describe('WhatsAppSalesService', () => {
         entityId: 'conversation-1',
       }),
     );
+  });
+
+  it('retries a persisted invalid-reference handoff after outbound enqueue fails', async () => {
+    const handoffReply = 'Una asesora continuará la selección de referencia.';
+    const conversations = {
+      receive: vi
+        .fn()
+        .mockResolvedValueOnce({
+          duplicate: false,
+          conversationId: 'c1',
+          state: 'showing_models',
+          reply: null,
+          action: 'select_reference',
+          input: '99',
+        })
+        .mockResolvedValueOnce({
+          duplicate: true,
+          conversationId: 'c1',
+          state: 'showing_models',
+          reply: handoffReply,
+          action: 'human_takeover',
+        }),
+      returnToSize: vi.fn(),
+      recordInvalidReference: vi.fn().mockResolvedValue(true),
+      completeInvalidHandoff: vi.fn(),
+    };
+    const outbound = {
+      enqueueText: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('queue unavailable'))
+        .mockResolvedValue(undefined),
+      enqueueImage: vi.fn(),
+    };
+    const alerts = { open: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      {
+        create: vi.fn(),
+        findOption: vi.fn().mockResolvedValue(null),
+        getNextCursor: vi.fn(),
+      },
+      outbound,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      alerts,
+    );
+    const inbound = {
+      whatsappMessageId: 'invalid-ref-replay',
+      customerPhone: '573000000001',
+      text: '99',
+    };
+    await expect(service.process(inbound)).rejects.toThrow('queue unavailable');
+    await service.process(inbound);
+    expect(conversations.recordInvalidReference).toHaveBeenCalledTimes(1);
+    expect(outbound.enqueueText).toHaveBeenCalledTimes(2);
+    expect(outbound.enqueueText.mock.calls[0]?.[0].idempotencyKey).toBe(
+      'reply:invalid-ref-replay',
+    );
+    expect(outbound.enqueueText.mock.calls[1]?.[0]).toMatchObject({
+      source: 'owner_panel',
+      body: handoffReply,
+      idempotencyKey: 'reply:invalid-ref-replay',
+    });
+    expect(alerts.open).toHaveBeenCalledTimes(1);
+    expect(conversations.completeInvalidHandoff).toHaveBeenCalledTimes(1);
+    expect(conversations.completeInvalidHandoff).toHaveBeenCalledWith(
+      'c1',
+      'invalid-ref-replay',
+    );
+  });
+
+  it('retries a persisted invalid-locality handoff when the owner alert fails', async () => {
+    const handoffReply = 'Una asesora confirmará el municipio del pedido.';
+    const conversations = {
+      receive: vi
+        .fn()
+        .mockResolvedValueOnce({
+          duplicate: false,
+          conversationId: 'c1',
+          state: 'awaiting_locality',
+          reply: null,
+          action: 'collect_locality',
+          input: 'Belx',
+          activeOrderId: 'o1',
+          pendingDepartment: 'Antioquia',
+        })
+        .mockResolvedValueOnce({
+          duplicate: true,
+          conversationId: 'c1',
+          state: 'awaiting_locality',
+          reply: handoffReply,
+          action: 'human_takeover',
+        }),
+      returnToSize: vi.fn(),
+      setLocalitySuggestions: vi.fn().mockResolvedValue(true),
+      completeInvalidHandoff: vi.fn(),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const alerts = {
+      open: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('alert unavailable'))
+        .mockResolvedValue(undefined),
+    };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      { create: vi.fn(), update: vi.fn() },
+      { list: vi.fn().mockResolvedValue({ items: [] }) },
+      undefined,
+      undefined,
+      alerts,
+    );
+    const inbound = {
+      whatsappMessageId: 'invalid-city-replay',
+      customerPhone: '573000000001',
+      text: 'Belx',
+    };
+    await expect(service.process(inbound)).rejects.toThrow('alert unavailable');
+    await service.process(inbound);
+    expect(conversations.setLocalitySuggestions).toHaveBeenCalledTimes(1);
+    expect(outbound.enqueueText).toHaveBeenCalledTimes(2);
+    expect(outbound.enqueueText.mock.calls[0]?.[0].idempotencyKey).toBe(
+      'reply:invalid-city-replay',
+    );
+    expect(outbound.enqueueText.mock.calls[1]?.[0].idempotencyKey).toBe(
+      'reply:invalid-city-replay',
+    );
+    expect(alerts.open).toHaveBeenCalledTimes(2);
+    expect(conversations.completeInvalidHandoff).toHaveBeenCalledTimes(1);
+    expect(conversations.completeInvalidHandoff).toHaveBeenCalledWith(
+      'c1',
+      'invalid-city-replay',
+    );
+  });
+
+  it('keeps a recovered handoff pending when the alert service is unavailable', async () => {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: true,
+        conversationId: 'c1',
+        state: 'awaiting_locality',
+        reply: 'Una asesora continuará contigo.',
+        action: 'human_takeover',
+      }),
+      returnToSize: vi.fn(),
+      completeInvalidHandoff: vi.fn(),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+    );
+    await expect(
+      service.process({
+        whatsappMessageId: 'no-alert',
+        customerPhone: '573000000001',
+        text: '3',
+      }),
+    ).rejects.toThrow(/alerta/i);
+    expect(conversations.completeInvalidHandoff).not.toHaveBeenCalled();
   });
 
   it('hands off after two unknown municipalities while preserving the current order', async () => {
@@ -942,9 +1113,12 @@ describe('WhatsAppSalesService', () => {
       customerPhone: '573000000001',
       text: 'Belx',
     });
-    expect(conversations.setLocalitySuggestions).toHaveBeenCalledWith('c1', [
-      'Bello',
-    ]);
+    expect(conversations.setLocalitySuggestions).toHaveBeenCalledWith(
+      'c1',
+      ['Bello'],
+      'invalid-locality-twice',
+      expect.stringMatching(/Una asesora continuará/i),
+    );
     expect(orders.update).not.toHaveBeenCalled();
     expect(outbound.enqueueText).toHaveBeenCalledWith(
       expect.objectContaining({

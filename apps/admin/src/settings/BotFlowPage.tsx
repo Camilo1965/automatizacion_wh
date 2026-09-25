@@ -347,31 +347,10 @@ export function BotFlowPage() {
                     className="rounded-[1.125rem] bg-muted"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="flow-attempts">
-                    Intentos antes de solicitar atención humana
-                  </Label>
-                  <Input
-                    id="flow-attempts"
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={definition.steps[step].maxAttempts ?? 3}
-                    onChange={(event) =>
-                      update({
-                        ...definition,
-                        steps: {
-                          ...definition.steps,
-                          [step]: {
-                            ...definition.steps[step],
-                            maxAttempts: Number(event.target.value),
-                          },
-                        },
-                      })
-                    }
-                    className="h-11 rounded-[1.125rem] bg-muted"
-                  />
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  Después de dos respuestas no válidas, KAIRO solicita atención
+                  humana y conserva la conversación.
+                </p>
                 <div
                   className="flex flex-wrap gap-2"
                   role="group"

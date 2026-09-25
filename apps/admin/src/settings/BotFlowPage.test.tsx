@@ -34,6 +34,39 @@ const definition = {
 describe('BotFlowPage editing and simulation', () => {
   beforeEach(() => sessionStorage.removeItem('kairo.bot-flow-draft'));
 
+  it('explains the fixed two-error handoff without an editable attempts control', async () => {
+    const legacyDefinition = {
+      ...definition,
+      steps: {
+        ...definition.steps,
+        size: { enabled: true, message: 'Talla', maxAttempts: 7 },
+      },
+    };
+    server.use(
+      http.get('/api/admin/auth/session', () =>
+        HttpResponse.json({ data: { user: adminUser } }),
+      ),
+      http.get('/api/admin/bot-flow', () =>
+        HttpResponse.json({
+          data: {
+            revision: 1,
+            definition: legacyDefinition,
+            activeVersionId: null,
+            versions: [],
+          },
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<BotFlowPage />);
+    expect(await screen.findByText('Borrador guardado')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: '2. Talla' }));
+    expect(screen.getByText(/dos respuestas no válidas/i)).toBeVisible();
+    expect(
+      screen.queryByLabelText('Intentos antes de solicitar atención humana'),
+    ).toBeNull();
+  });
+
   it('explains that the owner edits the header and question while order details are calculated', async () => {
     const user = userEvent.setup();
     server.use(

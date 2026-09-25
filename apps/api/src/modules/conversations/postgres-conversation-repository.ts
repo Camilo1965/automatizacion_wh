@@ -10,6 +10,7 @@ import {
   botFlowVersions,
   salesOrders,
   catalogReferences,
+  shippingLocalities,
 } from '../../database/schema/index.js';
 import { type ConversationTransition } from './conversation-state.js';
 import {
@@ -29,6 +30,7 @@ import {
   lockOutboundIdentity,
 } from '../whatsapp/postgres-outbound-repository.js';
 import { resolveOfferedLocality } from './locality-suggestions.js';
+import { canonicalDepartment } from './department-selection.js';
 
 export type ReceiveConversationInput = Readonly<{
   whatsappMessageId: string;
@@ -115,6 +117,12 @@ export class PostgresConversationRepository {
           duplicate.conversationId === existing?.id &&
           existing.mode === 'bot' &&
           duplicate.cancellationOrderId !== null;
+        const recoverInvalidHandoff =
+          duplicate.conversationId === existing?.id &&
+          (duplicate.continuationAction === 'invalid_ref' ||
+            duplicate.continuationAction === 'invalid_city' ||
+            duplicate.continuationAction === 'human_takeover') &&
+          duplicate.continuationReply !== null;
         const recoverContinuation =
           duplicate.conversationId === existing?.id &&
           existing.mode === 'bot' &&
@@ -151,7 +159,16 @@ export class PostgresConversationRepository {
         return {
           duplicate: true,
           state: existing?.state ?? 'awaiting_size',
-          reply: recoverContinuation ? duplicate.continuationReply : null,
+          reply:
+            recoverContinuation || recoverInvalidHandoff
+              ? duplicate.continuationReply
+              : null,
+          ...(recoverInvalidHandoff
+            ? {
+                conversationId: duplicate.conversationId,
+                action: 'human_takeover' as const,
+              }
+            : {}),
           ...(recoverCancellation
             ? {
                 conversationId: duplicate.conversationId,
@@ -300,6 +317,35 @@ export class PostgresConversationRepository {
             existing.state as import('./conversation-state.js').ConversationState,
           reply: null,
         };
+      if (transition.action === 'collect_department') {
+        const departments = await tx
+          .selectDistinct({ name: shippingLocalities.department })
+          .from(shippingLocalities)
+          .where(eq(shippingLocalities.active, true));
+        const selected = canonicalDepartment(
+          transition.input ?? '',
+          departments.map(({ name }) => name),
+        );
+        if (selected === null) {
+          const invalid = advanceConfiguredConversation(
+            'awaiting_department',
+            '',
+            existing?.invalidAttempts ?? 0,
+            flow,
+            variables,
+          );
+          transition =
+            invalid.action === 'human_takeover'
+              ? invalid
+              : {
+                  ...invalid,
+                  reply:
+                    'No encontré ese departamento en el catálogo de envíos. Escribe el nombre completo del departamento.',
+                };
+        } else {
+          transition = { ...transition, input: selected };
+        }
+      }
       if (transition.action === 'reset')
         flow = BotFlowDefinitionSchema.parse(
           published?.activeVersionId == null
@@ -358,6 +404,7 @@ export class PostgresConversationRepository {
             ? transition.action
             : null,
         continuationAction:
+          transition.action === 'human_takeover' ||
           transition.action === 'edit_address' ||
           transition.action === 'edit_locality' ||
           (existing?.summaryEditAction != null &&
@@ -366,6 +413,7 @@ export class PostgresConversationRepository {
             ? transition.action
             : null,
         continuationReply:
+          transition.action === 'human_takeover' ||
           transition.action === 'edit_address' ||
           transition.action === 'edit_locality'
             ? reply
@@ -686,30 +734,42 @@ export class PostgresConversationRepository {
   async setLocalitySuggestions(
     conversationId: string,
     localities: readonly string[],
+    whatsappMessageId: string,
+    handoffReply: string,
   ): Promise<boolean> {
-    const [updated] = await this.database.orm
-      .update(whatsappConversations)
-      .set({
-        state: 'awaiting_locality',
-        offeredLocalities: localities.slice(0, 3),
-        invalidAttempts: sql`${whatsappConversations.invalidAttempts} + 1`,
-        mode: sql`CASE WHEN ${whatsappConversations.invalidAttempts} + 1 >= 2 THEN 'human' ELSE 'bot' END`,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(whatsappConversations.id, conversationId),
-          eq(whatsappConversations.mode, 'bot'),
-          inArray(whatsappConversations.state, [
-            'awaiting_locality',
-            'awaiting_address',
-          ]),
-        ),
-      )
-      .returning({ mode: whatsappConversations.mode });
-    if (updated === undefined)
-      throw new Error('Locality suggestions could not be saved');
-    return updated.mode === 'human';
+    return this.database.orm.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(whatsappConversations)
+        .set({
+          state: 'awaiting_locality',
+          offeredLocalities: localities.slice(0, 3),
+          invalidAttempts: sql`${whatsappConversations.invalidAttempts} + 1`,
+          mode: sql`CASE WHEN ${whatsappConversations.invalidAttempts} + 1 >= 2 THEN 'human' ELSE 'bot' END`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(whatsappConversations.id, conversationId),
+            eq(whatsappConversations.mode, 'bot'),
+            inArray(whatsappConversations.state, [
+              'awaiting_locality',
+              'awaiting_address',
+            ]),
+          ),
+        )
+        .returning({ mode: whatsappConversations.mode });
+      if (updated === undefined)
+        throw new Error('Locality suggestions could not be saved');
+      if (updated.mode === 'human')
+        await this.markInvalidHandoff(
+          tx,
+          conversationId,
+          whatsappMessageId,
+          'invalid_city',
+          handoffReply,
+        );
+      return updated.mode === 'human';
+    });
   }
 
   async clearLocalitySuggestions(conversationId: string): Promise<void> {
@@ -719,22 +779,77 @@ export class PostgresConversationRepository {
       .where(eq(whatsappConversations.id, conversationId));
   }
 
-  async recordInvalidReference(conversationId: string): Promise<boolean> {
-    const [updated] = await this.database.orm
-      .update(whatsappConversations)
-      .set({
-        invalidAttempts: sql`${whatsappConversations.invalidAttempts} + 1`,
-        mode: sql`CASE WHEN ${whatsappConversations.invalidAttempts} + 1 >= 2 THEN 'human' ELSE 'bot' END`,
-        updatedAt: new Date(),
-      })
+  async recordInvalidReference(
+    conversationId: string,
+    whatsappMessageId: string,
+    handoffReply: string,
+  ): Promise<boolean> {
+    return this.database.orm.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(whatsappConversations)
+        .set({
+          invalidAttempts: sql`${whatsappConversations.invalidAttempts} + 1`,
+          mode: sql`CASE WHEN ${whatsappConversations.invalidAttempts} + 1 >= 2 THEN 'human' ELSE 'bot' END`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(whatsappConversations.id, conversationId),
+            eq(whatsappConversations.mode, 'bot'),
+            eq(whatsappConversations.state, 'showing_models'),
+          ),
+        )
+        .returning({ mode: whatsappConversations.mode });
+      if (updated?.mode === 'human')
+        await this.markInvalidHandoff(
+          tx,
+          conversationId,
+          whatsappMessageId,
+          'invalid_ref',
+          handoffReply,
+        );
+      return updated?.mode === 'human';
+    });
+  }
+
+  async completeInvalidHandoff(
+    conversationId: string,
+    whatsappMessageId: string,
+  ): Promise<void> {
+    await this.database.orm
+      .update(whatsappConversationEvents)
+      .set({ continuationAction: null, continuationReply: null })
       .where(
         and(
-          eq(whatsappConversations.id, conversationId),
-          eq(whatsappConversations.mode, 'bot'),
-          eq(whatsappConversations.state, 'showing_models'),
+          eq(whatsappConversationEvents.conversationId, conversationId),
+          eq(whatsappConversationEvents.whatsappMessageId, whatsappMessageId),
+          inArray(whatsappConversationEvents.continuationAction, [
+            'invalid_ref',
+            'invalid_city',
+            'human_takeover',
+          ]),
+        ),
+      );
+  }
+
+  private async markInvalidHandoff(
+    tx: Parameters<Parameters<PostgresDatabase['orm']['transaction']>[0]>[0],
+    conversationId: string,
+    whatsappMessageId: string,
+    reason: 'invalid_ref' | 'invalid_city',
+    reply: string,
+  ): Promise<void> {
+    const [event] = await tx
+      .update(whatsappConversationEvents)
+      .set({ continuationAction: reason, continuationReply: reply })
+      .where(
+        and(
+          eq(whatsappConversationEvents.conversationId, conversationId),
+          eq(whatsappConversationEvents.whatsappMessageId, whatsappMessageId),
         ),
       )
-      .returning({ mode: whatsappConversations.mode });
-    return updated?.mode === 'human';
+      .returning({ id: whatsappConversationEvents.id });
+    if (event === undefined)
+      throw new Error('Invalid-input handoff event was not found');
   }
 }

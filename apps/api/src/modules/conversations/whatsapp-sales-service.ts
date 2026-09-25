@@ -63,9 +63,19 @@ type ConversationPort = Readonly<{
   setLocalitySuggestions?(
     conversationId: string,
     localities: readonly string[],
+    whatsappMessageId: string,
+    handoffReply: string,
   ): Promise<boolean>;
-  recordInvalidReference?(conversationId: string): Promise<boolean>;
+  recordInvalidReference?(
+    conversationId: string,
+    whatsappMessageId: string,
+    handoffReply: string,
+  ): Promise<boolean>;
   clearLocalitySuggestions?(conversationId: string): Promise<void>;
+  completeInvalidHandoff?(
+    conversationId: string,
+    whatsappMessageId: string,
+  ): Promise<void>;
 }>;
 
 type CatalogPort = Readonly<{
@@ -156,6 +166,11 @@ type ShippingChoice = Readonly<{
   selected: boolean;
 }>;
 
+const INVALID_REFERENCE_HANDOFF_REPLY =
+  'No pude identificar la referencia. Una asesora continuará esta conversación y te ayudará a elegir el modelo.';
+const INVALID_LOCALITY_HANDOFF_REPLY =
+  'No pude identificar el municipio. Una asesora continuará esta conversación y confirmará la dirección de tu pedido.';
+
 function displaySize(size: string): string {
   return size.endsWith('.0') ? size.slice(0, -2) : size;
 }
@@ -217,6 +232,7 @@ export class WhatsAppSalesService {
         result.action !== 'edit_product' &&
         result.action !== 'edit_address' &&
         result.action !== 'edit_locality' &&
+        result.action !== 'human_takeover' &&
         !(
           result.action === 'collect_address' &&
           result.summaryEditAction === 'edit_address'
@@ -241,6 +257,11 @@ export class WhatsAppSalesService {
       );
     }
     if (result.action === 'human_takeover') {
+      if (
+        this.conversations.completeInvalidHandoff !== undefined &&
+        this.alerts === undefined
+      )
+        throw new Error('El servicio de alerta no está disponible');
       await this.alerts?.open({
         type: 'conversation_attention',
         severity: 'warning',
@@ -251,6 +272,10 @@ export class WhatsAppSalesService {
         entityId: result.conversationId,
         retrySafe: false,
       });
+      await this.conversations.completeInvalidHandoff?.(
+        result.conversationId,
+        input.whatsappMessageId,
+      );
       return;
     }
     if (result.action === 'cancel_order' || result.action === 'edit_product') {
@@ -364,13 +389,14 @@ export class WhatsAppSalesService {
       if (option === null) {
         const handedOff = await this.conversations.recordInvalidReference?.(
           result.conversationId,
+          input.whatsappMessageId,
+          INVALID_REFERENCE_HANDOFF_REPLY,
         );
         if (handedOff) {
           await this.handOffInvalidInput(
             result.conversationId,
             input,
-            'No pude identificar la referencia. Una asesora continuará esta conversación y te ayudará a elegir el modelo.',
-            'invalid-reference',
+            INVALID_REFERENCE_HANDOFF_REPLY,
           );
         } else {
           await this.queueText(
@@ -462,6 +488,8 @@ export class WhatsAppSalesService {
           (await this.conversations.setLocalitySuggestions?.(
             result.conversationId,
             suggestions,
+            input.whatsappMessageId,
+            INVALID_LOCALITY_HANDOFF_REPLY,
           )) ?? false;
         if (this.conversations.setLocalitySuggestions === undefined)
           await this.conversations.setState?.(
@@ -472,8 +500,7 @@ export class WhatsAppSalesService {
           await this.handOffInvalidInput(
             result.conversationId,
             input,
-            'No pude identificar el municipio. Una asesora continuará esta conversación y confirmará la dirección de tu pedido.',
-            'unknown-locality',
+            INVALID_LOCALITY_HANDOFF_REPLY,
           );
           return;
         }
@@ -816,9 +843,13 @@ export class WhatsAppSalesService {
     conversationId: string,
     inbound: ReceiveConversationInput,
     body: string,
-    suffix: string,
   ): Promise<void> {
-    await this.queueText(conversationId, inbound, body, suffix, 'owner_panel');
+    await this.queueText(conversationId, inbound, body, 'reply', 'owner_panel');
+    if (
+      this.conversations.completeInvalidHandoff !== undefined &&
+      this.alerts === undefined
+    )
+      throw new Error('El servicio de alerta no está disponible');
     await this.alerts?.open({
       type: 'conversation_attention',
       severity: 'warning',
@@ -828,6 +859,10 @@ export class WhatsAppSalesService {
       entityId: conversationId,
       retrySafe: false,
     });
+    await this.conversations.completeInvalidHandoff?.(
+      conversationId,
+      inbound.whatsappMessageId,
+    );
   }
 
   private async handoffCancellation(
