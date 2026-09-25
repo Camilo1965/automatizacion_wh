@@ -47,4 +47,19 @@ describe('isolated bot simulation', () => {
       ),
     ).toBe(true);
   });
+  it('shows the same priced review shape as the real customer message', () => {
+    const flow = createDefaultBotFlow();
+    flow.steps.summary = {
+      enabled: true,
+      message: '¡Revisa tu compra!\nPrecio sugerido 95.000 COP',
+    };
+    const reply = simulateBotFlow(flow, messages).events.find(
+      (event) => event.action === 'collect_notes',
+    )?.reply;
+    expect(reply).toContain('¡Revisa tu compra!');
+    expect(reply).toContain('Pedido PED-DEMO');
+    expect(reply).toContain('Total contra entrega: $138.000 COP');
+    expect(reply).not.toContain('95.000 COP');
+    expect(reply?.match(/¿Confirmas/g)).toHaveLength(1);
+  });
 });

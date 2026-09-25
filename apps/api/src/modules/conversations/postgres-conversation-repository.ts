@@ -594,6 +594,63 @@ export class PostgresConversationRepository {
     });
   }
 
+  async handOverUnquotedSummary(input: {
+    conversationId: string;
+    orderId: string;
+    customerPhone: string;
+    body: string;
+    idempotencyKey: string;
+    expectedState: string;
+    expectedEditAction: 'edit_address' | 'edit_locality' | null;
+    expectedGeneration: number;
+  }): Promise<boolean> {
+    return this.database.orm.transaction(async (tx) => {
+      await lockOutboundIdentity(tx, input.customerPhone, input.conversationId);
+      const updated = await tx
+        .update(whatsappConversations)
+        .set({
+          mode: 'human',
+          activeSummaryVersion: null,
+          summaryEditAction: null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(whatsappConversations.id, input.conversationId),
+            eq(whatsappConversations.activeOrderId, input.orderId),
+            eq(whatsappConversations.mode, 'bot'),
+            eq(whatsappConversations.state, input.expectedState),
+            isNull(whatsappConversations.activeSummaryVersion),
+            eq(
+              whatsappConversations.summaryGeneration,
+              input.expectedGeneration,
+            ),
+            input.expectedEditAction === null
+              ? isNull(whatsappConversations.summaryEditAction)
+              : eq(
+                  whatsappConversations.summaryEditAction,
+                  input.expectedEditAction,
+                ),
+            sql`EXISTS (
+              SELECT 1 FROM ${salesOrders}
+              WHERE ${salesOrders.id} = ${input.orderId}
+                AND ${salesOrders.status} = 'draft'
+            )`,
+          ),
+        )
+        .returning({ id: whatsappConversations.id });
+      if (updated.length === 0) return false;
+      await insertTextForLockedIdentity(tx, {
+        conversationId: input.conversationId,
+        customerPhone: input.customerPhone,
+        body: input.body,
+        source: 'owner_panel',
+        idempotencyKey: input.idempotencyKey,
+      });
+      return true;
+    });
+  }
+
   async setState(conversationId: string, state: string): Promise<void> {
     await this.database.orm
       .update(whatsappConversations)

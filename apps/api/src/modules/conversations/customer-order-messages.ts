@@ -32,6 +32,9 @@ function reviewSnapshot(summary: OrderSummary): ReviewSnapshot {
   return summary.snapshot as ReviewSnapshot;
 }
 
+const configuredMoney =
+  /(?:\bCOP\s*\$?\s*\d[\d.,]*|\$\s*\d[\d.,]*|\b\d[\d.,]*\s*COP\b|\b\d{1,3}(?:[.,]\d{3})+\b|\b\d{4,}\b)/i;
+
 export function hasQuotedShipping(summary: OrderSummary): boolean {
   const snapshot = reviewSnapshot(summary);
   return (
@@ -50,24 +53,25 @@ function heading(
   flow?: BotFlowDefinition,
 ): string {
   if (!flow) return '';
+  const showCarrier = flow.optionalSteps.showCarrierInSummary !== false;
   const variables = {
     pedido: snapshot.orderNumber ?? '',
     referencia: snapshot.reference?.code ?? '',
     talla: snapshot.size ?? '',
     nombre: snapshot.customer?.name ?? '',
     total: quoted ? formatCop(snapshot.totalCop!) : '',
-    transportadora: snapshot.shippingQuote?.carrier ?? '',
+    transportadora: showCarrier ? (snapshot.shippingQuote?.carrier ?? '') : '',
   };
-  return renderFlowMessage(flow.steps.summary.message, variables)
+  const safeHeader = flow.steps.summary.message
     .split('\n')
     .filter(
       (line) =>
-        !/(?:\btotal\b|\$\s*\d|\bresponde\b|\bconfirmar\b|\bcancelar\b)/i.test(
-          line,
-        ),
+        !/(?:\btotal\b|\bresponde\b|\bconfirmar\b|\bcancelar\b)/i.test(line) &&
+        !configuredMoney.test(line) &&
+        (showCarrier || !/\{\{\s*transportadora\s*\}\}/i.test(line)),
     )
-    .join('\n')
-    .trim();
+    .join('\n');
+  return renderFlowMessage(safeHeader, variables).trim();
 }
 
 function confirmationQuestion(
@@ -75,13 +79,16 @@ function confirmationQuestion(
   flow?: BotFlowDefinition,
 ): string {
   const configured = flow?.steps.confirmation.message.trim() ?? '';
+  const showCarrier = flow?.optionalSteps.showCarrierInSummary !== false;
   if (
     !configured.startsWith('¿') ||
     !configured.endsWith('?') ||
     configured.match(/\?/g)?.length !== 1 ||
-    /\b(?:responde|escribe|cancelar|cambiar|total)\b|\$\s*\d|\{\{\s*total\s*\}\}/i.test(
+    /\b(?:responde|escribe|cancelar|cambiar|total)\b|\{\{\s*total\s*\}\}/i.test(
       configured,
-    )
+    ) ||
+    configuredMoney.test(configured) ||
+    (!showCarrier && /\{\{\s*transportadora\s*\}\}/i.test(configured))
   )
     return '¿Confirmas tu pedido para reservarlo?';
   return renderFlowMessage(configured, {
@@ -90,7 +97,7 @@ function confirmationQuestion(
     talla: snapshot.size ?? '',
     nombre: snapshot.customer?.name ?? '',
     total: '',
-    transportadora: snapshot.shippingQuote?.carrier ?? '',
+    transportadora: showCarrier ? (snapshot.shippingQuote?.carrier ?? '') : '',
   });
 }
 

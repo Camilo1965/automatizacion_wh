@@ -34,6 +34,101 @@ import { requireTestDatabaseUrl } from './helpers/test-database.js';
 const databaseUrl = requireTestDatabaseUrl();
 
 describe('complete WhatsApp sale', () => {
+  it('ignores a delayed unquoted review after the customer resets the conversation', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const conversations = new PostgresConversationRepository(database);
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    let releaseQuote!: () => void;
+    let quoteStarted!: () => void;
+    const quoteStartedPromise = new Promise<void>((resolve) => {
+      quoteStarted = resolve;
+    });
+    const quotePending = new Promise<void>((resolve) => {
+      releaseQuote = resolve;
+    });
+    const customerPhone = '+573158191776';
+    try {
+      const start = await conversations.receive({
+        whatsappMessageId: 'stale-unquoted-start',
+        customerPhone,
+        text: 'hola',
+      });
+      const order = await new OrderService(
+        new PostgresOrderRepository(database),
+        (id) => new PostgresCatalogRepository(database).findReferenceById(id),
+      ).create({
+        referenceId: '11111111-1111-4111-8111-111111111111',
+        size: '37',
+        quantity: 1,
+        customerPhone,
+      });
+      await conversations.attachOrder(
+        start.conversationId!,
+        order.referenceId,
+        order.id,
+      );
+      await sql`UPDATE whatsapp_conversations SET state = 'awaiting_notes' WHERE id = ${start.conversationId!}`;
+      const service = new WhatsAppSalesService(
+        conversations,
+        { listAvailableForConfirmedSize: vi.fn() },
+        { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+        new PostgresOutboundRepository(database),
+        {
+          create: vi.fn(),
+          createSummary: vi.fn().mockResolvedValue({
+            version: 1,
+            snapshot: {
+              orderNumber: 'PED-000001',
+              productSubtotalCop: 120000,
+              shippingCostCop: null,
+              shippingPending: true,
+              totalCop: 120000,
+            },
+          }),
+        },
+        undefined,
+        undefined,
+        {
+          createQuotes: async () => {
+            quoteStarted();
+            await quotePending;
+          },
+        },
+      );
+      const processing = service.process({
+        whatsappMessageId: 'stale-unquoted-notes',
+        customerPhone,
+        text: 'ninguna',
+      });
+      await quoteStartedPromise;
+      const reset = await conversations.receive({
+        whatsappMessageId: 'stale-unquoted-reset',
+        customerPhone,
+        text: 'volver',
+      });
+      expect(reset).toMatchObject({ action: 'reset', state: 'awaiting_size' });
+      releaseQuote();
+      await processing;
+
+      const [state] = await sql<
+        { mode: string; state: string; active_summary_version: number | null }[]
+      >`SELECT mode, state, active_summary_version FROM whatsapp_conversations WHERE id = ${start.conversationId!}`;
+      const [staleReply] = await sql<{ count: number }[]>`
+        SELECT count(*)::int AS count FROM whatsapp_outbound_messages
+        WHERE idempotency_key = 'shipping-attention:stale-unquoted-notes'
+      `;
+      expect(state).toMatchObject({
+        mode: 'bot',
+        state: 'awaiting_size',
+        active_summary_version: null,
+      });
+      expect(staleReply?.count).toBe(0);
+    } finally {
+      releaseQuote();
+      await sql.end({ timeout: 5 });
+      await database.close();
+    }
+  });
   it('recovers cancellation when the inbound event committed before processing', async () => {
     const database = createPostgresDatabase(databaseUrl);
     const conversations = new PostgresConversationRepository(database);

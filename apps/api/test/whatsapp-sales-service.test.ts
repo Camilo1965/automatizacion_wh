@@ -1083,7 +1083,7 @@ describe('WhatsAppSalesService', () => {
       }),
       returnToSize: vi.fn(),
       publishSummary: vi.fn(),
-      takeOver: vi.fn(),
+      handOverUnquotedSummary: vi.fn().mockResolvedValue(true),
     };
     const orders = {
       create: vi.fn(),
@@ -1125,15 +1125,14 @@ describe('WhatsAppSalesService', () => {
       text: 'ninguna',
     });
     expect(conversations.publishSummary).not.toHaveBeenCalled();
-    expect(conversations.takeOver).toHaveBeenCalledWith('conversation-1');
-    const body = outbound.enqueueText.mock.calls.at(-1)?.[0].body as string;
+    const body = conversations.handOverUnquotedSummary.mock.calls.at(-1)?.[0]
+      .body as string;
     expect(body).toContain('Envío pendiente de cotización');
     expect(body).not.toContain('Total contra entrega');
     expect(body).not.toContain('• confirmar');
     expect(body).toContain('La propietaria revisará la cobertura');
-    expect(outbound.enqueueText).toHaveBeenCalledWith(
+    expect(conversations.handOverUnquotedSummary).toHaveBeenCalledWith(
       expect.objectContaining({
-        source: 'owner_panel',
         idempotencyKey: 'shipping-attention:wamid.no-quote',
       }),
     );
@@ -1143,6 +1142,110 @@ describe('WhatsAppSalesService', () => {
         entityId: 'order-1',
       }),
     );
+  });
+
+  it('does not send a delayed unquoted review after a newer conversation generation', async () => {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'conversation-1',
+        state: 'awaiting_confirmation',
+        reply: null,
+        activeOrderId: 'order-1',
+        summaryGeneration: 3,
+        summaryEditAction: null,
+        action: 'collect_notes',
+      }),
+      returnToSize: vi.fn(),
+      publishSummary: vi.fn(),
+      handOverUnquotedSummary: vi.fn().mockResolvedValue(false),
+      takeOver: vi.fn(),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const alerts = { open: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      {
+        create: vi.fn(),
+        createSummary: vi.fn().mockResolvedValue({
+          version: 2,
+          snapshot: {
+            shippingPending: true,
+            shippingCostCop: null,
+            totalCop: 120000,
+          },
+        }),
+      },
+      undefined,
+      undefined,
+      { createQuotes: vi.fn() },
+      alerts,
+    );
+    await service.process({
+      whatsappMessageId: 'wamid.stale-no-quote',
+      customerPhone: '+573001234567',
+      text: 'ninguna',
+    });
+    expect(conversations.handOverUnquotedSummary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: 'conversation-1',
+        orderId: 'order-1',
+        expectedState: 'awaiting_confirmation',
+        expectedGeneration: 3,
+        expectedEditAction: null,
+      }),
+    );
+    expect(conversations.takeOver).not.toHaveBeenCalled();
+    expect(outbound.enqueueText).not.toHaveBeenCalled();
+    expect(alerts.open).not.toHaveBeenCalled();
+  });
+
+  it('does not hand over a reset conversation after an earlier shipping failure', async () => {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'conversation-1',
+        state: 'awaiting_confirmation',
+        reply: null,
+        activeOrderId: 'order-1',
+        summaryGeneration: 4,
+        action: 'collect_notes',
+      }),
+      returnToSize: vi.fn(),
+      publishSummary: vi.fn(),
+      handOverUnquotedSummary: vi.fn().mockResolvedValue(false),
+      takeOver: vi.fn(),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const alerts = { open: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      { create: vi.fn(), createSummary: vi.fn() },
+      undefined,
+      undefined,
+      { createQuotes: vi.fn().mockRejectedValue(new Error('no coverage')) },
+      alerts,
+    );
+    await service.process({
+      whatsappMessageId: 'wamid.stale-quote-error',
+      customerPhone: '+573001234567',
+      text: 'ninguna',
+    });
+    expect(conversations.handOverUnquotedSummary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedGeneration: 4,
+        idempotencyKey: 'shipping-attention:wamid.stale-quote-error',
+      }),
+    );
+    expect(conversations.takeOver).not.toHaveBeenCalled();
+    expect(outbound.enqueueText).not.toHaveBeenCalled();
+    expect(alerts.open).not.toHaveBeenCalled();
   });
 
   it('keeps the legacy shipping-selection path unconfirmable when its selected quote disappears', async () => {
@@ -1158,7 +1261,7 @@ describe('WhatsAppSalesService', () => {
       }),
       returnToSize: vi.fn(),
       publishSummary: vi.fn(),
-      takeOver: vi.fn(),
+      handOverUnquotedSummary: vi.fn().mockResolvedValue(true),
     };
     const orders = {
       create: vi.fn(),
@@ -1210,9 +1313,10 @@ describe('WhatsAppSalesService', () => {
     });
     expect(shipping.selectQuote).toHaveBeenCalledWith('order-1', 'quote-1');
     expect(conversations.publishSummary).not.toHaveBeenCalled();
-    expect(conversations.takeOver).toHaveBeenCalledWith('conversation-1');
-    expect(outbound.enqueueText.mock.calls.at(-1)?.[0].body).not.toContain(
-      '• confirmar',
+    expect(conversations.handOverUnquotedSummary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.not.stringContaining('• confirmar'),
+      }),
     );
   });
 

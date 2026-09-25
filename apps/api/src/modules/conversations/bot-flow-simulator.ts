@@ -3,6 +3,8 @@ import {
   renderFlowMessage,
 } from './configured-flow.js';
 import type { BotFlowDefinition } from './flow-definition.js';
+import { formatOrderReview } from './customer-order-messages.js';
+import type { OrderSummary } from '../orders/order-types.js';
 import type {
   ConversationState,
   ConversationTransition,
@@ -29,8 +31,32 @@ export function simulateBotFlow(
     referencia: '01',
     nombre: 'Cliente de prueba',
     pedido: 'PED-DEMO',
-    total: '$138.000',
+    total: '$138.000 COP',
     transportadora: 'Envia',
+  };
+  const demoSummary: OrderSummary = {
+    version: 1,
+    draftVersion: 1,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    snapshot: {
+      orderNumber: variables.pedido,
+      reference: { code: variables.referencia, modelName: 'Tenis de ejemplo' },
+      size: variables.talla,
+      productSubtotalCop: 120000,
+      shippingCostCop: 18000,
+      shippingPending: false,
+      totalCop: 138000,
+      shippingQuote: {
+        carrier: variables.transportadora,
+        insuranceMode: 'none',
+      },
+      customer: { name: variables.nombre },
+      destination: {
+        address: 'Calle 10 # 20-30',
+        locality: 'Medellín',
+        department: 'Antioquia',
+      },
+    },
   };
   const events = messages.map((input) => {
     let transition: ConversationTransition = human
@@ -83,7 +109,7 @@ export function simulateBotFlow(
       } else
         transition = {
           ...transition,
-          reply: `${scenario === 'fallback' ? 'La transportadora preferida no está disponible; se aplica la alternativa permitida.\n' : ''}${definition.steps.summary.message}\n${definition.steps.confirmation.message}`,
+          reply: `${scenario === 'fallback' ? 'La transportadora preferida no está disponible; se aplica la alternativa permitida.\n\n' : ''}[SIMULACIÓN · DATOS DE EJEMPLO]\n${formatOrderReview(demoSummary, definition)}`,
         };
     }
     if (transition.action === 'confirm_order') {

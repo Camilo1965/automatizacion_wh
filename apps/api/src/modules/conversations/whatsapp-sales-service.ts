@@ -49,6 +49,16 @@ type ConversationPort = Readonly<{
     expectedEditAction: 'edit_address' | 'edit_locality' | null;
     expectedGeneration: number;
   }): Promise<boolean>;
+  handOverUnquotedSummary?(input: {
+    conversationId: string;
+    orderId: string;
+    customerPhone: string;
+    body: string;
+    idempotencyKey: string;
+    expectedState: string;
+    expectedEditAction: 'edit_address' | 'edit_locality' | null;
+    expectedGeneration: number;
+  }): Promise<boolean>;
   setState?(conversationId: string, state: string): Promise<void>;
 }>;
 
@@ -504,12 +514,7 @@ export class WhatsAppSalesService {
       const summary = await this.orders.createSummary(result.activeOrderId);
       const body = formatOrderReview(summary, result.flow);
       if (!hasQuotedShipping(summary)) {
-        await this.handOverUnquotedSummary(
-          result.conversationId,
-          result.activeOrderId,
-          input,
-          body,
-        );
+        await this.handOverUnquotedSummary(result, input, body);
         return;
       }
       if (
@@ -617,35 +622,17 @@ export class WhatsAppSalesService {
         );
       await this.shippingQuotes?.createQuotes(result.activeOrderId);
     } catch {
-      await this.conversations.takeOver?.(result.conversationId);
-      await this.outbound.enqueueText({
-        conversationId: result.conversationId,
-        customerPhone: input.customerPhone,
-        body: 'La propietaria revisará la cobertura del envío antes de confirmar tu pedido.',
-        source: 'owner_panel',
-        idempotencyKey: `shipping-attention:${input.whatsappMessageId}`,
-      });
-      await this.alerts?.open({
-        type: 'shipping_quote_attention',
-        severity: 'critical',
-        title: 'Revisar cobertura del envío',
-        detail:
-          'No se obtuvo una cotización que cumpla las preferencias. El pedido no fue confirmado y requiere atención.',
-        entityUrl: `/orders/${result.activeOrderId}`,
-        entityId: result.activeOrderId,
-        retrySafe: true,
-      });
+      await this.handOverUnquotedSummary(
+        result,
+        input,
+        'La propietaria revisará la cobertura del envío antes de confirmar tu pedido.',
+      );
       return;
     }
     const summary = await this.orders.createSummary(result.activeOrderId);
     const body = formatOrderReview(summary, result.flow);
     if (!hasQuotedShipping(summary)) {
-      await this.handOverUnquotedSummary(
-        result.conversationId,
-        result.activeOrderId,
-        input,
-        body,
-      );
+      await this.handOverUnquotedSummary(result, input, body);
       return;
     }
     await this.conversations.publishSummary({
@@ -662,27 +649,35 @@ export class WhatsAppSalesService {
   }
 
   private async handOverUnquotedSummary(
-    conversationId: string,
-    orderId: string,
+    result: ReceiveConversationResult,
     input: ReceiveConversationInput,
     body: string,
   ): Promise<void> {
-    await this.conversations.takeOver?.(conversationId);
-    await this.outbound.enqueueText({
-      conversationId,
+    if (
+      result.conversationId === undefined ||
+      result.activeOrderId == null ||
+      this.conversations.handOverUnquotedSummary === undefined
+    )
+      throw new Error('Unquoted order handover is unavailable');
+    const handedOver = await this.conversations.handOverUnquotedSummary({
+      conversationId: result.conversationId,
+      orderId: result.activeOrderId,
       customerPhone: input.customerPhone,
       body,
-      source: 'owner_panel',
       idempotencyKey: `shipping-attention:${input.whatsappMessageId}`,
+      expectedState: result.state,
+      expectedEditAction: result.summaryEditAction ?? null,
+      expectedGeneration: result.summaryGeneration ?? 0,
     });
+    if (!handedOver) return;
     await this.alerts?.open({
       type: 'shipping_quote_attention',
       severity: 'critical',
       title: 'Revisar cobertura del envío',
       detail:
         'El resumen no tiene cotización válida. El pedido no se puede confirmar hasta cotizarlo.',
-      entityUrl: `/orders/${orderId}`,
-      entityId: orderId,
+      entityUrl: `/orders/${result.activeOrderId}`,
+      entityId: result.activeOrderId,
       retrySafe: true,
     });
   }
