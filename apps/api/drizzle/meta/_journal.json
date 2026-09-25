@@ -302,6 +302,13 @@
       "when": 1790280000001,
       "tag": "0042_whatsapp_summary_edits",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1790280000002,
+      "tag": "0043_whatsapp_summary_edit_recovery",
+      "breakpoints": true
     }
   ]
 }

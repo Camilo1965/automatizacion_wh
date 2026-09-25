@@ -99,4 +99,15 @@ describe('configurable flow', () => {
       reply: 'Nuevo municipio, por favor.',
     });
   });
+  it('defers the product restart prompt until cancellation succeeds', () => {
+    const flow = createDefaultBotFlow();
+    expect(
+      advanceConfiguredConversation(
+        'awaiting_confirmation',
+        'cambiar producto',
+        0,
+        flow,
+      ),
+    ).toMatchObject({ action: 'edit_product', reply: null });
+  });
 });

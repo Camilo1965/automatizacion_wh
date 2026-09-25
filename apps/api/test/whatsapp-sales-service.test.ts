@@ -18,12 +18,48 @@ function availableItem() {
 }
 
 describe('WhatsAppSalesService', () => {
+  it('does not ask for a new size when product cancellation fails', async () => {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'c1',
+        state: 'awaiting_size',
+        reply: 'Confirma la talla que buscas.',
+        action: 'edit_product',
+        activeOrderId: 'o1',
+      }),
+      returnToSize: vi.fn(),
+      clearActiveOrder: vi.fn(),
+      takeOver: vi.fn(),
+    };
+    const orders = {
+      create: vi.fn(),
+      transition: vi.fn().mockRejectedValue(new Error('cancel failed')),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      orders,
+    );
+    await service.process({
+      whatsappMessageId: 'failed-product-edit',
+      customerPhone: '573000000001',
+      text: 'cambiar producto',
+    });
+    expect(conversations.clearActiveOrder).not.toHaveBeenCalled();
+    expect(conversations.takeOver).toHaveBeenCalledWith('c1');
+    expect(outbound.enqueueText).toHaveBeenCalledTimes(1);
+    expect(outbound.enqueueText.mock.calls[0]?.[0].body).not.toMatch(/talla/i);
+  });
   it('requotes an edited address and sends a new summary with edit commands', async () => {
     const conversations = {
       receive: vi.fn().mockResolvedValue({
         duplicate: false,
         conversationId: 'c1',
-        state: 'awaiting_notes',
+        state: 'awaiting_address',
         reply: null,
         action: 'collect_address',
         summaryEditAction: 'edit_address',
@@ -31,7 +67,7 @@ describe('WhatsAppSalesService', () => {
         activeOrderId: 'o1',
       }),
       returnToSize: vi.fn(),
-      setSummaryVersion: vi.fn(),
+      publishSummary: vi.fn().mockResolvedValue(true),
       setState: vi.fn(),
     };
     const orders = {
@@ -67,7 +103,14 @@ describe('WhatsAppSalesService', () => {
       address: 'Carrera 9 # 10-11',
     });
     expect(shipping.createQuotes).toHaveBeenCalledWith('o1');
-    expect(conversations.setSummaryVersion).toHaveBeenCalledWith('c1', 4);
+    expect(conversations.publishSummary).toHaveBeenCalledWith({
+      conversationId: 'c1',
+      orderId: 'o1',
+      version: 4,
+      expectedState: 'awaiting_address',
+      expectedEditAction: 'edit_address',
+      expectedGeneration: 0,
+    });
     expect(outbound.enqueueText).toHaveBeenCalledWith(
       expect.objectContaining({
         body: expect.stringMatching(
@@ -82,7 +125,7 @@ describe('WhatsAppSalesService', () => {
       receive: vi.fn().mockResolvedValue({
         duplicate: false,
         conversationId: 'c1',
-        state: 'awaiting_address',
+        state: 'awaiting_locality',
         reply: null,
         action: 'collect_locality',
         summaryEditAction: 'edit_locality',
@@ -91,7 +134,7 @@ describe('WhatsAppSalesService', () => {
         pendingDepartment: 'Antioquia',
       }),
       returnToSize: vi.fn(),
-      setSummaryVersion: vi.fn(),
+      publishSummary: vi.fn().mockResolvedValue(true),
       setState: vi.fn(),
     };
     const orders = {
@@ -139,7 +182,14 @@ describe('WhatsAppSalesService', () => {
       localityCarrierCode: '05001000',
     });
     expect(shipping.createQuotes).toHaveBeenCalledWith('o1');
-    expect(conversations.setSummaryVersion).toHaveBeenCalledWith('c1', 5);
+    expect(conversations.publishSummary).toHaveBeenCalledWith({
+      conversationId: 'c1',
+      orderId: 'o1',
+      version: 5,
+      expectedState: 'awaiting_locality',
+      expectedEditAction: 'edit_locality',
+      expectedGeneration: 0,
+    });
   });
 
   it('keeps an unknown edited municipality pending and offers at most three catalog names', async () => {
@@ -488,7 +538,7 @@ describe('WhatsAppSalesService', () => {
       }),
       returnToSize: vi.fn(),
       setState: vi.fn(),
-      setSummaryVersion: vi.fn(),
+      publishSummary: vi.fn().mockResolvedValue(true),
     };
     const orders = {
       create: vi.fn(),
@@ -534,11 +584,14 @@ describe('WhatsAppSalesService', () => {
       text: 'confirmar',
     });
     expect(shipping.createQuotes).toHaveBeenCalledWith('o1');
-    expect(conversations.setState).toHaveBeenCalledWith(
-      'c1',
-      'awaiting_confirmation',
-    );
-    expect(conversations.setSummaryVersion).toHaveBeenCalledWith('c1', 4);
+    expect(conversations.publishSummary).toHaveBeenCalledWith({
+      conversationId: 'c1',
+      orderId: 'o1',
+      version: 4,
+      expectedState: 'completed',
+      expectedEditAction: null,
+      expectedGeneration: 0,
+    });
     expect(guides.enqueue).not.toHaveBeenCalled();
     expect(outbound.enqueueText).toHaveBeenCalledWith(
       expect.objectContaining({ body: expect.stringContaining('venció') }),
@@ -852,7 +905,7 @@ describe('WhatsAppSalesService', () => {
           action: 'confirm_order',
         }),
       returnToSize: vi.fn(),
-      setSummaryVersion: vi.fn(),
+      publishSummary: vi.fn().mockResolvedValue(true),
     };
     const orders = {
       create: vi.fn(),
@@ -906,10 +959,14 @@ describe('WhatsAppSalesService', () => {
       customerPhone: '+573001234567',
       text: 'ninguna',
     });
-    expect(conversations.setSummaryVersion).toHaveBeenCalledWith(
-      'conversation-1',
-      3,
-    );
+    expect(conversations.publishSummary).toHaveBeenCalledWith({
+      conversationId: 'conversation-1',
+      orderId: 'order-1',
+      version: 3,
+      expectedState: 'awaiting_confirmation',
+      expectedEditAction: null,
+      expectedGeneration: 0,
+    });
     expect(shipping.createQuotes).toHaveBeenCalledWith('order-1');
     expect(outbound.enqueueText).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -973,7 +1030,7 @@ describe('WhatsAppSalesService', () => {
       }),
       returnToSize: vi.fn(),
       setState: vi.fn(),
-      setSummaryVersion: vi.fn(),
+      publishSummary: vi.fn().mockResolvedValue(true),
     };
     const orders = {
       create: vi.fn(),
@@ -1009,10 +1066,14 @@ describe('WhatsAppSalesService', () => {
       text: 'ninguna',
     });
     expect(orders.createSummary).toHaveBeenCalledWith('order-1');
-    expect(conversations.setSummaryVersion).toHaveBeenCalledWith(
-      'conversation-1',
-      4,
-    );
+    expect(conversations.publishSummary).toHaveBeenCalledWith({
+      conversationId: 'conversation-1',
+      orderId: 'order-1',
+      version: 4,
+      expectedState: 'awaiting_confirmation',
+      expectedEditAction: null,
+      expectedGeneration: 0,
+    });
     expect(shipping.selectQuote).not.toHaveBeenCalled();
     expect(outbound.enqueueText).toHaveBeenCalledWith(
       expect.objectContaining({ body: expect.stringContaining('confirmar') }),

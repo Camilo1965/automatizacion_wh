@@ -98,6 +98,7 @@ export const whatsappConversations = pgTable(
     pendingDepartment: varchar('pending_department', { length: 100 }),
     activeSummaryVersion: integer('active_summary_version'),
     summaryEditAction: varchar('summary_edit_action', { length: 16 }),
+    summaryGeneration: integer('summary_generation').notNull().default(0),
     lastInboundMessageAt: timestamp('last_inbound_message_at', {
       withTimezone: true,
     }).notNull(),
@@ -227,6 +228,9 @@ export const whatsappConversationEvents = pgTable(
       { onDelete: 'restrict' },
     ),
     cancellationAction: varchar('cancellation_action', { length: 16 }),
+    continuationAction: varchar('continuation_action', { length: 16 }),
+    continuationReply: text('continuation_reply'),
+    continuationGeneration: integer('continuation_generation'),
     sequence: integer('sequence').notNull(),
     stateBefore: varchar('state_before', { length: 32 }),
     stateAfter: varchar('state_after', { length: 32 }).notNull(),

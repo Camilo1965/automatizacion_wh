@@ -698,6 +698,10 @@ describe('complete WhatsApp sale', () => {
       >`SELECT count(*)::int AS count, min(text_body) AS text_body FROM whatsapp_outbound_messages WHERE idempotency_key = 'product-restart:product-edit-interrupted'`;
       expect(reply?.count).toBe(1);
       expect(reply?.text_body).toContain('referencia');
+      const [prematurePrompt] = await sql<{ count: number }[]>`
+        SELECT count(*)::int AS count FROM whatsapp_outbound_messages
+        WHERE idempotency_key = 'reply:product-edit-interrupted'`;
+      expect(prematurePrompt?.count).toBe(0);
       await send('37');
       await send('01');
       const [next] = await sql<

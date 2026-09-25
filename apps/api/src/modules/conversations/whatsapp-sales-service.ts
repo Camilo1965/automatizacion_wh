@@ -34,7 +34,14 @@ type ConversationPort = Readonly<{
     conversationId: string,
     expectedOrderId: string,
   ): Promise<void>;
-  setSummaryVersion?(conversationId: string, version: number): Promise<void>;
+  publishSummary?(input: {
+    conversationId: string;
+    orderId: string;
+    version: number;
+    expectedState: string;
+    expectedEditAction: 'edit_address' | 'edit_locality' | null;
+    expectedGeneration: number;
+  }): Promise<boolean>;
   setState?(conversationId: string, state: string): Promise<void>;
 }>;
 
@@ -212,10 +219,12 @@ export class WhatsAppSalesService {
       result.conversationId === undefined ||
       (result.duplicate &&
         result.action !== 'cancel_order' &&
-        result.action !== 'edit_product')
+        result.action !== 'edit_product' &&
+        result.action !== 'edit_address' &&
+        result.action !== 'edit_locality')
     )
       return;
-    if (result.reply !== null) {
+    if (result.reply !== null && result.action !== 'edit_product') {
       const availability =
         result.action === 'human_takeover' && this.getOwnerSettings
           ? ownerAvailabilityMessage(await this.getOwnerSettings())
@@ -473,7 +482,7 @@ export class WhatsAppSalesService {
           result.flow?.optionalSteps.notes === false)) &&
       result.activeOrderId != null &&
       this.orders?.createSummary !== undefined &&
-      this.conversations.setSummaryVersion !== undefined
+      this.conversations.publishSummary !== undefined
     ) {
       await this.prepareSummary(result, input);
     }
@@ -484,7 +493,7 @@ export class WhatsAppSalesService {
       this.shippingQuotes?.getShipping !== undefined &&
       this.shippingQuotes.selectQuote !== undefined &&
       this.orders?.createSummary !== undefined &&
-      this.conversations.setSummaryVersion !== undefined
+      this.conversations.publishSummary !== undefined
     ) {
       const shipping = await this.shippingQuotes.getShipping(
         result.activeOrderId,
@@ -506,10 +515,17 @@ export class WhatsAppSalesService {
       }
       await this.shippingQuotes.selectQuote(result.activeOrderId, selected.id);
       const summary = await this.orders.createSummary(result.activeOrderId);
-      await this.conversations.setSummaryVersion(
-        result.conversationId,
-        summary.version,
-      );
+      if (
+        !(await this.conversations.publishSummary({
+          conversationId: result.conversationId,
+          orderId: result.activeOrderId,
+          version: summary.version,
+          expectedState: result.state,
+          expectedEditAction: result.summaryEditAction ?? null,
+          expectedGeneration: result.summaryGeneration ?? 0,
+        }))
+      )
+        return;
       await this.queueText(
         result.conversationId,
         input,
@@ -592,7 +608,7 @@ export class WhatsAppSalesService {
     if (
       result.activeOrderId == null ||
       this.orders?.createSummary === undefined ||
-      this.conversations.setSummaryVersion === undefined
+      this.conversations.publishSummary === undefined
     ) {
       await this.conversations.takeOver?.(result.conversationId);
       return;
@@ -628,10 +644,17 @@ export class WhatsAppSalesService {
       return;
     }
     const summary = await this.orders.createSummary(result.activeOrderId);
-    await this.conversations.setSummaryVersion(
-      result.conversationId,
-      summary.version,
-    );
+    if (
+      !(await this.conversations.publishSummary({
+        conversationId: result.conversationId,
+        orderId: result.activeOrderId,
+        version: summary.version,
+        expectedState: result.state,
+        expectedEditAction: result.summaryEditAction ?? null,
+        expectedGeneration: result.summaryGeneration ?? 0,
+      }))
+    )
+      return;
     const snapshot = summary.snapshot as {
       totalCop: number;
       shippingQuote?: { carrier?: string };
@@ -648,11 +671,6 @@ export class WhatsAppSalesService {
         ? summaryText(summary)
         : `${renderFlowMessage(result.flow.steps.summary.message, summaryVariables)}\n\n${summaryText(summary, result.flow)}\n\n${renderFlowMessage(result.flow.steps.confirmation.message, summaryVariables)}`,
       `summary:${summary.version}`,
-    );
-
-    await this.conversations.setState?.(
-      result.conversationId,
-      'awaiting_confirmation',
     );
   }
 

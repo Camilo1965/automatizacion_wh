@@ -59,6 +59,8 @@ export function advanceConfiguredConversation(
     command === undefined ? text : canonical[command]!,
     attempts,
   );
+  if (transition.action === 'edit_product')
+    return { ...transition, reply: null, invalidAttempts: 0 };
   if (transition.action === 'collect_address' && !flow.optionalSteps.notes)
     return { ...transition, state: 'awaiting_confirmation', reply: null };
   let key: FlowStepKey | undefined;
@@ -66,7 +68,6 @@ export function advanceConfiguredConversation(
   else if (transition.action === 'human_takeover') key = 'human';
   else if (transition.action === 'edit_address') key = 'address';
   else if (transition.action === 'edit_locality') key = 'locality';
-  else if (transition.action === 'edit_product') key = 'size';
   else if (transition.reply !== null) key = steps[transition.state];
   if (key === undefined)
     return {

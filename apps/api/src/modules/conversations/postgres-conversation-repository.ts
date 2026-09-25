@@ -1,4 +1,4 @@
-import { and, eq, max, sql } from 'drizzle-orm';
+import { and, eq, isNull, max, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import {
@@ -42,6 +42,7 @@ export type ReceiveConversationResult = Readonly<{
   pendingDepartment?: string | null;
   activeSummaryVersion?: number | null;
   summaryEditAction?: 'edit_address' | 'edit_locality' | null;
+  summaryGeneration?: number;
   action?: ConversationTransition['action'];
   input?: string;
   flow?: BotFlowDefinition;
@@ -67,8 +68,13 @@ export class PostgresConversationRepository {
         .select({
           id: whatsappConversationEvents.id,
           conversationId: whatsappConversationEvents.conversationId,
+          stateAfter: whatsappConversationEvents.stateAfter,
           cancellationOrderId: whatsappConversationEvents.cancellationOrderId,
           cancellationAction: whatsappConversationEvents.cancellationAction,
+          continuationAction: whatsappConversationEvents.continuationAction,
+          continuationReply: whatsappConversationEvents.continuationReply,
+          continuationGeneration:
+            whatsappConversationEvents.continuationGeneration,
         })
         .from(whatsappConversationEvents)
         .where(
@@ -104,10 +110,18 @@ export class PostgresConversationRepository {
           duplicate.conversationId === existing?.id &&
           existing.mode === 'bot' &&
           duplicate.cancellationOrderId !== null;
+        const recoverContinuation =
+          duplicate.conversationId === existing?.id &&
+          existing.mode === 'bot' &&
+          (duplicate.continuationAction === 'edit_address' ||
+            duplicate.continuationAction === 'edit_locality') &&
+          existing.summaryEditAction === duplicate.continuationAction &&
+          existing.summaryGeneration === duplicate.continuationGeneration &&
+          existing.state === duplicate.stateAfter;
         return {
           duplicate: true,
           state: existing?.state ?? 'awaiting_size',
-          reply: null,
+          reply: recoverContinuation ? duplicate.continuationReply : null,
           ...(recoverCancellation
             ? {
                 conversationId: duplicate.conversationId,
@@ -116,6 +130,13 @@ export class PostgresConversationRepository {
                     ? ('edit_product' as const)
                     : ('cancel_order' as const),
                 activeOrderId: duplicate.cancellationOrderId,
+              }
+            : {}),
+          ...(recoverContinuation
+            ? {
+                conversationId: duplicate.conversationId,
+                action: duplicate.continuationAction as
+                  'edit_address' | 'edit_locality',
               }
             : {}),
         };
@@ -199,6 +220,14 @@ export class PostgresConversationRepository {
               variables,
             );
       if (
+        transition.action === 'confirm_order' &&
+        existing?.activeSummaryVersion == null
+      )
+        transition = {
+          state: 'awaiting_confirmation',
+          reply: 'Espera el resumen actualizado antes de confirmar.',
+        };
+      if (
         (existing?.summaryEditAction === 'edit_address' &&
           transition.action === 'collect_address') ||
         (existing?.summaryEditAction === 'edit_locality' &&
@@ -240,6 +269,19 @@ export class PostgresConversationRepository {
         .where(eq(whatsappConversationEvents.conversationId, conversation.id));
       const lastSequence = sequenceRow?.value ?? 0;
       const reply = conversation.mode === 'human' ? null : transition.reply;
+      const advancesSummaryGeneration =
+        transition.action === 'edit_address' ||
+        transition.action === 'edit_locality' ||
+        transition.action === 'edit_product' ||
+        transition.action === 'cancel_order' ||
+        transition.action === 'reset' ||
+        (existing?.summaryEditAction === 'edit_address' &&
+          transition.action === 'collect_address') ||
+        (existing?.summaryEditAction === 'edit_locality' &&
+          transition.action === 'collect_locality');
+      const summaryGeneration =
+        (existing?.summaryGeneration ?? 0) +
+        (advancesSummaryGeneration ? 1 : 0);
 
       await tx.insert(whatsappConversationEvents).values({
         conversationId: conversation.id,
@@ -253,6 +295,21 @@ export class PostgresConversationRepository {
           transition.action === 'cancel_order' ||
           transition.action === 'edit_product'
             ? transition.action
+            : null,
+        continuationAction:
+          transition.action === 'edit_address' ||
+          transition.action === 'edit_locality'
+            ? transition.action
+            : null,
+        continuationReply:
+          transition.action === 'edit_address' ||
+          transition.action === 'edit_locality'
+            ? reply
+            : null,
+        continuationGeneration:
+          transition.action === 'edit_address' ||
+          transition.action === 'edit_locality'
+            ? summaryGeneration
             : null,
         sequence: lastSequence + 1,
         stateBefore: existing?.state ?? null,
@@ -300,6 +357,7 @@ export class PostgresConversationRepository {
                 transition.action === 'reset'
               ? { activeSummaryVersion: null, summaryEditAction: null }
               : {}),
+          summaryGeneration,
           lastInboundMessageAt: now,
           updatedAt: now,
           ...(existing?.flowSnapshot == null || transition.action === 'reset'
@@ -345,6 +403,7 @@ export class PostgresConversationRepository {
             ? transition.action
             : ((existing?.summaryEditAction as
                 'edit_address' | 'edit_locality' | null) ?? null),
+        summaryGeneration,
         ...(transition.action === undefined
           ? {}
           : { action: transition.action }),
@@ -426,18 +485,39 @@ export class PostgresConversationRepository {
       );
   }
 
-  async setSummaryVersion(
-    conversationId: string,
-    version: number,
-  ): Promise<void> {
-    await this.database.orm
+  async publishSummary(input: {
+    conversationId: string;
+    orderId: string;
+    version: number;
+    expectedState: string;
+    expectedEditAction: 'edit_address' | 'edit_locality' | null;
+    expectedGeneration: number;
+  }): Promise<boolean> {
+    const updated = await this.database.orm
       .update(whatsappConversations)
       .set({
-        activeSummaryVersion: version,
+        activeSummaryVersion: input.version,
         summaryEditAction: null,
+        state: 'awaiting_confirmation',
         updatedAt: new Date(),
       })
-      .where(eq(whatsappConversations.id, conversationId));
+      .where(
+        and(
+          eq(whatsappConversations.id, input.conversationId),
+          eq(whatsappConversations.activeOrderId, input.orderId),
+          eq(whatsappConversations.mode, 'bot'),
+          eq(whatsappConversations.state, input.expectedState),
+          eq(whatsappConversations.summaryGeneration, input.expectedGeneration),
+          input.expectedEditAction === null
+            ? isNull(whatsappConversations.summaryEditAction)
+            : eq(
+                whatsappConversations.summaryEditAction,
+                input.expectedEditAction,
+              ),
+        ),
+      )
+      .returning({ id: whatsappConversations.id });
+    return updated.length === 1;
   }
 
   async setState(conversationId: string, state: string): Promise<void> {
