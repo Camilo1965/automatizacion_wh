@@ -30,6 +30,10 @@ type ConversationPort = Readonly<{
     referenceId: string,
     orderId: string,
   ): Promise<void>;
+  clearActiveOrder?(
+    conversationId: string,
+    expectedOrderId: string,
+  ): Promise<void>;
   setSummaryVersion?(conversationId: string, version: number): Promise<void>;
   setState?(conversationId: string, state: string): Promise<void>;
 }>;
@@ -226,6 +230,53 @@ export class WhatsAppSalesService {
         entityId: result.conversationId,
         retrySafe: false,
       });
+      return;
+    }
+    if (result.action === 'cancel_order') {
+      try {
+        if (
+          result.activeOrderId == null ||
+          this.orders?.transition === undefined ||
+          this.conversations.clearActiveOrder === undefined
+        ) {
+          throw new Error('Cancellation dependencies are unavailable');
+        }
+        await this.orders.transition({
+          orderId: result.activeOrderId,
+          action: 'cancel',
+          idempotencyKey: `whatsapp:${input.whatsappMessageId}`,
+        });
+        await this.conversations.clearActiveOrder(
+          result.conversationId,
+          result.activeOrderId,
+        );
+        const orderId = result.variables?.pedido || result.activeOrderId;
+        await this.queueText(
+          result.conversationId,
+          input,
+          `Cancelé el pedido ${orderId}. Si quieres empezar otro, dime tu talla.`,
+          'cancelled',
+        );
+      } catch {
+        await this.conversations.takeOver?.(result.conversationId);
+        await this.outbound.enqueueText({
+          conversationId: result.conversationId,
+          customerPhone: input.customerPhone,
+          body: 'La propietaria revisará la cancelación de tu pedido antes de continuar.',
+          source: 'owner_panel',
+          idempotencyKey: `cancellation-attention:${input.whatsappMessageId}`,
+        });
+        await this.alerts?.open({
+          type: 'order_cancellation_attention',
+          severity: 'critical',
+          title: 'Revisar cancelación de pedido',
+          detail:
+            'No se completó la cancelación automáticamente. Revisar el estado del pedido antes de continuar.',
+          entityUrl: `/orders/${result.activeOrderId ?? ''}`,
+          entityId: result.activeOrderId ?? result.conversationId,
+          retrySafe: false,
+        });
+      }
       return;
     }
     if (

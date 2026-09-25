@@ -32,6 +32,121 @@ import { requireTestDatabaseUrl } from './helpers/test-database.js';
 const databaseUrl = requireTestDatabaseUrl();
 
 describe('complete WhatsApp sale', () => {
+  it('cancels a summarized draft once and preserves its historical link', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const catalogRepository = new PostgresCatalogRepository(database);
+    const orderService = new OrderService(
+      new PostgresOrderRepository(database),
+      (id) => catalogRepository.findReferenceById(id),
+    );
+    const service = new WhatsAppSalesService(
+      new PostgresConversationRepository(database),
+      new DefaultCatalogService(catalogRepository, {
+        save: async () => {
+          throw new Error('unused');
+        },
+        read: async () => new Uint8Array(),
+        delete: async () => undefined,
+      }),
+      new PostgresConversationMenuRepository(database),
+      new PostgresOutboundRepository(database),
+      orderService,
+      new LocalityService(new PostgresLocalityRepository(database)),
+      new PostgresShippingGuideJobRepository(database),
+      new ShippingQuoteService(
+        new PostgresShippingQuoteRepository(database),
+        orderService,
+        {
+          quote: vi.fn(async () => [
+            {
+              carrier: 'envia',
+              freightCop: 13_368,
+              cashOnDeliveryCop: 3_000,
+              surchargeCop: 600,
+              serviceId: 12,
+              estimatedDays: '1',
+            },
+          ]),
+        },
+      ),
+    );
+    const customerPhone = '+573158191776';
+    try {
+      for (const [index, text] of [
+        'hola',
+        '37',
+        '01',
+        'Camila Pérez',
+        'sí',
+        'Antioquia',
+        'Medellín',
+        'Calle 1 # 2-3',
+        'saltar',
+      ].entries()) {
+        await service.process({
+          whatsappMessageId: `cancel-flow-${index}`,
+          customerPhone,
+          text,
+        });
+      }
+      const cancel = {
+        whatsappMessageId: 'cancel-flow-final',
+        customerPhone,
+        text: 'cancelar',
+      };
+      await service.process(cancel);
+      await service.process(cancel);
+
+      const sql = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        const [row] = await sql<
+          {
+            id: string;
+            order_number: number;
+            status: string;
+            active_order_id: string | null;
+            selected_reference_id: string | null;
+            active_summary_version: number | null;
+            origin_conversation_id: string;
+            conversation_id: string;
+          }[]
+        >`
+          SELECT o.id, o.order_number, o.status, c.active_order_id, c.selected_reference_id,
+            c.active_summary_version, l.origin_conversation_id, c.id AS conversation_id
+          FROM sales_orders o
+          JOIN conversation_order_links l ON l.order_id = o.id
+          JOIN whatsapp_conversations c ON c.id = l.origin_conversation_id
+        `;
+        const [reply] = await sql<{ count: number; body: string }[]>`
+          SELECT count(*)::int AS count, min(text_body) AS body
+          FROM whatsapp_outbound_messages WHERE text_body LIKE 'Cancelé el pedido%'
+        `;
+        const [guide] = await sql<{ count: number }[]>`
+          SELECT count(*)::int AS count FROM shipping_guide_jobs
+        `;
+        const [stock] = await sql<{ reserved_quantity: number }[]>`
+          SELECT reserved_quantity FROM catalog_stock
+        `;
+        expect(row).toMatchObject({
+          status: 'cancelled',
+          active_order_id: null,
+          selected_reference_id: null,
+          active_summary_version: null,
+        });
+        expect(row?.origin_conversation_id).toBe(row?.conversation_id);
+        expect(reply?.count).toBe(1);
+        expect(reply?.body).toContain(
+          `PED-${String(row!.order_number).padStart(6, '0')}`,
+        );
+        expect(guide?.count).toBe(0);
+        expect(stock?.reserved_quantity).toBe(0);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } finally {
+      await database.close();
+    }
+  });
   it('delivers the handover acknowledgement while cancelling pending automatic messages', async () => {
     const database = createPostgresDatabase(databaseUrl);
     try {

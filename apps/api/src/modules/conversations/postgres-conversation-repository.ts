@@ -339,6 +339,26 @@ export class PostgresConversationRepository {
     });
   }
 
+  async clearActiveOrder(
+    conversationId: string,
+    expectedOrderId: string,
+  ): Promise<void> {
+    await this.database.orm
+      .update(whatsappConversations)
+      .set({
+        activeOrderId: null,
+        selectedReferenceId: null,
+        activeSummaryVersion: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(whatsappConversations.id, conversationId),
+          eq(whatsappConversations.activeOrderId, expectedOrderId),
+        ),
+      );
+  }
+
   async setSummaryVersion(
     conversationId: string,
     version: number,
