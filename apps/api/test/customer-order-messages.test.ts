@@ -76,6 +76,41 @@ describe('customer order review', () => {
     expect(body).toContain('¿Confirmas tu pedido para reservarlo?');
   });
 
+  it.each(['USD 99', '99 USD', 'USD 95.00', '95.00 USD'])(
+    'removes configured prices written as %s',
+    (examplePrice) => {
+      const flow = createDefaultBotFlow();
+      flow.steps.summary = {
+        enabled: true,
+        message: `Colección 2026\nREF 12345\nDato ${examplePrice}`,
+      };
+      flow.steps.confirmation = {
+        enabled: true,
+        message: `¿Confirmas ${examplePrice}?`,
+      };
+      const body = formatOrderReview(summary, flow);
+      expect(body).toContain('Colección 2026');
+      expect(body).toContain('REF 12345');
+      expect(body).not.toContain(examplePrice);
+      expect(body).toContain('¿Confirmas tu pedido para reservarlo?');
+    },
+  );
+
+  it('keeps legitimate year and reference numbers in the configured text', () => {
+    const flow = createDefaultBotFlow();
+    flow.steps.summary = {
+      enabled: true,
+      message: 'Colección 2026\nREF 12345',
+    };
+    flow.steps.confirmation = {
+      enabled: true,
+      message: '¿Confirmas la REF 12345 de la colección 2026?',
+    };
+    const body = formatOrderReview(summary, flow);
+    expect(body).toContain('Colección 2026\nREF 12345');
+    expect(body).toContain('¿Confirmas la REF 12345 de la colección 2026?');
+  });
+
   it('hides the selected carrier from both operational text and configured placeholders', () => {
     const defaultFlow = createDefaultBotFlow();
     const flow = {

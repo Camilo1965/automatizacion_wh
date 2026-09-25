@@ -32,8 +32,16 @@ function reviewSnapshot(summary: OrderSummary): ReviewSnapshot {
   return summary.snapshot as ReviewSnapshot;
 }
 
-const configuredMoney =
-  /(?:\bCOP\s*\$?\s*\d[\d.,]*|\$\s*\d[\d.,]*|\b\d[\d.,]*\s*COP\b|\b\d{1,3}(?:[.,]\d{3})+\b|\b\d{4,}\b)/i;
+const currencyAmount =
+  /(?:\b(?:COP|USD)\s*\$?\s*\d[\d.,]*|\$\s*\d[\d.,]*|\b\d[\d.,]*\s*(?:COP|USD)\b)/i;
+
+function containsConfiguredPrice(text: string): boolean {
+  if (currencyAmount.test(text)) return true;
+  const unaccented = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return /\b(?:precio|oferta|promo(?:cion)?|valor|cuesta|vale|por)\b[^\n]*\b\d+(?:[.,]\d+)*\b/i.test(
+    unaccented,
+  );
+}
 
 export function hasQuotedShipping(summary: OrderSummary): boolean {
   const snapshot = reviewSnapshot(summary);
@@ -67,7 +75,7 @@ function heading(
     .filter(
       (line) =>
         !/(?:\btotal\b|\bresponde\b|\bconfirmar\b|\bcancelar\b)/i.test(line) &&
-        !configuredMoney.test(line) &&
+        !containsConfiguredPrice(line) &&
         (showCarrier || !/\{\{\s*transportadora\s*\}\}/i.test(line)),
     )
     .join('\n');
@@ -87,7 +95,7 @@ function confirmationQuestion(
     /\b(?:responde|escribe|cancelar|cambiar|total)\b|\{\{\s*total\s*\}\}/i.test(
       configured,
     ) ||
-    configuredMoney.test(configured) ||
+    containsConfiguredPrice(configured) ||
     (!showCarrier && /\{\{\s*transportadora\s*\}\}/i.test(configured))
   )
     return '¿Confirmas tu pedido para reservarlo?';
