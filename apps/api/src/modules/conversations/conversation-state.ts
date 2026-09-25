@@ -30,7 +30,10 @@ export type ConversationTransition = Readonly<{
     | 'collect_notes'
     | 'select_shipping'
     | 'confirm_order'
-    | 'cancel_order';
+    | 'cancel_order'
+    | 'edit_address'
+    | 'edit_locality'
+    | 'edit_product';
   input?: string;
 }>;
 
@@ -62,6 +65,11 @@ export function advanceConversation(
     };
   }
   const normalized = normalizeMessage(message);
+  if (state === 'awaiting_address' && normalized === 'confirmar')
+    return {
+      state,
+      reply: 'Escribe la dirección completa de entrega antes de confirmar.',
+    };
   if (normalized === 'asesora' || normalized === 'asesor') {
     return {
       state,
@@ -186,6 +194,21 @@ export function advanceConversation(
     };
   }
   if (state === 'awaiting_confirmation') {
+    if (normalized === 'cambiar direccion')
+      return { state: 'awaiting_address', reply: null, action: 'edit_address' };
+    if (normalized === 'cambiar municipio')
+      return {
+        state: 'awaiting_locality',
+        reply: null,
+        action: 'edit_locality',
+      };
+    if (normalized === 'cambiar producto')
+      return {
+        state: 'awaiting_size',
+        reply: null,
+        selectedSize: null,
+        action: 'edit_product',
+      };
     if (normalized === 'confirmar') {
       return { state: 'completed', reply: null, action: 'confirm_order' };
     }
@@ -199,7 +222,8 @@ export function advanceConversation(
     }
     return {
       state,
-      reply: 'Responde “confirmar” para reservar o “cancelar”.',
+      reply:
+        'Responde “confirmar”, “cancelar”, “cambiar dirección”, “cambiar municipio” o “cambiar producto”.',
     };
   }
   if (state === 'completed') {

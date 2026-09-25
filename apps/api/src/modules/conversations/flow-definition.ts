@@ -27,6 +27,9 @@ export type BotFlowDefinition = Readonly<{
     more: string;
     confirm: string;
     cancel: string;
+    editAddress: string;
+    editLocality: string;
+    editProduct: string;
   }>;
   pageSize: number;
   steps: Record<
@@ -80,6 +83,9 @@ export function createDefaultBotFlow(): BotFlowDefinition {
       more: 'más modelos',
       confirm: 'confirmar',
       cancel: 'cancelar',
+      editAddress: 'cambiar dirección',
+      editLocality: 'cambiar municipio',
+      editProduct: 'cambiar producto',
     },
     pageSize: 6,
     steps: {
@@ -111,7 +117,8 @@ export function createDefaultBotFlow(): BotFlowDefinition {
       summary: { enabled: true, message: 'Revisa el resumen de tu pedido.' },
       confirmation: {
         enabled: true,
-        message: 'Responde confirmar para reservar o cancelar.',
+        message:
+          'Responde confirmar para reservar, cancelar, cambiar dirección, cambiar municipio o cambiar producto.',
       },
       guide: { enabled: true, message: 'Tu guía está lista.' },
       complete: { enabled: true, message: 'Tu pedido quedó confirmado.' },

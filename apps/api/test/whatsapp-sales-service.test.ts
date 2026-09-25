@@ -18,6 +18,230 @@ function availableItem() {
 }
 
 describe('WhatsAppSalesService', () => {
+  it('requotes an edited address and sends a new summary with edit commands', async () => {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'c1',
+        state: 'awaiting_notes',
+        reply: null,
+        action: 'collect_address',
+        summaryEditAction: 'edit_address',
+        input: 'Carrera 9 # 10-11',
+        activeOrderId: 'o1',
+      }),
+      returnToSize: vi.fn(),
+      setSummaryVersion: vi.fn(),
+      setState: vi.fn(),
+    };
+    const orders = {
+      create: vi.fn(),
+      update: vi.fn(),
+      createSummary: vi.fn().mockResolvedValue({
+        version: 4,
+        snapshot: {
+          totalCop: 130000,
+          destination: { address: 'Carrera 9 # 10-11' },
+        },
+      }),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const shipping = { createQuotes: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      orders,
+      undefined,
+      undefined,
+      shipping,
+    );
+    await service.process({
+      whatsappMessageId: 'edit-address',
+      customerPhone: '573000000001',
+      text: 'Carrera 9 # 10-11',
+    });
+    expect(orders.update).toHaveBeenCalledWith({
+      orderId: 'o1',
+      address: 'Carrera 9 # 10-11',
+    });
+    expect(shipping.createQuotes).toHaveBeenCalledWith('o1');
+    expect(conversations.setSummaryVersion).toHaveBeenCalledWith('c1', 4);
+    expect(outbound.enqueueText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringMatching(
+          /cambiar dirección[\s\S]*cambiar municipio[\s\S]*cambiar producto/i,
+        ),
+      }),
+    );
+  });
+
+  it('validates an edited municipality in the saved department, then requotes', async () => {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'c1',
+        state: 'awaiting_address',
+        reply: null,
+        action: 'collect_locality',
+        summaryEditAction: 'edit_locality',
+        input: 'Medellín',
+        activeOrderId: 'o1',
+        pendingDepartment: 'Antioquia',
+      }),
+      returnToSize: vi.fn(),
+      setSummaryVersion: vi.fn(),
+      setState: vi.fn(),
+    };
+    const orders = {
+      create: vi.fn(),
+      update: vi.fn(),
+      createSummary: vi
+        .fn()
+        .mockResolvedValue({ version: 5, snapshot: { totalCop: 140000 } }),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const shipping = { createQuotes: vi.fn() };
+    const localities = {
+      list: vi.fn().mockResolvedValue({
+        items: [
+          {
+            carrierCode: '05001000',
+            department: 'Antioquia',
+            locality: 'Medellín',
+          },
+        ],
+      }),
+    };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      orders,
+      localities,
+      undefined,
+      shipping,
+    );
+    await service.process({
+      whatsappMessageId: 'edit-locality',
+      customerPhone: '573000000001',
+      text: 'Medellín',
+    });
+    expect(localities.list).toHaveBeenCalledWith({
+      department: 'Antioquia',
+      query: 'Medellín',
+      limit: 10,
+    });
+    expect(orders.update).toHaveBeenCalledWith({
+      orderId: 'o1',
+      localityCarrierCode: '05001000',
+    });
+    expect(shipping.createQuotes).toHaveBeenCalledWith('o1');
+    expect(conversations.setSummaryVersion).toHaveBeenCalledWith('c1', 5);
+  });
+
+  it('keeps an unknown edited municipality pending and offers at most three catalog names', async () => {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'c1',
+        state: 'awaiting_locality',
+        reply: null,
+        action: 'collect_locality',
+        summaryEditAction: 'edit_locality',
+        input: 'Belx',
+        activeOrderId: 'o1',
+        pendingDepartment: 'Antioquia',
+      }),
+      returnToSize: vi.fn(),
+      setState: vi.fn(),
+    };
+    const orders = { create: vi.fn(), update: vi.fn(), createSummary: vi.fn() };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const localities = {
+      list: vi.fn().mockResolvedValue({
+        items: ['Bello', 'Belmira', 'Belén', 'Berlín'].map((locality) => ({
+          carrierCode: '05001000',
+          department: 'Antioquia',
+          locality,
+        })),
+      }),
+    };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      orders,
+      localities,
+    );
+    await service.process({
+      whatsappMessageId: 'unknown-edited-locality',
+      customerPhone: '573000000001',
+      text: 'Belx',
+    });
+    expect(conversations.setState).toHaveBeenCalledWith(
+      'c1',
+      'awaiting_locality',
+    );
+    expect(orders.update).not.toHaveBeenCalled();
+    expect(orders.createSummary).not.toHaveBeenCalled();
+    expect(outbound.enqueueText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining('Bello, Belmira, Belén'),
+      }),
+    );
+    expect(outbound.enqueueText.mock.calls[0]?.[0].body).not.toContain(
+      'Berlín',
+    );
+  });
+
+  it('replays a product edit as a product restart, not a plain cancellation', async () => {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: true,
+        conversationId: 'c1',
+        state: 'awaiting_size',
+        reply: null,
+        action: 'edit_product',
+        activeOrderId: 'o1',
+      }),
+      returnToSize: vi.fn(),
+      clearActiveOrder: vi.fn(),
+    };
+    const orders = {
+      create: vi.fn(),
+      get: vi.fn().mockResolvedValue({ status: 'draft', orderNumber: 8 }),
+      transition: vi.fn(),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      orders,
+    );
+    await service.process({
+      whatsappMessageId: 'edit-product',
+      customerPhone: '573000000001',
+      text: 'cambiar producto',
+    });
+    expect(orders.transition).toHaveBeenCalledWith({
+      orderId: 'o1',
+      action: 'cancel',
+      idempotencyKey: 'whatsapp:edit-product',
+    });
+    expect(conversations.clearActiveOrder).toHaveBeenCalledWith('c1', 'o1');
+    expect(outbound.enqueueText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringMatching(/Cancelé el pedido.*referencia.*talla/is),
+        idempotencyKey: 'product-restart:edit-product',
+      }),
+    );
+  });
   it('cancels the active draft, clears its snapshot, and replies once with its id', async () => {
     const conversations = {
       receive: vi

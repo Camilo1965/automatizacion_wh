@@ -50,6 +50,9 @@ export function advanceConfiguredConversation(
     more: 'más modelos',
     confirm: 'confirmar',
     cancel: 'cancelar',
+    editAddress: 'cambiar dirección',
+    editLocality: 'cambiar municipio',
+    editProduct: 'cambiar producto',
   };
   const transition = advanceConversation(
     state,
@@ -61,6 +64,9 @@ export function advanceConfiguredConversation(
   let key: FlowStepKey | undefined;
   if (state === null) key = 'welcome';
   else if (transition.action === 'human_takeover') key = 'human';
+  else if (transition.action === 'edit_address') key = 'address';
+  else if (transition.action === 'edit_locality') key = 'locality';
+  else if (transition.action === 'edit_product') key = 'size';
   else if (transition.reply !== null) key = steps[transition.state];
   if (key === undefined)
     return {

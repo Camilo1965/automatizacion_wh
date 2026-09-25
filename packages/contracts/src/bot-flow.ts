@@ -47,6 +47,24 @@ export const BotFlowDefinitionSchema = z
         more: z.string().trim().min(1).max(40),
         confirm: z.string().trim().min(1).max(40),
         cancel: z.string().trim().min(1).max(40),
+        editAddress: z
+          .string()
+          .trim()
+          .min(1)
+          .max(40)
+          .default('cambiar dirección'),
+        editLocality: z
+          .string()
+          .trim()
+          .min(1)
+          .max(40)
+          .default('cambiar municipio'),
+        editProduct: z
+          .string()
+          .trim()
+          .min(1)
+          .max(40)
+          .default('cambiar producto'),
       })
       .strict(),
     pageSize: z.number().int().min(1).max(10),

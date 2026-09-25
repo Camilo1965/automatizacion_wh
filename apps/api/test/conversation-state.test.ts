@@ -123,10 +123,32 @@ describe('advanceConversation', () => {
     });
   });
 
+  it.each([
+    ['cambiar dirección', 'awaiting_address', 'edit_address'],
+    ['  CAMBIAR DIRECCION  ', 'awaiting_address', 'edit_address'],
+    ['cambiar municipio', 'awaiting_locality', 'edit_locality'],
+    ['cambiar producto', 'awaiting_size', 'edit_product'],
+  ] as const)('routes summary command %s to %s', (command, state, action) => {
+    expect(advanceConversation('awaiting_confirmation', command)).toMatchObject(
+      {
+        state,
+        action,
+      },
+    );
+  });
+
   it('reprompts when confirmation text is neither confirm nor cancel', () => {
     const result = advanceConversation('awaiting_confirmation', 'tal vez');
     expect(result.state).toBe('awaiting_confirmation');
     expect(result.reply).toMatch(/confirmar/i);
+  });
+  it('does not accept a confirmation command as a replacement address', () => {
+    expect(advanceConversation('awaiting_address', 'confirmar')).toMatchObject({
+      state: 'awaiting_address',
+    });
+    expect(
+      advanceConversation('awaiting_address', 'confirmar').action,
+    ).toBeUndefined();
   });
 
   it('ignores blank messages without changing state', () => {

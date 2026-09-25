@@ -41,6 +41,7 @@ export type ReceiveConversationResult = Readonly<{
   activeOrderId?: string | null;
   pendingDepartment?: string | null;
   activeSummaryVersion?: number | null;
+  summaryEditAction?: 'edit_address' | 'edit_locality' | null;
   action?: ConversationTransition['action'];
   input?: string;
   flow?: BotFlowDefinition;
@@ -67,6 +68,7 @@ export class PostgresConversationRepository {
           id: whatsappConversationEvents.id,
           conversationId: whatsappConversationEvents.conversationId,
           cancellationOrderId: whatsappConversationEvents.cancellationOrderId,
+          cancellationAction: whatsappConversationEvents.cancellationAction,
         })
         .from(whatsappConversationEvents)
         .where(
@@ -109,7 +111,10 @@ export class PostgresConversationRepository {
           ...(recoverCancellation
             ? {
                 conversationId: duplicate.conversationId,
-                action: 'cancel_order' as const,
+                action:
+                  duplicate.cancellationAction === 'edit_product'
+                    ? ('edit_product' as const)
+                    : ('cancel_order' as const),
                 activeOrderId: duplicate.cancellationOrderId,
               }
             : {}),
@@ -177,7 +182,7 @@ export class PostgresConversationRepository {
               }).format(Number(context.total)),
         transportadora: context?.carrier ?? '',
       };
-      const transition: ConversationTransition =
+      let transition: ConversationTransition =
         existing?.mode === 'human'
           ? {
               state:
@@ -193,6 +198,18 @@ export class PostgresConversationRepository {
               flow,
               variables,
             );
+      if (
+        (existing?.summaryEditAction === 'edit_address' &&
+          transition.action === 'collect_address') ||
+        (existing?.summaryEditAction === 'edit_locality' &&
+          transition.action === 'collect_locality')
+      )
+        transition = {
+          ...transition,
+          state:
+            existing.state as import('./conversation-state.js').ConversationState,
+          reply: null,
+        };
       if (transition.action === 'reset')
         flow = BotFlowDefinitionSchema.parse(
           published?.activeVersionId == null
@@ -228,8 +245,14 @@ export class PostgresConversationRepository {
         conversationId: conversation.id,
         whatsappMessageId: input.whatsappMessageId,
         cancellationOrderId:
-          transition.action === 'cancel_order'
+          transition.action === 'cancel_order' ||
+          transition.action === 'edit_product'
             ? (existing?.activeOrderId ?? null)
+            : null,
+        cancellationAction:
+          transition.action === 'cancel_order' ||
+          transition.action === 'edit_product'
+            ? transition.action
             : null,
         sequence: lastSequence + 1,
         stateBefore: existing?.state ?? null,
@@ -266,6 +289,17 @@ export class PostgresConversationRepository {
           ...(transition.action === 'collect_department'
             ? { pendingDepartment: transition.input ?? null }
             : {}),
+          ...(transition.action === 'edit_address' ||
+          transition.action === 'edit_locality'
+            ? {
+                activeSummaryVersion: null,
+                summaryEditAction: transition.action,
+              }
+            : transition.action === 'edit_product' ||
+                transition.action === 'cancel_order' ||
+                transition.action === 'reset'
+              ? { activeSummaryVersion: null, summaryEditAction: null }
+              : {}),
           lastInboundMessageAt: now,
           updatedAt: now,
           ...(existing?.flowSnapshot == null || transition.action === 'reset'
@@ -298,7 +332,19 @@ export class PostgresConversationRepository {
           transition.action === 'collect_department'
             ? (transition.input ?? null)
             : (existing?.pendingDepartment ?? null),
-        activeSummaryVersion: existing?.activeSummaryVersion ?? null,
+        activeSummaryVersion:
+          transition.action === 'edit_address' ||
+          transition.action === 'edit_locality' ||
+          transition.action === 'edit_product' ||
+          transition.action === 'cancel_order'
+            ? null
+            : (existing?.activeSummaryVersion ?? null),
+        summaryEditAction:
+          transition.action === 'edit_address' ||
+          transition.action === 'edit_locality'
+            ? transition.action
+            : ((existing?.summaryEditAction as
+                'edit_address' | 'edit_locality' | null) ?? null),
         ...(transition.action === undefined
           ? {}
           : { action: transition.action }),
@@ -317,6 +363,7 @@ export class PostgresConversationRepository {
         invalidAttempts: 0,
         pendingDepartment: null,
         activeSummaryVersion: null,
+        summaryEditAction: null,
         updatedAt: new Date(),
       })
       .where(eq(whatsappConversations.id, conversationId));
@@ -368,6 +415,7 @@ export class PostgresConversationRepository {
         activeOrderId: null,
         selectedReferenceId: null,
         activeSummaryVersion: null,
+        summaryEditAction: null,
         updatedAt: new Date(),
       })
       .where(
@@ -384,7 +432,11 @@ export class PostgresConversationRepository {
   ): Promise<void> {
     await this.database.orm
       .update(whatsappConversations)
-      .set({ activeSummaryVersion: version, updatedAt: new Date() })
+      .set({
+        activeSummaryVersion: version,
+        summaryEditAction: null,
+        updatedAt: new Date(),
+      })
       .where(eq(whatsappConversations.id, conversationId));
   }
 

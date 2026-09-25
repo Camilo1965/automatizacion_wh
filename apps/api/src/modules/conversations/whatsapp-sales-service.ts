@@ -160,7 +160,7 @@ function summaryText(summary: OrderSummary, flow?: BotFlowDefinition): string {
     `Total ${formatCop(snapshot.totalCop ?? 0)}`,
     `Cliente: ${snapshot.customer?.name ?? ''}`,
     `Entrega: ${snapshot.destination?.address ?? ''}, ${snapshot.destination?.locality ?? ''}, ${snapshot.destination?.department ?? ''}`,
-    `Pago contra entrega. Responde “${flow?.commands.confirm ?? 'confirmar'}” para reservar o “${flow?.commands.cancel ?? 'cancelar'}”.`,
+    `Pago contra entrega. Responde “${flow?.commands.confirm ?? 'confirmar'}” para reservar, “${flow?.commands.cancel ?? 'cancelar'}”, “${flow?.commands.editAddress ?? 'cambiar dirección'}”, “${flow?.commands.editLocality ?? 'cambiar municipio'}” o “${flow?.commands.editProduct ?? 'cambiar producto'}”.`,
   ].join('\n');
 }
 
@@ -210,7 +210,9 @@ export class WhatsAppSalesService {
     const result = await this.conversations.receive(input);
     if (
       result.conversationId === undefined ||
-      (result.duplicate && result.action !== 'cancel_order')
+      (result.duplicate &&
+        result.action !== 'cancel_order' &&
+        result.action !== 'edit_product')
     )
       return;
     if (result.reply !== null) {
@@ -239,7 +241,7 @@ export class WhatsAppSalesService {
       });
       return;
     }
-    if (result.action === 'cancel_order') {
+    if (result.action === 'cancel_order' || result.action === 'edit_product') {
       if (
         result.activeOrderId == null ||
         this.orders?.transition === undefined ||
@@ -292,8 +294,10 @@ export class WhatsAppSalesService {
         await this.queueText(
           result.conversationId,
           input,
-          `Cancelé el pedido ${orderId}. Si quieres empezar otro, dime tu talla.`,
-          'cancelled',
+          result.action === 'edit_product'
+            ? `Cancelé el pedido ${orderId}. Para elegir otra referencia, dime tu talla y te mostraré los modelos disponibles.`
+            : `Cancelé el pedido ${orderId}. Si quieres empezar otro, dime tu talla.`,
+          result.action === 'edit_product' ? 'product-restart' : 'cancelled',
         );
       } catch {
         await this.handoffCancellation(result, input, true);
@@ -444,21 +448,27 @@ export class WhatsAppSalesService {
           orderId: result.activeOrderId,
           localityCarrierCode: locality.carrierCode,
         });
-        await this.queueText(
-          result.conversationId,
-          input,
-          result.flow
-            ? renderFlowMessage(
-                result.flow.steps.address.message,
-                result.variables,
-              )
-            : 'Escribe la dirección completa de entrega.',
-          'locality-selected',
-        );
+        if (result.summaryEditAction === 'edit_locality') {
+          await this.prepareSummary(result, input);
+        } else {
+          await this.queueText(
+            result.conversationId,
+            input,
+            result.flow
+              ? renderFlowMessage(
+                  result.flow.steps.address.message,
+                  result.variables,
+                )
+              : 'Escribe la dirección completa de entrega.',
+            'locality-selected',
+          );
+        }
       }
     }
     if (
       (result.action === 'collect_notes' ||
+        (result.action === 'collect_address' &&
+          result.summaryEditAction === 'edit_address') ||
         (result.action === 'collect_address' &&
           result.flow?.optionalSteps.notes === false)) &&
       result.activeOrderId != null &&

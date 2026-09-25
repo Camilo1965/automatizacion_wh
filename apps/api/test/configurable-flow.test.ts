@@ -66,4 +66,37 @@ describe('configurable flow', () => {
       }).map((issue) => issue.code),
     ).toContain('invalid_commands');
   });
+  it('uses configured prompts for summary edits', () => {
+    const flow = createDefaultBotFlow();
+    flow.steps.address = {
+      enabled: true,
+      message: 'Nueva dirección, por favor.',
+    };
+    flow.steps.locality = {
+      enabled: true,
+      message: 'Nuevo municipio, por favor.',
+    };
+    expect(
+      advanceConfiguredConversation(
+        'awaiting_confirmation',
+        'cambiar dirección',
+        0,
+        flow,
+      ),
+    ).toMatchObject({
+      action: 'edit_address',
+      reply: 'Nueva dirección, por favor.',
+    });
+    expect(
+      advanceConfiguredConversation(
+        'awaiting_confirmation',
+        'cambiar municipio',
+        0,
+        flow,
+      ),
+    ).toMatchObject({
+      action: 'edit_locality',
+      reply: 'Nuevo municipio, por favor.',
+    });
+  });
 });

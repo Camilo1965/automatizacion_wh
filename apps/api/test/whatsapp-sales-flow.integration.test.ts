@@ -7,6 +7,8 @@ import { DefaultCatalogService } from '../src/modules/catalog/catalog-service.js
 import { PostgresCatalogRepository } from '../src/modules/catalog/postgres-catalog-repository.js';
 import { PostgresConversationMenuRepository } from '../src/modules/conversations/postgres-conversation-menu-repository.js';
 import { PostgresConversationRepository } from '../src/modules/conversations/postgres-conversation-repository.js';
+import { BotFlowService } from '../src/modules/conversations/bot-flow-service.js';
+import { createDefaultBotFlow } from '../src/modules/conversations/flow-definition.js';
 import { WhatsAppSalesService } from '../src/modules/conversations/whatsapp-sales-service.js';
 import { LocalityService } from '../src/modules/localities/locality-service.js';
 import { PostgresLocalityRepository } from '../src/modules/localities/postgres-locality-repository.js';
@@ -381,6 +383,331 @@ describe('complete WhatsApp sale', () => {
       `;
     } finally {
       await sql.end({ timeout: 5 });
+    }
+  });
+
+  it('atomically invalidates the old summary for an address edit and keeps the open flow snapshot', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const conversations = new PostgresConversationRepository(database);
+    const flows = new BotFlowService(database);
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      const first = createDefaultBotFlow();
+      first.steps.address = { enabled: true, message: 'Dirección versión uno' };
+      await flows.save(0, first, 'owner');
+      const published = await flows.publish(1, 'owner');
+      const welcome = await conversations.receive({
+        whatsappMessageId: 'edit-atomic-start',
+        customerPhone: '+573158191776',
+        text: 'hola',
+      });
+      const orders = new OrderService(
+        new PostgresOrderRepository(database),
+        (id) => new PostgresCatalogRepository(database).findReferenceById(id),
+      );
+      const order = await orders.create({
+        referenceId: '11111111-1111-4111-8111-111111111111',
+        size: '37',
+        quantity: 1,
+        customerPhone: '+573158191776',
+      });
+      await conversations.attachOrder(
+        welcome.conversationId!,
+        order.referenceId,
+        order.id,
+      );
+      await sql`UPDATE whatsapp_conversations SET state = 'awaiting_confirmation', active_summary_version = 1 WHERE id = ${welcome.conversationId!}`;
+      const second = createDefaultBotFlow();
+      second.steps.address = {
+        enabled: true,
+        message: 'Dirección versión dos',
+      };
+      await flows.save(2, second, 'owner');
+      await flows.publish(3, 'owner');
+      const edited = await conversations.receive({
+        whatsappMessageId: 'edit-atomic-command',
+        customerPhone: '+573158191776',
+        text: 'cambiar dirección',
+      });
+      const [persisted] = await sql<
+        {
+          state: string;
+          active_summary_version: number | null;
+          flow_version_id: string | null;
+        }[]
+      >`SELECT state, active_summary_version, flow_version_id FROM whatsapp_conversations WHERE id = ${welcome.conversationId!}`;
+      expect(edited).toMatchObject({
+        action: 'edit_address',
+        state: 'awaiting_address',
+        activeSummaryVersion: null,
+        reply: 'Dirección versión uno',
+      });
+      expect(persisted).toMatchObject({
+        state: 'awaiting_address',
+        active_summary_version: null,
+        flow_version_id: published.activeVersionId,
+      });
+      expect(
+        (
+          await conversations.receive({
+            whatsappMessageId: 'edit-atomic-old-confirm',
+            customerPhone: '+573158191776',
+            text: 'confirmar',
+          })
+        ).action,
+      ).not.toBe('confirm_order');
+      const address = await conversations.receive({
+        whatsappMessageId: 'edit-atomic-new-address',
+        customerPhone: '+573158191776',
+        text: 'Carrera 9 # 10-11',
+      });
+      expect(address).toMatchObject({
+        action: 'collect_address',
+        summaryEditAction: 'edit_address',
+        activeSummaryVersion: null,
+        activeOrderId: order.id,
+      });
+      expect(
+        (
+          await conversations.receive({
+            whatsappMessageId: 'edit-atomic-new-address-retry',
+            customerPhone: '+573158191776',
+            text: 'Carrera 9 # 10-11',
+          })
+        ).flow?.steps.address.message,
+      ).toBe('Dirección versión uno');
+    } finally {
+      await sql.end({ timeout: 5 });
+      await database.close();
+    }
+  });
+
+  it('requotes address and municipality edits before allowing confirmation', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const catalogRepository = new PostgresCatalogRepository(database);
+    const orders = new OrderService(
+      new PostgresOrderRepository(database),
+      (id) => catalogRepository.findReferenceById(id),
+    );
+    const quote = vi.fn(async () => [
+      {
+        carrier: 'envia',
+        freightCop: 13_368,
+        cashOnDeliveryCop: 3_000,
+        surchargeCop: 600,
+        serviceId: 12,
+        estimatedDays: '1',
+      },
+    ]);
+    const service = new WhatsAppSalesService(
+      new PostgresConversationRepository(database),
+      new DefaultCatalogService(catalogRepository, {
+        save: async () => {
+          throw new Error('unused');
+        },
+        read: async () => new Uint8Array(),
+        delete: async () => undefined,
+      }),
+      new PostgresConversationMenuRepository(database),
+      new PostgresOutboundRepository(database),
+      orders,
+      new LocalityService(new PostgresLocalityRepository(database)),
+      new PostgresShippingGuideJobRepository(database),
+      new ShippingQuoteService(
+        new PostgresShippingQuoteRepository(database),
+        orders,
+        { quote },
+      ),
+    );
+    const phone = '+573158191776';
+    let sequence = 0;
+    const send = async (text: string) =>
+      service.process({
+        whatsappMessageId: `summary-edit-${sequence++}`,
+        customerPhone: phone,
+        text,
+      });
+    try {
+      await sql`INSERT INTO shipping_localities (carrier_code, department, locality, normalized_name, source_sha256) VALUES ('05088000', 'Antioquia', 'Bello', 'bello', repeat('c', 64))`;
+      for (const text of [
+        'hola',
+        '37',
+        '01',
+        'Camila Pérez',
+        'sí',
+        'Antioquia',
+        'Medellín',
+        'Calle 1 # 2-3',
+        'saltar',
+      ])
+        await send(text);
+      const [initial] = await sql<
+        { id: string; latest_summary_version: number }[]
+      >`SELECT id, latest_summary_version FROM sales_orders`;
+      expect(initial?.latest_summary_version).toBe(1);
+      await send('cambiar dirección');
+      const [pendingAddress] = await sql<
+        { state: string; active_summary_version: number | null }[]
+      >`SELECT state, active_summary_version FROM whatsapp_conversations`;
+      expect(pendingAddress).toMatchObject({
+        state: 'awaiting_address',
+        active_summary_version: null,
+      });
+      await send('confirmar');
+      const addressMessage = {
+        whatsappMessageId: `summary-edit-${sequence++}`,
+        customerPhone: phone,
+        text: 'Carrera 9 # 10-11',
+      };
+      await service.process(addressMessage);
+      await service.process(addressMessage);
+      await expect(
+        orders.transition({
+          orderId: initial!.id,
+          action: 'confirm',
+          summaryVersion: 1,
+          idempotencyKey: 'old-summary-attempt',
+        }),
+      ).rejects.toMatchObject({ code: 'stale_summary' });
+      const [afterAddress] = await sql<
+        {
+          address: string;
+          latest_summary_version: number;
+          active_summary_version: number | null;
+        }[]
+      >`SELECT o.address, o.latest_summary_version, c.active_summary_version FROM sales_orders o JOIN whatsapp_conversations c ON c.active_order_id = o.id`;
+      expect(afterAddress).toMatchObject({
+        address: 'Carrera 9 # 10-11',
+        latest_summary_version: 2,
+        active_summary_version: 2,
+      });
+      await send('cambiar municipio');
+      await send('Bello');
+      const [afterLocality] = await sql<
+        {
+          locality_carrier_code: string;
+          latest_summary_version: number;
+          active_summary_version: number | null;
+        }[]
+      >`SELECT o.locality_carrier_code, o.latest_summary_version, c.active_summary_version FROM sales_orders o JOIN whatsapp_conversations c ON c.active_order_id = o.id`;
+      expect(afterLocality).toMatchObject({
+        locality_carrier_code: '05088000',
+        latest_summary_version: 3,
+        active_summary_version: 3,
+      });
+      await send('confirmar');
+      const [final] = await sql<
+        { status: string }[]
+      >`SELECT status FROM sales_orders WHERE id = ${initial!.id}`;
+      expect(final?.status).toBe('confirmed');
+      expect(quote).toHaveBeenCalledTimes(3);
+    } finally {
+      await sql.end({ timeout: 5 });
+      await database.close();
+    }
+  });
+
+  it('replays an interrupted product edit and permits a new draft while preserving the cancelled one', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const conversations = new PostgresConversationRepository(database);
+    const catalogRepository = new PostgresCatalogRepository(database);
+    const orders = new OrderService(
+      new PostgresOrderRepository(database),
+      (id) => catalogRepository.findReferenceById(id),
+    );
+    const service = new WhatsAppSalesService(
+      conversations,
+      new DefaultCatalogService(catalogRepository, {
+        save: async () => {
+          throw new Error('unused');
+        },
+        read: async () => new Uint8Array(),
+        delete: async () => undefined,
+      }),
+      new PostgresConversationMenuRepository(database),
+      new PostgresOutboundRepository(database),
+      orders,
+      new LocalityService(new PostgresLocalityRepository(database)),
+      undefined,
+      new ShippingQuoteService(
+        new PostgresShippingQuoteRepository(database),
+        orders,
+        {
+          quote: vi.fn(async () => [
+            {
+              carrier: 'envia',
+              freightCop: 13_368,
+              cashOnDeliveryCop: 3_000,
+              surchargeCop: 600,
+              serviceId: 12,
+              estimatedDays: '1',
+            },
+          ]),
+        },
+      ),
+    );
+    const phone = '+573158191776';
+    let sequence = 0;
+    const send = async (text: string) =>
+      service.process({
+        whatsappMessageId: `product-edit-${sequence++}`,
+        customerPhone: phone,
+        text,
+      });
+    try {
+      for (const text of [
+        'hola',
+        '37',
+        '01',
+        'Camila Pérez',
+        'sí',
+        'Antioquia',
+        'Medellín',
+        'Calle 1 # 2-3',
+        'saltar',
+      ])
+        await send(text);
+      const [first] = await sql<{ id: string }[]>`SELECT id FROM sales_orders`;
+      const edit = {
+        whatsappMessageId: 'product-edit-interrupted',
+        customerPhone: phone,
+        text: 'cambiar producto',
+      };
+      expect((await conversations.receive(edit)).action).toBe('edit_product');
+      expect((await conversations.receive(edit)).action).toBe('edit_product');
+      await service.process(edit);
+      await service.process(edit);
+      const [cancelled] = await sql<
+        {
+          status: string;
+          state: string;
+          active_order_id: string | null;
+          active_summary_version: number | null;
+        }[]
+      >`SELECT o.status, c.state, c.active_order_id, c.active_summary_version FROM sales_orders o CROSS JOIN whatsapp_conversations c WHERE o.id = ${first!.id}`;
+      expect(cancelled).toMatchObject({
+        status: 'cancelled',
+        state: 'awaiting_size',
+        active_order_id: null,
+        active_summary_version: null,
+      });
+      const [reply] = await sql<
+        { count: number; text_body: string }[]
+      >`SELECT count(*)::int AS count, min(text_body) AS text_body FROM whatsapp_outbound_messages WHERE idempotency_key = 'product-restart:product-edit-interrupted'`;
+      expect(reply?.count).toBe(1);
+      expect(reply?.text_body).toContain('referencia');
+      await send('37');
+      await send('01');
+      const [next] = await sql<
+        { count: number; active_order_id: string | null }[]
+      >`SELECT count(*)::int AS count, max(c.active_order_id::text)::uuid AS active_order_id FROM sales_orders o CROSS JOIN whatsapp_conversations c`;
+      expect(next?.count).toBe(2);
+      expect(next?.active_order_id).not.toBe(first!.id);
+    } finally {
+      await sql.end({ timeout: 5 });
+      await database.close();
     }
   });
 
