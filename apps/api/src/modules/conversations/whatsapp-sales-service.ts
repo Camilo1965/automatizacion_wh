@@ -5,6 +5,10 @@ import type {
 } from '../catalog/catalog-types.js';
 import type { BotFlowDefinition } from './flow-definition.js';
 import { renderFlowMessage } from './configured-flow.js';
+import {
+  formatOrderReview,
+  hasQuotedShipping,
+} from './customer-order-messages.js';
 import { ownerAvailabilityMessage } from './owner-service-hours.js';
 import type {
   CreateOrderInput,
@@ -140,38 +144,6 @@ function formatCop(value: number): string {
   return `$${new Intl.NumberFormat('es-CO', {
     maximumFractionDigits: 0,
   }).format(value)}`;
-}
-
-function summaryText(summary: OrderSummary, flow?: BotFlowDefinition): string {
-  const snapshot = summary.snapshot as {
-    orderNumber?: string;
-    reference?: { code?: string; modelName?: string; color?: string };
-    size?: string;
-    productSubtotalCop?: number;
-    totalCop?: number;
-    shippingCostCop?: number | null;
-    shippingQuote?: {
-      carrier?: string;
-      insuranceMode?: 'none' | 'standard' | 'plus';
-    };
-    customer?: { name?: string };
-    destination?: { locality?: string; department?: string; address?: string };
-  };
-  const shippingLine =
-    snapshot.shippingCostCop == null
-      ? 'Envío pendiente de cotización'
-      : `Envío: ${flow?.optionalSteps.showCarrierInSummary === false ? '' : (snapshot.shippingQuote?.carrier ?? 'transportadora') + ' · '}${formatCop(snapshot.shippingCostCop)}${snapshot.shippingQuote?.insuranceMode && snapshot.shippingQuote.insuranceMode !== 'none' ? ` · Seguro ${snapshot.shippingQuote.insuranceMode === 'plus' ? '99 Plus' : '99 estándar'}` : ''}`;
-  return [
-    `Resumen ${snapshot.orderNumber ?? ''}`.trim(),
-    `REF ${snapshot.reference?.code ?? ''} · ${snapshot.reference?.modelName ?? ''} · ${snapshot.reference?.color ?? ''}`,
-    `Talla ${displaySize(snapshot.size ?? '')}`,
-    `Productos: ${formatCop(snapshot.productSubtotalCop ?? 0)}`,
-    shippingLine,
-    `Total ${formatCop(snapshot.totalCop ?? 0)}`,
-    `Cliente: ${snapshot.customer?.name ?? ''}`,
-    `Entrega: ${snapshot.destination?.address ?? ''}, ${snapshot.destination?.locality ?? ''}, ${snapshot.destination?.department ?? ''}`,
-    `Pago contra entrega. Responde “${flow?.commands.confirm ?? 'confirmar'}” para reservar, “${flow?.commands.cancel ?? 'cancelar'}”, “${flow?.commands.editAddress ?? 'cambiar dirección'}”, “${flow?.commands.editLocality ?? 'cambiar municipio'}” o “${flow?.commands.editProduct ?? 'cambiar producto'}”.`,
-  ].join('\n');
 }
 
 // Retained only to finish conversations that were already waiting for a
@@ -530,7 +502,16 @@ export class WhatsAppSalesService {
       }
       await this.shippingQuotes.selectQuote(result.activeOrderId, selected.id);
       const summary = await this.orders.createSummary(result.activeOrderId);
-      const body = summaryText(summary);
+      const body = formatOrderReview(summary, result.flow);
+      if (!hasQuotedShipping(summary)) {
+        await this.handOverUnquotedSummary(
+          result.conversationId,
+          result.activeOrderId,
+          input,
+          body,
+        );
+        return;
+      }
       if (
         !(await this.conversations.publishSummary({
           conversationId: result.conversationId,
@@ -657,28 +638,16 @@ export class WhatsAppSalesService {
       return;
     }
     const summary = await this.orders.createSummary(result.activeOrderId);
-    const snapshot = summary.snapshot as {
-      totalCop: number;
-      shippingQuote?: { carrier?: string };
-      orderNumber?: string;
-      reference?: { code?: string };
-      size?: string;
-      customer?: { name?: string };
-    };
-    const summaryVariables = {
-      ...result.variables,
-      talla: snapshot.size ?? result.variables?.talla ?? '',
-      referencia:
-        snapshot.reference?.code ?? result.variables?.referencia ?? '',
-      nombre: snapshot.customer?.name ?? result.variables?.nombre ?? '',
-      pedido: snapshot.orderNumber ?? result.variables?.pedido ?? '',
-      total: formatCop(snapshot.totalCop),
-      transportadora: snapshot.shippingQuote?.carrier ?? '',
-    };
-    const body =
-      result.flow === undefined
-        ? summaryText(summary)
-        : `${renderFlowMessage(result.flow.steps.summary.message, summaryVariables)}\n\n${summaryText(summary, result.flow)}\n\n${renderFlowMessage(result.flow.steps.confirmation.message, summaryVariables)}`;
+    const body = formatOrderReview(summary, result.flow);
+    if (!hasQuotedShipping(summary)) {
+      await this.handOverUnquotedSummary(
+        result.conversationId,
+        result.activeOrderId,
+        input,
+        body,
+      );
+      return;
+    }
     await this.conversations.publishSummary({
       conversationId: result.conversationId,
       orderId: result.activeOrderId,
@@ -689,6 +658,32 @@ export class WhatsAppSalesService {
       expectedState: result.state,
       expectedEditAction: result.summaryEditAction ?? null,
       expectedGeneration: result.summaryGeneration ?? 0,
+    });
+  }
+
+  private async handOverUnquotedSummary(
+    conversationId: string,
+    orderId: string,
+    input: ReceiveConversationInput,
+    body: string,
+  ): Promise<void> {
+    await this.conversations.takeOver?.(conversationId);
+    await this.outbound.enqueueText({
+      conversationId,
+      customerPhone: input.customerPhone,
+      body,
+      source: 'owner_panel',
+      idempotencyKey: `shipping-attention:${input.whatsappMessageId}`,
+    });
+    await this.alerts?.open({
+      type: 'shipping_quote_attention',
+      severity: 'critical',
+      title: 'Revisar cobertura del envío',
+      detail:
+        'El resumen no tiene cotización válida. El pedido no se puede confirmar hasta cotizarlo.',
+      entityUrl: `/orders/${orderId}`,
+      entityId: orderId,
+      retrySafe: true,
     });
   }
 

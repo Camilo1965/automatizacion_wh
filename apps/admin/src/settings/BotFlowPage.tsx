@@ -310,6 +310,19 @@ export function BotFlowPage() {
                     }
                     className="rounded-[1.125rem] bg-muted"
                   />
+                  {step === 'summary' && (
+                    <p className="text-sm text-muted-foreground">
+                      Este texto es el encabezado opcional. Los datos del
+                      pedido, envío y total se calculan automáticamente con
+                      información real.
+                    </p>
+                  )}
+                  {step === 'confirmation' && (
+                    <p className="text-sm text-muted-foreground">
+                      Escribe una sola pregunta. KAIRO añade debajo las acciones
+                      disponibles para confirmar, cancelar o corregir el pedido.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="flow-invalid">

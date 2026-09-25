@@ -117,8 +117,7 @@ export function createDefaultBotFlow(): BotFlowDefinition {
       summary: { enabled: true, message: 'Revisa el resumen de tu pedido.' },
       confirmation: {
         enabled: true,
-        message:
-          'Responde confirmar para reservar, cancelar, cambiar dirección, cambiar municipio o cambiar producto.',
+        message: '¿Confirmas tu pedido para reservarlo?',
       },
       guide: { enabled: true, message: 'Tu guía está lista.' },
       complete: { enabled: true, message: 'Tu pedido quedó confirmado.' },

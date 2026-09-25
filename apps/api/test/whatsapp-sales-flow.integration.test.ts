@@ -926,11 +926,15 @@ describe('complete WhatsApp sale', () => {
         text: 'confirmar',
       });
       const [customerSummary] = await database.orm.execute(
-        "SELECT text_body FROM whatsapp_outbound_messages WHERE text_body LIKE '%Resumen PED-%' ORDER BY created_at DESC LIMIT 1",
+        "SELECT text_body FROM whatsapp_outbound_messages WHERE text_body LIKE '%Pedido PED-%' AND text_body LIKE '%Total contra entrega:%' ORDER BY created_at DESC LIMIT 1",
       );
-      expect(customerSummary?.text_body).toContain('Productos: $120.000');
-      expect(customerSummary?.text_body).toContain('Envío: envia');
-      expect(customerSummary?.text_body).toContain('Total $136.968');
+      expect(customerSummary?.text_body).toContain('Productos: $120.000 COP');
+      expect(customerSummary?.text_body).toContain(
+        'Envío (envia): $16.968 COP',
+      );
+      expect(customerSummary?.text_body).toContain(
+        'Total contra entrega: $136.968 COP',
+      );
       expect(
         await new ShippingGuideWorker(
           jobs,

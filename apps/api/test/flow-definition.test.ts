@@ -30,6 +30,10 @@ describe('guided bot flow definition', () => {
   it('provides a valid Spanish default flow and prevents disabling its summary', () => {
     const flow = createDefaultBotFlow();
     expect(validateBotFlow(flow)).toEqual([]);
+    expect(flow.steps.summary.message).toBe('Revisa el resumen de tu pedido.');
+    expect(flow.steps.confirmation.message).toBe(
+      '¿Confirmas tu pedido para reservarlo?',
+    );
     expect(
       validateBotFlow({
         ...flow,

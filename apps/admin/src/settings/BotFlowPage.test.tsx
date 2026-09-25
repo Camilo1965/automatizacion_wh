@@ -34,6 +34,36 @@ const definition = {
 describe('BotFlowPage editing and simulation', () => {
   beforeEach(() => sessionStorage.removeItem('kairo.bot-flow-draft'));
 
+  it('explains that the owner edits the header and question while order details are calculated', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/admin/auth/session', () =>
+        HttpResponse.json({ data: { user: adminUser } }),
+      ),
+      http.get('/api/admin/bot-flow', () =>
+        HttpResponse.json({
+          data: {
+            revision: 1,
+            definition,
+            activeVersionId: null,
+            versions: [],
+          },
+        }),
+      ),
+    );
+    renderWithProviders(<BotFlowPage />);
+    expect(await screen.findByText('Borrador guardado')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: '12. Resumen' }));
+    expect(
+      screen.getByText(/Este texto es el encabezado opcional/i),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/Los datos del pedido, envío y total se calculan/i),
+    ).toBeVisible();
+    await user.click(screen.getByRole('button', { name: '13. Confirmación' }));
+    expect(screen.getByText(/Escribe una sola pregunta/i)).toBeVisible();
+  });
+
   it('keeps persistent optional-step controls in Editor, not Simular', async () => {
     const user = userEvent.setup();
     let simulatedNotes: boolean | undefined;

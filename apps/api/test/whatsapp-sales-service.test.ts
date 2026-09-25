@@ -124,6 +124,8 @@ describe('WhatsAppSalesService', () => {
         version: 4,
         snapshot: {
           totalCop: 130000,
+          shippingCostCop: 10000,
+          shippingQuote: { carrier: 'envia' },
           destination: { address: 'Carrera 9 # 10-11' },
         },
       }),
@@ -185,9 +187,14 @@ describe('WhatsAppSalesService', () => {
     const orders = {
       create: vi.fn(),
       update: vi.fn(),
-      createSummary: vi
-        .fn()
-        .mockResolvedValue({ version: 5, snapshot: { totalCop: 140000 } }),
+      createSummary: vi.fn().mockResolvedValue({
+        version: 5,
+        snapshot: {
+          totalCop: 140000,
+          shippingCostCop: 20000,
+          shippingQuote: { carrier: 'envia' },
+        },
+      }),
     };
     const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
     const shipping = { createQuotes: vi.fn() };
@@ -603,6 +610,7 @@ describe('WhatsAppSalesService', () => {
           quantity: 1,
           totalCop: 140000,
           shippingCostCop: 20000,
+          shippingQuote: { carrier: 'envia' },
           customer: { name: 'Ana', phone: '573000000001' },
           destination: {
             locality: 'Medellín',
@@ -932,6 +940,7 @@ describe('WhatsAppSalesService', () => {
   });
 
   it('creates a summary after delivery data and confirms with the inbound id', async () => {
+    const flow = createDefaultBotFlow();
     const conversations = {
       receive: vi
         .fn()
@@ -943,6 +952,7 @@ describe('WhatsAppSalesService', () => {
           activeOrderId: 'order-1',
           action: 'collect_notes',
           input: '',
+          flow,
         })
         .mockResolvedValueOnce({
           duplicate: false,
@@ -966,6 +976,7 @@ describe('WhatsAppSalesService', () => {
           reference: { code: '01', modelName: 'Tenis Camila', color: 'Negro' },
           size: '37.0',
           quantity: 1,
+          productSubtotalCop: 120000,
           totalCop: 136968,
           shippingCostCop: 16968,
           shippingPending: false,
@@ -1016,9 +1027,26 @@ describe('WhatsAppSalesService', () => {
         expectedState: 'awaiting_confirmation',
         expectedEditAction: null,
         expectedGeneration: 0,
-        body: expect.stringMatching(
-          /PED-000123[\s\S]*Envío: envia · \$16\.968[\s\S]*Total \$136\.968/,
-        ),
+        body: [
+          'Revisa el resumen de tu pedido.',
+          '',
+          'Pedido PED-000123',
+          'REF 01 · Tenis Camila (Negro)',
+          'Talla 37',
+          'Productos: $120.000 COP',
+          'Envío (envia): $16.968 COP',
+          'Total contra entrega: $136.968 COP',
+          'Cliente: Camila Pérez',
+          'Dirección: Calle 1 # 2-3',
+          'Medellín, Antioquia',
+          '',
+          '¿Confirmas tu pedido para reservarlo?',
+          '• confirmar',
+          '• cancelar',
+          '• cambiar dirección',
+          '• cambiar municipio',
+          '• cambiar producto',
+        ].join('\n'),
       }),
     );
     expect(shipping.createQuotes).toHaveBeenCalledWith('order-1');
@@ -1037,6 +1065,154 @@ describe('WhatsAppSalesService', () => {
       expect.objectContaining({
         body: expect.stringContaining('quedó confirmado'),
       }),
+    );
+  });
+
+  it('does not publish a confirmable summary or a final total without a shipping quote', async () => {
+    const flow = createDefaultBotFlow();
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'conversation-1',
+        state: 'awaiting_confirmation',
+        reply: null,
+        activeOrderId: 'order-1',
+        action: 'collect_notes',
+        input: '',
+        flow,
+      }),
+      returnToSize: vi.fn(),
+      publishSummary: vi.fn(),
+      takeOver: vi.fn(),
+    };
+    const orders = {
+      create: vi.fn(),
+      createSummary: vi.fn().mockResolvedValue({
+        version: 1,
+        snapshot: {
+          orderNumber: 'PED-000124',
+          reference: { code: '01', modelName: 'Tenis Camila', color: 'Negro' },
+          size: '37.0',
+          productSubtotalCop: 120000,
+          shippingCostCop: null,
+          shippingPending: true,
+          totalCop: 120000,
+          customer: { name: 'Camila Pérez' },
+          destination: {
+            address: 'Calle 1 # 2-3',
+            locality: 'Medellín',
+            department: 'Antioquia',
+          },
+        },
+      }),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const alerts = { open: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      orders,
+      undefined,
+      undefined,
+      { createQuotes: vi.fn() },
+      alerts,
+    );
+    await service.process({
+      whatsappMessageId: 'wamid.no-quote',
+      customerPhone: '+573001234567',
+      text: 'ninguna',
+    });
+    expect(conversations.publishSummary).not.toHaveBeenCalled();
+    expect(conversations.takeOver).toHaveBeenCalledWith('conversation-1');
+    const body = outbound.enqueueText.mock.calls.at(-1)?.[0].body as string;
+    expect(body).toContain('Envío pendiente de cotización');
+    expect(body).not.toContain('Total contra entrega');
+    expect(body).not.toContain('• confirmar');
+    expect(body).toContain('La propietaria revisará la cobertura');
+    expect(outbound.enqueueText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'owner_panel',
+        idempotencyKey: 'shipping-attention:wamid.no-quote',
+      }),
+    );
+    expect(alerts.open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'shipping_quote_attention',
+        entityId: 'order-1',
+      }),
+    );
+  });
+
+  it('keeps the legacy shipping-selection path unconfirmable when its selected quote disappears', async () => {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'conversation-1',
+        state: 'awaiting_shipping',
+        reply: null,
+        activeOrderId: 'order-1',
+        action: 'select_shipping',
+        input: '1',
+      }),
+      returnToSize: vi.fn(),
+      publishSummary: vi.fn(),
+      takeOver: vi.fn(),
+    };
+    const orders = {
+      create: vi.fn(),
+      createSummary: vi.fn().mockResolvedValue({
+        version: 2,
+        snapshot: {
+          orderNumber: 'PED-000125',
+          shippingCostCop: null,
+          shippingPending: true,
+          totalCop: 120000,
+        },
+      }),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const shipping = {
+      createQuotes: vi.fn(),
+      getShipping: vi.fn().mockResolvedValue({
+        quotes: [
+          {
+            id: 'quote-1',
+            carrier: 'envia',
+            freightCop: 10000,
+            cashOnDeliveryCop: 0,
+            surchargeCop: 0,
+            insuranceCop: 0,
+            insuranceMode: 'none',
+            recommended: true,
+            selected: false,
+          },
+        ],
+        guide: null,
+      }),
+      selectQuote: vi.fn(),
+    };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      orders,
+      undefined,
+      undefined,
+      shipping,
+    );
+    await service.process({
+      whatsappMessageId: 'wamid.legacy-no-quote',
+      customerPhone: '+573001234567',
+      text: '1',
+    });
+    expect(shipping.selectQuote).toHaveBeenCalledWith('order-1', 'quote-1');
+    expect(conversations.publishSummary).not.toHaveBeenCalled();
+    expect(conversations.takeOver).toHaveBeenCalledWith('conversation-1');
+    expect(outbound.enqueueText.mock.calls.at(-1)?.[0].body).not.toContain(
+      '• confirmar',
     );
   });
 
