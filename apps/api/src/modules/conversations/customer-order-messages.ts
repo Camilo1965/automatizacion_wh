@@ -38,7 +38,7 @@ const currencyAmount =
 function containsConfiguredPrice(text: string): boolean {
   if (currencyAmount.test(text)) return true;
   const unaccented = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return /\b(?:precio|oferta|promo(?:cion)?|valor|cuesta|vale|por)\b[^\n]*\b\d+(?:[.,]\d+)*\b/i.test(
+  return /\b(?:precio|oferta|promo(?:cion)?|valor|cuesta|vale|por)(?:\s+(?:sugerido|de))?\s*:?\s*(?:\d{4,}|\d{1,3}(?:[.,]\d{3})+)\b/i.test(
     unaccented,
   );
 }

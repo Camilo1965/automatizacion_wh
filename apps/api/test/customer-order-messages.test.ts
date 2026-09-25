@@ -111,6 +111,18 @@ describe('customer order review', () => {
     expect(body).toContain('¿Confirmas la REF 12345 de la colección 2026?');
   });
 
+  it.each([
+    ['Promoción colección 2026', '¿Confirmas la promoción colección 2026?'],
+    ['Envío por 99 Minutos', '¿Confirmas el envío por 99 Minutos?'],
+  ])('keeps legitimate configured text: %s', (header, question) => {
+    const flow = createDefaultBotFlow();
+    flow.steps.summary = { enabled: true, message: header };
+    flow.steps.confirmation = { enabled: true, message: question };
+    const body = formatOrderReview(summary, flow);
+    expect(body).toContain(header);
+    expect(body).toContain(question);
+  });
+
   it('hides the selected carrier from both operational text and configured placeholders', () => {
     const defaultFlow = createDefaultBotFlow();
     const flow = {
