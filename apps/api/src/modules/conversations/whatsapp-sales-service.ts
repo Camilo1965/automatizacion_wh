@@ -38,6 +38,9 @@ type ConversationPort = Readonly<{
     conversationId: string;
     orderId: string;
     version: number;
+    customerPhone: string;
+    body: string;
+    idempotencyKey: string;
     expectedState: string;
     expectedEditAction: 'edit_address' | 'edit_locality' | null;
     expectedGeneration: number;
@@ -221,7 +224,15 @@ export class WhatsAppSalesService {
         result.action !== 'cancel_order' &&
         result.action !== 'edit_product' &&
         result.action !== 'edit_address' &&
-        result.action !== 'edit_locality')
+        result.action !== 'edit_locality' &&
+        !(
+          result.action === 'collect_address' &&
+          result.summaryEditAction === 'edit_address'
+        ) &&
+        !(
+          result.action === 'collect_locality' &&
+          result.summaryEditAction === 'edit_locality'
+        ))
     )
       return;
     if (result.reply !== null && result.action !== 'edit_product') {
@@ -304,7 +315,11 @@ export class WhatsAppSalesService {
           result.conversationId,
           input,
           result.action === 'edit_product'
-            ? `Cancelé el pedido ${orderId}. Para elegir otra referencia, dime tu talla y te mostraré los modelos disponibles.`
+            ? `Cancelé el pedido ${orderId}. ${
+                result.flow
+                  ? `Para elegir otra referencia, ${renderFlowMessage(result.flow.steps.size.message, result.variables)}`
+                  : 'Para elegir otra referencia, dime tu talla y te mostraré los modelos disponibles.'
+              }`
             : `Cancelé el pedido ${orderId}. Si quieres empezar otro, dime tu talla.`,
           result.action === 'edit_product' ? 'product-restart' : 'cancelled',
         );
@@ -515,23 +530,21 @@ export class WhatsAppSalesService {
       }
       await this.shippingQuotes.selectQuote(result.activeOrderId, selected.id);
       const summary = await this.orders.createSummary(result.activeOrderId);
+      const body = summaryText(summary);
       if (
         !(await this.conversations.publishSummary({
           conversationId: result.conversationId,
           orderId: result.activeOrderId,
           version: summary.version,
+          customerPhone: input.customerPhone,
+          body,
+          idempotencyKey: `summary:${summary.version}:${input.whatsappMessageId}`,
           expectedState: result.state,
           expectedEditAction: result.summaryEditAction ?? null,
           expectedGeneration: result.summaryGeneration ?? 0,
         }))
       )
         return;
-      await this.queueText(
-        result.conversationId,
-        input,
-        summaryText(summary),
-        `summary:${summary.version}`,
-      );
     }
     if (
       result.action === 'confirm_order' &&
@@ -614,7 +627,7 @@ export class WhatsAppSalesService {
       return;
     }
     try {
-      if (result.flow)
+      if (result.flow && !result.duplicate)
         await this.queueText(
           result.conversationId,
           input,
@@ -644,34 +657,39 @@ export class WhatsAppSalesService {
       return;
     }
     const summary = await this.orders.createSummary(result.activeOrderId);
-    if (
-      !(await this.conversations.publishSummary({
-        conversationId: result.conversationId,
-        orderId: result.activeOrderId,
-        version: summary.version,
-        expectedState: result.state,
-        expectedEditAction: result.summaryEditAction ?? null,
-        expectedGeneration: result.summaryGeneration ?? 0,
-      }))
-    )
-      return;
     const snapshot = summary.snapshot as {
       totalCop: number;
       shippingQuote?: { carrier?: string };
+      orderNumber?: string;
+      reference?: { code?: string };
+      size?: string;
+      customer?: { name?: string };
     };
     const summaryVariables = {
       ...result.variables,
+      talla: snapshot.size ?? result.variables?.talla ?? '',
+      referencia:
+        snapshot.reference?.code ?? result.variables?.referencia ?? '',
+      nombre: snapshot.customer?.name ?? result.variables?.nombre ?? '',
+      pedido: snapshot.orderNumber ?? result.variables?.pedido ?? '',
       total: formatCop(snapshot.totalCop),
       transportadora: snapshot.shippingQuote?.carrier ?? '',
     };
-    await this.queueText(
-      result.conversationId,
-      input,
+    const body =
       result.flow === undefined
         ? summaryText(summary)
-        : `${renderFlowMessage(result.flow.steps.summary.message, summaryVariables)}\n\n${summaryText(summary, result.flow)}\n\n${renderFlowMessage(result.flow.steps.confirmation.message, summaryVariables)}`,
-      `summary:${summary.version}`,
-    );
+        : `${renderFlowMessage(result.flow.steps.summary.message, summaryVariables)}\n\n${summaryText(summary, result.flow)}\n\n${renderFlowMessage(result.flow.steps.confirmation.message, summaryVariables)}`;
+    await this.conversations.publishSummary({
+      conversationId: result.conversationId,
+      orderId: result.activeOrderId,
+      version: summary.version,
+      customerPhone: input.customerPhone,
+      body,
+      idempotencyKey: `summary:${summary.version}:${input.whatsappMessageId}`,
+      expectedState: result.state,
+      expectedEditAction: result.summaryEditAction ?? null,
+      expectedGeneration: result.summaryGeneration ?? 0,
+    });
   }
 
   private orderPatchFor(

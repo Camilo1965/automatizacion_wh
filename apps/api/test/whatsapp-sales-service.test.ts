@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { WhatsAppSalesService } from '../src/modules/conversations/whatsapp-sales-service.js';
 import { OrderConflictError } from '../src/modules/orders/order-errors.js';
+import { createDefaultBotFlow } from '../src/modules/conversations/flow-definition.js';
 
 function availableItem() {
   return {
@@ -18,6 +19,52 @@ function availableItem() {
 }
 
 describe('WhatsAppSalesService', () => {
+  it('sends the pinned custom size prompt once after a successful product cancellation', async () => {
+    const flow = createDefaultBotFlow();
+    flow.steps.size = {
+      enabled: true,
+      message: 'Dime tu talla KAIRO personalizada.',
+    };
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'c1',
+        state: 'awaiting_size',
+        reply: null,
+        action: 'edit_product',
+        activeOrderId: 'o1',
+        flow,
+        variables: { pedido: 'PED-000008' },
+      }),
+      returnToSize: vi.fn(),
+      clearActiveOrder: vi.fn(),
+    };
+    const orders = {
+      create: vi.fn(),
+      transition: vi.fn().mockResolvedValue({ status: 'cancelled' }),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      orders,
+    );
+    await service.process({
+      whatsappMessageId: 'custom-product-edit',
+      customerPhone: '573000000001',
+      text: 'cambiar producto',
+    });
+    expect(conversations.clearActiveOrder).toHaveBeenCalledWith('c1', 'o1');
+    expect(outbound.enqueueText).toHaveBeenCalledTimes(1);
+    expect(outbound.enqueueText.mock.calls[0]?.[0].body).toContain(
+      'Dime tu talla KAIRO personalizada.',
+    );
+    expect(outbound.enqueueText.mock.calls[0]?.[0].idempotencyKey).toBe(
+      'product-restart:custom-product-edit',
+    );
+  });
   it('does not ask for a new size when product cancellation fails', async () => {
     const conversations = {
       receive: vi.fn().mockResolvedValue({
@@ -103,16 +150,14 @@ describe('WhatsAppSalesService', () => {
       address: 'Carrera 9 # 10-11',
     });
     expect(shipping.createQuotes).toHaveBeenCalledWith('o1');
-    expect(conversations.publishSummary).toHaveBeenCalledWith({
-      conversationId: 'c1',
-      orderId: 'o1',
-      version: 4,
-      expectedState: 'awaiting_address',
-      expectedEditAction: 'edit_address',
-      expectedGeneration: 0,
-    });
-    expect(outbound.enqueueText).toHaveBeenCalledWith(
+    expect(conversations.publishSummary).toHaveBeenCalledWith(
       expect.objectContaining({
+        conversationId: 'c1',
+        orderId: 'o1',
+        version: 4,
+        expectedState: 'awaiting_address',
+        expectedEditAction: 'edit_address',
+        expectedGeneration: 0,
         body: expect.stringMatching(
           /cambiar dirección[\s\S]*cambiar municipio[\s\S]*cambiar producto/i,
         ),
@@ -182,14 +227,16 @@ describe('WhatsAppSalesService', () => {
       localityCarrierCode: '05001000',
     });
     expect(shipping.createQuotes).toHaveBeenCalledWith('o1');
-    expect(conversations.publishSummary).toHaveBeenCalledWith({
-      conversationId: 'c1',
-      orderId: 'o1',
-      version: 5,
-      expectedState: 'awaiting_locality',
-      expectedEditAction: 'edit_locality',
-      expectedGeneration: 0,
-    });
+    expect(conversations.publishSummary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: 'c1',
+        orderId: 'o1',
+        version: 5,
+        expectedState: 'awaiting_locality',
+        expectedEditAction: 'edit_locality',
+        expectedGeneration: 0,
+      }),
+    );
   });
 
   it('keeps an unknown edited municipality pending and offers at most three catalog names', async () => {
@@ -584,14 +631,16 @@ describe('WhatsAppSalesService', () => {
       text: 'confirmar',
     });
     expect(shipping.createQuotes).toHaveBeenCalledWith('o1');
-    expect(conversations.publishSummary).toHaveBeenCalledWith({
-      conversationId: 'c1',
-      orderId: 'o1',
-      version: 4,
-      expectedState: 'completed',
-      expectedEditAction: null,
-      expectedGeneration: 0,
-    });
+    expect(conversations.publishSummary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: 'c1',
+        orderId: 'o1',
+        version: 4,
+        expectedState: 'completed',
+        expectedEditAction: null,
+        expectedGeneration: 0,
+      }),
+    );
     expect(guides.enqueue).not.toHaveBeenCalled();
     expect(outbound.enqueueText).toHaveBeenCalledWith(
       expect.objectContaining({ body: expect.stringContaining('venció') }),
@@ -959,22 +1008,20 @@ describe('WhatsAppSalesService', () => {
       customerPhone: '+573001234567',
       text: 'ninguna',
     });
-    expect(conversations.publishSummary).toHaveBeenCalledWith({
-      conversationId: 'conversation-1',
-      orderId: 'order-1',
-      version: 3,
-      expectedState: 'awaiting_confirmation',
-      expectedEditAction: null,
-      expectedGeneration: 0,
-    });
-    expect(shipping.createQuotes).toHaveBeenCalledWith('order-1');
-    expect(outbound.enqueueText).toHaveBeenCalledWith(
+    expect(conversations.publishSummary).toHaveBeenCalledWith(
       expect.objectContaining({
+        conversationId: 'conversation-1',
+        orderId: 'order-1',
+        version: 3,
+        expectedState: 'awaiting_confirmation',
+        expectedEditAction: null,
+        expectedGeneration: 0,
         body: expect.stringMatching(
           /PED-000123[\s\S]*Envío: envia · \$16\.968[\s\S]*Total \$136\.968/,
         ),
       }),
     );
+    expect(shipping.createQuotes).toHaveBeenCalledWith('order-1');
     await service.process({
       whatsappMessageId: 'wamid.confirm',
       customerPhone: '+573001234567',
@@ -1066,18 +1113,18 @@ describe('WhatsAppSalesService', () => {
       text: 'ninguna',
     });
     expect(orders.createSummary).toHaveBeenCalledWith('order-1');
-    expect(conversations.publishSummary).toHaveBeenCalledWith({
-      conversationId: 'conversation-1',
-      orderId: 'order-1',
-      version: 4,
-      expectedState: 'awaiting_confirmation',
-      expectedEditAction: null,
-      expectedGeneration: 0,
-    });
-    expect(shipping.selectQuote).not.toHaveBeenCalled();
-    expect(outbound.enqueueText).toHaveBeenCalledWith(
-      expect.objectContaining({ body: expect.stringContaining('confirmar') }),
+    expect(conversations.publishSummary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: 'conversation-1',
+        orderId: 'order-1',
+        version: 4,
+        expectedState: 'awaiting_confirmation',
+        expectedEditAction: null,
+        expectedGeneration: 0,
+        body: expect.stringContaining('confirmar'),
+      }),
     );
+    expect(shipping.selectQuote).not.toHaveBeenCalled();
   });
 
   it('accepts only an imported locality in the selected department', async () => {

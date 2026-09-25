@@ -24,6 +24,10 @@ import {
   createDefaultBotFlow,
   type BotFlowDefinition,
 } from './flow-definition.js';
+import {
+  insertTextForLockedIdentity,
+  lockOutboundIdentity,
+} from '../whatsapp/postgres-outbound-repository.js';
 
 export type ReceiveConversationInput = Readonly<{
   whatsappMessageId: string;
@@ -118,6 +122,31 @@ export class PostgresConversationRepository {
           existing.summaryEditAction === duplicate.continuationAction &&
           existing.summaryGeneration === duplicate.continuationGeneration &&
           existing.state === duplicate.stateAfter;
+        const [originalInbound] =
+          duplicate.continuationAction === 'collect_address' ||
+          duplicate.continuationAction === 'collect_locality'
+            ? await tx
+                .select({ textBody: whatsappConversationMessages.textBody })
+                .from(whatsappConversationMessages)
+                .where(
+                  eq(
+                    whatsappConversationMessages.providerMessageId,
+                    input.whatsappMessageId,
+                  ),
+                )
+                .limit(1)
+            : [];
+        const recoverSummary =
+          duplicate.conversationId === existing?.id &&
+          existing.mode === 'bot' &&
+          existing.activeOrderId !== null &&
+          originalInbound?.textBody != null &&
+          ((duplicate.continuationAction === 'collect_address' &&
+            existing.summaryEditAction === 'edit_address') ||
+            (duplicate.continuationAction === 'collect_locality' &&
+              existing.summaryEditAction === 'edit_locality')) &&
+          existing.summaryGeneration === duplicate.continuationGeneration &&
+          existing.state === duplicate.stateAfter;
         return {
           duplicate: true,
           state: existing?.state ?? 'awaiting_size',
@@ -130,6 +159,13 @@ export class PostgresConversationRepository {
                     ? ('edit_product' as const)
                     : ('cancel_order' as const),
                 activeOrderId: duplicate.cancellationOrderId,
+                ...(duplicate.cancellationAction === 'edit_product'
+                  ? {
+                      flow: BotFlowDefinitionSchema.parse(
+                        existing.flowSnapshot ?? createDefaultBotFlow(),
+                      ),
+                    }
+                  : {}),
               }
             : {}),
           ...(recoverContinuation
@@ -137,6 +173,22 @@ export class PostgresConversationRepository {
                 conversationId: duplicate.conversationId,
                 action: duplicate.continuationAction as
                   'edit_address' | 'edit_locality',
+              }
+            : {}),
+          ...(recoverSummary
+            ? {
+                conversationId: duplicate.conversationId,
+                action: duplicate.continuationAction as
+                  'collect_address' | 'collect_locality',
+                input: originalInbound?.textBody ?? '',
+                activeOrderId: existing.activeOrderId,
+                pendingDepartment: existing.pendingDepartment,
+                summaryEditAction: existing.summaryEditAction as
+                  'edit_address' | 'edit_locality',
+                summaryGeneration: existing.summaryGeneration,
+                flow: BotFlowDefinitionSchema.parse(
+                  existing.flowSnapshot ?? createDefaultBotFlow(),
+                ),
               }
             : {}),
         };
@@ -298,7 +350,10 @@ export class PostgresConversationRepository {
             : null,
         continuationAction:
           transition.action === 'edit_address' ||
-          transition.action === 'edit_locality'
+          transition.action === 'edit_locality' ||
+          (existing?.summaryEditAction != null &&
+            (transition.action === 'collect_address' ||
+              transition.action === 'collect_locality'))
             ? transition.action
             : null,
         continuationReply:
@@ -308,7 +363,10 @@ export class PostgresConversationRepository {
             : null,
         continuationGeneration:
           transition.action === 'edit_address' ||
-          transition.action === 'edit_locality'
+          transition.action === 'edit_locality' ||
+          (existing?.summaryEditAction != null &&
+            (transition.action === 'collect_address' ||
+              transition.action === 'collect_locality'))
             ? summaryGeneration
             : null,
         sequence: lastSequence + 1,
@@ -489,35 +547,51 @@ export class PostgresConversationRepository {
     conversationId: string;
     orderId: string;
     version: number;
+    customerPhone: string;
+    body: string;
+    idempotencyKey: string;
     expectedState: string;
     expectedEditAction: 'edit_address' | 'edit_locality' | null;
     expectedGeneration: number;
   }): Promise<boolean> {
-    const updated = await this.database.orm
-      .update(whatsappConversations)
-      .set({
-        activeSummaryVersion: input.version,
-        summaryEditAction: null,
-        state: 'awaiting_confirmation',
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(whatsappConversations.id, input.conversationId),
-          eq(whatsappConversations.activeOrderId, input.orderId),
-          eq(whatsappConversations.mode, 'bot'),
-          eq(whatsappConversations.state, input.expectedState),
-          eq(whatsappConversations.summaryGeneration, input.expectedGeneration),
-          input.expectedEditAction === null
-            ? isNull(whatsappConversations.summaryEditAction)
-            : eq(
-                whatsappConversations.summaryEditAction,
-                input.expectedEditAction,
-              ),
-        ),
-      )
-      .returning({ id: whatsappConversations.id });
-    return updated.length === 1;
+    return this.database.orm.transaction(async (tx) => {
+      await lockOutboundIdentity(tx, input.customerPhone, input.conversationId);
+      const updated = await tx
+        .update(whatsappConversations)
+        .set({
+          activeSummaryVersion: input.version,
+          summaryEditAction: null,
+          state: 'awaiting_confirmation',
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(whatsappConversations.id, input.conversationId),
+            eq(whatsappConversations.activeOrderId, input.orderId),
+            eq(whatsappConversations.mode, 'bot'),
+            eq(whatsappConversations.state, input.expectedState),
+            eq(
+              whatsappConversations.summaryGeneration,
+              input.expectedGeneration,
+            ),
+            input.expectedEditAction === null
+              ? isNull(whatsappConversations.summaryEditAction)
+              : eq(
+                  whatsappConversations.summaryEditAction,
+                  input.expectedEditAction,
+                ),
+          ),
+        )
+        .returning({ id: whatsappConversations.id });
+      if (updated.length === 0) return false;
+      await insertTextForLockedIdentity(tx, {
+        conversationId: input.conversationId,
+        customerPhone: input.customerPhone,
+        body: input.body,
+        idempotencyKey: input.idempotencyKey,
+      });
+      return true;
+    });
   }
 
   async setState(conversationId: string, state: string): Promise<void> {

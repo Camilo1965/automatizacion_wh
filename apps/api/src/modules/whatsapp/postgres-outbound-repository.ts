@@ -37,7 +37,7 @@ export type EnqueueImageInput = Readonly<{
   source?: 'bot' | 'owner_panel' | 'owner_mobile';
 }>;
 
-async function lockOutboundIdentity(
+export async function lockOutboundIdentity(
   tx: CustomerTransaction,
   customerPhone: string,
   conversationId?: string,
@@ -92,6 +92,51 @@ async function lockOutboundIdentity(
   }
 }
 
+export async function insertTextForLockedIdentity(
+  tx: CustomerTransaction,
+  input: EnqueueTextInput,
+): Promise<Readonly<{ id: string }>> {
+  const now = new Date();
+  const [inserted] = await tx
+    .insert(whatsappOutboundMessages)
+    .values({
+      ...(input.conversationId === undefined
+        ? {}
+        : { conversationId: input.conversationId }),
+      customerPhone: input.customerPhone,
+      idempotencyKey: input.idempotencyKey,
+      source: input.source ?? 'bot',
+      messageType: 'text',
+      textBody: input.body,
+    })
+    .onConflictDoNothing({
+      target: whatsappOutboundMessages.idempotencyKey,
+    })
+    .returning({ id: whatsappOutboundMessages.id });
+  if (inserted !== undefined) {
+    if (input.conversationId !== undefined) {
+      await tx.insert(whatsappConversationMessages).values({
+        conversationId: input.conversationId,
+        outboundMessageId: inserted.id,
+        source: input.source ?? 'bot',
+        messageType: 'text',
+        textBody: input.body,
+        status: 'queued',
+        occurredAt: now,
+      });
+    }
+    return inserted;
+  }
+
+  const [existing] = await tx
+    .select({ id: whatsappOutboundMessages.id })
+    .from(whatsappOutboundMessages)
+    .where(eq(whatsappOutboundMessages.idempotencyKey, input.idempotencyKey))
+    .limit(1);
+  if (existing === undefined) throw new Error('Outbound enqueue failed');
+  return existing;
+}
+
 export class PostgresOutboundRepository implements OutboxWorkerRepository {
   constructor(private readonly database: PostgresDatabase) {}
   async enqueueDocument(input: {
@@ -139,47 +184,7 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
   ): Promise<Readonly<{ id: string }>> {
     return this.database.orm.transaction(async (tx) => {
       await lockOutboundIdentity(tx, input.customerPhone, input.conversationId);
-      const now = new Date();
-      const [inserted] = await tx
-        .insert(whatsappOutboundMessages)
-        .values({
-          ...(input.conversationId === undefined
-            ? {}
-            : { conversationId: input.conversationId }),
-          customerPhone: input.customerPhone,
-          idempotencyKey: input.idempotencyKey,
-          source: input.source ?? 'bot',
-          messageType: 'text',
-          textBody: input.body,
-        })
-        .onConflictDoNothing({
-          target: whatsappOutboundMessages.idempotencyKey,
-        })
-        .returning({ id: whatsappOutboundMessages.id });
-      if (inserted !== undefined) {
-        if (input.conversationId !== undefined) {
-          await tx.insert(whatsappConversationMessages).values({
-            conversationId: input.conversationId,
-            outboundMessageId: inserted.id,
-            source: input.source ?? 'bot',
-            messageType: 'text',
-            textBody: input.body,
-            status: 'queued',
-            occurredAt: now,
-          });
-        }
-        return inserted;
-      }
-
-      const [existing] = await tx
-        .select({ id: whatsappOutboundMessages.id })
-        .from(whatsappOutboundMessages)
-        .where(
-          eq(whatsappOutboundMessages.idempotencyKey, input.idempotencyKey),
-        )
-        .limit(1);
-      if (existing === undefined) throw new Error('Outbound enqueue failed');
-      return existing;
+      return insertTextForLockedIdentity(tx, input);
     });
   }
 

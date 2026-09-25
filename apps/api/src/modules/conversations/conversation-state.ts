@@ -70,6 +70,11 @@ export function advanceConversation(
       state,
       reply: 'Escribe la dirección completa de entrega antes de confirmar.',
     };
+  if (state === 'awaiting_locality' && normalized === 'confirmar')
+    return {
+      state,
+      reply: 'Escribe el municipio nuevo antes de confirmar.',
+    };
   if (normalized === 'asesora' || normalized === 'asesor') {
     return {
       state,
