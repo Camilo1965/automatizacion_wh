@@ -96,6 +96,10 @@ export const whatsappConversations = pgTable(
     activeMenuVersion: integer('active_menu_version').notNull().default(0),
     invalidAttempts: integer('invalid_attempts').notNull().default(0),
     pendingDepartment: varchar('pending_department', { length: 100 }),
+    offeredLocalities: jsonb('offered_localities')
+      .$type<string[]>()
+      .notNull()
+      .default([]),
     activeSummaryVersion: integer('active_summary_version'),
     summaryEditAction: varchar('summary_edit_action', { length: 16 }),
     summaryGeneration: integer('summary_generation').notNull().default(0),

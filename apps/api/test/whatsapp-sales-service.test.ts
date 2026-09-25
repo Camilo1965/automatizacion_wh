@@ -261,6 +261,7 @@ describe('WhatsAppSalesService', () => {
       }),
       returnToSize: vi.fn(),
       setState: vi.fn(),
+      setLocalitySuggestions: vi.fn().mockResolvedValue(false),
     };
     const orders = { create: vi.fn(), update: vi.fn(), createSummary: vi.fn() };
     const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
@@ -286,15 +287,18 @@ describe('WhatsAppSalesService', () => {
       customerPhone: '573000000001',
       text: 'Belx',
     });
-    expect(conversations.setState).toHaveBeenCalledWith(
-      'c1',
-      'awaiting_locality',
-    );
+    expect(conversations.setLocalitySuggestions).toHaveBeenCalledWith('c1', [
+      'Bello',
+      'Belmira',
+      'Belén',
+    ]);
     expect(orders.update).not.toHaveBeenCalled();
     expect(orders.createSummary).not.toHaveBeenCalled();
     expect(outbound.enqueueText).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: expect.stringContaining('Bello, Belmira, Belén'),
+        body: expect.stringMatching(
+          /1\. Bello[\s\S]*2\. Belmira[\s\S]*3\. Belén/,
+        ),
       }),
     );
     expect(outbound.enqueueText.mock.calls[0]?.[0].body).not.toContain(
@@ -835,8 +839,121 @@ describe('WhatsAppSalesService', () => {
     });
     expect(outbound.enqueueText).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: 'Esa referencia no está en el menú vigente. Elige una de las fotos enviadas.',
+        body: expect.stringContaining(
+          'Esa referencia no está en el menú vigente.',
+        ),
       }),
+    );
+  });
+
+  it('hands off an invalid reference on the second failure and retains the conversation', async () => {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'conversation-1',
+        state: 'showing_models',
+        reply: null,
+        selectedSize: '37.0',
+        action: 'select_reference',
+        input: '99',
+      }),
+      returnToSize: vi.fn(),
+      recordInvalidReference: vi.fn().mockResolvedValue(true),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const alerts = { open: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      {
+        create: vi.fn(),
+        findOption: vi.fn().mockResolvedValue(null),
+        getNextCursor: vi.fn(),
+      },
+      outbound,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      alerts,
+    );
+    await service.process({
+      whatsappMessageId: 'invalid-reference-twice',
+      customerPhone: '573000000001',
+      text: '99',
+    });
+    expect(conversations.recordInvalidReference).toHaveBeenCalledWith(
+      'conversation-1',
+    );
+    expect(outbound.enqueueText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'owner_panel',
+        body: expect.stringMatching(/asesora|propietaria/i),
+      }),
+    );
+    expect(alerts.open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityId: 'conversation-1',
+      }),
+    );
+  });
+
+  it('hands off after two unknown municipalities while preserving the current order', async () => {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'c1',
+        state: 'awaiting_locality',
+        reply: null,
+        action: 'collect_locality',
+        input: 'Belx',
+        activeOrderId: 'o1',
+        pendingDepartment: 'Antioquia',
+      }),
+      returnToSize: vi.fn(),
+      setLocalitySuggestions: vi.fn().mockResolvedValue(true),
+    };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const alerts = { open: vi.fn() };
+    const orders = { create: vi.fn(), update: vi.fn() };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      outbound,
+      orders,
+      {
+        list: vi.fn().mockResolvedValue({
+          items: [
+            {
+              carrierCode: '05001000',
+              department: 'Antioquia',
+              locality: 'Bello',
+            },
+          ],
+        }),
+      },
+      undefined,
+      undefined,
+      alerts,
+    );
+    await service.process({
+      whatsappMessageId: 'invalid-locality-twice',
+      customerPhone: '573000000001',
+      text: 'Belx',
+    });
+    expect(conversations.setLocalitySuggestions).toHaveBeenCalledWith('c1', [
+      'Bello',
+    ]);
+    expect(orders.update).not.toHaveBeenCalled();
+    expect(outbound.enqueueText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'owner_panel',
+        body: expect.stringMatching(/municipio|asesora/i),
+      }),
+    );
+    expect(alerts.open).toHaveBeenCalledWith(
+      expect.objectContaining({ entityId: 'c1' }),
     );
   });
 
@@ -902,6 +1019,9 @@ describe('WhatsAppSalesService', () => {
       findOption: vi.fn().mockResolvedValue({
         referenceId: '11111111-1111-4111-8111-111111111111',
         code: '01',
+        modelName: 'Tenis Camila',
+        color: 'Negro',
+        priceCop: 120000,
       }),
     };
     const orders = {
@@ -934,7 +1054,7 @@ describe('WhatsAppSalesService', () => {
     );
     expect(outbound.enqueueText).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: 'Perfecto, elegiste la REF 01. ¿Cuál es tu nombre completo?',
+        body: 'Elegiste REF 01 · Tenis Camila. ¿Cuál es tu nombre completo?',
       }),
     );
   });

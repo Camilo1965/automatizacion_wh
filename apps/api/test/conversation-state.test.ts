@@ -12,6 +12,7 @@ describe('advanceConversation', () => {
 
   it.each([
     ['37', '37.0'],
+    ['talla 37', '37.0'],
     ['37.5', '37.5'],
     ['37,5', '37.5'],
   ])('accepts supported whole and half sizes: %s', (input, size) => {
@@ -22,6 +23,15 @@ describe('advanceConversation', () => {
       action: 'show_catalog',
     });
   });
+
+  it.each(['pedido 37', 'PED-000037', 'calle 37', 'cra 37 # 5'])(
+    'does not mistake an order or address for a size: %s',
+    (input) => {
+      expect(
+        advanceConversation('awaiting_size', input).action,
+      ).toBeUndefined();
+    },
+  );
 
   it('rejects malformed sizes and offers an adviser after two failures', () => {
     expect(advanceConversation('awaiting_size', 'treinta y siete', 0)).toEqual({
@@ -55,6 +65,13 @@ describe('advanceConversation', () => {
       });
     },
   );
+
+  it('restarts on the configured default word in any collecting state', () => {
+    expect(advanceConversation('awaiting_phone', 'reiniciar')).toMatchObject({
+      state: 'awaiting_size',
+      action: 'reset',
+    });
+  });
 
   it('requests human control with the asesora command', () => {
     expect(advanceConversation('awaiting_size', 'ASESORA')).toMatchObject({
@@ -112,6 +129,39 @@ describe('advanceConversation', () => {
       input: '',
     });
   });
+
+  it.each(['sí', 'si', 'mismo número'])(
+    'uses the sender phone for %s in awaiting_phone',
+    (input) => {
+      expect(advanceConversation('awaiting_phone', input)).toMatchObject({
+        state: 'awaiting_department',
+        action: 'collect_phone',
+        input: '',
+      });
+    },
+  );
+
+  it.each(['no', 'saltar'])(
+    'skips delivery notes for %s only in awaiting_notes',
+    (input) => {
+      expect(advanceConversation('awaiting_notes', input)).toMatchObject({
+        action: 'collect_notes',
+        input: '',
+      });
+      expect(
+        advanceConversation('awaiting_phone', input).action,
+      ).toBeUndefined();
+    },
+  );
+
+  it.each(['1234567890', '2158191776', '57315819177'])(
+    'rejects non-Colombian mobile numbers: %s',
+    (input) => {
+      expect(
+        advanceConversation('awaiting_phone', input).action,
+      ).toBeUndefined();
+    },
+  );
 
   it('cancels confirmation back to size selection', () => {
     expect(

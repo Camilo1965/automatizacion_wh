@@ -309,6 +309,13 @@
       "when": 1790280000002,
       "tag": "0043_whatsapp_summary_edit_recovery",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1790280000003,
+      "tag": "0044_whatsapp_locality_suggestions",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,4 @@
-import { and, eq, isNull, max, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, max, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import {
@@ -28,6 +28,7 @@ import {
   insertTextForLockedIdentity,
   lockOutboundIdentity,
 } from '../whatsapp/postgres-outbound-repository.js';
+import { resolveOfferedLocality } from './locality-suggestions.js';
 
 export type ReceiveConversationInput = Readonly<{
   whatsappMessageId: string;
@@ -180,7 +181,11 @@ export class PostgresConversationRepository {
                 conversationId: duplicate.conversationId,
                 action: duplicate.continuationAction as
                   'collect_address' | 'collect_locality',
-                input: originalInbound?.textBody ?? '',
+                input:
+                  resolveOfferedLocality(
+                    originalInbound?.textBody ?? '',
+                    existing.offeredLocalities,
+                  ) ?? '',
                 activeOrderId: existing.activeOrderId,
                 pendingDepartment: existing.pendingDepartment,
                 summaryEditAction: existing.summaryEditAction as
@@ -255,6 +260,10 @@ export class PostgresConversationRepository {
               }).format(Number(context.total)),
         transportadora: context?.carrier ?? '',
       };
+      const resolvedText =
+        existing?.state === 'awaiting_locality'
+          ? resolveOfferedLocality(input.text, existing.offeredLocalities)
+          : input.text;
       let transition: ConversationTransition =
         existing?.mode === 'human'
           ? {
@@ -266,7 +275,7 @@ export class PostgresConversationRepository {
               existing === undefined
                 ? null
                 : (existing.state as import('./conversation-state.js').ConversationState),
-              input.text,
+              resolvedText ?? '',
               existing?.invalidAttempts ?? 0,
               flow,
               variables,
@@ -395,14 +404,25 @@ export class PostgresConversationRepository {
           ...(transition.selectedSize === undefined
             ? {}
             : { selectedSize: transition.selectedSize }),
-          ...(transition.invalidAttempts === undefined
-            ? transition.selectedSize === undefined
-              ? {}
-              : { invalidAttempts: 0 }
-            : { invalidAttempts: transition.invalidAttempts }),
+          ...(transition.action === 'collect_locality'
+            ? { invalidAttempts: existing?.invalidAttempts ?? 0 }
+            : transition.invalidAttempts === undefined
+              ? transition.selectedSize === undefined
+                ? {}
+                : { invalidAttempts: 0 }
+              : { invalidAttempts: transition.invalidAttempts }),
           ...(transition.action === 'human_takeover' ? { mode: 'human' } : {}),
           ...(transition.action === 'collect_department'
-            ? { pendingDepartment: transition.input ?? null }
+            ? {
+                pendingDepartment: transition.input ?? null,
+                offeredLocalities: [],
+              }
+            : {}),
+          ...(transition.action === 'reset' ||
+          transition.action === 'edit_locality' ||
+          transition.action === 'edit_product' ||
+          transition.action === 'cancel_order'
+            ? { offeredLocalities: [] }
             : {}),
           ...(transition.action === 'edit_address' ||
           transition.action === 'edit_locality'
@@ -479,6 +499,7 @@ export class PostgresConversationRepository {
         selectedReferenceId: null,
         invalidAttempts: 0,
         pendingDepartment: null,
+        offeredLocalities: [],
         activeSummaryVersion: null,
         summaryEditAction: null,
         updatedAt: new Date(),
@@ -516,6 +537,8 @@ export class PostgresConversationRepository {
           state: 'awaiting_name',
           selectedReferenceId: referenceId,
           activeOrderId: orderId,
+          invalidAttempts: 0,
+          offeredLocalities: [],
           updatedAt: new Date(),
         })
         .where(eq(whatsappConversations.id, conversationId));
@@ -533,6 +556,7 @@ export class PostgresConversationRepository {
         selectedReferenceId: null,
         activeSummaryVersion: null,
         summaryEditAction: null,
+        offeredLocalities: [],
         updatedAt: new Date(),
       })
       .where(
@@ -562,6 +586,7 @@ export class PostgresConversationRepository {
           activeSummaryVersion: input.version,
           summaryEditAction: null,
           state: 'awaiting_confirmation',
+          offeredLocalities: [],
           updatedAt: new Date(),
         })
         .where(
@@ -656,5 +681,60 @@ export class PostgresConversationRepository {
       .update(whatsappConversations)
       .set({ state, updatedAt: new Date() })
       .where(eq(whatsappConversations.id, conversationId));
+  }
+
+  async setLocalitySuggestions(
+    conversationId: string,
+    localities: readonly string[],
+  ): Promise<boolean> {
+    const [updated] = await this.database.orm
+      .update(whatsappConversations)
+      .set({
+        state: 'awaiting_locality',
+        offeredLocalities: localities.slice(0, 3),
+        invalidAttempts: sql`${whatsappConversations.invalidAttempts} + 1`,
+        mode: sql`CASE WHEN ${whatsappConversations.invalidAttempts} + 1 >= 2 THEN 'human' ELSE 'bot' END`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(whatsappConversations.id, conversationId),
+          eq(whatsappConversations.mode, 'bot'),
+          inArray(whatsappConversations.state, [
+            'awaiting_locality',
+            'awaiting_address',
+          ]),
+        ),
+      )
+      .returning({ mode: whatsappConversations.mode });
+    if (updated === undefined)
+      throw new Error('Locality suggestions could not be saved');
+    return updated.mode === 'human';
+  }
+
+  async clearLocalitySuggestions(conversationId: string): Promise<void> {
+    await this.database.orm
+      .update(whatsappConversations)
+      .set({ offeredLocalities: [], invalidAttempts: 0, updatedAt: new Date() })
+      .where(eq(whatsappConversations.id, conversationId));
+  }
+
+  async recordInvalidReference(conversationId: string): Promise<boolean> {
+    const [updated] = await this.database.orm
+      .update(whatsappConversations)
+      .set({
+        invalidAttempts: sql`${whatsappConversations.invalidAttempts} + 1`,
+        mode: sql`CASE WHEN ${whatsappConversations.invalidAttempts} + 1 >= 2 THEN 'human' ELSE 'bot' END`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(whatsappConversations.id, conversationId),
+          eq(whatsappConversations.mode, 'bot'),
+          eq(whatsappConversations.state, 'showing_models'),
+        ),
+      )
+      .returning({ mode: whatsappConversations.mode });
+    return updated?.mode === 'human';
   }
 }

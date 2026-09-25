@@ -110,4 +110,20 @@ describe('configurable flow', () => {
       ),
     ).toMatchObject({ action: 'edit_product', reply: null });
   });
+
+  it('hands off after the second invalid size with a usable instruction', () => {
+    const flow = createDefaultBotFlow();
+    const transition = advanceConfiguredConversation(
+      'awaiting_size',
+      'talla de pedido 12345',
+      1,
+      flow,
+    );
+    expect(transition).toMatchObject({
+      state: 'awaiting_size',
+      action: 'human_takeover',
+      invalidAttempts: 2,
+    });
+    expect(transition.reply).toMatch(/asesora|continuar/i);
+  });
 });

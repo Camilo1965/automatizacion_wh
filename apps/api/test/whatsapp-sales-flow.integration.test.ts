@@ -481,6 +481,97 @@ describe('complete WhatsApp sale', () => {
     }
   });
 
+  it('rejects a municipality number outside the latest offered list before carrier lookup', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const conversations = new PostgresConversationRepository(database);
+    const orderService = new OrderService(
+      new PostgresOrderRepository(database),
+      (id) => new PostgresCatalogRepository(database).findReferenceById(id),
+    );
+    const orders = { create: vi.fn(), update: vi.fn() };
+    const localities = {
+      list: vi.fn().mockResolvedValue({
+        items: [
+          {
+            carrierCode: '05088000',
+            department: 'Antioquia',
+            locality: 'Bello',
+          },
+        ],
+      }),
+    };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
+      new PostgresOutboundRepository(database),
+      orders,
+      localities,
+    );
+    const customerPhone = '+573158191776';
+    try {
+      const started = await conversations.receive({
+        whatsappMessageId: 'offered-locality-start',
+        customerPhone,
+        text: 'hola',
+      });
+      const order = await orderService.create({
+        referenceId: '11111111-1111-4111-8111-111111111111',
+        size: '37',
+        quantity: 1,
+        customerPhone,
+      });
+      await conversations.attachOrder(
+        started.conversationId!,
+        order.referenceId,
+        order.id,
+      );
+      await sql`UPDATE whatsapp_conversations SET state = 'awaiting_locality', pending_department = 'Antioquia', offered_localities = '["Bello", "Belmira"]'::jsonb WHERE id = ${started.conversationId!}`;
+
+      await service.process({
+        whatsappMessageId: 'offered-locality-invalid',
+        customerPhone,
+        text: '3',
+      });
+      const [pending] = await sql<
+        {
+          state: string;
+          offered_localities: string[];
+          invalid_attempts: number;
+        }[]
+      >`
+        SELECT state, offered_localities, invalid_attempts
+        FROM whatsapp_conversations WHERE id = ${started.conversationId!}
+      `;
+      expect(pending).toMatchObject({
+        state: 'awaiting_locality',
+        offered_localities: ['Bello', 'Belmira'],
+        invalid_attempts: 1,
+      });
+      expect(localities.list).not.toHaveBeenCalled();
+      expect(orders.update).not.toHaveBeenCalled();
+
+      await service.process({
+        whatsappMessageId: 'offered-locality-valid',
+        customerPhone,
+        text: '1',
+      });
+      expect(localities.list).toHaveBeenCalledWith({
+        department: 'Antioquia',
+        query: 'Bello',
+        limit: 10,
+      });
+      expect(orders.update).toHaveBeenCalledWith({
+        orderId: order.id,
+        localityCarrierCode: '05088000',
+      });
+    } finally {
+      await sql.end({ timeout: 5 });
+      await database.close();
+    }
+  });
+
   it('atomically invalidates the old summary for an address edit and keeps the open flow snapshot', async () => {
     const database = createPostgresDatabase(databaseUrl);
     const conversations = new PostgresConversationRepository(database);
@@ -857,7 +948,7 @@ describe('complete WhatsApp sale', () => {
       'sí',
       'Antioquia',
       'Medell',
-      'Medellín',
+      '1',
       'Calle 1 # 2-3',
       'saltar',
       'confirmar',
@@ -912,7 +1003,7 @@ describe('complete WhatsApp sale', () => {
         expect(stock?.reserved_quantity).toBe(1);
         expect(confirmation?.count).toBe(1);
         expect(guideJob).toMatchObject({ count: 1, status: 'pending' });
-        expect(localityCorrection?.text_body).toContain('Opciones: Medellín');
+        expect(localityCorrection?.text_body).toContain('1. Medellín');
       } finally {
         await sql.end({ timeout: 5 });
       }

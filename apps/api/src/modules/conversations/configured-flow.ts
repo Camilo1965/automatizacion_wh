@@ -79,12 +79,12 @@ export function advanceConfiguredConversation(
     transition.state === state &&
     transition.action === undefined &&
     state !== 'completed';
-  if (invalid && attempts + 1 >= (step.maxAttempts ?? 3))
+  if (invalid && attempts + 1 >= Math.min(step.maxAttempts ?? 2, 2))
     return {
       ...transition,
       invalidAttempts: attempts + 1,
       action: 'human_takeover',
-      reply: flow.steps.human.message,
+      reply: `${flow.steps.human.message} Puedes escribir el dato correcto aquí para que lo revise.`,
     };
   if (invalid)
     return {

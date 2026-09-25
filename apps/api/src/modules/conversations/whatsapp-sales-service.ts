@@ -60,6 +60,12 @@ type ConversationPort = Readonly<{
     expectedGeneration: number;
   }): Promise<boolean>;
   setState?(conversationId: string, state: string): Promise<void>;
+  setLocalitySuggestions?(
+    conversationId: string,
+    localities: readonly string[],
+  ): Promise<boolean>;
+  recordInvalidReference?(conversationId: string): Promise<boolean>;
+  clearLocalitySuggestions?(conversationId: string): Promise<void>;
 }>;
 
 type CatalogPort = Readonly<{
@@ -81,7 +87,11 @@ type MenuPort = Readonly<{
   findOption(
     conversationId: string,
     input: string,
-  ): Promise<Readonly<{ referenceId: string; code: string }> | null>;
+  ): Promise<Readonly<{
+    referenceId: string;
+    code: string;
+    modelName: string;
+  }> | null>;
   getNextCursor(conversationId: string): Promise<string | null>;
 }>;
 
@@ -352,12 +362,24 @@ export class WhatsAppSalesService {
         result.input,
       );
       if (option === null) {
-        await this.queueText(
+        const handedOff = await this.conversations.recordInvalidReference?.(
           result.conversationId,
-          input,
-          'Esa referencia no está en el menú vigente. Elige una de las fotos enviadas.',
-          'invalid-reference',
         );
+        if (handedOff) {
+          await this.handOffInvalidInput(
+            result.conversationId,
+            input,
+            'No pude identificar la referencia. Una asesora continuará esta conversación y te ayudará a elegir el modelo.',
+            'invalid-reference',
+          );
+        } else {
+          await this.queueText(
+            result.conversationId,
+            input,
+            'Esa referencia no está en el menú vigente. Elige una de las fotos enviadas o escribe “más modelos”.',
+            'invalid-reference',
+          );
+        }
       } else if (
         this.orders !== undefined &&
         this.conversations.attachOrder !== undefined &&
@@ -381,17 +403,19 @@ export class WhatsAppSalesService {
         await this.queueText(
           result.conversationId,
           input,
-          result.flow === undefined
-            ? `Perfecto, elegiste la REF ${option.code}. ¿Cuál es tu nombre completo?`
-            : renderFlowMessage(result.flow.steps.name.message, {
-                ...result.variables,
-                talla: displaySize(result.selectedSize),
-                pedido:
-                  order.orderNumber === undefined
-                    ? ''
-                    : `PED-${String(order.orderNumber).padStart(6, '0')}`,
-                referencia: option.code,
-              }),
+          `Elegiste REF ${option.code} · ${option.modelName}. ${
+            result.flow === undefined
+              ? '¿Cuál es tu nombre completo?'
+              : renderFlowMessage(result.flow.steps.name.message, {
+                  ...result.variables,
+                  talla: displaySize(result.selectedSize),
+                  pedido:
+                    order.orderNumber === undefined
+                      ? ''
+                      : `PED-${String(order.orderNumber).padStart(6, '0')}`,
+                  referencia: option.code,
+                })
+          }`,
           'reference-selected',
         );
       }
@@ -433,19 +457,31 @@ export class WhatsAppSalesService {
             .toLocaleLowerCase('es-CO') === normalized,
       );
       if (locality === undefined) {
-        const suggestions = page.items
-          .slice(0, 3)
-          .map((item) => item.locality)
-          .join(', ');
-        await this.conversations.setState?.(
-          result.conversationId,
-          'awaiting_locality',
-        );
+        const suggestions = page.items.slice(0, 3).map((item) => item.locality);
+        const handedOff =
+          (await this.conversations.setLocalitySuggestions?.(
+            result.conversationId,
+            suggestions,
+          )) ?? false;
+        if (this.conversations.setLocalitySuggestions === undefined)
+          await this.conversations.setState?.(
+            result.conversationId,
+            'awaiting_locality',
+          );
+        if (handedOff) {
+          await this.handOffInvalidInput(
+            result.conversationId,
+            input,
+            'No pude identificar el municipio. Una asesora continuará esta conversación y confirmará la dirección de tu pedido.',
+            'unknown-locality',
+          );
+          return;
+        }
         await this.queueText(
           result.conversationId,
           input,
-          suggestions
-            ? `No encontré esa ciudad o municipio exactamente. Opciones: ${suggestions}. Escribe el nombre completo de una opción.`
+          suggestions.length > 0
+            ? `No encontré esa ciudad o municipio exactamente. Opciones:\n${suggestions.map((name, index) => `${index + 1}. ${name}`).join('\n')}\nResponde con el número o el nombre completo de una opción.`
             : 'No encontré esa ciudad o municipio en el listado de envíos. Revisa la ortografía o escribe otro municipio del departamento.',
           'unknown-locality',
         );
@@ -456,6 +492,9 @@ export class WhatsAppSalesService {
         });
         if (result.summaryEditAction === 'edit_locality') {
           await this.prepareSummary(result, input);
+          await this.conversations.clearLocalitySuggestions?.(
+            result.conversationId,
+          );
         } else {
           await this.queueText(
             result.conversationId,
@@ -467,6 +506,9 @@ export class WhatsAppSalesService {
                 )
               : 'Escribe la dirección completa de entrega.',
             'locality-selected',
+          );
+          await this.conversations.clearLocalitySuggestions?.(
+            result.conversationId,
           );
         }
       }
@@ -767,6 +809,24 @@ export class WhatsAppSalesService {
       body,
       ...(source === undefined ? {} : { source }),
       idempotencyKey: `${suffix}:${inbound.whatsappMessageId}`,
+    });
+  }
+
+  private async handOffInvalidInput(
+    conversationId: string,
+    inbound: ReceiveConversationInput,
+    body: string,
+    suffix: string,
+  ): Promise<void> {
+    await this.queueText(conversationId, inbound, body, suffix, 'owner_panel');
+    await this.alerts?.open({
+      type: 'conversation_attention',
+      severity: 'warning',
+      title: 'Cliente necesita ayuda con el pedido',
+      detail: body,
+      entityUrl: `/conversations?conversation=${conversationId}`,
+      entityId: conversationId,
+      retrySafe: false,
     });
   }
 

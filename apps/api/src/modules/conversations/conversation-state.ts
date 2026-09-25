@@ -46,7 +46,11 @@ function normalizeMessage(message: string): string {
 }
 
 function parseSize(message: string): string | null {
-  const normalized = message.trim().replace(',', '.');
+  const normalized = message
+    .trim()
+    .toLocaleLowerCase('es-CO')
+    .replace(/^talla\s+/, '')
+    .replace(',', '.');
   if (!/^\d{1,2}(?:\.5)?$/.test(normalized)) return null;
   const value = Number(normalized);
   if (value < 1 || value > 99.5) return null;
@@ -84,6 +88,7 @@ export function advanceConversation(
   }
   if (
     normalized === 'volver' ||
+    normalized === 'reiniciar' ||
     normalized === 'cambiar talla' ||
     (normalized === 'cancelar' && state !== 'awaiting_confirmation')
   ) {
@@ -130,7 +135,7 @@ export function advanceConversation(
   if (state === 'awaiting_phone') {
     const digits = value.replace(/\D/g, '');
     return /^(?:57)?3\d{9}$/.test(digits) ||
-      ['si', 'mismo', 'este'].includes(normalized)
+      ['si', 'mismo', 'mismo numero', 'este'].includes(normalized)
       ? {
           state: 'awaiting_department',
           reply: '¿En qué departamento recibes el pedido?',
