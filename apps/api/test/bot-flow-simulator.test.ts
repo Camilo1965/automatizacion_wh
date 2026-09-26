@@ -123,10 +123,16 @@ describe('isolated bot simulation', () => {
         result.events.some((event) => event.reply?.includes(expectedText)),
       ).toBe(true);
       expect(
-        result.events.some((event) =>
-          event.reply?.includes('Tu pedido quedó confirmado'),
+        result.events.some(
+          (event) => event.reply === formatOrderConfirmation('PED-DEMO'),
         ),
       ).toBe(false);
+      expect(
+        result.events.some((event) => event.action === 'confirm_order'),
+      ).toBe(false);
+      expect(result.events.some((event) => event.state === 'completed')).toBe(
+        false,
+      );
     },
   );
 
