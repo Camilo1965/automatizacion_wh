@@ -348,6 +348,9 @@ describe('summary edit interruption recovery', () => {
           draftVersion: 2,
           createdAt: new Date(),
           snapshot: {
+            shippingPending: false,
+            shippingQuote: { carrier: 'envia', insuranceMode: 'none' },
+            shippingCostCop: 16_968,
             totalCop: 136_968,
             destination: { address: replacement, locality: replacement },
           },

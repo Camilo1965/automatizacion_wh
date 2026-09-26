@@ -17,6 +17,10 @@ export class GuideDeliveryService {
     private readonly alerts?: AlertService,
   ) {}
   async runOnce() {
+    // The MVP keeps guide delivery inside KAIRO for the operator. Return before
+    // querying conversation state or inspecting historical flow snapshots.
+    if (GUIDE_CUSTOMER_DELIVERY_POLICY === 'operator_only') return false;
+
     const rows = await this.database.orm.execute(sql`
       SELECT job.id, job.order_id, job.carrier, job.confirmed_total_cop, orders.size, orders.customer_name, orders.order_number, reference.code,
         conversation.id AS conversation_id, conversation.customer_phone, conversation.last_inbound_message_at,
@@ -48,10 +52,6 @@ export class GuideDeliveryService {
     )[0];
     if (!row) return false;
     if (!evaluateServiceWindow(row.last_inbound_message_at).open) return false;
-    // This product policy overrides every flow snapshot, including historical
-    // versions that enabled customer delivery. The authenticated operator
-    // download remains available through the shipping guide endpoint.
-    if (GUIDE_CUSTOMER_DELIVERY_POLICY === 'operator_only') return false;
     await this.database.orm
       .update(shippingGuideJobs)
       .set({

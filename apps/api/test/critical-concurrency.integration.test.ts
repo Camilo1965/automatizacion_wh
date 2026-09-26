@@ -251,7 +251,7 @@ describe('critical concurrency acceptance', () => {
     }
   });
 
-  it('blocks confirmation on expired quote and completes PDF retry without duplicate documents', async () => {
+  it('blocks stale quotes and keeps the guide operator-only after PDF retry', async () => {
     const database = createPostgresDatabase(databaseUrl);
     const catalogRepository = new PostgresCatalogRepository(database);
     const orderService = new OrderService(
@@ -364,11 +364,13 @@ describe('critical concurrency acceptance', () => {
         guides,
         new PostgresOutboundRepository(database),
       );
-      await Promise.all([delivery.runOnce(), delivery.runOnce()]);
+      await expect(
+        Promise.all([delivery.runOnce(), delivery.runOnce()]),
+      ).resolves.toEqual([false, false]);
       const documents = await database.orm.execute(
         "SELECT id FROM whatsapp_outbound_messages WHERE message_type = 'document'",
       );
-      expect(documents).toHaveLength(1);
+      expect(documents).toHaveLength(0);
       expect(getGuidePdf).toHaveBeenCalledTimes(2);
       expect(createPreShipment).toHaveBeenCalledTimes(1);
     } finally {
@@ -385,6 +387,11 @@ describe('critical concurrency acceptance', () => {
       { listAvailableForConfirmedSize: vi.fn() },
       { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
       outbound,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      new AlertService(new PostgresAlertRepository(database)),
     );
     try {
       await service.process({
@@ -404,6 +411,10 @@ describe('critical concurrency acceptance', () => {
         'SELECT mode FROM whatsapp_conversations',
       );
       expect(conversation?.mode).toBe('human');
+      const alerts = await database.orm.execute(
+        "SELECT type FROM owner_alerts WHERE type = 'conversation_attention'",
+      );
+      expect(alerts).toHaveLength(1);
     } finally {
       await database.close();
     }

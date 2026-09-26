@@ -568,6 +568,11 @@ describe('complete WhatsApp sale', () => {
         { listAvailableForConfirmedSize: vi.fn() },
         { create: vi.fn(), findOption: vi.fn(), getNextCursor: vi.fn() },
         outbound,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        new AlertService(new PostgresAlertRepository(database)),
       );
       await service.process({
         whatsappMessageId: 'handover-welcome',
@@ -586,6 +591,10 @@ describe('complete WhatsApp sale', () => {
         'SELECT mode FROM whatsapp_conversations',
       );
       expect(conversation?.mode).toBe('human');
+      const alerts = await database.orm.execute(
+        "SELECT type FROM owner_alerts WHERE type = 'conversation_attention'",
+      );
+      expect(alerts).toHaveLength(1);
     } finally {
       await database.close();
     }
@@ -1426,11 +1435,13 @@ describe('complete WhatsApp sale', () => {
         guides,
         new PostgresOutboundRepository(database),
       );
-      await Promise.all([delivery.runOnce(), delivery.runOnce()]);
+      await expect(
+        Promise.all([delivery.runOnce(), delivery.runOnce()]),
+      ).resolves.toEqual([false, false]);
       const documents = await database.orm.execute(
         "SELECT id FROM whatsapp_outbound_messages WHERE message_type = 'document'",
       );
-      expect(documents).toHaveLength(1);
+      expect(documents).toHaveLength(0);
       expect(await delivery.runOnce()).toBe(false);
       expect(
         await database.orm.execute(
