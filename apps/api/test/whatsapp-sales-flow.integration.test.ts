@@ -34,6 +34,68 @@ import { requireTestDatabaseUrl } from './helpers/test-database.js';
 const databaseUrl = requireTestDatabaseUrl();
 
 describe('complete WhatsApp sale', () => {
+  it('detaches a stale order and accepts a new size without changing its history', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const conversations = new PostgresConversationRepository(database);
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const customerPhone = '+573158191978';
+    try {
+      const started = await conversations.receive({
+        whatsappMessageId: 'stale-reuse-start',
+        customerPhone,
+        text: 'hola',
+      });
+      const order = await new OrderService(
+        new PostgresOrderRepository(database),
+        (id) => new PostgresCatalogRepository(database).findReferenceById(id),
+      ).create({
+        referenceId: '11111111-1111-4111-8111-111111111111',
+        size: '37',
+        quantity: 1,
+        customerPhone,
+      });
+      await conversations.attachOrder(
+        started.conversationId!,
+        order.referenceId,
+        order.id,
+      );
+      await conversations.setState(
+        started.conversationId!,
+        'awaiting_reuse_confirmation',
+      );
+      await sql`UPDATE sales_orders SET status = 'cancelled' WHERE id = ${order.id}`;
+
+      expect(
+        await conversations.restartAfterUnavailableOrder(
+          started.conversationId!,
+          order.id,
+        ),
+      ).toBe(true);
+      const [conversation] = await sql<
+        { state: string; active_order_id: string | null }[]
+      >`SELECT state, active_order_id FROM whatsapp_conversations WHERE id = ${started.conversationId!}`;
+      expect(conversation).toEqual({
+        state: 'awaiting_size',
+        active_order_id: null,
+      });
+      const next = await conversations.receive({
+        whatsappMessageId: 'stale-reuse-new-size',
+        customerPhone,
+        text: '37',
+      });
+      expect(next).toMatchObject({
+        action: 'show_catalog',
+        activeOrderId: null,
+      });
+      const [oldOrder] = await sql<{ status: string }[]>`
+        SELECT status FROM sales_orders WHERE id = ${order.id}
+      `;
+      expect(oldOrder?.status).toBe('cancelled');
+    } finally {
+      await sql.end({ timeout: 5 });
+      await database.close();
+    }
+  });
   it('recovers a selected-reference prompt after the draft was attached', async () => {
     const database = createPostgresDatabase(databaseUrl);
     const conversations = new PostgresConversationRepository(database);

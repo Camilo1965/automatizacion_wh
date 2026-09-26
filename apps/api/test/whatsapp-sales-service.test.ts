@@ -1781,12 +1781,15 @@ describe('saved destination reuse', () => {
       attachOrder: vi.fn(),
       returnToSize: vi.fn(),
       setState: vi.fn(),
+      restartAfterUnavailableOrder: vi.fn().mockResolvedValue(true),
+      takeOver: vi.fn(),
       publishSummary: vi.fn().mockResolvedValue(true),
     };
     const orders = {
       create: vi.fn().mockResolvedValue({ id: 'order-2', orderNumber: 2 }),
       update: vi.fn(),
       reuseDestination: vi.fn(),
+      get: vi.fn().mockResolvedValue({ status: 'draft', orderNumber: 2 }),
       createSummary: vi.fn().mockResolvedValue({
         version: 1,
         snapshot: {
@@ -1811,6 +1814,7 @@ describe('saved destination reuse', () => {
       }),
     };
     const shipping = { createQuotes: vi.fn() };
+    const alerts = { open: vi.fn() };
     const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
     const menus = {
       create: vi.fn(),
@@ -1830,7 +1834,7 @@ describe('saved destination reuse', () => {
       localities,
       undefined,
       shipping,
-      undefined,
+      alerts,
       undefined,
       customers,
     );
@@ -1841,6 +1845,7 @@ describe('saved destination reuse', () => {
       customers,
       localities,
       shipping,
+      alerts,
       outbound,
     };
   }
@@ -2008,7 +2013,7 @@ describe('saved destination reuse', () => {
     );
   });
 
-  it('requests new details when the guarded destination copy finds no eligible order', async () => {
+  it('hands a draft with unusable identity to an owner without asking for an unsafe patch', async () => {
     const f = fixture('reuse_destination');
     f.orders.reuseDestination.mockRejectedValue(
       new OrderConflictError(
@@ -2017,15 +2022,39 @@ describe('saved destination reuse', () => {
       ),
     );
     await f.service.process(inbound);
-    expect(f.conversations.setState).toHaveBeenCalledWith(
-      'conversation-1',
-      'awaiting_name',
-    );
+    expect(f.conversations.takeOver).toHaveBeenCalledWith('conversation-1');
+    expect(f.alerts.open).toHaveBeenCalled();
     expect(f.outbound.enqueueText.mock.calls.at(-1)?.[0].body).toMatch(
-      /destino anterior.*no está disponible.*nombre completo/i,
+      /asesora.*datos de entrega/i,
     );
+    expect(f.orders.update).not.toHaveBeenCalled();
     expect(f.shipping.createQuotes).not.toHaveBeenCalled();
   });
+
+  it.each(['cancelled', 'confirmed'])(
+    'restarts size selection when the linked order is %s',
+    async (status) => {
+      const f = fixture('reuse_destination');
+      f.orders.get.mockResolvedValue({ status, orderNumber: 2 });
+      f.orders.reuseDestination.mockRejectedValue(
+        new OrderConflictError(
+          'customer_identity_mismatch',
+          'El destino anterior ya no está disponible para este pedido.',
+        ),
+      );
+      await f.service.process(inbound);
+      expect(f.conversations.restartAfterUnavailableOrder).toHaveBeenCalledWith(
+        'conversation-1',
+        'order-2',
+      );
+      expect(f.outbound.enqueueText.mock.calls.at(-1)?.[0].body).toMatch(
+        /otro pedido.*talla/i,
+      );
+      expect(f.orders.update).not.toHaveBeenCalled();
+      expect(f.conversations.takeOver).not.toHaveBeenCalled();
+      expect(f.shipping.createQuotes).not.toHaveBeenCalled();
+    },
+  );
 
   it('propagates an unexpected destination copy failure', async () => {
     const f = fixture('reuse_destination');

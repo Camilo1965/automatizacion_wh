@@ -640,6 +640,36 @@ export class PostgresConversationRepository {
       );
   }
 
+  async restartAfterUnavailableOrder(
+    conversationId: string,
+    expectedOrderId: string,
+  ): Promise<boolean> {
+    const [restarted] = await this.database.orm
+      .update(whatsappConversations)
+      .set({
+        state: 'awaiting_size',
+        activeOrderId: null,
+        selectedSize: null,
+        selectedReferenceId: null,
+        pendingDepartment: null,
+        invalidAttempts: 0,
+        activeSummaryVersion: null,
+        summaryEditAction: null,
+        offeredLocalities: [],
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(whatsappConversations.id, conversationId),
+          eq(whatsappConversations.activeOrderId, expectedOrderId),
+          eq(whatsappConversations.state, 'awaiting_reuse_confirmation'),
+          eq(whatsappConversations.mode, 'bot'),
+        ),
+      )
+      .returning({ id: whatsappConversations.id });
+    return restarted !== undefined;
+  }
+
   async publishSummary(input: {
     conversationId: string;
     orderId: string;

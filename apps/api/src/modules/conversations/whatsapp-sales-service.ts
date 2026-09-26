@@ -39,6 +39,10 @@ type ConversationPort = Readonly<{
     conversationId: string,
     expectedOrderId: string,
   ): Promise<void>;
+  restartAfterUnavailableOrder?(
+    conversationId: string,
+    expectedOrderId: string,
+  ): Promise<boolean>;
   publishSummary?(input: {
     conversationId: string;
     orderId: string;
@@ -854,15 +858,57 @@ export class WhatsAppSalesService {
         error.code !== 'customer_identity_mismatch'
       )
         throw error;
-      await this.conversations.setState?.(
-        result.conversationId,
-        'awaiting_name',
-      );
+      if (this.orders.get === undefined)
+        throw new Error(
+          'Order status lookup unavailable after reuse conflict',
+          {
+            cause: error,
+          },
+        );
+      const observedOrder = await this.orders.get(result.activeOrderId);
+      if (observedOrder?.status !== 'draft') {
+        if (this.conversations.restartAfterUnavailableOrder === undefined)
+          throw new Error('Conversation restart unavailable', { cause: error });
+        const restarted = await this.conversations.restartAfterUnavailableOrder(
+          result.conversationId,
+          result.activeOrderId,
+        );
+        if (!restarted)
+          throw new Error('Conversation changed before restart', {
+            cause: error,
+          });
+        await this.queueText(
+          result.conversationId,
+          input,
+          'Este pedido ya no permite cambios. Para empezar otro pedido, dime tu talla.',
+          'reuse-order-unavailable',
+        );
+        return;
+      }
+      if (
+        this.conversations.takeOver === undefined ||
+        this.alerts === undefined
+      )
+        throw new Error('Owner handoff unavailable after reuse conflict', {
+          cause: error,
+        });
+      await this.conversations.takeOver(result.conversationId);
+      await this.alerts.open({
+        type: 'conversation_attention',
+        severity: 'warning',
+        title: 'Revisar datos de entrega',
+        detail:
+          'No se pudo reutilizar el destino anterior de forma segura. Verifica la identidad y acuerda los datos de entrega con el cliente.',
+        entityUrl: `/conversations?conversation=${result.conversationId}`,
+        entityId: result.conversationId,
+        retrySafe: false,
+      });
       await this.queueText(
         result.conversationId,
         input,
-        'El destino anterior ya no está disponible para este pedido. Necesito los datos de entrega de nuevo. ¿Cuál es tu nombre completo?',
+        'Una asesora revisará los datos de entrega contigo antes de continuar.',
         'reuse-conflict',
+        'owner_panel',
       );
       return;
     }
