@@ -28,7 +28,14 @@ No ejecutar `pnpm test:integration`, `pnpm test:concurrency`, `db:migrate` ni he
 
 ## Cómo verificar los datos persistidos
 
-Después de cada caso, contrastar el estado de la conversación y pedido en KAIRO con consultas de solo lectura sobre el fixture sintético. Sustituir `:conversation_id` por el UUID generado para ese caso; estas consultas no deben modificarse para escribir datos.
+Después de cada caso, contrastar el estado de la conversación y pedido en KAIRO con consultas de solo lectura sobre el fixture sintético. Las siguientes sentencias son SQL ejecutable en PostgreSQL/psql: no usan parámetros estilo `:nombre`. Antes de correrlas, sustituye literalmente cada UUID de ejemplo por el UUID que devolvió el fixture de ese caso:
+
+- `00000000-0000-4000-8000-000000000001` → UUID real/sintético de `conversation_id`.
+- `00000000-0000-4000-8000-000000000002` → UUID real/sintético de `order_id`.
+- `00000000-0000-4000-8000-000000000003` → UUID real/sintético de `reference_id`.
+- `37.0` → talla real/sintética del caso, conservando el sufijo `::numeric`.
+
+En la última consulta, el patrón se construye con `LIKE '%' || '<order_id>' || '%'`: sustituye el texto `00000000-0000-4000-8000-000000000002` dentro de esa expresión por el mismo UUID de pedido indicado arriba; conserva los comodines `%` y `::text`. No reemplaces el SQL por `UPDATE`, `DELETE`, `INSERT` ni otra escritura.
 
 ```sql
 -- Conversación y pedido activo/histórico asociado al caso
@@ -44,31 +51,32 @@ LEFT JOIN LATERAL (
   WHERE l.origin_conversation_id = c.id
 ) case_orders ON TRUE
 LEFT JOIN sales_orders o ON o.id = case_orders.order_id
-WHERE c.id = :conversation_id
+WHERE c.id = '00000000-0000-4000-8000-000000000001'::uuid
 ORDER BY o.created_at;
 
 -- Reserva: comprobar el delta para reference_id + talla del pedido del caso
 SELECT s.reference_id, s.size, s.physical_quantity, s.reserved_quantity
 FROM catalog_stock s
-WHERE s.reference_id = :reference_id AND s.size = :size;
+WHERE s.reference_id = '00000000-0000-4000-8000-000000000003'::uuid
+  AND s.size = 37.0::numeric;
 
 -- Trabajo de guía: los recorridos no confirmados/error deben devolver cero filas
 SELECT id, order_id, status, carrier, pre_shipment_number,
        error_code, guide_pdf_storage_key, guide_pdf_byte_size
 FROM shipping_guide_jobs
-WHERE order_id = :order_id;
+WHERE order_id = '00000000-0000-4000-8000-000000000002'::uuid;
 
 -- Cola saliente; contar por conversación y revisar idempotency_key, type y status
 SELECT id, idempotency_key, message_type, source, status, attempt_count,
        error_code, created_at
 FROM whatsapp_outbound_messages
-WHERE conversation_id = :conversation_id
+WHERE conversation_id = '00000000-0000-4000-8000-000000000001'::uuid
 ORDER BY created_at, id;
 
 -- Alertas operativas asociadas; no incluir detail con PII en evidencias públicas
 SELECT type, severity, status, deduplication_key, created_at
 FROM owner_alerts
-WHERE entity_url LIKE '%' || :order_id || '%'
+WHERE entity_url LIKE '%' || '00000000-0000-4000-8000-000000000002'::uuid::text || '%'
 ORDER BY created_at;
 ```
 
@@ -87,7 +95,7 @@ Los estados listados son **resultados esperados para comprobar**, no resultados 
 | 5   | **Cambiar producto.** Desde resumen escribir `cambiar producto`, seleccionar talla/referencia nueva y revisar.                                                         | Pedido anterior `cancelled`, preservado en historial; se limpia el vínculo activo y la conversación reinicia selección (`awaiting_size`); el nuevo borrador nace solo al seguir la selección.                                                                       | Cualquier reserva del borrador anterior queda liberada; 0 guías hasta confirmar el pedido nuevo.                           | No se reutiliza ni confirma el resumen anterior.                                                                                                                                            |
 | 6   | **Talla agotada.** Seleccionar talla sin modelos disponibles (stock disponible 0), después responder con otra talla.                                                   | Devuelve a `awaiting_size` y pide otra talla; no crea pedido ni lo confirma. La nueva talla puede continuar a `showing_models`.                                                                                                                                     | Reserva permanece 0; 0 trabajos de guía.                                                                                   | No se promete pedido reservado ni se crea mensaje de confirmación.                                                                                                                          |
 | 7   | **Referencia inválida.** En `showing_models`, responder una referencia que no está en el menú vigente y luego elegir una opción del menú.                              | Conserva el paso `showing_models`; la referencia inválida no crea pedido. Una opción vigente puede crear borrador y continuar captura.                                                                                                                              | Reserva 0; 0 guías durante el error.                                                                                       | Error útil con próximo paso; sin resumen o confirmación con precio de referencia inexistente.                                                                                               |
-| 8   | **Transportadora obligatoria caída.** Configurar doble de cotización para que la carrier obligatoria falle o no dé cobertura.                                          | No se publica resumen confirmable; conversación pasa a revisión humana (modo `human`) o instruye reintentar según política y muestra estado real. Pedido no confirmado.                                                                                             | Reserva 0; 0 guías.                                                                                                        | Alerta operacional si hay relevo; no encolar una confirmación ni un texto que prometa costo/entrega inexistente.                                                                            |
+| 8   | **Transportadora obligatoria caída.** En el fixture, configurar la cotización para que la carrier obligatoria falle o devuelva cero opciones elegibles.                | `prepareSummary` deriva a `handOverUnquotedSummary`: conversación en modo `human`, borrador no confirmado y sin resumen confirmable.                                                                                                                                | Reserva 0; 0 trabajos de guía.                                                                                             | Una alerta operacional `shipping_quote_attention`; no encolar confirmación ni texto con costo/promesa de envío inexistente.                                                                 |
 | 9   | **Alternativa permitida.** Carrier preferida no disponible y política admite carrier alternativa; volver a cotizar.                                                    | Resumen `awaiting_confirmation` usa la alternativa realmente elegida, con costos de esa cotización.                                                                                                                                                                 | Reserva 0 y 0 guías antes de confirmar; después de confirmar, reserva +1 y un trabajo pendiente.                           | El mensaje muestra carrier/costo seleccionados; no atribuir el precio de la preferida a la alternativa.                                                                                     |
 | 10  | **Cotización vencida.** Obtener resumen y dejar expirar cotización de fixture; intentar confirmar.                                                                     | Rechaza el resumen vencido, no avanza a confirmado; recotiza y emite resumen nuevo o releva a revisión si no logra cotizar.                                                                                                                                         | En el intento rechazado, reserva 0 y 0 guías. Solo un segundo consentimiento explícito al resumen vigente puede confirmar. | La respuesta anterior no se interpreta como confirmación del precio nuevo; no trabajo duplicado.                                                                                            |
 | 11  | **Guía creada.** Confirmar compra en fixture; ejecutar worker falso de guía una vez.                                                                                   | Pedido permanece `confirmed` hasta evento real de despacho; panel/conversación muestra evento `guía generada`, número, carrier y fecha.                                                                                                                             | Un trabajo por pedido: `pending` → `created`; el stock sigue reservado mientras no se despache.                            | Un hito/alerta idempotente. La existencia de guía no comunica “despachado” ni “entregado”.                                                                                                  |
