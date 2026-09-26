@@ -131,6 +131,18 @@ export function createDefaultBotFlow(): BotFlowDefinition {
   };
 }
 
+export function normalizeBotFlowForOperatorOnly(
+  flow: BotFlowDefinition,
+): BotFlowDefinition {
+  return {
+    ...flow,
+    optionalSteps: {
+      ...flow.optionalSteps,
+      sendGuideToCustomer: false,
+    },
+  };
+}
+
 export function validateBotFlow(
   flow: BotFlowDefinition,
 ): readonly FlowValidationIssue[] {

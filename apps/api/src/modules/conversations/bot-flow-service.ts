@@ -6,7 +6,11 @@ import {
   botFlowVersions,
   configurationAudits,
 } from '../../database/schema/index.js';
-import { createDefaultBotFlow, validateBotFlow } from './flow-definition.js';
+import {
+  createDefaultBotFlow,
+  normalizeBotFlowForOperatorOnly,
+  validateBotFlow,
+} from './flow-definition.js';
 
 export class BotFlowError extends Error {
   constructor(
@@ -112,7 +116,9 @@ export class BotFlowService {
   }
 
   async save(revision: number, input: unknown, author: string) {
-    const definition = BotFlowDefinitionSchema.parse(input);
+    const definition = normalizeBotFlowForOperatorOnly(
+      BotFlowDefinitionSchema.parse(input),
+    );
     await this.database.orm.transaction(async (tx) => {
       await tx.execute(
         sql`SELECT pg_advisory_xact_lock(hashtext('kairo.bot-flow'))`,
@@ -178,8 +184,10 @@ export class BotFlowService {
           404,
           'La versión no existe.',
         );
-      const definition = BotFlowDefinitionSchema.parse(
-        restore?.definition ?? draft?.definition ?? createDefaultBotFlow(),
+      const definition = normalizeBotFlowForOperatorOnly(
+        BotFlowDefinitionSchema.parse(
+          restore?.definition ?? draft?.definition ?? createDefaultBotFlow(),
+        ),
       );
       const issues = validateBotFlow(definition);
       if (issues.length > 0)

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createDefaultBotFlow,
+  normalizeBotFlowForOperatorOnly,
   validateBotFlow,
 } from '../src/modules/conversations/flow-definition.js';
 
@@ -51,5 +52,21 @@ describe('guided bot flow definition', () => {
     expect(createDefaultBotFlow().optionalSteps.sendGuideToCustomer).toBe(
       false,
     );
+  });
+
+  it('normalizes a copied flow without mutating a historical opt-in definition', () => {
+    const historical = {
+      ...createDefaultBotFlow(),
+      optionalSteps: {
+        ...createDefaultBotFlow().optionalSteps,
+        sendGuideToCustomer: true,
+      },
+    };
+
+    const normalized = normalizeBotFlowForOperatorOnly(historical);
+
+    expect(normalized.optionalSteps.sendGuideToCustomer).toBe(false);
+    expect(historical.optionalSteps.sendGuideToCustomer).toBe(true);
+    expect(normalized.steps).toBe(historical.steps);
   });
 });

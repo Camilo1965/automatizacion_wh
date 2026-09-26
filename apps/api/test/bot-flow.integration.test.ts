@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { sql } from 'drizzle-orm';
 import { createPostgresDatabase } from '../src/database/client.js';
 import { runMigrations } from '../src/database/migrate.js';
 import { BotFlowService } from '../src/modules/conversations/bot-flow-service.js';
@@ -124,5 +125,56 @@ describe('published bot flow persistence', () => {
       code: 'invalid_flow',
     });
     expect((await service.get()).activeVersionId).toBeNull();
+  });
+
+  it('keeps a historical opt-in unchanged while saving and restoring operator-only versions', async () => {
+    const legacy = {
+      ...createDefaultBotFlow(),
+      optionalSteps: {
+        ...createDefaultBotFlow().optionalSteps,
+        sendGuideToCustomer: true,
+      },
+    };
+    const savedDraft = await service.save(0, legacy, 'owner');
+    expect(savedDraft.definition.optionalSteps.sendGuideToCustomer).toBe(false);
+
+    const [historicRow] = await database.orm.execute(sql`
+      INSERT INTO bot_flow_versions (revision, definition, author)
+      VALUES (5, ${JSON.stringify(legacy)}::jsonb, 'legacy')
+      RETURNING id
+    `);
+    const historicVersionId = String(
+      (historicRow as unknown as { id: string }).id,
+    );
+
+    await database.orm.execute(sql`
+      UPDATE bot_flow_drafts
+      SET revision = 2, definition = ${JSON.stringify(legacy)}::jsonb
+      WHERE id = 'sales'
+    `);
+    const publishedDraft = await service.publish(2, 'owner');
+    expect(publishedDraft.definition.optionalSteps.sendGuideToCustomer).toBe(
+      false,
+    );
+
+    const restored = await service.publish(
+      publishedDraft.revision,
+      'owner',
+      historicVersionId,
+    );
+    const historicVersion = restored.versions.find(
+      (version) => version.id === historicVersionId,
+    );
+    const publishedVersion = restored.versions.find(
+      (version) => version.id === restored.activeVersionId,
+    );
+
+    expect(historicVersion?.definition.optionalSteps.sendGuideToCustomer).toBe(
+      true,
+    );
+    expect(publishedVersion?.definition.optionalSteps.sendGuideToCustomer).toBe(
+      false,
+    );
+    expect(restored.definition.optionalSteps.sendGuideToCustomer).toBe(false);
   });
 });
