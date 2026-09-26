@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { simulateBotFlow } from '../src/modules/conversations/bot-flow-simulator.js';
 import { createDefaultBotFlow } from '../src/modules/conversations/flow-definition.js';
+import { formatOrderConfirmation } from '../src/modules/conversations/customer-order-messages.js';
 
 describe('isolated bot simulation', () => {
   const messages = [
@@ -142,5 +143,49 @@ describe('isolated bot simulation', () => {
     expect(review?.reply).toContain('se aplica la alternativa permitida');
     expect(review?.reply).toContain('Pedido PED-DEMO');
     expect(review?.reply).not.toMatch(/despachado|entregado/i);
+  });
+
+  it('uses the production order confirmation after the available scenario is confirmed', () => {
+    const result = simulateBotFlow(createDefaultBotFlow(), messages);
+
+    expect(result.events.at(-1)?.state).toBe('completed');
+    expect(result.events.at(-1)?.reply).toBe(
+      formatOrderConfirmation('PED-DEMO'),
+    );
+    expect(result.events.at(-1)?.reply).toBe(
+      'Pedido PED-DEMO confirmado; reservamos tu producto. Te avisaremos cuando la guía esté lista.',
+    );
+  });
+
+  it('renews and shows the quote before accepting the second confirmation', () => {
+    const flow = createDefaultBotFlow();
+    const firstConfirmation = simulateBotFlow(flow, messages, 'expired_quote');
+    const renewalEvent = firstConfirmation.events.at(-1);
+
+    expect(renewalEvent?.state).toBe('awaiting_confirmation');
+    expect(renewalEvent?.reply).toContain('La cotización venció');
+    expect(renewalEvent?.reply).toContain('Envío (Envia): $20.000 COP');
+    expect(renewalEvent?.reply).toContain('Total contra entrega: $140.000 COP');
+    expect(renewalEvent?.reply).not.toContain(
+      formatOrderConfirmation('PED-DEMO'),
+    );
+
+    const confirmedAfterRenewal = simulateBotFlow(
+      flow,
+      [...messages, 'confirmar'],
+      'expired_quote',
+    );
+    expect(confirmedAfterRenewal.events.at(-2)?.state).toBe(
+      'awaiting_confirmation',
+    );
+    expect(confirmedAfterRenewal.events.at(-2)?.reply).toContain(
+      'Total contra entrega: $140.000 COP',
+    );
+    expect(confirmedAfterRenewal.events.at(-1)?.state).toBe('completed');
+    expect(confirmedAfterRenewal.events.at(-1)?.reply).toBe(
+      formatOrderConfirmation('PED-DEMO'),
+    );
+    expect(confirmedAfterRenewal.fixture.totalCop).toBe(140000);
+    expect(confirmedAfterRenewal.fixture.shippingCostCop).toBe(20000);
   });
 });
