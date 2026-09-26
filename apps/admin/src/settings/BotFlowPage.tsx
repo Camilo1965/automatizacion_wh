@@ -4,6 +4,7 @@ import {
   BotFlowStateResponseSchema,
   BotFlowStepKeys,
   BotFlowDefinitionSchema,
+  BotFlowSimulationResponseSchema,
   botFlowVariablesForStep,
 } from '@camila/contracts';
 import { z } from 'zod';
@@ -63,20 +64,6 @@ const labels: Record<(typeof BotFlowStepKeys)[number], string> = {
   complete: 'Pedido confirmado',
   human: 'Atención de la propietaria',
 };
-const SimulationSchema = z.object({
-  data: z.object({
-    events: z.array(
-      z.object({
-        input: z.string(),
-        state: z.string(),
-        reply: z.string().nullable(),
-        action: z.string().nullable(),
-      }),
-    ),
-    sideEffects: z.literal(false),
-  }),
-});
-
 export function BotFlowPage() {
   const client = useQueryClient();
   const query = useQuery({
@@ -129,15 +116,14 @@ export function BotFlowPage() {
     },
   });
   const simulation = useMutation({
-    mutationFn: () =>
+    mutationFn: (input: { scenario: string; messages: string[] }) =>
       apiRequest('/bot-flow/simulate', {
         method: 'POST',
         body: {
           definition,
-          scenario,
-          messages: messages.split('\n').filter(Boolean),
+          ...input,
         },
-        schema: SimulationSchema,
+        schema: BotFlowSimulationResponseSchema,
       }),
   });
   function update(value: Definition) {

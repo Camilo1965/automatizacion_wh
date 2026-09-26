@@ -127,3 +127,40 @@ export const BotFlowSimulationBodySchema = z
       .default('available'),
   })
   .strict();
+
+export const BotFlowSimulationResultSchema = z
+  .object({
+    events: z.array(
+      z
+        .object({
+          input: z.string(),
+          state: z.string(),
+          reply: z.string().nullable(),
+          action: z.string().nullable(),
+        })
+        .strict(),
+    ),
+    fixture: z
+      .object({
+        label: z.literal('Ejemplo: no es un pedido real'),
+        orderNumber: z.literal('PED-DEMO'),
+        reference: z.string(),
+        size: z.string(),
+        productName: z.string(),
+        productSubtotalCop: z.number().int().nonnegative(),
+        shippingCostCop: z.number().int().nonnegative(),
+        totalCop: z.number().int().nonnegative(),
+        carrier: z.string(),
+        address: z.string(),
+        locality: z.string(),
+        department: z.string(),
+        imageUrl: z.string().nullable(),
+      })
+      .strict(),
+    sideEffects: z.literal(false),
+  })
+  .strict();
+
+export const BotFlowSimulationResponseSchema = z
+  .object({ data: BotFlowSimulationResultSchema })
+  .strict();

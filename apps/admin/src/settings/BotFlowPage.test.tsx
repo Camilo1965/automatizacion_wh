@@ -31,6 +31,22 @@ const definition = {
   },
 };
 
+const simulationFixture = {
+  label: 'Ejemplo: no es un pedido real' as const,
+  orderNumber: 'PED-DEMO' as const,
+  reference: '01',
+  size: '37',
+  productName: 'Tenis de ejemplo',
+  productSubtotalCop: 120000,
+  shippingCostCop: 18000,
+  totalCop: 138000,
+  carrier: 'Envia',
+  address: 'Calle 10 # 20-30',
+  locality: 'Medellín',
+  department: 'Antioquia',
+  imageUrl: null,
+};
+
 describe('BotFlowPage editing and simulation', () => {
   beforeEach(() => sessionStorage.removeItem('kairo.bot-flow-draft'));
 
@@ -130,7 +146,13 @@ describe('BotFlowPage editing and simulation', () => {
         simulatedNotes = (
           (await request.json()) as { definition: typeof definition }
         ).definition.optionalSteps.notes;
-        return HttpResponse.json({ data: { events: [], sideEffects: false } });
+        return HttpResponse.json({
+          data: {
+            events: [],
+            fixture: simulationFixture,
+            sideEffects: false,
+          },
+        });
       }),
     );
     renderWithProviders(<BotFlowPage />);
@@ -146,8 +168,170 @@ describe('BotFlowPage editing and simulation', () => {
     );
     expect(screen.getByText('Cambios sin guardar')).toBeVisible();
     await user.click(screen.getByRole('tab', { name: 'Simular' }));
-    await user.click(screen.getByRole('button', { name: 'Probar borrador' }));
+    await user.click(screen.getByText('Pruebas avanzadas'));
+    await user.click(
+      screen.getByRole('button', { name: 'Probar mensajes avanzados' }),
+    );
     expect(simulatedNotes).toBe(false);
     expect(draftWrites).toBe(0);
+  });
+
+  it('starts a fake customer chat from a scenario, accepts keyboard replies, and keeps advanced input optional', async () => {
+    const calls: { scenario: string; messages: string[] }[] = [];
+    server.use(
+      http.get('/api/admin/auth/session', () =>
+        HttpResponse.json({ data: { user: adminUser } }),
+      ),
+      http.get('/api/admin/bot-flow', () =>
+        HttpResponse.json({
+          data: {
+            revision: 1,
+            definition,
+            activeVersionId: null,
+            versions: [],
+          },
+        }),
+      ),
+      http.post('/api/admin/bot-flow/simulate', async ({ request }) => {
+        const body = (await request.json()) as {
+          scenario: string;
+          messages: string[];
+        };
+        calls.push(body);
+        return HttpResponse.json({
+          data: {
+            fixture: {
+              label: 'Ejemplo: no es un pedido real',
+              orderNumber: 'PED-DEMO',
+              reference: '01',
+              size: '37',
+              productName: 'Tenis de ejemplo',
+              productSubtotalCop: 120000,
+              shippingCostCop: 18000,
+              totalCop: 138000,
+              carrier: 'Envia',
+              address: 'Calle 10 # 20-30',
+              locality: 'Medellín',
+              department: 'Antioquia',
+              imageUrl: null,
+            },
+            events: body.messages.map((input, index) => ({
+              input,
+              state: index === 0 ? 'awaiting_size' : 'showing_models',
+              reply: index === 0 ? '¡Hola! ¿Qué talla buscas?' : null,
+              action: index === 0 ? null : 'show_catalog',
+            })),
+            sideEffects: false,
+          },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<BotFlowPage />);
+    await user.click(await screen.findByRole('tab', { name: 'Simular' }));
+
+    await user.click(screen.getByRole('button', { name: 'Compra disponible' }));
+    expect(
+      await screen.findByText('Ejemplo: no es un pedido real'),
+    ).toBeVisible();
+    expect(screen.getByText(/Tenis de ejemplo/)).toBeVisible();
+    expect(
+      screen.getByRole('log', { name: 'Conversación simulada' }),
+    ).toBeVisible();
+    expect(calls.at(-1)?.messages).toEqual([
+      'hola',
+      '37',
+      '01',
+      'Ana Ejemplo',
+      '3000000000',
+      'Antioquia',
+      'Medellín',
+      'Calle 10 # 20-30',
+      'ninguna',
+      'confirmar',
+    ]);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Conversación paso a paso' }),
+    );
+    const response = screen.getByRole('textbox', {
+      name: 'Respuesta del cliente',
+    });
+    await user.type(response, '37{Enter}');
+    expect(calls.at(-1)?.messages).toEqual(['hola', '37']);
+    expect(response).toHaveFocus();
+
+    expect(
+      screen.getByLabelText('Mensajes para pruebas avanzadas'),
+    ).not.toBeVisible();
+    await user.click(screen.getByText('Pruebas avanzadas'));
+    expect(
+      screen.getByLabelText('Mensajes para pruebas avanzadas'),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Probar mensajes avanzados' }),
+    ).toBeVisible();
+  });
+
+  it('offers all six scenario controls and resets the conversation without a request', async () => {
+    let simulationCalls = 0;
+    server.use(
+      http.get('/api/admin/auth/session', () =>
+        HttpResponse.json({ data: { user: adminUser } }),
+      ),
+      http.get('/api/admin/bot-flow', () =>
+        HttpResponse.json({
+          data: {
+            revision: 1,
+            definition,
+            activeVersionId: null,
+            versions: [],
+          },
+        }),
+      ),
+      http.post('/api/admin/bot-flow/simulate', () => {
+        simulationCalls += 1;
+        return HttpResponse.json({
+          data: {
+            events: [],
+            fixture: simulationFixture,
+            sideEffects: false,
+          },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<BotFlowPage />);
+    await user.click(await screen.findByRole('tab', { name: 'Simular' }));
+
+    expect(
+      screen.getByRole('button', { name: 'Compra disponible' }),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Talla agotada' })).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Municipio inválido' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Transportadora bloqueada' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Alternativa permitida' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Cotización vencida' }),
+    ).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Compra disponible' }));
+    expect(
+      await screen.findByRole('button', { name: 'Reiniciar simulación' }),
+    ).toBeVisible();
+    const callsBeforeReset = simulationCalls;
+    await user.click(
+      screen.getByRole('button', { name: 'Reiniciar simulación' }),
+    );
+    expect(
+      screen.queryByRole('log', { name: 'Conversación simulada' }),
+    ).toBeNull();
+    expect(simulationCalls).toBe(callsBeforeReset);
   });
 });

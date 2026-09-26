@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   BotFlowDraftBodySchema,
   BotFlowSimulationBodySchema,
+  BotFlowSimulationResultSchema,
 } from '@camila/contracts';
 import type { AuditService } from '../../modules/audit/audit-service.js';
 import {
@@ -101,7 +102,9 @@ export function registerBotFlowRoutes(
         },
       });
     return {
-      data: simulateBotFlow(body.definition, body.messages, body.scenario),
+      data: BotFlowSimulationResultSchema.parse(
+        simulateBotFlow(body.definition, body.messages, body.scenario),
+      ),
     };
   });
 }

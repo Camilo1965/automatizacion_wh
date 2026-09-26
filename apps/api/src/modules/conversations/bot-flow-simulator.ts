@@ -17,6 +17,23 @@ export type SimulationScenario =
   | 'blocked_carrier'
   | 'fallback'
   | 'expired_quote';
+
+export const BOT_FLOW_DEMO_FIXTURE = {
+  label: 'Ejemplo: no es un pedido real',
+  orderNumber: 'PED-DEMO',
+  reference: '01',
+  size: '37',
+  productName: 'Tenis de ejemplo',
+  productSubtotalCop: 120000,
+  shippingCostCop: 18000,
+  totalCop: 138000,
+  carrier: 'Envia',
+  address: 'Calle 10 # 20-30',
+  locality: 'Medellín',
+  department: 'Antioquia',
+  imageUrl: null,
+} as const;
+
 export function simulateBotFlow(
   definition: BotFlowDefinition,
   messages: readonly string[],
@@ -26,12 +43,14 @@ export function simulateBotFlow(
   let attempts = 0;
   let human = false;
   let expired = false;
+  const money = (value: number) =>
+    new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(value);
   const variables = {
-    talla: '37',
-    referencia: '01',
-    nombre: 'Cliente de prueba',
-    pedido: 'PED-DEMO',
-    total: '$138.000 COP',
+    talla: BOT_FLOW_DEMO_FIXTURE.size,
+    referencia: BOT_FLOW_DEMO_FIXTURE.reference,
+    nombre: 'Cliente de ejemplo',
+    pedido: BOT_FLOW_DEMO_FIXTURE.orderNumber,
+    total: `$${money(BOT_FLOW_DEMO_FIXTURE.totalCop)} COP`,
     transportadora: 'Envia',
   };
   const demoSummary: OrderSummary = {
@@ -40,21 +59,24 @@ export function simulateBotFlow(
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     snapshot: {
       orderNumber: variables.pedido,
-      reference: { code: variables.referencia, modelName: 'Tenis de ejemplo' },
+      reference: {
+        code: variables.referencia,
+        modelName: BOT_FLOW_DEMO_FIXTURE.productName,
+      },
       size: variables.talla,
-      productSubtotalCop: 120000,
-      shippingCostCop: 18000,
+      productSubtotalCop: BOT_FLOW_DEMO_FIXTURE.productSubtotalCop,
+      shippingCostCop: BOT_FLOW_DEMO_FIXTURE.shippingCostCop,
       shippingPending: false,
-      totalCop: 138000,
+      totalCop: BOT_FLOW_DEMO_FIXTURE.totalCop,
       shippingQuote: {
-        carrier: variables.transportadora,
+        carrier: BOT_FLOW_DEMO_FIXTURE.carrier,
         insuranceMode: 'none',
       },
       customer: { name: variables.nombre },
       destination: {
-        address: 'Calle 10 # 20-30',
-        locality: 'Medellín',
-        department: 'Antioquia',
+        address: BOT_FLOW_DEMO_FIXTURE.address,
+        locality: BOT_FLOW_DEMO_FIXTURE.locality,
+        department: BOT_FLOW_DEMO_FIXTURE.department,
       },
     },
   };
@@ -109,7 +131,7 @@ export function simulateBotFlow(
       } else
         transition = {
           ...transition,
-          reply: `${scenario === 'fallback' ? 'La transportadora preferida no está disponible; se aplica la alternativa permitida.\n\n' : ''}[SIMULACIÓN · DATOS DE EJEMPLO]\n${formatOrderReview(demoSummary, definition)}`,
+          reply: `${scenario === 'fallback' ? 'La transportadora preferida no está disponible; se aplica la alternativa permitida.\n\n' : ''}${formatOrderReview(demoSummary, definition)}`,
         };
     }
     if (transition.action === 'confirm_order') {
@@ -139,5 +161,9 @@ export function simulateBotFlow(
       action: transition.action ?? null,
     };
   });
-  return { events, sideEffects: false as const };
+  return {
+    events,
+    fixture: BOT_FLOW_DEMO_FIXTURE,
+    sideEffects: false as const,
+  };
 }
