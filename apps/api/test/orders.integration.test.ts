@@ -4,6 +4,7 @@ import postgres from 'postgres';
 import { createPostgresDatabase } from '../src/database/client.js';
 import { runMigrations } from '../src/database/migrate.js';
 import { PostgresOrderRepository } from '../src/modules/orders/postgres-order-repository.js';
+import { OrderConflictError } from '../src/modules/orders/order-errors.js';
 import { OrderService } from '../src/modules/orders/order-service.js';
 import {
   assertTestDatabaseName,
@@ -29,6 +30,80 @@ describe('order lifecycle', () => {
       await sql`INSERT INTO shipping_localities (carrier_code, department, locality, normalized_name, source_sha256) VALUES ('11001', 'Bogotá', 'Bogotá', 'bogota', ${'a'.repeat(64)})`;
     } finally {
       await sql.end({ timeout: 5 });
+    }
+  });
+
+  it('copies a saved destination only while the draft, customer and locality remain eligible', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresOrderRepository(database);
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      const draft = await repository.create({
+        referenceId: '22222222-2222-4222-8222-222222222222',
+        size: '37',
+        quantity: 1,
+        customerName: 'Ana Gómez',
+        customerPhone: '3001234567',
+      });
+      const [linked] = await sql<{ customer_id: string }[]>`
+        SELECT customer_id FROM sales_orders WHERE id = ${draft.id}
+      `;
+      expect(linked?.customer_id).toBeTruthy();
+      const input = {
+        orderId: draft.id,
+        customerId: linked!.customer_id,
+        customerName: 'Ana Gómez',
+        address: 'Calle 9 # 10-11',
+        localityCarrierCode: '11001',
+      };
+      await repository.reuseDestination(input);
+      const [updated] = await sql<
+        {
+          customer_name: string;
+          address: string;
+          locality_department: string;
+          locality_name: string;
+        }[]
+      >`SELECT customer_name, address, locality_department, locality_name FROM sales_orders WHERE id = ${draft.id}`;
+      expect(updated).toEqual({
+        customer_name: 'Ana Gómez',
+        address: 'Calle 9 # 10-11',
+        locality_department: 'Bogotá',
+        locality_name: 'Bogotá',
+      });
+      await expect(
+        repository.reuseDestination({
+          ...input,
+          customerId: '99999999-9999-4999-8999-999999999999',
+        }),
+      ).rejects.toMatchObject({
+        name: OrderConflictError.name,
+        code: 'customer_identity_mismatch',
+      });
+      await sql`UPDATE customers SET needs_review = true WHERE id = ${input.customerId}`;
+      await expect(repository.reuseDestination(input)).rejects.toMatchObject({
+        name: OrderConflictError.name,
+        code: 'customer_identity_mismatch',
+      });
+      await sql`UPDATE customers SET needs_review = false WHERE id = ${input.customerId}`;
+      await sql`UPDATE shipping_localities SET active = false WHERE carrier_code = '11001'`;
+      await expect(repository.reuseDestination(input)).rejects.toMatchObject({
+        name: OrderConflictError.name,
+        code: 'customer_identity_mismatch',
+      });
+      await sql`UPDATE shipping_localities SET active = true WHERE carrier_code = '11001'`;
+      await sql`UPDATE sales_orders SET status = 'cancelled' WHERE id = ${draft.id}`;
+      await expect(repository.reuseDestination(input)).rejects.toMatchObject({
+        name: OrderConflictError.name,
+        code: 'customer_identity_mismatch',
+      });
+      const [unchanged] = await sql<{ address: string }[]>`
+        SELECT address FROM sales_orders WHERE id = ${draft.id}
+      `;
+      expect(unchanged?.address).toBe('Calle 9 # 10-11');
+    } finally {
+      await sql.end({ timeout: 5 });
+      await database.close();
     }
   });
 

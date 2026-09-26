@@ -840,13 +840,32 @@ export class WhatsAppSalesService {
       result.customerId == null
     )
       throw new Error('Saved destination update unavailable');
-    await this.orders.reuseDestination({
-      orderId: result.activeOrderId,
-      customerId: result.customerId,
-      customerName: saved.customerName,
-      address: saved.address,
-      localityCarrierCode: covered.carrierCode,
-    });
+    try {
+      await this.orders.reuseDestination({
+        orderId: result.activeOrderId,
+        customerId: result.customerId,
+        customerName: saved.customerName,
+        address: saved.address,
+        localityCarrierCode: covered.carrierCode,
+      });
+    } catch (error) {
+      if (
+        !(error instanceof OrderConflictError) ||
+        error.code !== 'customer_identity_mismatch'
+      )
+        throw error;
+      await this.conversations.setState?.(
+        result.conversationId,
+        'awaiting_name',
+      );
+      await this.queueText(
+        result.conversationId,
+        input,
+        'El destino anterior ya no está disponible para este pedido. Necesito los datos de entrega de nuevo. ¿Cuál es tu nombre completo?',
+        'reuse-conflict',
+      );
+      return;
+    }
     await this.prepareSummary(result, input);
   }
 

@@ -2007,4 +2007,34 @@ describe('saved destination reuse', () => {
       /cobertura/i,
     );
   });
+
+  it('requests new details when the guarded destination copy finds no eligible order', async () => {
+    const f = fixture('reuse_destination');
+    f.orders.reuseDestination.mockRejectedValue(
+      new OrderConflictError(
+        'customer_identity_mismatch',
+        'El destino anterior ya no está disponible para este pedido.',
+      ),
+    );
+    await f.service.process(inbound);
+    expect(f.conversations.setState).toHaveBeenCalledWith(
+      'conversation-1',
+      'awaiting_name',
+    );
+    expect(f.outbound.enqueueText.mock.calls.at(-1)?.[0].body).toMatch(
+      /destino anterior.*no está disponible.*nombre completo/i,
+    );
+    expect(f.shipping.createQuotes).not.toHaveBeenCalled();
+  });
+
+  it('propagates an unexpected destination copy failure', async () => {
+    const f = fixture('reuse_destination');
+    f.orders.reuseDestination.mockRejectedValue(new Error('database failed'));
+    await expect(f.service.process(inbound)).rejects.toThrow('database failed');
+    expect(f.conversations.setState).not.toHaveBeenCalledWith(
+      'conversation-1',
+      'awaiting_name',
+    );
+    expect(f.outbound.enqueueText).not.toHaveBeenCalled();
+  });
 });
