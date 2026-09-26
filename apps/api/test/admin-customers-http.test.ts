@@ -40,6 +40,7 @@ describe('admin customer HTTP API', () => {
       nextCursor: null,
     });
     const repository: CustomerRepository = {
+      latestUsableDestination: vi.fn().mockResolvedValue(null),
       list,
       get: vi.fn().mockResolvedValue(null),
       reconciliation: vi

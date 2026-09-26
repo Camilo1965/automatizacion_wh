@@ -1,4 +1,5 @@
 import { OrderConflictError } from '../orders/order-errors.js';
+import type { SavedDestination } from '../customers/postgres-customer-repository.js';
 import type {
   AvailableCatalogItem,
   AvailableCatalogPage,
@@ -117,6 +118,13 @@ type OrderPort = Readonly<{
     Pick<OrderRecord, 'id'> & Partial<Pick<OrderRecord, 'orderNumber'>>
   >;
   update?(input: PatchOrderInput): Promise<unknown>;
+  reuseDestination?(input: {
+    orderId: string;
+    customerId: string;
+    customerName: string;
+    address: string;
+    localityCarrierCode: string;
+  }): Promise<void>;
   createSummary?(orderId: string): Promise<OrderSummary>;
   get?(
     orderId: string,
@@ -221,6 +229,11 @@ export class WhatsAppSalesService {
     private readonly getOwnerSettings?: () => Promise<
       Parameters<typeof ownerAvailabilityMessage>[0]
     >,
+    private readonly customers?: Readonly<{
+      latestUsableDestination(
+        customerId: string,
+      ): Promise<SavedDestination | null>;
+    }>,
   ) {}
 
   async process(input: ReceiveConversationInput): Promise<void> {
@@ -228,6 +241,7 @@ export class WhatsAppSalesService {
     if (
       result.conversationId === undefined ||
       (result.duplicate &&
+        result.action !== 'select_reference' &&
         result.action !== 'cancel_order' &&
         result.action !== 'edit_product' &&
         result.action !== 'edit_address' &&
@@ -412,39 +426,72 @@ export class WhatsAppSalesService {
         result.selectedSize !== undefined &&
         result.selectedSize !== null
       ) {
-        const order = await this.orders.create({
-          referenceId: option.referenceId,
-          size: result.selectedSize,
-          quantity: 1,
-          customerPhone: input.customerPhone,
-          ...(result.customerId === undefined
-            ? {}
-            : { customerId: result.customerId }),
-        });
-        await this.conversations.attachOrder(
-          result.conversationId,
-          option.referenceId,
-          order.id,
-        );
+        const order =
+          result.duplicate && result.activeOrderId != null
+            ? { id: result.activeOrderId }
+            : await this.orders.create({
+                referenceId: option.referenceId,
+                size: result.selectedSize,
+                quantity: 1,
+                customerPhone: input.customerPhone,
+                ...(result.customerId === undefined
+                  ? {}
+                  : { customerId: result.customerId }),
+              });
+        if (!result.duplicate)
+          await this.conversations.attachOrder(
+            result.conversationId,
+            option.referenceId,
+            order.id,
+          );
+        let savedDestination: SavedDestination | null = null;
+        if (result.customerId != null) {
+          try {
+            savedDestination =
+              (await this.customers?.latestUsableDestination(
+                result.customerId,
+              )) ?? null;
+          } catch {
+            // An unavailable history lookup must not interrupt address capture.
+          }
+        }
+        if (savedDestination !== null && this.conversations.setState) {
+          await this.conversations.setState(
+            result.conversationId,
+            'awaiting_reuse_confirmation',
+          );
+        } else if (result.state === 'awaiting_reuse_confirmation') {
+          await this.conversations.setState?.(
+            result.conversationId,
+            'awaiting_name',
+          );
+        }
         await this.queueText(
           result.conversationId,
           input,
           `Elegiste REF ${option.code} · ${option.modelName}. ${
-            result.flow === undefined
-              ? '¿Cuál es tu nombre completo?'
-              : renderFlowMessage(result.flow.steps.name.message, {
-                  ...result.variables,
-                  talla: displaySize(result.selectedSize),
-                  pedido:
-                    order.orderNumber === undefined
-                      ? ''
-                      : `PED-${String(order.orderNumber).padStart(6, '0')}`,
-                  referencia: option.code,
-                })
+            savedDestination !== null && this.conversations.setState
+              ? '¿Quieres usar los datos de entrega de tu pedido anterior? Responde “sí” o “cambiar dirección”.'
+              : result.flow === undefined
+                ? '¿Cuál es tu nombre completo?'
+                : renderFlowMessage(result.flow.steps.name.message, {
+                    ...result.variables,
+                    talla: displaySize(result.selectedSize),
+                    pedido:
+                      !('orderNumber' in order) ||
+                      order.orderNumber === undefined
+                        ? ''
+                        : `PED-${String(order.orderNumber).padStart(6, '0')}`,
+                    referencia: option.code,
+                  })
           }`,
           'reference-selected',
         );
       }
+    }
+    if (result.action === 'reuse_destination' && result.activeOrderId != null) {
+      await this.reuseSavedDestination(result, input);
+      return;
     }
     if (
       result.activeOrderId !== undefined &&
@@ -715,6 +762,92 @@ export class WhatsAppSalesService {
       expectedEditAction: result.summaryEditAction ?? null,
       expectedGeneration: result.summaryGeneration ?? 0,
     });
+  }
+
+  private async reuseSavedDestination(
+    result: ReceiveConversationResult,
+    input: ReceiveConversationInput,
+  ): Promise<void> {
+    if (result.conversationId === undefined || result.activeOrderId == null)
+      return;
+    let saved: SavedDestination | null = null;
+    let lookupFailed = false;
+    if (result.customerId != null) {
+      try {
+        saved =
+          (await this.customers?.latestUsableDestination(result.customerId)) ??
+          null;
+      } catch {
+        lookupFailed = true;
+      }
+    }
+    if (saved === null) {
+      await this.conversations.setState?.(
+        result.conversationId,
+        'awaiting_name',
+      );
+      await this.queueText(
+        result.conversationId,
+        input,
+        lookupFailed
+          ? 'No pude comprobar los datos de entrega anteriores. Necesito pedirlos de nuevo. ¿Cuál es tu nombre completo?'
+          : 'Ya no tengo un destino anterior completo y disponible. ¿Cuál es tu nombre completo?',
+        'reuse-missing',
+      );
+      return;
+    }
+    let localities: Awaited<ReturnType<LocalityPort['list']>> | undefined;
+    try {
+      localities = await this.localities?.list({
+        department: saved.localityDepartment,
+        query: saved.localityName,
+        limit: 10,
+      });
+    } catch {
+      await this.conversations.setState?.(
+        result.conversationId,
+        'awaiting_name',
+      );
+      await this.queueText(
+        result.conversationId,
+        input,
+        'No pude comprobar la cobertura de la localidad anterior. Necesito los datos de entrega de nuevo. ¿Cuál es tu nombre completo?',
+        'reuse-coverage-unavailable',
+      );
+      return;
+    }
+    const covered = localities?.items.find(
+      (item) =>
+        item.carrierCode === saved.localityCarrierCode &&
+        item.department === saved.localityDepartment &&
+        item.locality === saved.localityName,
+    );
+    if (covered === undefined) {
+      await this.conversations.setState?.(
+        result.conversationId,
+        'awaiting_name',
+      );
+      await this.queueText(
+        result.conversationId,
+        input,
+        'La localidad anterior ya no tiene cobertura confirmada. Necesito los datos de entrega de nuevo. ¿Cuál es tu nombre completo?',
+        'reuse-no-coverage',
+      );
+      return;
+    }
+    if (
+      this.orders?.reuseDestination === undefined ||
+      result.customerId == null
+    )
+      throw new Error('Saved destination update unavailable');
+    await this.orders.reuseDestination({
+      orderId: result.activeOrderId,
+      customerId: result.customerId,
+      customerName: saved.customerName,
+      address: saved.address,
+      localityCarrierCode: covered.carrierCode,
+    });
+    await this.prepareSummary(result, input);
   }
 
   private async handOverUnquotedSummary(

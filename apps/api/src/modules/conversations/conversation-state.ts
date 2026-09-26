@@ -2,6 +2,7 @@ export type ConversationState =
   | 'awaiting_size'
   | 'showing_models'
   | 'awaiting_name'
+  | 'awaiting_reuse_confirmation'
   | 'awaiting_phone'
   | 'awaiting_department'
   | 'awaiting_locality'
@@ -22,6 +23,8 @@ export type ConversationTransition = Readonly<{
     | 'human_takeover'
     | 'more_models'
     | 'select_reference'
+    | 'reuse_destination'
+    | 'capture_new_destination'
     | 'collect_name'
     | 'collect_phone'
     | 'collect_department'
@@ -121,6 +124,21 @@ export function advanceConversation(
     };
   }
   const value = message.trim();
+  if (state === 'awaiting_reuse_confirmation') {
+    if (normalized === 'si')
+      return { state, reply: null, action: 'reuse_destination' };
+    if (normalized === 'cambiar direccion')
+      return {
+        state: 'awaiting_name',
+        reply: '¿Cuál es tu nombre completo?',
+        action: 'capture_new_destination',
+      };
+    return {
+      state,
+      reply:
+        'Responde “sí” para usar los datos anteriores o “cambiar dirección” para escribirlos de nuevo.',
+    };
+  }
   if (state === 'awaiting_name') {
     return value.length >= 2 && value.length <= 120
       ? {

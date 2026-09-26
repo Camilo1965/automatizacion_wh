@@ -3,6 +3,26 @@ import { describe, expect, it } from 'vitest';
 import { advanceConversation } from '../src/modules/conversations/conversation-state.js';
 
 describe('advanceConversation', () => {
+  it('requires an explicit yes before reusing a saved destination', () => {
+    expect(
+      advanceConversation('awaiting_reuse_confirmation', 'sí'),
+    ).toMatchObject({
+      state: 'awaiting_reuse_confirmation',
+      action: 'reuse_destination',
+    });
+    expect(
+      advanceConversation('awaiting_reuse_confirmation', 'confirmar').action,
+    ).toBeUndefined();
+  });
+
+  it('starts normal capture when the customer changes the saved address', () => {
+    expect(
+      advanceConversation('awaiting_reuse_confirmation', 'cambiar dirección'),
+    ).toMatchObject({
+      state: 'awaiting_name',
+      action: 'capture_new_destination',
+    });
+  });
   it('moves a first customer message to awaiting_size and queues the welcome', () => {
     expect(advanceConversation(null, 'hola')).toEqual({
       state: 'awaiting_size',

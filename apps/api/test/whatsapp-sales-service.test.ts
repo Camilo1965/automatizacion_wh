@@ -1753,3 +1753,258 @@ describe('WhatsAppSalesService', () => {
     });
   });
 });
+
+describe('saved destination reuse', () => {
+  const saved = {
+    customerName: 'Ana López',
+    address: 'Carrera 9 # 10-11, apartamento 202',
+    localityDepartment: 'Antioquia',
+    localityName: 'Medellín',
+    localityCarrierCode: '05001000',
+  };
+  function fixture(action: string, destination: typeof saved | null = saved) {
+    const conversations = {
+      receive: vi.fn().mockResolvedValue({
+        duplicate: false,
+        conversationId: 'conversation-1',
+        customerId: 'customer-1',
+        reply: null,
+        state:
+          action === 'select_reference'
+            ? 'showing_models'
+            : 'awaiting_reuse_confirmation',
+        action,
+        activeOrderId: action === 'select_reference' ? null : 'order-2',
+        selectedSize: '37.0',
+        input: action === 'select_reference' ? '01' : undefined,
+      }),
+      attachOrder: vi.fn(),
+      returnToSize: vi.fn(),
+      setState: vi.fn(),
+      publishSummary: vi.fn().mockResolvedValue(true),
+    };
+    const orders = {
+      create: vi.fn().mockResolvedValue({ id: 'order-2', orderNumber: 2 }),
+      update: vi.fn(),
+      reuseDestination: vi.fn(),
+      createSummary: vi.fn().mockResolvedValue({
+        version: 1,
+        snapshot: {
+          totalCop: 130000,
+          shippingCostCop: 10000,
+          shippingQuote: { carrier: 'envia' },
+        },
+      }),
+    };
+    const customers = {
+      latestUsableDestination: vi.fn().mockResolvedValue(destination),
+    };
+    const localities = {
+      list: vi.fn().mockResolvedValue({
+        items: [
+          {
+            carrierCode: '05001000',
+            department: 'Antioquia',
+            locality: 'Medellín',
+          },
+        ],
+      }),
+    };
+    const shipping = { createQuotes: vi.fn() };
+    const outbound = { enqueueText: vi.fn(), enqueueImage: vi.fn() };
+    const menus = {
+      create: vi.fn(),
+      findOption: vi.fn().mockResolvedValue({
+        referenceId: 'reference-1',
+        code: '01',
+        modelName: 'Tenis',
+      }),
+      getNextCursor: vi.fn(),
+    };
+    const service = new WhatsAppSalesService(
+      conversations,
+      { listAvailableForConfirmedSize: vi.fn() },
+      menus,
+      outbound,
+      orders,
+      localities,
+      undefined,
+      shipping,
+      undefined,
+      undefined,
+      customers,
+    );
+    return {
+      service,
+      conversations,
+      orders,
+      customers,
+      localities,
+      shipping,
+      outbound,
+    };
+  }
+  const inbound = {
+    whatsappMessageId: 'wamid.reuse',
+    customerPhone: '+573001234567',
+    text: 'sí',
+  };
+
+  it('offers a recurring customer the saved destination without revealing the address', async () => {
+    const f = fixture('select_reference');
+    await f.service.process(inbound);
+    expect(f.customers.latestUsableDestination).toHaveBeenCalledWith(
+      'customer-1',
+    );
+    expect(f.conversations.setState).toHaveBeenCalledWith(
+      'conversation-1',
+      'awaiting_reuse_confirmation',
+    );
+    const bodies = f.outbound.enqueueText.mock.calls
+      .map(([message]) => message.body)
+      .join('\n');
+    expect(bodies).toMatch(/pedido anterior/i);
+    expect(bodies).not.toContain(saved.address);
+    expect(f.orders.reuseDestination).not.toHaveBeenCalled();
+  });
+
+  it('asks a first buyer for a name', async () => {
+    const f = fixture('select_reference', null);
+    await f.service.process(inbound);
+    expect(f.conversations.setState).not.toHaveBeenCalled();
+    expect(f.outbound.enqueueText.mock.calls.at(-1)?.[0].body).toMatch(
+      /nombre completo/i,
+    );
+  });
+
+  it('asks for normal capture when saved destination lookup fails', async () => {
+    const f = fixture('select_reference');
+    f.customers.latestUsableDestination.mockRejectedValue(
+      new Error('customer read unavailable'),
+    );
+    await f.service.process(inbound);
+    expect(f.outbound.enqueueText.mock.calls.at(-1)?.[0].body).toMatch(
+      /nombre completo/i,
+    );
+    expect(f.conversations.setState).not.toHaveBeenCalledWith(
+      'conversation-1',
+      'awaiting_reuse_confirmation',
+    );
+  });
+
+  it('replays the reference prompt after an outbox failure without creating another order', async () => {
+    const f = fixture('select_reference');
+    f.outbound.enqueueText.mockRejectedValueOnce(
+      new Error('outbox unavailable'),
+    );
+    await expect(f.service.process(inbound)).rejects.toThrow(
+      'outbox unavailable',
+    );
+    f.conversations.receive.mockResolvedValueOnce({
+      duplicate: true,
+      conversationId: 'conversation-1',
+      customerId: 'customer-1',
+      state: 'awaiting_reuse_confirmation',
+      reply: null,
+      action: 'select_reference',
+      activeOrderId: 'order-2',
+      selectedSize: '37.0',
+      input: '01',
+    });
+    await f.service.process(inbound);
+    expect(f.orders.create).toHaveBeenCalledTimes(1);
+    expect(f.outbound.enqueueText.mock.calls.at(-1)?.[0].body).toMatch(
+      /pedido anterior/i,
+    );
+  });
+
+  it('returns to name capture if saved data lookup fails during prompt replay', async () => {
+    const f = fixture('select_reference');
+    f.conversations.receive.mockResolvedValueOnce({
+      duplicate: true,
+      conversationId: 'conversation-1',
+      customerId: 'customer-1',
+      state: 'awaiting_reuse_confirmation',
+      reply: null,
+      action: 'select_reference',
+      activeOrderId: 'order-2',
+      selectedSize: '37.0',
+      input: '01',
+    });
+    f.customers.latestUsableDestination.mockRejectedValue(
+      new Error('customer read unavailable'),
+    );
+    await f.service.process(inbound);
+    expect(f.conversations.setState).toHaveBeenCalledWith(
+      'conversation-1',
+      'awaiting_name',
+    );
+    expect(f.outbound.enqueueText.mock.calls.at(-1)?.[0].body).toMatch(
+      /nombre completo/i,
+    );
+  });
+
+  it('copies the saved destination only after yes and validates coverage before quoting', async () => {
+    const f = fixture('reuse_destination');
+    await f.service.process(inbound);
+    expect(f.localities.list).toHaveBeenCalledWith({
+      department: 'Antioquia',
+      query: 'Medellín',
+      limit: 10,
+    });
+    expect(f.orders.reuseDestination).toHaveBeenCalledWith({
+      orderId: 'order-2',
+      customerId: 'customer-1',
+      customerName: saved.customerName,
+      address: saved.address,
+      localityCarrierCode: saved.localityCarrierCode,
+    });
+    expect(f.shipping.createQuotes).toHaveBeenCalledWith('order-2');
+    expect(f.conversations.publishSummary).toHaveBeenCalled();
+  });
+
+  it('returns to normal capture when the former destination lacks coverage', async () => {
+    const f = fixture('reuse_destination');
+    f.localities.list.mockResolvedValue({ items: [] });
+    await f.service.process(inbound);
+    expect(f.orders.reuseDestination).not.toHaveBeenCalled();
+    expect(f.shipping.createQuotes).not.toHaveBeenCalled();
+    expect(f.conversations.setState).toHaveBeenCalledWith(
+      'conversation-1',
+      'awaiting_name',
+    );
+    expect(f.outbound.enqueueText.mock.calls.at(-1)?.[0].body).toMatch(
+      /cobertura/i,
+    );
+  });
+
+  it('returns to name capture when saved data cannot be read after yes', async () => {
+    const f = fixture('reuse_destination');
+    f.customers.latestUsableDestination.mockRejectedValue(
+      new Error('customer read unavailable'),
+    );
+    await f.service.process(inbound);
+    expect(f.orders.reuseDestination).not.toHaveBeenCalled();
+    expect(f.conversations.setState).toHaveBeenCalledWith(
+      'conversation-1',
+      'awaiting_name',
+    );
+    expect(f.outbound.enqueueText.mock.calls.at(-1)?.[0].body).toMatch(
+      /datos de entrega/i,
+    );
+  });
+
+  it('returns to name capture when coverage cannot be checked after yes', async () => {
+    const f = fixture('reuse_destination');
+    f.localities.list.mockRejectedValue(new Error('catalog unavailable'));
+    await f.service.process(inbound);
+    expect(f.orders.reuseDestination).not.toHaveBeenCalled();
+    expect(f.conversations.setState).toHaveBeenCalledWith(
+      'conversation-1',
+      'awaiting_name',
+    );
+    expect(f.outbound.enqueueText.mock.calls.at(-1)?.[0].body).toMatch(
+      /cobertura/i,
+    );
+  });
+});

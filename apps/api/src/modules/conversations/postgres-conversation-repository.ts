@@ -133,7 +133,8 @@ export class PostgresConversationRepository {
           existing.state === duplicate.stateAfter;
         const [originalInbound] =
           duplicate.continuationAction === 'collect_address' ||
-          duplicate.continuationAction === 'collect_locality'
+          duplicate.continuationAction === 'collect_locality' ||
+          duplicate.continuationAction === 'select_reference'
             ? await tx
                 .select({ textBody: whatsappConversationMessages.textBody })
                 .from(whatsappConversationMessages)
@@ -145,6 +146,16 @@ export class PostgresConversationRepository {
                 )
                 .limit(1)
             : [];
+        const recoverReference =
+          duplicate.conversationId === existing?.id &&
+          existing.mode === 'bot' &&
+          duplicate.continuationAction === 'select_reference' &&
+          duplicate.stateAfter === 'showing_models' &&
+          (existing.state === 'awaiting_name' ||
+            existing.state === 'awaiting_reuse_confirmation') &&
+          existing.activeOrderId !== null &&
+          existing.selectedReferenceId !== null &&
+          originalInbound?.textBody != null;
         const recoverSummary =
           duplicate.conversationId === existing?.id &&
           existing.mode === 'bot' &&
@@ -208,6 +219,19 @@ export class PostgresConversationRepository {
                 summaryEditAction: existing.summaryEditAction as
                   'edit_address' | 'edit_locality',
                 summaryGeneration: existing.summaryGeneration,
+                flow: BotFlowDefinitionSchema.parse(
+                  existing.flowSnapshot ?? createDefaultBotFlow(),
+                ),
+              }
+            : {}),
+          ...(recoverReference
+            ? {
+                conversationId: duplicate.conversationId,
+                customerId: existing.customerId,
+                action: 'select_reference' as const,
+                input: originalInbound.textBody!,
+                activeOrderId: existing.activeOrderId,
+                selectedSize: existing.selectedSize,
                 flow: BotFlowDefinitionSchema.parse(
                   existing.flowSnapshot ?? createDefaultBotFlow(),
                 ),
@@ -404,6 +428,7 @@ export class PostgresConversationRepository {
             ? transition.action
             : null,
         continuationAction:
+          transition.action === 'select_reference' ||
           transition.action === 'human_takeover' ||
           transition.action === 'edit_address' ||
           transition.action === 'edit_locality' ||

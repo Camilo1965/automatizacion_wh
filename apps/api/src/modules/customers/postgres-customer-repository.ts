@@ -9,6 +9,13 @@ import {
 
 export type CustomerSegment = 'buyer' | 'not_yet_buyer' | 'needs_review';
 export type CustomerCursor = Readonly<{ createdAt: string; id: string }>;
+export type SavedDestination = Readonly<{
+  customerName: string;
+  address: string;
+  localityCarrierCode: string;
+  localityDepartment: string;
+  localityName: string;
+}>;
 export type CustomerSummary = Readonly<{
   id: string;
   displayName: string | null;
@@ -55,6 +62,7 @@ export type CustomerReconciliation = Readonly<{
 }>;
 
 export interface CustomerRepository {
+  latestUsableDestination(customerId: string): Promise<SavedDestination | null>;
   list(input: {
     segment?: CustomerSegment;
     query?: string;
@@ -107,6 +115,51 @@ function orderNumber(value: number): string {
 
 export class PostgresCustomerRepository implements CustomerRepository {
   constructor(private readonly database: PostgresDatabase) {}
+
+  async latestUsableDestination(
+    customerId: string,
+  ): Promise<SavedDestination | null> {
+    const [row] = await this.database.orm
+      .select({
+        customerName: salesOrders.customerName,
+        address: salesOrders.address,
+        localityCarrierCode: salesOrders.localityCarrierCode,
+        localityDepartment: salesOrders.localityDepartment,
+        localityName: salesOrders.localityName,
+      })
+      .from(salesOrders)
+      .innerJoin(customers, eq(salesOrders.customerId, customers.id))
+      .where(
+        and(
+          eq(customers.id, customerId),
+          eq(customers.needsReview, false),
+          sql`${customers.normalizedPhone} IS NOT NULL`,
+          sql`${salesOrders.status} IN ('confirmed', 'dispatched', 'delivered')`,
+          sql`NULLIF(BTRIM(${salesOrders.customerName}), '') IS NOT NULL`,
+          sql`NULLIF(BTRIM(${salesOrders.address}), '') IS NOT NULL`,
+          sql`NULLIF(BTRIM(${salesOrders.localityCarrierCode}), '') IS NOT NULL`,
+          sql`NULLIF(BTRIM(${salesOrders.localityDepartment}), '') IS NOT NULL`,
+          sql`NULLIF(BTRIM(${salesOrders.localityName}), '') IS NOT NULL`,
+        ),
+      )
+      .orderBy(desc(salesOrders.createdAt), desc(salesOrders.id))
+      .limit(1);
+    if (
+      row?.customerName == null ||
+      row.address == null ||
+      row.localityCarrierCode == null ||
+      row.localityDepartment == null ||
+      row.localityName == null
+    )
+      return null;
+    return {
+      customerName: row.customerName,
+      address: row.address,
+      localityCarrierCode: row.localityCarrierCode,
+      localityDepartment: row.localityDepartment,
+      localityName: row.localityName,
+    };
+  }
 
   async list(input: {
     segment?: CustomerSegment;

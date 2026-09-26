@@ -225,6 +225,7 @@ export async function createRuntime(
     shippingQuoteService,
     alertService,
     async () => (await integrationSettingsService?.getWhatsApp()) ?? null,
+    new PostgresCustomerRepository(database),
   );
   const conversationAdminRepository = new PostgresConversationAdminRepository(
     database,

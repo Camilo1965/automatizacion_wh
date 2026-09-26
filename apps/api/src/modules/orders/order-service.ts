@@ -20,6 +20,13 @@ export interface OrderRepository {
   find(orderId: string): Promise<OrderRecord | null>;
   list(input: OrderListInput): Promise<OrderPage>;
   update(input: PatchOrderInput): Promise<OrderRecord>;
+  reuseDestination(input: {
+    orderId: string;
+    customerId: string;
+    customerName: string;
+    address: string;
+    localityCarrierCode: string;
+  }): Promise<void>;
   createSummary(orderId: string): Promise<OrderSummary>;
   transition(
     input: Readonly<{
@@ -67,6 +74,16 @@ export class OrderService {
         'Only draft orders can be edited',
       );
     return this.repository.update(input);
+  }
+
+  reuseDestination(input: {
+    orderId: string;
+    customerId: string;
+    customerName: string;
+    address: string;
+    localityCarrierCode: string;
+  }): Promise<void> {
+    return this.repository.reuseDestination(input);
   }
 
   async createSummary(orderId: string): Promise<OrderSummary> {

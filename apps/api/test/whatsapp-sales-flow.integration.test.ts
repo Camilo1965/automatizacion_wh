@@ -34,6 +34,57 @@ import { requireTestDatabaseUrl } from './helpers/test-database.js';
 const databaseUrl = requireTestDatabaseUrl();
 
 describe('complete WhatsApp sale', () => {
+  it('recovers a selected-reference prompt after the draft was attached', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const conversations = new PostgresConversationRepository(database);
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const customerPhone = '+573158191977';
+    const selection = {
+      whatsappMessageId: 'reuse-prompt-interrupted',
+      customerPhone,
+      text: '01',
+    };
+    try {
+      const started = await conversations.receive({
+        whatsappMessageId: 'reuse-prompt-start',
+        customerPhone,
+        text: 'hola',
+      });
+      await sql`UPDATE whatsapp_conversations SET state = 'showing_models', selected_size = '37.0' WHERE id = ${started.conversationId!}`;
+      expect((await conversations.receive(selection)).action).toBe(
+        'select_reference',
+      );
+      const order = await new OrderService(
+        new PostgresOrderRepository(database),
+        (id) => new PostgresCatalogRepository(database).findReferenceById(id),
+      ).create({
+        referenceId: '11111111-1111-4111-8111-111111111111',
+        size: '37.0',
+        quantity: 1,
+        customerPhone,
+      });
+      await conversations.attachOrder(
+        started.conversationId!,
+        order.referenceId,
+        order.id,
+      );
+      await conversations.setState(
+        started.conversationId!,
+        'awaiting_reuse_confirmation',
+      );
+      expect(await conversations.receive(selection)).toMatchObject({
+        duplicate: true,
+        conversationId: started.conversationId,
+        action: 'select_reference',
+        activeOrderId: order.id,
+        input: '01',
+        selectedSize: '37.0',
+      });
+    } finally {
+      await sql.end({ timeout: 5 });
+      await database.close();
+    }
+  });
   it('ignores a delayed unquoted review after the customer resets the conversation', async () => {
     const database = createPostgresDatabase(databaseUrl);
     const conversations = new PostgresConversationRepository(database);

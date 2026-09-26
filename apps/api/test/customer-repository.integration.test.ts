@@ -17,6 +17,33 @@ const review = '33333333-3333-4333-8333-333333333333';
 const returned = '44444444-4444-4444-8444-444444444444';
 
 describe('customer read model', () => {
+  it('returns only the latest usable destination for a linked, active customer', async () => {
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const database = createPostgresDatabase(databaseUrl);
+    try {
+      await sql`UPDATE sales_orders SET customer_name = 'Ana López', address = 'Carrera 9 # 10-11', locality_department = 'Antioquia', locality_name = 'Medellín', locality_carrier_code = '05001000' WHERE customer_id = ${buyer}`;
+      await sql`UPDATE sales_orders SET address = 'Otra dirección' WHERE customer_id = ${pending}`;
+      const repository = new PostgresCustomerRepository(database);
+      expect(await repository.latestUsableDestination(buyer)).toMatchObject({
+        customerName: 'Ana López',
+        address: 'Carrera 9 # 10-11',
+        localityDepartment: 'Antioquia',
+        localityName: 'Medellín',
+        localityCarrierCode: '05001000',
+      });
+      expect(await repository.latestUsableDestination(review)).toBeNull();
+      expect(
+        await repository.latestUsableDestination(
+          '99999999-9999-4999-8999-999999999999',
+        ),
+      ).toBeNull();
+      await sql`UPDATE customers SET display_name = NULL, normalized_phone = NULL, needs_review = true WHERE id = ${buyer}`;
+      expect(await repository.latestUsableDestination(buyer)).toBeNull();
+    } finally {
+      await sql.end({ timeout: 5 });
+      await database.close();
+    }
+  });
   beforeAll(async () => {
     assertTestDatabaseName(databaseUrl);
     await runMigrations(databaseUrl);

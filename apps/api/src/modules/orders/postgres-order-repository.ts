@@ -244,6 +244,41 @@ export class PostgresOrderRepository implements OrderRepository {
     };
   }
 
+  async reuseDestination(input: {
+    orderId: string;
+    customerId: string;
+    customerName: string;
+    address: string;
+    localityCarrierCode: string;
+  }): Promise<void> {
+    const [updated] = await this.database.orm
+      .update(salesOrders)
+      .set({
+        customerName: input.customerName,
+        address: input.address,
+        localityCarrierCode: sql`(SELECT carrier_code FROM shipping_localities WHERE carrier_code = ${input.localityCarrierCode} AND active = true)`,
+        localityDepartment: sql`(SELECT department FROM shipping_localities WHERE carrier_code = ${input.localityCarrierCode} AND active = true)`,
+        localityName: sql`(SELECT locality FROM shipping_localities WHERE carrier_code = ${input.localityCarrierCode} AND active = true)`,
+        draftVersion: sql`${salesOrders.draftVersion} + 1`,
+        updatedAt: sql`clock_timestamp()`,
+      })
+      .where(
+        and(
+          eq(salesOrders.id, input.orderId),
+          eq(salesOrders.customerId, input.customerId),
+          eq(salesOrders.status, 'draft'),
+          sql`EXISTS (SELECT 1 FROM ${customers} WHERE ${customers.id} = ${input.customerId} AND ${customers.needsReview} = false AND ${customers.normalizedPhone} IS NOT NULL)`,
+          sql`EXISTS (SELECT 1 FROM ${shippingLocalities} WHERE ${shippingLocalities.carrierCode} = ${input.localityCarrierCode} AND ${shippingLocalities.active} = true)`,
+        ),
+      )
+      .returning({ id: salesOrders.id });
+    if (updated === undefined)
+      throw new OrderConflictError(
+        'customer_identity_mismatch',
+        'El destino anterior ya no está disponible para este pedido.',
+      );
+  }
+
   async update(input: PatchOrderInput): Promise<OrderRecord> {
     const [initialIdentity] = await this.database.orm
       .select({
