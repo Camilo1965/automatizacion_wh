@@ -1235,6 +1235,10 @@ describe('WhatsAppSalesService', () => {
 
   it('creates a summary after delivery data and confirms with the inbound id', async () => {
     const flow = createDefaultBotFlow();
+    flow.steps.complete = {
+      enabled: true,
+      message: 'Pedido pagado, despachado y entregado.',
+    };
     const conversations = {
       receive: vi
         .fn()
@@ -1256,6 +1260,7 @@ describe('WhatsAppSalesService', () => {
           activeOrderId: 'order-1',
           activeSummaryVersion: 3,
           action: 'confirm_order',
+          variables: { pedido: 'PED-000123' },
         }),
       returnToSize: vi.fn(),
       publishSummary: vi.fn().mockResolvedValue(true),
@@ -1357,7 +1362,7 @@ describe('WhatsAppSalesService', () => {
     });
     expect(outbound.enqueueText).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: expect.stringContaining('quedó confirmado'),
+        body: 'Pedido PED-000123 confirmado; reservamos tu producto. Te avisaremos cuando la guía esté lista.',
       }),
     );
   });

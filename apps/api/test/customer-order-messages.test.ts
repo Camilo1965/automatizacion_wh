@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatOrderReview } from '../src/modules/conversations/customer-order-messages.js';
+import {
+  formatOrderConfirmation,
+  formatOrderReview,
+  formatOrderStatus,
+} from '../src/modules/conversations/customer-order-messages.js';
 import { createDefaultBotFlow } from '../src/modules/conversations/flow-definition.js';
 import type { OrderSummary } from '../src/modules/orders/order-types.js';
 
@@ -146,5 +150,24 @@ describe('customer order review', () => {
     const body = formatOrderReview(summary, flow);
     expect(body).not.toContain('envia');
     expect(body).toContain('Envío: $16.968 COP');
+  });
+});
+
+describe('customer order lifecycle messages', () => {
+  it('confirms reservation and promises only a later guide notification', () => {
+    const body = formatOrderConfirmation('PED-000123');
+
+    expect(body).toBe(
+      'Pedido PED-000123 confirmado; reservamos tu producto. Te avisaremos cuando la guía esté lista.',
+    );
+    expect(body).not.toMatch(/pagado|despachado|entregado/i);
+  });
+
+  it.each([
+    ['guide_created', 'Guía generada para el pedido PED-000123.'],
+    ['dispatched', 'El pedido PED-000123 fue despachado.'],
+    ['delivered', 'El pedido PED-000123 fue entregado.'],
+  ] as const)('formats the actual %s lifecycle event', (status, expected) => {
+    expect(formatOrderStatus(status, 'PED-000123')).toBe(expected);
   });
 });

@@ -26,6 +26,7 @@ export type TranscriptGuideEvent = Readonly<{
   id: string;
   conversationId: string;
   source: 'system';
+  eventType: 'guide_created';
   messageType: 'event';
   text: null;
   mediaUrl: null;
@@ -39,8 +40,24 @@ export type TranscriptGuideEvent = Readonly<{
   carrier: string;
 }>;
 
+export type TranscriptOrderStatusEvent = Readonly<{
+  id: string;
+  conversationId: string;
+  source: 'system';
+  eventType: 'order_status';
+  messageType: 'event';
+  text: null;
+  mediaUrl: null;
+  status: 'internal';
+  providerMessageId: null;
+  occurredAt: Date;
+  orderId: string;
+  orderNumber: string;
+  orderStatus: 'confirmed' | 'dispatched' | 'delivered';
+}>;
+
 export type TranscriptMessage =
-  TranscriptWhatsAppMessage | TranscriptGuideEvent;
+  TranscriptWhatsAppMessage | TranscriptGuideEvent | TranscriptOrderStatusEvent;
 
 export type TranscriptPage = Readonly<{
   items: readonly TranscriptMessage[];

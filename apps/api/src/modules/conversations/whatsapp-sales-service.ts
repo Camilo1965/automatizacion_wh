@@ -7,6 +7,7 @@ import type {
 import type { BotFlowDefinition } from './flow-definition.js';
 import { renderFlowMessage } from './configured-flow.js';
 import {
+  formatOrderConfirmation,
   formatOrderReview,
   hasQuotedShipping,
 } from './customer-order-messages.js';
@@ -711,13 +712,7 @@ export class WhatsAppSalesService {
       await this.queueText(
         result.conversationId,
         input,
-        (result.flow
-          ? renderFlowMessage(
-              result.flow.steps.complete.message,
-              result.variables,
-            )
-          : undefined) ??
-          '¡Listo! Tu pedido quedó confirmado y la unidad fue reservada. Te avisaremos cuando se genere la guía.',
+        formatOrderConfirmation(result.variables?.pedido),
         'confirmed',
       );
     }

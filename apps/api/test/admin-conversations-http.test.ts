@@ -187,6 +187,7 @@ describe('admin conversation HTTP API', () => {
       id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
       conversationId,
       source: 'system',
+      eventType: 'guide_created',
       messageType: 'event',
       text: null,
       mediaUrl: null,

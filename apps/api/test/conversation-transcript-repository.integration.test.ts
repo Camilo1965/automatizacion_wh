@@ -101,6 +101,58 @@ describe('conversation transcript persistence', () => {
     }
   });
 
+  it('projects only confirmed, dispatched, and delivered order transitions into the conversation', async () => {
+    const conversationId = randomUUID();
+    const orderId = randomUUID();
+    const referenceId = randomUUID();
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      await sql`
+        INSERT INTO whatsapp_conversations
+          (id, customer_phone, state, last_inbound_message_at)
+        VALUES (${conversationId}, '+573001234567', 'complete', NOW())
+      `;
+      await sql`
+        INSERT INTO catalog_references (id, code, model_name, color, price_cop)
+        VALUES (${referenceId}, ${`STATUS-${orderId.slice(0, 12)}`}, 'Tenis', 'Negro', 120000)
+      `;
+      await sql`
+        INSERT INTO sales_orders (id, reference_id, size, quantity, status)
+        VALUES (${orderId}, ${referenceId}, 37, 1, 'delivered')
+      `;
+      await sql`
+        INSERT INTO conversation_order_links (order_id, origin_conversation_id)
+        VALUES (${orderId}, ${conversationId})
+      `;
+      await sql`
+        INSERT INTO order_status_events (order_id, previous_status, next_status, created_at)
+        VALUES
+          (${orderId}, 'draft', 'confirmed', NOW() - INTERVAL '3 minutes'),
+          (${orderId}, 'confirmed', 'dispatched', NOW() - INTERVAL '2 minutes'),
+          (${orderId}, 'dispatched', 'delivered', NOW() - INTERVAL '1 minute'),
+          (${orderId}, 'delivered', 'returned', NOW())
+      `;
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+
+    const database = createPostgresDatabase(databaseUrl);
+    try {
+      const transcript = new PostgresConversationTranscriptRepository(database);
+      const page = await transcript.listMessages(conversationId);
+
+      expect(page.items).toMatchObject([
+        { eventType: 'order_status', orderId, orderStatus: 'confirmed' },
+        { eventType: 'order_status', orderId, orderStatus: 'dispatched' },
+        { eventType: 'order_status', orderId, orderStatus: 'delivered' },
+      ]);
+      expect(page.items).toHaveLength(3);
+      expect(page.items.every((event) => event.source === 'system')).toBe(true);
+    } finally {
+      await database.close();
+    }
+  });
+
   it('preserves every transcript row when timestamps differ only by microseconds', async () => {
     const conversationId = '44444444-4444-4444-8444-444444444444';
     const guideJobId = randomUUID();
@@ -180,6 +232,7 @@ describe('conversation transcript persistence', () => {
       expect(page3.items[0]).toMatchObject({
         id: '00000000-0000-4000-8000-000000000003',
         source: 'system',
+        eventType: 'guide_created',
         messageType: 'event',
         status: 'internal',
         providerMessageId: null,

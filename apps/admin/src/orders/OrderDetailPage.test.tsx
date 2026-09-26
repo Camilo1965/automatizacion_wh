@@ -70,4 +70,57 @@ describe('OrderDetailPage shipping recovery', () => {
       screen.getByRole('button', { name: 'Generar resumen' }),
     ).toBeDisabled();
   });
+
+  it('clarifies that confirmation reserves the product but does not mean dispatch or delivery', async () => {
+    server.use(
+      http.get('/api/admin/auth/session', () =>
+        HttpResponse.json({ data: { user: adminUser } }),
+      ),
+      http.get(`/api/admin/orders/${orderId}`, () =>
+        HttpResponse.json({
+          data: {
+            id: orderId,
+            orderNumber: 'PED-000001',
+            status: 'confirmed',
+            reference: {
+              id: referenceId,
+              code: '01',
+              modelName: 'Ballerina',
+              color: 'Negro',
+            },
+            size: '37',
+            quantity: 1,
+            customer: { name: 'Ana Gómez', phone: '+573001234567' },
+            destination: {
+              address: 'Calle 1',
+              localityCarrierCode: '05001000',
+              localityDepartment: 'Antioquia',
+              localityName: 'Medellín',
+              deliveryNotes: null,
+            },
+            draftVersion: 1,
+            latestSummaryVersion: 1,
+            confirmedSummaryVersion: 1,
+            createdAt: now,
+            updatedAt: now,
+          },
+        }),
+      ),
+      http.get(`/api/admin/orders/${orderId}/shipping`, () =>
+        HttpResponse.json({ data: { quotes: [], guide: null } }),
+      ),
+    );
+
+    renderWithProviders(
+      <Routes>
+        <Route path="/orders/:orderId" element={<OrderDetailPage />} />
+      </Routes>,
+      { initialEntries: [`/orders/${orderId}`] },
+    );
+
+    expect(await screen.findByText(/producto reservado/i)).toBeVisible();
+    expect(
+      screen.getByText(/no significa que ya esté despachado/i),
+    ).toBeVisible();
+  });
 });

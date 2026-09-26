@@ -25,6 +25,7 @@ type MessageRow = {
   guide_job_id: string | null;
   pre_shipment_number: string | null;
   carrier: string | null;
+  order_status: string | null;
 };
 
 type Cursor = { occurredAt: string; id: string };
@@ -62,6 +63,35 @@ function decodeCursor(value: string): Cursor {
 
 function mapMessage(row: MessageRow): TranscriptMessage {
   if (row.source === 'system') {
+    if (row.order_status !== null) {
+      if (
+        row.message_type !== 'event' ||
+        row.status !== 'internal' ||
+        row.guide_order_id === null ||
+        row.order_number === null ||
+        !['confirmed', 'dispatched', 'delivered'].includes(row.order_status)
+      ) {
+        throw new Error(
+          'Internal order status event is missing required metadata',
+        );
+      }
+      return {
+        id: row.id,
+        conversationId: row.conversation_id,
+        source: 'system',
+        eventType: 'order_status',
+        messageType: 'event',
+        text: null,
+        mediaUrl: null,
+        status: 'internal',
+        providerMessageId: null,
+        occurredAt: new Date(row.occurred_at),
+        orderId: row.guide_order_id,
+        orderNumber: `PED-${String(row.order_number).padStart(6, '0')}`,
+        orderStatus: row.order_status as
+          'confirmed' | 'dispatched' | 'delivered',
+      };
+    }
     if (
       row.message_type !== 'event' ||
       row.status !== 'internal' ||
@@ -77,6 +107,7 @@ function mapMessage(row: MessageRow): TranscriptMessage {
       id: row.id,
       conversationId: row.conversation_id,
       source: 'system',
+      eventType: 'guide_created',
       messageType: 'event',
       text: null,
       mediaUrl: null,
@@ -121,18 +152,37 @@ export class PostgresConversationTranscriptRepository implements ConversationTra
     const safeLimit = Math.max(1, Math.min(limit, 100));
     const decoded = cursor === undefined ? null : decodeCursor(cursor);
     const rows = await this.database.orm.execute<MessageRow>(sql`
+      WITH transcript AS (
+        SELECT message.id, message.conversation_id, message.source,
+          message.message_type, message.text_body,
+          message.status, message.provider_message_id, message.occurred_at,
+          to_char(message.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_occurred_at,
+          message.guide_order_id, message.guide_job_id,
+          NULL::varchar AS order_status
+        FROM whatsapp_conversation_messages AS message
+        WHERE message.conversation_id = ${conversationId}
+        UNION ALL
+        SELECT event.id, link.origin_conversation_id, 'system', 'event',
+          NULL, 'internal', NULL, event.created_at,
+          to_char(event.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+          event.order_id, NULL::uuid, event.next_status
+        FROM order_status_events AS event
+        JOIN conversation_order_links AS link ON link.order_id = event.order_id
+        WHERE link.origin_conversation_id = ${conversationId}
+          AND event.next_status IN ('confirmed', 'dispatched', 'delivered')
+      )
       SELECT message.id, message.conversation_id, message.source,
         message.message_type, message.text_body,
         message.status, message.provider_message_id, message.occurred_at,
-        to_char(message.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_occurred_at,
+        message.cursor_occurred_at,
         message.guide_order_id, message.guide_job_id,
         job.pre_shipment_number, job.carrier,
-        sales_order.order_number::text AS order_number
-      FROM whatsapp_conversation_messages AS message
+        sales_order.order_number::text AS order_number,
+        message.order_status
+      FROM transcript AS message
       LEFT JOIN shipping_guide_jobs AS job ON job.id = message.guide_job_id
       LEFT JOIN sales_orders AS sales_order ON sales_order.id = message.guide_order_id
-      WHERE message.conversation_id = ${conversationId}
-        AND (
+      WHERE (
           ${decoded?.occurredAt ?? null}::timestamptz IS NULL
           OR (message.occurred_at, message.id) < (${decoded?.occurredAt ?? null}::timestamptz, ${decoded?.id ?? null}::uuid)
         )

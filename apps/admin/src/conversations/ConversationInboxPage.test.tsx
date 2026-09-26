@@ -149,6 +149,7 @@ describe('ConversationInboxPage', () => {
                 id: '44444444-4444-4444-8444-444444444444',
                 conversationId,
                 source: 'system',
+                eventType: 'guide_created',
                 messageType: 'event',
                 text: null,
                 mediaUrl: null,

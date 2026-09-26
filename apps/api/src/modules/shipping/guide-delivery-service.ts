@@ -5,6 +5,7 @@ import type { PostgresOutboundRepository } from '../whatsapp/postgres-outbound-r
 import type { ShippingGuideOperations } from './shipping-guide-service.js';
 import { renderFlowMessage } from '../conversations/configured-flow.js';
 import type { AlertService } from '../alerts/alert-service.js';
+import { evaluateServiceWindow } from '../conversations/service-window.js';
 
 export class GuideDeliveryService {
   constructor(
@@ -16,13 +17,15 @@ export class GuideDeliveryService {
   async runOnce() {
     const rows = await this.database.orm.execute(sql`
       SELECT job.id, job.order_id, job.carrier, job.confirmed_total_cop, orders.size, orders.customer_name, orders.order_number, reference.code,
-        conversation.id AS conversation_id, conversation.customer_phone, conversation.flow_snapshot->'steps'->'guide'->>'message' AS caption
+        conversation.id AS conversation_id, conversation.customer_phone, conversation.last_inbound_message_at,
+        conversation.flow_snapshot->'steps'->'guide'->>'message' AS caption
       FROM shipping_guide_jobs job JOIN whatsapp_conversations conversation ON conversation.active_order_id = job.order_id
         JOIN sales_orders orders ON orders.id = job.order_id JOIN catalog_references reference ON reference.id = orders.reference_id
       WHERE job.status = 'created' AND job.guide_pdf_retired_at IS NULL
         AND job.pdf_delivery_attempts < 3
         AND (job.pdf_last_attempt_at IS NULL OR job.pdf_last_attempt_at < now() - interval '60 seconds')
         AND COALESCE((conversation.flow_snapshot->'optionalSteps'->>'sendGuideToCustomer')::boolean, true)
+        AND conversation.last_inbound_message_at > now() - interval '24 hours'
         AND NOT EXISTS (SELECT 1 FROM whatsapp_outbound_messages outbound WHERE outbound.idempotency_key = concat('guide:', job.id, ':', job.guide_pdf_sha256))
       ORDER BY job.created_at LIMIT 1
     `);
@@ -39,9 +42,11 @@ export class GuideDeliveryService {
         customer_name: string | null;
         order_number: number;
         code: string;
+        last_inbound_message_at: Date;
       }>
     )[0];
     if (!row) return false;
+    if (!evaluateServiceWindow(row.last_inbound_message_at).open) return false;
     await this.database.orm
       .update(shippingGuideJobs)
       .set({
@@ -56,17 +61,19 @@ export class GuideDeliveryService {
         .select()
         .from(shippingGuideJobs)
         .where(eq(shippingGuideJobs.id, row.id));
-      if ((failed?.pdfDeliveryAttempts ?? 0) >= 3)
-        await this.alerts?.open({
-          type: 'guide_pdf_unavailable',
-          severity: 'critical',
-          title: 'No se pudo descargar el PDF de la guía',
-          detail:
-            'La guía ya existe. Revisa el pedido y descarga el PDF desde el panel; no crees otra guía.',
-          entityUrl: `/orders/${row.order_id}`,
-          entityId: row.id,
-          retrySafe: true,
-        });
+      const attempts = failed?.pdfDeliveryAttempts ?? 0;
+      await this.alerts?.open({
+        type: 'guide_pdf_unavailable',
+        severity: attempts >= 3 ? 'critical' : 'warning',
+        title: 'No se pudo descargar el PDF de la guía',
+        detail:
+          attempts >= 3
+            ? 'La guía ya existe. Revisa el pedido y descarga el PDF desde el panel; no crees otra guía.'
+            : 'La guía ya existe, pero su PDF aún no está disponible. Revisa el pedido y reintenta desde el panel; no crees otra guía.',
+        entityUrl: `/orders/${row.order_id}`,
+        entityId: row.id,
+        retrySafe: true,
+      });
       throw error;
     }
     const [job] = await this.database.orm

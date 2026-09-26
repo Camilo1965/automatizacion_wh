@@ -22,6 +22,7 @@ const guideEvent = {
   id: '33333333-3333-4333-8333-333333333333',
   conversationId: '22222222-2222-4222-8222-222222222222',
   source: 'system',
+  eventType: 'guide_created',
   messageType: 'event',
   text: null,
   mediaUrl: null,
@@ -57,6 +58,25 @@ describe('conversation contracts', () => {
     expect(ConversationMessagePublicSchema.parse(guideEvent)).toEqual(
       guideEvent,
     );
+  });
+
+  it('accepts an internal order lifecycle event from persisted status history', () => {
+    const event = {
+      id: '66666666-6666-4666-8666-666666666666',
+      conversationId: '22222222-2222-4222-8222-222222222222',
+      source: 'system',
+      eventType: 'order_status',
+      messageType: 'event',
+      text: null,
+      mediaUrl: null,
+      status: 'internal',
+      providerMessageId: null,
+      occurredAt: '2026-09-10T15:00:00.000Z',
+      orderId: '44444444-4444-4444-8444-444444444444',
+      orderNumber: 'PED-000123',
+      orderStatus: 'dispatched',
+    };
+    expect(ConversationMessagePublicSchema.parse(event)).toEqual(event);
   });
 
   it.each([

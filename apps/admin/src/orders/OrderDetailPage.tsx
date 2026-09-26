@@ -178,6 +178,14 @@ export function OrderDetailPage() {
       : order.status === 'dispatched'
         ? 'deliver'
         : null;
+  const lifecycleNote =
+    order.status === 'confirmed'
+      ? 'Producto reservado. La guía se notificará cuando esté lista; esto no significa que ya esté despachado.'
+      : order.status === 'dispatched'
+        ? 'El pedido fue despachado. La entrega se registra por separado cuando se confirme.'
+        : order.status === 'delivered'
+          ? 'El pedido quedó registrado como entregado.'
+          : null;
 
   return (
     <section aria-labelledby="order-title" className="space-y-6">
@@ -208,6 +216,11 @@ export function OrderDetailPage() {
           {order.quantity} {order.quantity === 1 ? 'par' : 'pares'}
         </strong>
       </header>
+      {lifecycleNote ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          {lifecycleNote}
+        </p>
+      ) : null}
       <p className="text-sm text-muted-foreground">
         {order.reference.code} · {order.reference.modelName} ·{' '}
         {order.reference.color} · talla {order.size}

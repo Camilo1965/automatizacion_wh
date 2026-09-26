@@ -18,6 +18,7 @@ type Candidate = {
   customer_name: string | null;
   order_number: number;
   code: string;
+  last_inbound_message_at: Date;
 };
 
 function fakeDatabase(candidate: Candidate | undefined, job: object = {}) {
@@ -51,6 +52,7 @@ function candidate(overrides: Partial<Candidate> = {}): Candidate {
     customer_name: null,
     order_number: 42,
     code: '01',
+    last_inbound_message_at: new Date(),
     ...overrides,
   };
 }
@@ -88,6 +90,28 @@ describe('GuideDeliveryService', () => {
     expect(orm.update).not.toHaveBeenCalled();
   });
 
+  it('does not enqueue a customer guide document after the 24-hour service window closes', async () => {
+    const { database } = fakeDatabase(
+      candidate({ last_inbound_message_at: new Date(0) }),
+      {
+        guidePdfStorageKey: 'guides/order.pdf',
+        guidePdfSha256: 'abc123',
+      },
+    );
+    const fetchPdf = vi.fn();
+    const enqueueDocument = vi.fn();
+
+    await expect(
+      new GuideDeliveryService(
+        database,
+        guides(fetchPdf),
+        outbound(enqueueDocument),
+      ).runOnce(),
+    ).resolves.toBe(false);
+    expect(fetchPdf).not.toHaveBeenCalled();
+    expect(enqueueDocument).not.toHaveBeenCalled();
+  });
+
   it('raises a critical owner alert after the third PDF delivery failure', async () => {
     const { database } = fakeDatabase(candidate(), { pdfDeliveryAttempts: 3 });
     const failure = new Error('provider unavailable');
@@ -109,7 +133,7 @@ describe('GuideDeliveryService', () => {
     );
   });
 
-  it('does not alert before the final PDF delivery attempt', async () => {
+  it('opens an operational warning on the first retryable PDF failure', async () => {
     const { database } = fakeDatabase(candidate(), { pdfDeliveryAttempts: 2 });
     const fetchPdf = vi.fn().mockRejectedValue(new Error('temporary'));
     const open = vi.fn();
@@ -119,7 +143,14 @@ describe('GuideDeliveryService', () => {
         open,
       } as unknown as AlertService).runOnce(),
     ).rejects.toThrow('temporary');
-    expect(open).not.toHaveBeenCalled();
+    expect(open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'guide_pdf_unavailable',
+        severity: 'warning',
+        entityId: '11111111-1111-4111-8111-111111111111',
+        retrySafe: true,
+      }),
+    );
   });
 
   it('refuses to enqueue a document when persisted PDF metadata is incomplete', async () => {

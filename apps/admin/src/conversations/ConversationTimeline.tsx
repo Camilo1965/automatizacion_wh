@@ -33,7 +33,11 @@ export function ConversationTimeline({
     >
       {messages.map((message) => {
         if (message.source === 'system') {
-          return <GuideEventCard key={message.id} event={message} />;
+          return message.eventType === 'guide_created' ? (
+            <GuideEventCard key={message.id} event={message} />
+          ) : (
+            <OrderStatusEventCard key={message.id} event={message} />
+          );
         }
         const outbound = message.source !== 'customer';
         const attachmentLabel =
@@ -82,7 +86,10 @@ export function ConversationTimeline({
 function GuideEventCard({
   event,
 }: {
-  event: Extract<ConversationMessagePublic, { source: 'system' }>;
+  event: Extract<
+    ConversationMessagePublic,
+    { source: 'system'; eventType: 'guide_created' }
+  >;
 }) {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -155,6 +162,53 @@ function GuideEventCard({
           </p>
         ) : null}
       </div>
+      <small className="mt-3 block text-xs text-muted-foreground">
+        {new Date(event.occurredAt).toLocaleString('es-CO', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })}
+      </small>
+    </article>
+  );
+}
+
+const orderStatusCopy = {
+  confirmed: {
+    title: 'Pedido confirmado',
+    description: 'Producto reservado; todavía no figura como despachado.',
+  },
+  dispatched: {
+    title: 'Pedido despachado',
+    description: 'El pedido fue marcado como despachado.',
+  },
+  delivered: {
+    title: 'Pedido entregado',
+    description: 'El pedido fue marcado como entregado.',
+  },
+} as const;
+
+function OrderStatusEventCard({
+  event,
+}: {
+  event: Extract<
+    ConversationMessagePublic,
+    { source: 'system'; eventType: 'order_status' }
+  >;
+}) {
+  const copy = orderStatusCopy[event.orderStatus];
+
+  return (
+    <article className="w-full max-w-full rounded-2xl border border-border bg-muted/50 p-4 text-sm sm:max-w-[34rem]">
+      <h3 className="font-semibold">{copy.title}</h3>
+      <p className="mt-1 text-muted-foreground">{copy.description}</p>
+      <p className="mt-2">
+        <a
+          className="font-medium underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          href={`/orders/${event.orderId}`}
+        >
+          {event.orderNumber}
+        </a>
+      </p>
       <small className="mt-3 block text-xs text-muted-foreground">
         {new Date(event.occurredAt).toLocaleString('es-CO', {
           dateStyle: 'medium',

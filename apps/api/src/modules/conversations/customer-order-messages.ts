@@ -2,6 +2,28 @@ import type { OrderSummary } from '../orders/order-types.js';
 import { renderFlowMessage } from './configured-flow.js';
 import type { BotFlowDefinition } from './flow-definition.js';
 
+export type OrderLifecycleStatus = 'guide_created' | 'dispatched' | 'delivered';
+
+export function formatOrderConfirmation(orderNumber?: string): string {
+  return orderNumber
+    ? `Pedido ${orderNumber} confirmado; reservamos tu producto. Te avisaremos cuando la guía esté lista.`
+    : 'Tu pedido está confirmado; reservamos tu producto. Te avisaremos cuando la guía esté lista.';
+}
+
+export function formatOrderStatus(
+  status: OrderLifecycleStatus,
+  orderNumber: string,
+): string {
+  switch (status) {
+    case 'guide_created':
+      return `Guía generada para el pedido ${orderNumber}.`;
+    case 'dispatched':
+      return `El pedido ${orderNumber} fue despachado.`;
+    case 'delivered':
+      return `El pedido ${orderNumber} fue entregado.`;
+  }
+}
+
 type ReviewSnapshot = Readonly<{
   orderNumber?: string;
   reference?: Readonly<{ code?: string; modelName?: string; color?: string }>;

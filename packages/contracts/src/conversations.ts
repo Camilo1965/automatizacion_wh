@@ -44,6 +44,7 @@ const ConversationGuideEventPublicSchema = z
     id: z.uuid(),
     conversationId: z.uuid(),
     source: z.literal('system'),
+    eventType: z.literal('guide_created'),
     messageType: z.literal('event'),
     text: z.null(),
     mediaUrl: z.null(),
@@ -58,9 +59,28 @@ const ConversationGuideEventPublicSchema = z
   })
   .strict();
 
-export const ConversationMessagePublicSchema = z.discriminatedUnion('source', [
+const ConversationOrderStatusEventPublicSchema = z
+  .object({
+    id: z.uuid(),
+    conversationId: z.uuid(),
+    source: z.literal('system'),
+    eventType: z.literal('order_status'),
+    messageType: z.literal('event'),
+    text: z.null(),
+    mediaUrl: z.null(),
+    status: z.literal('internal'),
+    providerMessageId: z.null(),
+    occurredAt: z.iso.datetime(),
+    orderId: z.uuid(),
+    orderNumber: z.string().regex(/^PED-\d{6,}$/),
+    orderStatus: z.enum(['confirmed', 'dispatched', 'delivered']),
+  })
+  .strict();
+
+export const ConversationMessagePublicSchema = z.union([
   ConversationWhatsAppMessagePublicSchema,
   ConversationGuideEventPublicSchema,
+  ConversationOrderStatusEventPublicSchema,
 ]);
 
 export const ConversationOperationalLabelSchema = z.enum([

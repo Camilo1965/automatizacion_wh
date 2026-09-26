@@ -16,6 +16,7 @@ const guideEvent = {
   id: '33333333-3333-4333-8333-333333333333',
   conversationId,
   source: 'system' as const,
+  eventType: 'guide_created' as const,
   messageType: 'event' as const,
   text: null,
   mediaUrl: null,
@@ -52,6 +53,48 @@ describe('ConversationTimeline', () => {
       screen.queryByText(/Enviado|Entregado|Leído/),
     ).not.toBeInTheDocument();
   });
+
+  it.each([
+    [
+      'confirmed',
+      'Pedido confirmado',
+      'Producto reservado; todavía no figura como despachado.',
+    ],
+    [
+      'dispatched',
+      'Pedido despachado',
+      'El pedido fue marcado como despachado.',
+    ],
+    ['delivered', 'Pedido entregado', 'El pedido fue marcado como entregado.'],
+  ] as const)(
+    'shows persisted %s order state with its actual timestamp',
+    (orderStatus, title, description) => {
+      const event = {
+        id: '66666666-6666-4666-8666-666666666666',
+        conversationId,
+        source: 'system' as const,
+        eventType: 'order_status' as const,
+        messageType: 'event' as const,
+        text: null,
+        mediaUrl: null,
+        status: 'internal' as const,
+        providerMessageId: null,
+        occurredAt: '2026-09-10T12:00:00.000Z',
+        orderId,
+        orderNumber: 'PED-000123',
+        orderStatus,
+      };
+      renderWithProviders(<ConversationTimeline messages={[event]} />);
+
+      expect(screen.getByText(title)).toBeVisible();
+      expect(screen.getByText(description)).toBeVisible();
+      expect(screen.getByText(/2026/)).toBeVisible();
+      expect(screen.getByRole('link', { name: 'PED-000123' })).toHaveAttribute(
+        'href',
+        `/orders/${orderId}`,
+      );
+    },
+  );
 
   it('downloads the already-created guide and allows retry after a download error', async () => {
     const user = userEvent.setup();

@@ -234,6 +234,7 @@ describe('database migrations', () => {
           id: expect.any(String),
           conversationId,
           source: 'system',
+          eventType: 'guide_created',
           messageType: 'event',
           text: null,
           mediaUrl: null,
