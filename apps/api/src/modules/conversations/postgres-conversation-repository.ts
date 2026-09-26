@@ -156,6 +156,13 @@ export class PostgresConversationRepository {
           existing.activeOrderId !== null &&
           existing.selectedReferenceId !== null &&
           originalInbound?.textBody != null;
+        const recoverReuse =
+          duplicate.conversationId === existing?.id &&
+          existing.mode === 'bot' &&
+          duplicate.continuationAction === 'reuse_dest' &&
+          duplicate.stateAfter === 'awaiting_reuse_confirmation' &&
+          existing.state === 'awaiting_reuse_confirmation' &&
+          existing.activeOrderId !== null;
         const recoverSummary =
           duplicate.conversationId === existing?.id &&
           existing.mode === 'bot' &&
@@ -235,6 +242,14 @@ export class PostgresConversationRepository {
                 flow: BotFlowDefinitionSchema.parse(
                   existing.flowSnapshot ?? createDefaultBotFlow(),
                 ),
+              }
+            : {}),
+          ...(recoverReuse
+            ? {
+                conversationId: duplicate.conversationId,
+                customerId: existing.customerId,
+                action: 'reuse_destination' as const,
+                activeOrderId: existing.activeOrderId,
               }
             : {}),
         };
@@ -436,7 +451,9 @@ export class PostgresConversationRepository {
             (transition.action === 'collect_address' ||
               transition.action === 'collect_locality'))
             ? transition.action
-            : null,
+            : transition.action === 'reuse_destination'
+              ? 'reuse_dest'
+              : null,
         continuationReply:
           transition.action === 'human_takeover' ||
           transition.action === 'edit_address' ||
@@ -640,34 +657,47 @@ export class PostgresConversationRepository {
       );
   }
 
-  async restartAfterUnavailableOrder(
-    conversationId: string,
-    expectedOrderId: string,
-  ): Promise<boolean> {
-    const [restarted] = await this.database.orm
-      .update(whatsappConversations)
-      .set({
-        state: 'awaiting_size',
-        activeOrderId: null,
-        selectedSize: null,
-        selectedReferenceId: null,
-        pendingDepartment: null,
-        invalidAttempts: 0,
-        activeSummaryVersion: null,
-        summaryEditAction: null,
-        offeredLocalities: [],
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(whatsappConversations.id, conversationId),
-          eq(whatsappConversations.activeOrderId, expectedOrderId),
-          eq(whatsappConversations.state, 'awaiting_reuse_confirmation'),
-          eq(whatsappConversations.mode, 'bot'),
-        ),
-      )
-      .returning({ id: whatsappConversations.id });
-    return restarted !== undefined;
+  async restartAfterUnavailableOrder(input: {
+    conversationId: string;
+    orderId: string;
+    customerPhone: string;
+    body: string;
+    idempotencyKey: string;
+  }): Promise<boolean> {
+    return this.database.orm.transaction(async (tx) => {
+      await lockOutboundIdentity(tx, input.customerPhone, input.conversationId);
+      const [restarted] = await tx
+        .update(whatsappConversations)
+        .set({
+          state: 'awaiting_size',
+          activeOrderId: null,
+          selectedSize: null,
+          selectedReferenceId: null,
+          pendingDepartment: null,
+          invalidAttempts: 0,
+          activeSummaryVersion: null,
+          summaryEditAction: null,
+          offeredLocalities: [],
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(whatsappConversations.id, input.conversationId),
+            eq(whatsappConversations.activeOrderId, input.orderId),
+            eq(whatsappConversations.state, 'awaiting_reuse_confirmation'),
+            eq(whatsappConversations.mode, 'bot'),
+          ),
+        )
+        .returning({ id: whatsappConversations.id });
+      if (restarted === undefined) return false;
+      await insertTextForLockedIdentity(tx, {
+        conversationId: input.conversationId,
+        customerPhone: input.customerPhone,
+        body: input.body,
+        idempotencyKey: input.idempotencyKey,
+      });
+      return true;
+    });
   }
 
   async publishSummary(input: {

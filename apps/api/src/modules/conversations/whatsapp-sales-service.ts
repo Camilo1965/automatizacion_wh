@@ -39,10 +39,13 @@ type ConversationPort = Readonly<{
     conversationId: string,
     expectedOrderId: string,
   ): Promise<void>;
-  restartAfterUnavailableOrder?(
-    conversationId: string,
-    expectedOrderId: string,
-  ): Promise<boolean>;
+  restartAfterUnavailableOrder?(input: {
+    conversationId: string;
+    orderId: string;
+    customerPhone: string;
+    body: string;
+    idempotencyKey: string;
+  }): Promise<boolean>;
   publishSummary?(input: {
     conversationId: string;
     orderId: string;
@@ -246,6 +249,7 @@ export class WhatsAppSalesService {
       result.conversationId === undefined ||
       (result.duplicate &&
         result.action !== 'select_reference' &&
+        result.action !== 'reuse_destination' &&
         result.action !== 'cancel_order' &&
         result.action !== 'edit_product' &&
         result.action !== 'edit_address' &&
@@ -870,19 +874,18 @@ export class WhatsAppSalesService {
         if (this.conversations.restartAfterUnavailableOrder === undefined)
           throw new Error('Conversation restart unavailable', { cause: error });
         const restarted = await this.conversations.restartAfterUnavailableOrder(
-          result.conversationId,
-          result.activeOrderId,
+          {
+            conversationId: result.conversationId,
+            orderId: result.activeOrderId,
+            customerPhone: input.customerPhone,
+            body: 'Este pedido ya no permite cambios. Para empezar otro pedido, dime tu talla.',
+            idempotencyKey: `reuse-order-unavailable:${input.whatsappMessageId}`,
+          },
         );
         if (!restarted)
           throw new Error('Conversation changed before restart', {
             cause: error,
           });
-        await this.queueText(
-          result.conversationId,
-          input,
-          'Este pedido ya no permite cambios. Para empezar otro pedido, dime tu talla.',
-          'reuse-order-unavailable',
-        );
         return;
       }
       if (

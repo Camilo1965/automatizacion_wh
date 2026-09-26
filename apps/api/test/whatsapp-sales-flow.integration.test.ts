@@ -64,13 +64,41 @@ describe('complete WhatsApp sale', () => {
         'awaiting_reuse_confirmation',
       );
       await sql`UPDATE sales_orders SET status = 'cancelled' WHERE id = ${order.id}`;
-
-      expect(
-        await conversations.restartAfterUnavailableOrder(
-          started.conversationId!,
-          order.id,
-        ),
-      ).toBe(true);
+      const yes = {
+        whatsappMessageId: 'stale-reuse-yes',
+        customerPhone,
+        text: 'sí',
+      };
+      expect((await conversations.receive(yes)).action).toBe(
+        'reuse_destination',
+      );
+      const restart = {
+        conversationId: started.conversationId!,
+        orderId: order.id,
+        customerPhone,
+        body: 'Este pedido ya no permite cambios. Para empezar otro pedido, dime tu talla.',
+        idempotencyKey: 'reuse-order-unavailable:stale-reuse-yes',
+      };
+      await expect(
+        conversations.restartAfterUnavailableOrder({
+          ...restart,
+          idempotencyKey: 'x'.repeat(161),
+        }),
+      ).rejects.toThrow();
+      expect(await conversations.receive(yes)).toMatchObject({
+        duplicate: true,
+        action: 'reuse_destination',
+        activeOrderId: order.id,
+      });
+      expect(await conversations.restartAfterUnavailableOrder(restart)).toBe(
+        true,
+      );
+      const [outbound] = await sql<{ count: number }[]>`
+        SELECT count(*)::int AS count FROM whatsapp_outbound_messages
+        WHERE idempotency_key = ${restart.idempotencyKey}
+      `;
+      expect(outbound?.count).toBe(1);
+      expect((await conversations.receive(yes)).action).toBeUndefined();
       const [conversation] = await sql<
         { state: string; active_order_id: string | null }[]
       >`SELECT state, active_order_id FROM whatsapp_conversations WHERE id = ${started.conversationId!}`;

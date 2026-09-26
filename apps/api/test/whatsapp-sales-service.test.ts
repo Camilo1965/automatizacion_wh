@@ -2044,17 +2044,52 @@ describe('saved destination reuse', () => {
       );
       await f.service.process(inbound);
       expect(f.conversations.restartAfterUnavailableOrder).toHaveBeenCalledWith(
-        'conversation-1',
-        'order-2',
-      );
-      expect(f.outbound.enqueueText.mock.calls.at(-1)?.[0].body).toMatch(
-        /otro pedido.*talla/i,
+        expect.objectContaining({
+          conversationId: 'conversation-1',
+          orderId: 'order-2',
+          customerPhone: inbound.customerPhone,
+          body: expect.stringMatching(/otro pedido.*talla/i),
+          idempotencyKey: 'reuse-order-unavailable:wamid.reuse',
+        }),
       );
       expect(f.orders.update).not.toHaveBeenCalled();
       expect(f.conversations.takeOver).not.toHaveBeenCalled();
       expect(f.shipping.createQuotes).not.toHaveBeenCalled();
     },
   );
+
+  it('retries the same yes after a transactional reset enqueue failure', async () => {
+    const f = fixture('reuse_destination');
+    f.orders.get.mockResolvedValue({ status: 'cancelled', orderNumber: 2 });
+    f.orders.reuseDestination.mockRejectedValue(
+      new OrderConflictError(
+        'customer_identity_mismatch',
+        'El destino anterior ya no está disponible para este pedido.',
+      ),
+    );
+    f.conversations.restartAfterUnavailableOrder
+      .mockRejectedValueOnce(new Error('outbox unavailable'))
+      .mockResolvedValueOnce(true);
+    await expect(f.service.process(inbound)).rejects.toThrow(
+      'outbox unavailable',
+    );
+    f.conversations.receive.mockResolvedValueOnce({
+      duplicate: true,
+      conversationId: 'conversation-1',
+      customerId: 'customer-1',
+      state: 'awaiting_reuse_confirmation',
+      reply: null,
+      action: 'reuse_destination',
+      activeOrderId: 'order-2',
+    });
+    await f.service.process(inbound);
+    expect(f.conversations.restartAfterUnavailableOrder).toHaveBeenCalledTimes(
+      2,
+    );
+    expect(f.outbound.enqueueText).not.toHaveBeenCalled();
+    expect(f.orders.update).not.toHaveBeenCalled();
+    expect(f.orders.create).not.toHaveBeenCalled();
+  });
 
   it('propagates an unexpected destination copy failure', async () => {
     const f = fixture('reuse_destination');
