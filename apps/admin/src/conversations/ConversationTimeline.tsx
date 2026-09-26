@@ -128,6 +128,9 @@ function GuideEventCard({
           {event.carrier}
         </span>
       </div>
+      <p className="mt-3 text-xs font-medium text-foreground">
+        Estado: guía creada
+      </p>
       <dl className="mt-4 grid gap-3 sm:grid-cols-2">
         <div>
           <dt className="text-xs text-muted-foreground">Número de guía</dt>

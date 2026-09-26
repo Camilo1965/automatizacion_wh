@@ -34,14 +34,23 @@ type Definition = z.infer<typeof BotFlowDefinitionSchema>;
 function recoverDraft(): { definition: Definition; revision: number } | null {
   try {
     const text = sessionStorage.getItem('kairo.bot-flow-draft');
-    return text
-      ? z
-          .object({
-            definition: BotFlowDefinitionSchema,
-            revision: z.number().int().nonnegative(),
-          })
-          .parse(JSON.parse(text))
-      : null;
+    if (!text) return null;
+    const recovered = z
+      .object({
+        definition: BotFlowDefinitionSchema,
+        revision: z.number().int().nonnegative(),
+      })
+      .parse(JSON.parse(text));
+    return {
+      ...recovered,
+      definition: {
+        ...recovered.definition,
+        optionalSteps: {
+          ...recovered.definition.optionalSteps,
+          sendGuideToCustomer: false,
+        },
+      },
+    };
   } catch {
     return null;
   }
@@ -127,15 +136,22 @@ export function BotFlowPage() {
       }),
   });
   function update(value: Definition) {
+    const operatorOnlyDefinition: Definition = {
+      ...value,
+      optionalSteps: {
+        ...value.optionalSteps,
+        sendGuideToCustomer: false,
+      },
+    };
     try {
       sessionStorage.setItem(
         'kairo.bot-flow-draft',
-        JSON.stringify({ definition: value, revision }),
+        JSON.stringify({ definition: operatorOnlyDefinition, revision }),
       );
     } catch {
       /* The server draft remains available when browser storage is disabled. */
     }
-    setDefinition(value);
+    setDefinition(operatorOnlyDefinition);
     setDirty(true);
     setFeedback('');
   }
@@ -450,17 +466,21 @@ export function BotFlowPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {(
-                [
-                  'notes',
-                  'showCarrierInSummary',
-                  'sendGuideToCustomer',
-                ] as const
-              ).map((key) => {
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3">
+                <p className="text-sm font-medium">Guía para el operador</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Descarga disponible en la conversación de KAIRO una vez creada
+                  la guía.
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Envío al cliente: próximamente. No se enviarán archivos por
+                  WhatsApp.
+                </p>
+              </div>
+              {(['notes', 'showCarrierInSummary'] as const).map((key) => {
                 const label = {
                   notes: 'Solicitar indicaciones de entrega',
                   showCarrierInSummary: 'Mostrar transportadora en el resumen',
-                  sendGuideToCustomer: 'Enviar la guía como PDF al cliente',
                 }[key];
                 return (
                   <label

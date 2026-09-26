@@ -126,7 +126,7 @@ export function createDefaultBotFlow(): BotFlowDefinition {
     optionalSteps: {
       notes: true,
       showCarrierInSummary: true,
-      sendGuideToCustomer: true,
+      sendGuideToCustomer: false,
     },
   };
 }

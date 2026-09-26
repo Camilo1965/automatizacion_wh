@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BotFlowStepKeys } from '@camila/contracts';
 import { http, HttpResponse } from 'msw';
@@ -117,6 +117,7 @@ describe('BotFlowPage editing and simulation', () => {
     const user = userEvent.setup();
     let simulatedNotes: boolean | undefined;
     let draftWrites = 0;
+    let savedGuidePolicy: boolean | undefined;
     server.use(
       http.get('/api/admin/auth/session', () =>
         HttpResponse.json({ data: { user: adminUser } }),
@@ -131,12 +132,16 @@ describe('BotFlowPage editing and simulation', () => {
           },
         }),
       ),
-      http.put('/api/admin/bot-flow/draft', () => {
+      http.put('/api/admin/bot-flow/draft', async ({ request }) => {
         draftWrites += 1;
+        const body = (await request.json()) as {
+          definition: typeof definition;
+        };
+        savedGuidePolicy = body.definition.optionalSteps.sendGuideToCustomer;
         return HttpResponse.json({
           data: {
             revision: 2,
-            definition,
+            definition: body.definition,
             activeVersionId: null,
             versions: [],
           },
@@ -167,13 +172,47 @@ describe('BotFlowPage editing and simulation', () => {
       }),
     );
     expect(screen.getByText('Cambios sin guardar')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+    await waitFor(() => expect(draftWrites).toBe(1));
+    expect(savedGuidePolicy).toBe(false);
     await user.click(screen.getByRole('tab', { name: 'Simular' }));
     await user.click(screen.getByText('Pruebas avanzadas'));
     await user.click(
       screen.getByRole('button', { name: 'Probar mensajes avanzados' }),
     );
     expect(simulatedNotes).toBe(false);
-    expect(draftWrites).toBe(0);
+    expect(draftWrites).toBe(1);
+  });
+
+  it('shows operator-only guide delivery and does not expose customer sending as an active option', async () => {
+    server.use(
+      http.get('/api/admin/auth/session', () =>
+        HttpResponse.json({ data: { user: adminUser } }),
+      ),
+      http.get('/api/admin/bot-flow', () =>
+        HttpResponse.json({
+          data: {
+            revision: 1,
+            definition,
+            activeVersionId: null,
+            versions: [],
+          },
+        }),
+      ),
+    );
+    renderWithProviders(<BotFlowPage />);
+
+    expect(await screen.findByText('Borrador guardado')).toBeVisible();
+    expect(screen.getByText('Guía para el operador')).toBeVisible();
+    expect(
+      screen.getByText(/Descarga disponible en la conversación/),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('switch', {
+        name: 'Enviar la guía como PDF al cliente',
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/Envío al cliente: próximamente/)).toBeVisible();
   });
 
   it('starts a fake customer chat from a scenario, accepts keyboard replies, and keeps advanced input optional', async () => {

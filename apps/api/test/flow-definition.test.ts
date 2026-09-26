@@ -46,4 +46,10 @@ describe('guided bot flow definition', () => {
       expect.objectContaining({ code: 'required_step_disabled' }),
     );
   });
+
+  it('defaults guide delivery to the operator-only MVP policy', () => {
+    expect(createDefaultBotFlow().optionalSteps.sendGuideToCustomer).toBe(
+      false,
+    );
+  });
 });

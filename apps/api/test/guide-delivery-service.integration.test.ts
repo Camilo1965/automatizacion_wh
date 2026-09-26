@@ -100,26 +100,22 @@ describe('guide delivery PostgreSQL eligibility', () => {
     expect(internalEvent?.count).toBe(1);
   });
 
-  it('enqueues one document and excludes it from later selection by idempotency key', async () => {
+  it('does not send a customer document even when a historical snapshot opted in', async () => {
     await insertConversation(true);
     const fetchPdf = vi.fn().mockResolvedValue({});
     const delivery = service(fetchPdf);
 
-    await expect(delivery.runOnce()).resolves.toBe(true);
-    await sql`UPDATE shipping_guide_jobs SET pdf_last_attempt_at = NULL WHERE id = ${guideId}`;
     await expect(delivery.runOnce()).resolves.toBe(false);
 
     const messages = await sql`
       SELECT idempotency_key, message_type, media_storage_key, text_body
       FROM whatsapp_outbound_messages
     `;
-    expect(messages).toHaveLength(1);
-    expect(messages[0]).toMatchObject({
-      idempotency_key: `guide:${guideId}:${sha}`,
-      message_type: 'document',
-      media_storage_key: 'guides/order.pdf',
-      text_body: 'Guía lista para Ana',
-    });
-    expect(fetchPdf).toHaveBeenCalledTimes(1);
+    expect(messages).toHaveLength(0);
+    expect(fetchPdf).not.toHaveBeenCalled();
+    const [job] = await sql`
+      SELECT pdf_delivery_attempts FROM shipping_guide_jobs WHERE id = ${guideId}
+    `;
+    expect(job?.pdf_delivery_attempts).toBe(0);
   });
 });

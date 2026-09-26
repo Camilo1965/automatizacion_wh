@@ -10,12 +10,10 @@ describe('downloadGuidePdf', () => {
 
   it('uses a readable printable filename and keeps the object URL alive through the click', async () => {
     vi.useFakeTimers();
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValue(new Response(new Blob(['pdf']), { status: 200 })),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(new Blob(['pdf']), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:guide');
     const revoke = vi
       .spyOn(URL, 'revokeObjectURL')
@@ -34,6 +32,10 @@ describe('downloadGuidePdf', () => {
       'PRE-123456',
     );
 
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/admin/orders/22222222-2222-4222-8222-222222222222/shipping-guide/pdf',
+      expect.objectContaining({ credentials: 'include' }),
+    );
     expect(click).toHaveBeenCalledOnce();
     expect(revoke).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1000);

@@ -9,6 +9,7 @@ import { AuthenticationRequiredError } from '../src/modules/auth/auth-errors.js'
 import type { AuthService } from '../src/modules/auth/auth-service.js';
 import type { CatalogService } from '../src/modules/catalog/catalog-service.js';
 import type { PhotoStorage } from '../src/modules/catalog/photo-storage.js';
+import { ShippingDomainError } from '../src/modules/shipping/shipping-quote-service.js';
 
 const config: AppConfig = {
   nodeEnv: 'test',
@@ -218,6 +219,12 @@ describe('admin shipping HTTP API', () => {
         })
       ).statusCode,
     ).toBe(401);
+    const deniedGuidePdf = await app.inject({
+      method: 'GET',
+      url: `/api/admin/orders/${orderId}/shipping-guide/pdf`,
+    });
+    expect(deniedGuidePdf.statusCode).toBe(401);
+    expect(guideService.fetchPdf).not.toHaveBeenCalled();
     const response = await app.inject({
       method: 'POST',
       url: `/api/admin/orders/${orderId}/shipping-quotes`,
@@ -333,6 +340,19 @@ describe('admin shipping HTTP API', () => {
     expect(pdf.headers['content-type']).toBe('application/pdf');
     expect(pdf.headers['cache-control']).toBe('private, no-store');
     expect(pdf.headers.etag).toBe(`"${'a'.repeat(64)}"`);
+    vi.mocked(guideService.fetchPdf).mockRejectedValueOnce(
+      new ShippingDomainError(
+        'guide_not_created',
+        'The shipping guide has not been created',
+      ),
+    );
+    const pdfNotReady = await app.inject({
+      method: 'GET',
+      url: `/api/admin/orders/${orderId}/shipping-guide/pdf`,
+      headers: { cookie: 'camila_admin_session=good' },
+    });
+    expect(pdfNotReady.statusCode).toBe(409);
+    expect(pdfNotReady.json().error.code).toBe('guide_not_created');
     const review = await app.inject({
       method: 'POST',
       url: `/api/admin/orders/${orderId}/shipping-guide/review`,

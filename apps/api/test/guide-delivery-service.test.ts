@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { PostgresDatabase } from '../src/database/client.js';
-import type { AlertService } from '../src/modules/alerts/alert-service.js';
 import { GuideDeliveryService } from '../src/modules/shipping/guide-delivery-service.js';
 import type { ShippingGuideOperations } from '../src/modules/shipping/shipping-guide-service.js';
 import type { PostgresOutboundRepository } from '../src/modules/whatsapp/postgres-outbound-repository.js';
@@ -19,6 +18,7 @@ type Candidate = {
   order_number: number;
   code: string;
   last_inbound_message_at: Date;
+  send_guide_to_customer?: boolean;
 };
 
 function fakeDatabase(candidate: Candidate | undefined, job: object = {}) {
@@ -112,109 +112,26 @@ describe('GuideDeliveryService', () => {
     expect(enqueueDocument).not.toHaveBeenCalled();
   });
 
-  it('raises a critical owner alert after the third PDF delivery failure', async () => {
-    const { database } = fakeDatabase(candidate(), { pdfDeliveryAttempts: 3 });
-    const failure = new Error('provider unavailable');
-    const fetchPdf = vi.fn().mockRejectedValue(failure);
-    const open = vi.fn().mockResolvedValue(undefined);
-
-    await expect(
-      new GuideDeliveryService(database, guides(fetchPdf), outbound(), {
-        open,
-      } as unknown as AlertService).runOnce(),
-    ).rejects.toBe(failure);
-    expect(open).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'guide_pdf_unavailable',
-        severity: 'critical',
-        entityId: '11111111-1111-4111-8111-111111111111',
-        retrySafe: true,
-      }),
+  it('never sends a guide to the customer for a legacy flow snapshot that opted in', async () => {
+    const { database, orm } = fakeDatabase(
+      candidate({ send_guide_to_customer: true }),
+      {
+        guidePdfStorageKey: 'guides/order.pdf',
+        guidePdfSha256: 'abc123',
+      },
     );
-  });
-
-  it('opens an operational warning on the first retryable PDF failure', async () => {
-    const { database } = fakeDatabase(candidate(), { pdfDeliveryAttempts: 2 });
-    const fetchPdf = vi.fn().mockRejectedValue(new Error('temporary'));
-    const open = vi.fn();
-
-    await expect(
-      new GuideDeliveryService(database, guides(fetchPdf), outbound(), {
-        open,
-      } as unknown as AlertService).runOnce(),
-    ).rejects.toThrow('temporary');
-    expect(open).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'guide_pdf_unavailable',
-        severity: 'warning',
-        entityId: '11111111-1111-4111-8111-111111111111',
-        retrySafe: true,
-      }),
-    );
-  });
-
-  it('refuses to enqueue a document when persisted PDF metadata is incomplete', async () => {
-    const { database } = fakeDatabase(candidate(), {
-      guidePdfStorageKey: null,
-      guidePdfSha256: 'sha',
-    });
+    const fetchPdf = vi.fn();
     const enqueueDocument = vi.fn();
 
     await expect(
       new GuideDeliveryService(
         database,
-        guides(),
+        guides(fetchPdf),
         outbound(enqueueDocument),
       ).runOnce(),
-    ).rejects.toThrow('Guide PDF was not stored');
+    ).resolves.toBe(false);
+    expect(fetchPdf).not.toHaveBeenCalled();
     expect(enqueueDocument).not.toHaveBeenCalled();
-  });
-
-  it('enqueues a stored PDF with deterministic fallback caption and idempotency', async () => {
-    const { database } = fakeDatabase(candidate(), {
-      guidePdfStorageKey: 'guides/order.pdf',
-      guidePdfSha256: 'abc123',
-    });
-    const enqueueDocument = vi.fn().mockResolvedValue({ id: 'message' });
-
-    await expect(
-      new GuideDeliveryService(
-        database,
-        guides(),
-        outbound(enqueueDocument),
-      ).runOnce(),
-    ).resolves.toBe(true);
-    expect(enqueueDocument).toHaveBeenCalledWith({
-      conversationId: '33333333-3333-4333-8333-333333333333',
-      customerPhone: '+573001112233',
-      storageKey: 'guides/order.pdf',
-      caption:
-        'Tu guía de envío está lista. Conserva este documento para consultar tu pedido.',
-      idempotencyKey: 'guide:11111111-1111-4111-8111-111111111111:abc123',
-    });
-  });
-
-  it('renders configured guide variables including formatted totals', async () => {
-    const { database } = fakeDatabase(
-      candidate({
-        caption:
-          'Hola {{nombre}}, pedido {{pedido}}, talla {{talla}}, referencia {{referencia}}, {{transportadora}}, total {{total}}',
-        customer_name: 'Camila',
-        confirmed_total_cop: 120000,
-      }),
-      { guidePdfStorageKey: 'guides/custom.pdf', guidePdfSha256: 'custom' },
-    );
-    const enqueueDocument = vi.fn().mockResolvedValue({ id: 'message' });
-
-    await new GuideDeliveryService(
-      database,
-      guides(),
-      outbound(enqueueDocument),
-    ).runOnce();
-
-    const payload = enqueueDocument.mock.calls[0]![0] as { caption: string };
-    expect(payload.caption).toContain('Camila');
-    expect(payload.caption).toContain('PED-000042');
-    expect(payload.caption).toContain('120.000');
+    expect(orm.update).not.toHaveBeenCalled();
   });
 });

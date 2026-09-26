@@ -7,6 +7,8 @@ import { renderFlowMessage } from '../conversations/configured-flow.js';
 import type { AlertService } from '../alerts/alert-service.js';
 import { evaluateServiceWindow } from '../conversations/service-window.js';
 
+export const GUIDE_CUSTOMER_DELIVERY_POLICY = 'operator_only' as const;
+
 export class GuideDeliveryService {
   constructor(
     private readonly database: PostgresDatabase,
@@ -24,7 +26,6 @@ export class GuideDeliveryService {
       WHERE job.status = 'created' AND job.guide_pdf_retired_at IS NULL
         AND job.pdf_delivery_attempts < 3
         AND (job.pdf_last_attempt_at IS NULL OR job.pdf_last_attempt_at < now() - interval '60 seconds')
-        AND COALESCE((conversation.flow_snapshot->'optionalSteps'->>'sendGuideToCustomer')::boolean, true)
         AND conversation.last_inbound_message_at > now() - interval '24 hours'
         AND NOT EXISTS (SELECT 1 FROM whatsapp_outbound_messages outbound WHERE outbound.idempotency_key = concat('guide:', job.id, ':', job.guide_pdf_sha256))
       ORDER BY job.created_at LIMIT 1
@@ -47,6 +48,10 @@ export class GuideDeliveryService {
     )[0];
     if (!row) return false;
     if (!evaluateServiceWindow(row.last_inbound_message_at).open) return false;
+    // This product policy overrides every flow snapshot, including historical
+    // versions that enabled customer delivery. The authenticated operator
+    // download remains available through the shipping guide endpoint.
+    if (GUIDE_CUSTOMER_DELIVERY_POLICY === 'operator_only') return false;
     await this.database.orm
       .update(shippingGuideJobs)
       .set({

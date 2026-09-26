@@ -45,6 +45,10 @@ describe('ConversationTimeline', () => {
     ).toBeVisible();
     expect(screen.getByText('99envíos')).toBeVisible();
     expect(screen.getByText('PRE-123456')).toBeVisible();
+    expect(screen.getByText('Estado: guía creada')).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Descargar guía PDF' }),
+    ).toBeVisible();
     expect(screen.getByRole('link', { name: 'PED-000123' })).toHaveAttribute(
       'href',
       `/orders/${orderId}`,
