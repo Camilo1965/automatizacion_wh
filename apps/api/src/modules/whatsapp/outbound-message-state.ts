@@ -11,7 +11,7 @@ const transitions: Readonly<
   >
 > = {
   pending: { claim: 'processing', cancel: 'cancelled' },
-  processing: { mark_sent: 'sent', mark_failed: 'failed' },
+  processing: { mark_sent: 'sent', mark_failed: 'failed', cancel: 'cancelled' },
   sent: {},
   failed: {},
   cancelled: {},

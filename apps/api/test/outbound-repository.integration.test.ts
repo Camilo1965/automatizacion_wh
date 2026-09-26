@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import postgres from 'postgres';
 
 import { createPostgresDatabase } from '../src/database/client.js';
@@ -96,6 +97,94 @@ describe('WhatsApp outbound repository', () => {
           SELECT status FROM whatsapp_outbound_messages
         `;
         expect(row?.status).toBe('cancelled');
+      } finally {
+        await check.end({ timeout: 5 });
+      }
+    } finally {
+      await database.close();
+    }
+  });
+
+  it('cancels a guide document enqueued in-window when claimed after the window closes and preserves the guide event', async () => {
+    const conversationId = randomUUID();
+    const orderId = randomUUID();
+    const referenceId = randomUUID();
+    const guideId = randomUUID();
+    const referenceCode = `OUTBOX-${randomUUID().slice(0, 8)}`;
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      await sql`
+        INSERT INTO whatsapp_conversations
+          (id, customer_phone, state, mode, last_inbound_message_at)
+        VALUES (${conversationId}, '+573007777777', 'complete', 'bot', now())
+      `;
+      await sql`
+        INSERT INTO catalog_references (id, code, model_name, color, price_cop)
+        VALUES (${referenceId}, ${referenceCode}, 'Tenis', 'Negro', 120000)
+      `;
+      await sql`
+        INSERT INTO sales_orders (id, reference_id, size, quantity, status)
+        VALUES (${orderId}, ${referenceId}, 37, 1, 'confirmed')
+      `;
+      await sql`
+        INSERT INTO shipping_guide_jobs
+          (id, order_id, status, carrier, pre_shipment_number)
+        VALUES (${guideId}, ${orderId}, 'created', 'envia', 'PRE-WINDOW-1')
+      `;
+      await sql`
+        INSERT INTO whatsapp_conversation_messages
+          (conversation_id, source, message_type, status, occurred_at,
+           guide_job_id, guide_order_id)
+        VALUES (${conversationId}, 'system', 'event', 'internal', now(), ${guideId}, ${orderId})
+      `;
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresOutboundRepository(database);
+    try {
+      const queued = await repository.enqueueDocument({
+        conversationId,
+        customerPhone: '+573007777777',
+        storageKey: 'guides/window.pdf',
+        caption: 'Guía lista',
+        idempotencyKey: 'guide:window:sha',
+      });
+      expect(queued).not.toBeNull();
+
+      const expireWindow = postgres(databaseUrl, { max: 1, prepare: false });
+      await expireWindow`
+        UPDATE whatsapp_conversations
+        SET last_inbound_message_at = now() - INTERVAL '24 hours 1 second'
+        WHERE id = ${conversationId}
+      `;
+      await expireWindow.end({ timeout: 5 });
+
+      await expect(repository.claimNext()).resolves.toBeNull();
+      const check = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        const [outbound] = await check<
+          { status: string; error_code: string }[]
+        >`
+          SELECT status, error_code FROM whatsapp_outbound_messages
+          WHERE idempotency_key = 'guide:window:sha'
+        `;
+        const [transcript] = await check<{ count: number }[]>`
+          SELECT count(*)::int AS count FROM whatsapp_conversation_messages
+          WHERE outbound_message_id = ${queued!.id} AND status = 'cancelled'
+        `;
+        const [guideEvent] = await check<{ count: number }[]>`
+          SELECT count(*)::int AS count FROM whatsapp_conversation_messages
+          WHERE guide_job_id = ${guideId} AND status = 'internal'
+        `;
+
+        expect(outbound).toEqual({
+          status: 'cancelled',
+          error_code: 'service_window_closed',
+        });
+        expect(transcript?.count).toBe(1);
+        expect(guideEvent?.count).toBe(1);
       } finally {
         await check.end({ timeout: 5 });
       }

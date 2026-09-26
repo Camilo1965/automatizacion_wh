@@ -13,6 +13,7 @@ describe('OutboxWorker', () => {
       }),
       markSent: vi.fn(),
       markFailed: vi.fn(),
+      authorizeDocumentSend: vi.fn().mockResolvedValue(true),
     };
     const incidents = { open: vi.fn() };
     await new OutboxWorker(
@@ -42,6 +43,7 @@ describe('OutboxWorker', () => {
       }),
       markSent: vi.fn().mockResolvedValue(undefined),
       markFailed: vi.fn().mockResolvedValue(undefined),
+      authorizeDocumentSend: vi.fn().mockResolvedValue(true),
     };
     const client = {
       sendText: vi.fn().mockResolvedValue({ whatsappMessageId: 'wamid.sent' }),
@@ -61,6 +63,7 @@ describe('OutboxWorker', () => {
       claimNext: vi.fn().mockResolvedValue(null),
       markSent: vi.fn(),
       markFailed: vi.fn(),
+      authorizeDocumentSend: vi.fn().mockResolvedValue(true),
     };
     const client = { sendText: vi.fn(), sendImage: vi.fn() };
     await expect(new OutboxWorker(repository, client).runOnce()).resolves.toBe(
@@ -80,6 +83,7 @@ describe('OutboxWorker', () => {
       }),
       markSent: vi.fn().mockResolvedValue(undefined),
       markFailed: vi.fn().mockResolvedValue(undefined),
+      authorizeDocumentSend: vi.fn().mockResolvedValue(true),
     };
     const client = {
       sendText: vi.fn(),
@@ -101,5 +105,97 @@ describe('OutboxWorker', () => {
       'REF 01',
     );
     expect(repository.markSent).toHaveBeenCalledWith('out-2', 'wamid.image-1');
+  });
+
+  it('cancels a claimed guide document if its conversation window closed before send', async () => {
+    const repository = {
+      claimNext: vi.fn().mockResolvedValue({
+        id: 'guide-message',
+        customerPhone: '+573001234567',
+        messageType: 'document' as const,
+        textBody: 'Guía lista',
+        mediaStorageKey: 'guides/order.pdf',
+        mediaMimeType: 'application/pdf' as const,
+      }),
+      authorizeDocumentSend: vi.fn().mockResolvedValue(false),
+      markSent: vi.fn(),
+      markFailed: vi.fn(),
+    };
+    const client = {
+      sendText: vi.fn(),
+      sendImage: vi.fn(),
+      sendDocument: vi.fn(),
+    };
+    const storage = { read: vi.fn() };
+
+    await expect(
+      new OutboxWorker(
+        repository,
+        client,
+        undefined,
+        undefined,
+        storage,
+      ).runOnce(),
+    ).resolves.toBe(true);
+
+    expect(repository.authorizeDocumentSend).toHaveBeenCalledWith(
+      'guide-message',
+    );
+    expect(storage.read).toHaveBeenCalledWith('guides/order.pdf');
+    expect(client.sendDocument).not.toHaveBeenCalled();
+    expect(repository.markSent).not.toHaveBeenCalled();
+    expect(repository.markFailed).not.toHaveBeenCalled();
+  });
+
+  it('sends a guide document when its conversation window is still open', async () => {
+    const repository = {
+      claimNext: vi.fn().mockResolvedValue({
+        id: 'guide-message',
+        customerPhone: '+573001234567',
+        messageType: 'document' as const,
+        textBody: 'Guía lista',
+        mediaStorageKey: 'guides/order.pdf',
+        mediaMimeType: 'application/pdf' as const,
+      }),
+      authorizeDocumentSend: vi.fn().mockResolvedValue(true),
+      markSent: vi.fn().mockResolvedValue(undefined),
+      markFailed: vi.fn(),
+    };
+    const client = {
+      sendText: vi.fn(),
+      sendImage: vi.fn(),
+      sendDocument: vi.fn().mockResolvedValue({
+        whatsappMessageId: 'wamid.guide-1',
+      }),
+    };
+    const storage = {
+      read: vi.fn().mockResolvedValue(new Uint8Array([37, 80, 68, 70])),
+    };
+
+    await expect(
+      new OutboxWorker(
+        repository,
+        client,
+        undefined,
+        undefined,
+        storage,
+      ).runOnce(),
+    ).resolves.toBe(true);
+
+    expect(repository.authorizeDocumentSend).toHaveBeenCalledWith(
+      'guide-message',
+    );
+    expect(storage.read).toHaveBeenCalledWith('guides/order.pdf');
+    expect(client.sendDocument).toHaveBeenCalledWith(
+      '+573001234567',
+      new Uint8Array([37, 80, 68, 70]),
+      'guia-de-envio.pdf',
+      'Guía lista',
+    );
+    expect(repository.markSent).toHaveBeenCalledWith(
+      'guide-message',
+      'wamid.guide-1',
+    );
+    expect(repository.markFailed).not.toHaveBeenCalled();
   });
 });

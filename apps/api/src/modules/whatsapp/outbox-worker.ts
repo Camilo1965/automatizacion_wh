@@ -25,6 +25,7 @@ export type ClaimedOutboundMessage = Readonly<
 
 export interface OutboxWorkerRepository {
   claimNext(): Promise<ClaimedOutboundMessage | null>;
+  authorizeDocumentSend(id: string): Promise<boolean>;
   markSent(id: string, whatsappMessageId: string): Promise<void>;
   markFailed(id: string, errorCode: string): Promise<void>;
 }
@@ -102,6 +103,7 @@ export class OutboxWorker {
                 message.mediaMimeType,
                 message.textBody,
               );
+      if (sent === null) return true;
       await this.repository.markSent(message.id, sent.whatsappMessageId);
       this.metrics?.recordWhatsAppSend('sent');
     } catch (error) {
@@ -135,12 +137,14 @@ export class OutboxWorker {
   }
   private async sendDocument(
     message: Extract<ClaimedOutboundMessage, { messageType: 'document' }>,
-  ) {
+  ): Promise<Readonly<{ whatsappMessageId: string }> | null> {
     if (!this.documentStorage || !this.client.sendDocument)
       throw new Error('Document delivery is not configured');
+    const bytes = await this.documentStorage.read(message.mediaStorageKey);
+    if (!(await this.repository.authorizeDocumentSend(message.id))) return null;
     return this.client.sendDocument(
       message.customerPhone,
-      await this.documentStorage.read(message.mediaStorageKey),
+      bytes,
       'guia-de-envio.pdf',
       message.textBody,
     );

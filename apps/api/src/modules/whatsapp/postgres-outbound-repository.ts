@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
 import {
@@ -245,12 +245,22 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
       await tx.execute(sql`
         WITH cancelled AS (
           UPDATE whatsapp_outbound_messages AS outbound
-          SET status = 'cancelled', updated_at = clock_timestamp()
+          SET status = 'cancelled',
+            error_code = CASE
+              WHEN conversation.mode = 'human' THEN 'human_control'
+              ELSE 'service_window_closed'
+            END,
+            updated_at = clock_timestamp()
           FROM whatsapp_conversations AS conversation
           WHERE outbound.conversation_id = conversation.id
             AND outbound.status = 'pending'
             AND outbound.source = 'bot'
-            AND conversation.mode = 'human'
+            AND (
+              conversation.mode = 'human'
+              OR (outbound.message_type = 'document'
+                AND (conversation.last_inbound_message_at IS NULL
+                  OR conversation.last_inbound_message_at <= now() - interval '24 hours'))
+            )
           RETURNING outbound.id
         )
         UPDATE whatsapp_conversation_messages AS transcript
@@ -281,6 +291,8 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
               OR (outbound.message_type = 'document' AND outbound.media_storage_key IS NOT NULL AND outbound.media_mime_type = 'application/pdf')
             )
             AND (outbound.expires_at IS NULL OR outbound.expires_at > now())
+            AND (outbound.message_type <> 'document'
+              OR conversation.last_inbound_message_at > now() - interval '24 hours')
             AND (
               outbound.source <> 'bot'
               OR conversation.id IS NULL
@@ -335,6 +347,48 @@ export class PostgresOutboundRepository implements OutboxWorkerRepository {
         mediaStorageKey: row.media_storage_key!,
         mediaMimeType: row.media_mime_type as 'image/jpeg' | 'image/png',
       };
+    });
+  }
+
+  async authorizeDocumentSend(id: string): Promise<boolean> {
+    assertOutboundMessageTransition('processing', 'cancel');
+    return this.database.orm.transaction(async (tx) => {
+      const result = await tx.execute(sql`
+        SELECT EXISTS (
+          SELECT 1
+          FROM whatsapp_outbound_messages AS outbound
+          JOIN whatsapp_conversations AS conversation
+            ON conversation.id = outbound.conversation_id
+          WHERE outbound.id = ${id}
+            AND outbound.status = 'processing'
+            AND outbound.message_type = 'document'
+            AND conversation.last_inbound_message_at > now() - interval '24 hours'
+        ) AS allowed
+      `);
+      const rows = result as unknown as Array<{ allowed: boolean }>;
+      if (rows[0]?.allowed === true) return true;
+
+      const [cancelled] = await tx
+        .update(whatsappOutboundMessages)
+        .set({
+          status: 'cancelled',
+          errorCode: 'service_window_closed',
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(whatsappOutboundMessages.id, id),
+            eq(whatsappOutboundMessages.status, 'processing'),
+            eq(whatsappOutboundMessages.messageType, 'document'),
+          ),
+        )
+        .returning({ id: whatsappOutboundMessages.id });
+      if (cancelled !== undefined)
+        await tx
+          .update(whatsappConversationMessages)
+          .set({ status: 'cancelled', updatedAt: new Date() })
+          .where(eq(whatsappConversationMessages.outboundMessageId, id));
+      return false;
     });
   }
 
