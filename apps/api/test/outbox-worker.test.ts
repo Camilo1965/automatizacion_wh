@@ -107,7 +107,7 @@ describe('OutboxWorker', () => {
     expect(repository.markSent).toHaveBeenCalledWith('out-2', 'wamid.image-1');
   });
 
-  it('cancels a claimed guide document if its conversation window closed before send', async () => {
+  it('does not read a guide document if its conversation window is already closed', async () => {
     const repository = {
       claimNext: vi.fn().mockResolvedValue({
         id: 'guide-message',
@@ -141,7 +141,56 @@ describe('OutboxWorker', () => {
     expect(repository.authorizeDocumentSend).toHaveBeenCalledWith(
       'guide-message',
     );
-    expect(storage.read).toHaveBeenCalledWith('guides/order.pdf');
+    expect(storage.read).not.toHaveBeenCalled();
+    expect(client.sendDocument).not.toHaveBeenCalled();
+    expect(repository.markSent).not.toHaveBeenCalled();
+    expect(repository.markFailed).not.toHaveBeenCalled();
+  });
+
+  it('does not send or retry a guide document if its window closes during storage read', async () => {
+    const repository = {
+      claimNext: vi.fn().mockResolvedValue({
+        id: 'guide-message',
+        customerPhone: '+573001234567',
+        messageType: 'document' as const,
+        textBody: 'Guía lista',
+        mediaStorageKey: 'guides/order.pdf',
+        mediaMimeType: 'application/pdf' as const,
+      }),
+      authorizeDocumentSend: vi
+        .fn()
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(false),
+      markSent: vi.fn(),
+      markFailed: vi.fn(),
+    };
+    const client = {
+      sendText: vi.fn(),
+      sendImage: vi.fn(),
+      sendDocument: vi.fn(),
+    };
+    const storage = {
+      read: vi.fn().mockResolvedValue(new Uint8Array([37, 80, 68, 70])),
+    };
+
+    await expect(
+      new OutboxWorker(
+        repository,
+        client,
+        undefined,
+        undefined,
+        storage,
+      ).runOnce(),
+    ).resolves.toBe(true);
+
+    expect(repository.authorizeDocumentSend).toHaveBeenCalledTimes(2);
+    expect(storage.read).toHaveBeenCalledTimes(1);
+    expect(
+      repository.authorizeDocumentSend.mock.invocationCallOrder[0],
+    ).toBeLessThan(storage.read.mock.invocationCallOrder[0]!);
+    expect(storage.read.mock.invocationCallOrder[0]).toBeLessThan(
+      repository.authorizeDocumentSend.mock.invocationCallOrder[1]!,
+    );
     expect(client.sendDocument).not.toHaveBeenCalled();
     expect(repository.markSent).not.toHaveBeenCalled();
     expect(repository.markFailed).not.toHaveBeenCalled();
@@ -157,7 +206,10 @@ describe('OutboxWorker', () => {
         mediaStorageKey: 'guides/order.pdf',
         mediaMimeType: 'application/pdf' as const,
       }),
-      authorizeDocumentSend: vi.fn().mockResolvedValue(true),
+      authorizeDocumentSend: vi
+        .fn()
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(true),
       markSent: vi.fn().mockResolvedValue(undefined),
       markFailed: vi.fn(),
     };
@@ -182,9 +234,16 @@ describe('OutboxWorker', () => {
       ).runOnce(),
     ).resolves.toBe(true);
 
-    expect(repository.authorizeDocumentSend).toHaveBeenCalledWith(
-      'guide-message',
+    expect(repository.authorizeDocumentSend).toHaveBeenCalledTimes(2);
+    expect(
+      repository.authorizeDocumentSend.mock.invocationCallOrder[0],
+    ).toBeLessThan(storage.read.mock.invocationCallOrder[0]!);
+    expect(storage.read.mock.invocationCallOrder[0]).toBeLessThan(
+      repository.authorizeDocumentSend.mock.invocationCallOrder[1]!,
     );
+    expect(
+      repository.authorizeDocumentSend.mock.invocationCallOrder[1],
+    ).toBeLessThan(client.sendDocument.mock.invocationCallOrder[0]!);
     expect(storage.read).toHaveBeenCalledWith('guides/order.pdf');
     expect(client.sendDocument).toHaveBeenCalledWith(
       '+573001234567',

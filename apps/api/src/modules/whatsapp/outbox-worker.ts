@@ -140,6 +140,7 @@ export class OutboxWorker {
   ): Promise<Readonly<{ whatsappMessageId: string }> | null> {
     if (!this.documentStorage || !this.client.sendDocument)
       throw new Error('Document delivery is not configured');
+    if (!(await this.repository.authorizeDocumentSend(message.id))) return null;
     const bytes = await this.documentStorage.read(message.mediaStorageKey);
     if (!(await this.repository.authorizeDocumentSend(message.id))) return null;
     return this.client.sendDocument(
