@@ -48,7 +48,7 @@ test.describe.configure({ mode: 'serial' });
 test('protected route redirects to login', async ({ page }) => {
   await page.goto('/');
   await expect(
-    page.getByRole('heading', { name: 'Bienvenida a KAIRO' }),
+    page.getByRole('heading', { name: 'Inicia sesión' }),
   ).toBeVisible();
 });
 
@@ -80,7 +80,7 @@ test('API anonymous logout returns 401', async ({ request }) => {
 test('main catalog operations flow', async ({ page }) => {
   await page.goto('/references/new');
   await expect(
-    page.getByRole('heading', { name: 'Bienvenida a KAIRO' }),
+    page.getByRole('heading', { name: 'Inicia sesión' }),
   ).toBeVisible();
 
   await login(page);
@@ -223,7 +223,7 @@ test('main catalog operations flow', async ({ page }) => {
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
   await page.goto('/references/new');
   await expect(
-    page.getByRole('heading', { name: 'Bienvenida a KAIRO' }),
+    page.getByRole('heading', { name: 'Inicia sesión' }),
   ).toBeVisible();
 });
 

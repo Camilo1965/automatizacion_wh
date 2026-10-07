@@ -63,9 +63,10 @@ Files: E2E env sanitizer/config/setup; integration fixtures; migration tests; fi
 - [x] Uppercase generated catalog codes and clean every temporary migration database using tracked names with afterEach cleanup.
 - [x] Run formatting, strict lint, typecheck, all unit tests, disposable PostgreSQL/MinIO integrations, E2E, build and bundle budget. Resolve failures by root cause.
 - [x] Independently review changes and record closed findings, evidence, and any external launch requirements.
-- [ ] Integrate the preserved login changes and unify verified work with main under the user's standing authorization when all required checks pass.
+- [x] Fast-forward verified work to `main`; preserve and verify the existing KAIRO login changes before committing them with the updated login expectations.
 
 ## Execution record
 
 - 2026-10-06: User explicitly requested fixing the audit. Existing audit is the approved scope; implementation started. Baseline has only untracked audit artifacts in the worktree and preexisting login changes in the primary checkout.
 - 2026-10-06: Fixed F01–F17 and added regressions. Final local verification: 83 contract + 454 API + 103 admin unit tests; 206 PostgreSQL/MinIO integration tests across 43 files; 32 E2E passed, 1 webhook-dependent test skipped; format, strict lint, typecheck, production build, and bundle budget passed. No live WhatsApp/99envíos calls were made. E2E surfaced and fixed missing HOST/PORT allowlisting, unsupported Vite `--envDir`, an obsolete simulator selector, and destructive-text contrast below WCAG AA.
+- 2026-10-06: Fast-forwarded `main` from `ec48e38` to the verified audit commit. Revalidated the combined checkout with 640 unit tests and 32 E2E passes (1 webhook-dependent skip); updated stale login-title assertions to match the professional login screen. Build, bundle budget, typecheck, lint, and format also pass on the combined code. No deployment or live provider transactions were performed.

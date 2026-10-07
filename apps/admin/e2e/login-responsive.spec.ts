@@ -18,7 +18,7 @@ for (const viewport of viewports) {
 
     await expect(
       page.getByRole('heading', {
-        name: 'Tu negocio, organizado en un solo lugar',
+        name: 'Inicia sesión',
       }),
     ).toBeVisible();
     await expect(

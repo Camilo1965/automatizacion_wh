@@ -1,0 +1,58 @@
+.auth-shell.login-shell {
+  background:
+    radial-gradient(ellipse at 8% 8%, #c69a5266, transparent 48%),
+    radial-gradient(ellipse at 92% 90%, #5aa18a66, transparent 52%),
+    radial-gradient(ellipse at 50% 45%, #527967, transparent 65%),
+    linear-gradient(135deg, #173e35, #102e2a 65%, #214c41);
+  color: #203b36;
+  --ring: #35685c;
+}
+
+.login-shell .login-surface {
+  position: relative;
+  border: 1px solid #ffffff;
+  border-radius: 2rem;
+  background: #fffefa;
+  color: #203b36;
+  padding-block: 2.25rem;
+  --card-spacing: 2rem;
+  box-shadow:
+    0 32px 90px -24px #061f24a6,
+    0 8px 24px -8px #061f2440;
+}
+
+.login-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0 18% auto;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #b78637, transparent);
+}
+
+.login-shell .login-input {
+  border-color: #dce3dc;
+  background: #f5f7f2;
+  color: #203b36;
+}
+
+.login-shell .login-input:focus-visible {
+  border-color: #35685c;
+  background: #ffffff;
+}
+
+.login-shell .login-submit:not(:disabled) {
+  background: #234e43;
+  color: #ffffff;
+  box-shadow: 0 6px 14px -6px #234e4370;
+}
+
+.login-shell .login-submit:not(:disabled):hover {
+  background: #193d34;
+}
+
+@media (max-width: 420px) {
+  .login-shell .login-surface {
+    --card-spacing: 1.5rem;
+    padding-block: 1.75rem;
+  }
+}

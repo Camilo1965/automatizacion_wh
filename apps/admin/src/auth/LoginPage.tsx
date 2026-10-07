@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/card';
 import { AuthShell } from './AuthShell';
 import { useAuth } from './AuthProvider';
+import './login.css';
 
 const INVALID_CREDENTIALS_MESSAGE = 'Credenciales inválidas';
 const RATE_LIMIT_MESSAGE =
@@ -98,56 +99,33 @@ export function LoginPage() {
   }
 
   return (
-    <AuthShell>
-      <div className="grid gap-6 lg:grid-cols-2 lg:gap-10">
-        <motion.section
-          aria-labelledby="login-title"
-          className="login-brand-panel flex flex-col justify-center gap-4"
-          initial={reduceMotion ? false : { opacity: 0, x: -16 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.24, ease: 'easeOut' }}
-        >
-          <img
-            src="/brand/kairo-logo.png"
-            alt="KAIRO"
-            className="size-12 rounded-[1.125rem] object-contain lg:size-14"
-          />
-          <p className="text-xs font-medium tracking-[0.05em] text-foreground/70 uppercase">
-            Operación en tiempo real
-          </p>
-          <h1
-            id="login-title"
-            className="max-w-md text-3xl font-semibold tracking-[-0.05em] text-foreground sm:text-4xl lg:text-5xl lg:leading-[1.1]"
-          >
-            Tu negocio, organizado en un solo lugar
-          </h1>
-          <p className="max-w-md text-sm text-foreground/70 sm:text-base">
-            Gestiona conversaciones, pedidos, catálogo, envíos e inventario
-            desde una sola operación.
-          </p>
-        </motion.section>
-
+    <AuthShell className="login-shell">
+      <div className="mx-auto w-full max-w-[420px]">
         <motion.div
           className="login-card"
           initial={reduceMotion ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.24, delay: reduceMotion ? 0 : 0.06 }}
         >
-          <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
-            <CardHeader className="space-y-1">
-              <p className="text-xs font-medium tracking-[0.05em] text-foreground/70 uppercase">
-                Acceso privado
-              </p>
+          <Card className="login-surface">
+            <CardHeader className="text-center">
+              <div className="login-brand-panel mb-6 flex justify-center">
+                <img
+                  src="/brand/kairo-logo.png"
+                  alt="KAIRO"
+                  className="h-24 w-auto object-contain"
+                />
+              </div>
               <CardTitle
                 id="access-title"
                 className="text-2xl font-semibold tracking-tight"
               >
-                <h2 className="text-2xl font-semibold tracking-tight">
-                  Bienvenida a KAIRO
-                </h2>
+                <h1 className="text-2xl font-semibold tracking-tight">
+                  Inicia sesión
+                </h1>
               </CardTitle>
               <CardDescription className="text-foreground/70">
-                Ingresa para continuar con la operación de hoy.
+                Bienvenido a tu espacio de trabajo.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -166,7 +144,7 @@ export function LoginPage() {
                       value={username}
                       onChange={(event) => setUsername(event.target.value)}
                       required
-                      className="h-11 rounded-[1.125rem] bg-muted pl-10"
+                      className="login-input h-12 rounded-2xl pl-10"
                     />
                   </div>
                 </div>
@@ -192,11 +170,11 @@ export function LoginPage() {
                         setCapsLock(event.getModifierState('CapsLock'))
                       }
                       required
-                      className="h-11 rounded-[1.125rem] bg-muted pr-11 pl-10"
+                      className="login-input h-12 rounded-2xl pr-12 pl-10"
                     />
                     <button
                       type="button"
-                      className="absolute top-1/2 right-2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-[0.75rem] text-muted-foreground hover:text-foreground"
+                      className="absolute top-1/2 right-0.5 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-xl text-muted-foreground hover:text-foreground"
                       aria-label={
                         showPassword
                           ? 'Ocultar contraseña'
@@ -230,7 +208,7 @@ export function LoginPage() {
                       value={mfaCode}
                       onChange={(event) => setMfaCode(event.target.value)}
                       required
-                      className="h-11 rounded-[1.125rem] bg-muted"
+                      className="login-input h-12 rounded-2xl"
                     />
                     <p
                       id="mfa-code-help"
@@ -256,7 +234,7 @@ export function LoginPage() {
 
                 <Button
                   type="submit"
-                  className="h-11 w-full"
+                  className="login-submit h-12 w-full rounded-2xl"
                   disabled={submitting}
                   loading={submitting}
                 >
@@ -267,10 +245,6 @@ export function LoginPage() {
                       : 'Entrar al panel'}
                 </Button>
               </form>
-              <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-                <LockKeyhole aria-hidden="true" className="size-3.5" />
-                Sesión protegida y acceso exclusivo.
-              </p>
             </CardContent>
           </Card>
         </motion.div>

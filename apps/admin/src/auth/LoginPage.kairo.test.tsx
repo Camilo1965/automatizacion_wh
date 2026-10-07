@@ -15,11 +15,8 @@ describe('KAIRO login', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', {
-        name: 'Tu negocio, organizado en un solo lugar',
+        name: 'Inicia sesión',
       }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'Bienvenida a KAIRO' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveClass('auth-shell');
     expect(

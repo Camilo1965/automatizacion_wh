@@ -333,7 +333,7 @@ describe('Login and session', () => {
     renderWithProviders(<App />, { initialEntries: ['/catalog'] });
 
     expect(
-      await screen.findByRole('heading', { name: 'Bienvenida a KAIRO' }),
+      await screen.findByRole('heading', { name: 'Inicia sesión' }),
     ).toBeInTheDocument();
   });
 
@@ -781,7 +781,7 @@ describe('Catalog flows', () => {
     await user.click(screen.getByRole('link', { name: /01/ }));
 
     expect(
-      await screen.findByRole('heading', { name: 'Bienvenida a KAIRO' }),
+      await screen.findByRole('heading', { name: 'Inicia sesión' }),
     ).toBeInTheDocument();
   });
 
