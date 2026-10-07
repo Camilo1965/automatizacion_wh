@@ -1251,6 +1251,19 @@ describe('complete WhatsApp sale', () => {
       }
       const sql = postgres(databaseUrl, { max: 1, prepare: false });
       try {
+        // Simulate a confirmation replay for a conversation whose quote was
+        // refreshed after an address/locality edit. Recovery must preserve the
+        // generation and finish downstream effects without duplicating them.
+        await sql`
+          UPDATE whatsapp_conversations
+          SET summary_generation = 7
+          WHERE customer_phone = ${phone}
+        `;
+        await service.process({
+          whatsappMessageId: 'wamid.flow-10',
+          customerPhone: phone,
+          text: 'confirmar',
+        });
         const [order] = await sql<{ status: string; customer_name: string }[]>`
           SELECT status, customer_name FROM sales_orders
         `;
@@ -1275,6 +1288,10 @@ describe('complete WhatsApp sale', () => {
         const [guideJob] = await sql<{ count: number; status: string }[]>`
           SELECT count(*)::int AS count, min(status) AS status FROM shipping_guide_jobs
         `;
+        const [conversation] = await sql<{ summary_generation: number }[]>`
+          SELECT summary_generation FROM whatsapp_conversations
+          WHERE customer_phone = ${phone}
+        `;
         const [localityCorrection] = await sql<{ text_body: string }[]>`
           SELECT text_body FROM whatsapp_outbound_messages
           WHERE text_body LIKE 'No encontré esa ciudad%'
@@ -1291,6 +1308,7 @@ describe('complete WhatsApp sale', () => {
         expect(stock?.reserved_quantity).toBe(1);
         expect(confirmation?.count).toBe(1);
         expect(guideJob).toMatchObject({ count: 1, status: 'pending' });
+        expect(conversation?.summary_generation).toBe(7);
         expect(localityCorrection?.text_body).toContain('1. Medellín');
       } finally {
         await sql.end({ timeout: 5 });

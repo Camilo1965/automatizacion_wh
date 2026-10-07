@@ -23,6 +23,13 @@ function formatSignedDelta(delta: number): string {
   return String(delta);
 }
 
+const reasonLabels: Record<InventoryMovementPublic['reason'], string> = {
+  initial: 'Inventario inicial',
+  manual_adjustment: 'Ajuste manual',
+  order_dispatched: 'Pedido despachado',
+  order_returned: 'Pedido devuelto',
+};
+
 function flattenUnique(
   pages: Array<{ items: InventoryMovementPublic[] }>,
 ): InventoryMovementPublic[] {
@@ -97,12 +104,15 @@ export function MovementHistory({
                 Talla {item.size}: {item.previousQuantity}→{item.newQuantity} (
                 {formatSignedDelta(item.delta)})
               </strong>
-              <span className="text-muted-foreground"> — {item.reason}</span>
+              <span className="text-muted-foreground">
+                {' — '}
+                {reasonLabels[item.reason]}
+              </span>
               {item.note !== null && item.note !== '' ? (
                 <span className="text-muted-foreground"> — {item.note}</span>
               ) : null}
               <div className="mt-1 text-xs text-muted-foreground">
-                {new Date(item.createdAt).toLocaleString('es-ES')}
+                {new Date(item.createdAt).toLocaleString('es-CO')}
               </div>
             </li>
           ))}

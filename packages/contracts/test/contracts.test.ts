@@ -841,6 +841,26 @@ describe('list result schemas', () => {
     ).toEqual({ ...movements, nextCursor: null });
   });
 
+  it.each(['order_dispatched', 'order_returned'] as const)(
+    'accepts stock movements recorded by the order lifecycle: %s',
+    (reason) => {
+      expect(
+        ListMovementsResultSchema.parse({
+          items: [
+            {
+              ...sampleMovement,
+              reason,
+              delta: -1,
+              previousQuantity: 5,
+              newQuantity: 4,
+            },
+          ],
+          nextCursor: null,
+        }).items[0]?.reason,
+      ).toBe(reason);
+    },
+  );
+
   it('rejects unknown fields on list results', () => {
     expect(
       ListReferencesResultSchema.safeParse({

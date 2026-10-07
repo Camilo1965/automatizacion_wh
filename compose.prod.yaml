@@ -93,6 +93,7 @@ services:
     environment:
       HOST: 0.0.0.0
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      TRUSTED_PROXY_ADDRESSES: ${TRUSTED_PROXY_ADDRESSES:-}
       BACKUP_METRICS_PATH: /backups/heartbeat.json
       KAIRO_RELEASE_SHA: ${KAIRO_RELEASE_SHA:-}
       ERROR_TRACKING_DSN: ${ERROR_TRACKING_DSN:-}
@@ -137,7 +138,6 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      WORKER_HEALTH_FILE: /tmp/kairo-worker-health.json
       WORKER_METRICS_PORT: '9091'
       BACKUP_METRICS_PATH: /backups/heartbeat.json
       KAIRO_RELEASE_SHA: ${KAIRO_RELEASE_SHA:-}

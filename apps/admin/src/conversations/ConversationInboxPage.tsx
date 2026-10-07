@@ -167,7 +167,7 @@ export function ConversationInboxPage() {
           </div>
           <section
             data-inbox-thread
-            className="flex min-h-[28rem] flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)]"
+            className="flex h-[calc(100dvh-10rem)] min-h-[24rem] max-h-[52rem] flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)]"
             aria-label="Conversación seleccionada"
           >
             <header className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">

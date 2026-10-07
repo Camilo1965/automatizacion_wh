@@ -15,6 +15,7 @@ describe('ShippingGuideService', () => {
       }),
       attachPdf: vi.fn(),
       reviewUncertain: vi.fn(),
+      retryRejected: vi.fn(),
     };
     const storage = {
       read: vi.fn().mockResolvedValue(bytes),
@@ -43,6 +44,7 @@ describe('ShippingGuideService', () => {
       }),
       attachPdf: vi.fn().mockResolvedValue(true),
       reviewUncertain: vi.fn(),
+      retryRejected: vi.fn(),
     };
     const storage = {
       read: vi.fn(),
@@ -90,6 +92,7 @@ describe('ShippingGuideService', () => {
         }),
       attachPdf: vi.fn().mockRejectedValue(attachError),
       reviewUncertain: vi.fn(),
+      retryRejected: vi.fn(),
     };
     const storage = {
       read: vi.fn().mockResolvedValue(bytes),
@@ -136,6 +139,7 @@ describe('ShippingGuideService', () => {
         }),
       attachPdf: vi.fn().mockRejectedValue(attachError),
       reviewUncertain: vi.fn(),
+      retryRejected: vi.fn(),
     };
     const storage = {
       read: vi.fn(),
@@ -172,6 +176,7 @@ describe('ShippingGuideService', () => {
         .mockRejectedValueOnce(new Error('database unavailable')),
       attachPdf: vi.fn().mockRejectedValue(attachError),
       reviewUncertain: vi.fn(),
+      retryRejected: vi.fn(),
     };
     const storage = {
       read: vi.fn(),
@@ -215,6 +220,7 @@ describe('ShippingGuideService', () => {
         }),
       attachPdf: vi.fn().mockRejectedValue(new Error('database timed out')),
       reviewUncertain: vi.fn(),
+      retryRejected: vi.fn(),
     };
     const storage = {
       save: vi.fn().mockResolvedValue({
@@ -249,6 +255,7 @@ describe('ShippingGuideService', () => {
       }),
       attachPdf: vi.fn(),
       reviewUncertain: vi.fn(),
+      retryRejected: vi.fn(),
     };
     const client = { getGuidePdf: vi.fn() };
     const storage = { read: vi.fn(), save: vi.fn(), delete: vi.fn() };
@@ -272,6 +279,7 @@ describe('ShippingGuideService', () => {
       }),
       attachPdf: vi.fn(),
       reviewUncertain: vi.fn(),
+      retryRejected: vi.fn(),
     };
     const storage = {
       read: vi.fn(),
@@ -300,6 +308,7 @@ describe('ShippingGuideService', () => {
       }),
       attachPdf: vi.fn(),
       reviewUncertain: vi.fn(),
+      retryRejected: vi.fn(),
     };
     const storage = {
       read: vi.fn(),
@@ -340,6 +349,7 @@ describe('ShippingGuideService', () => {
         }),
       attachPdf: vi.fn().mockResolvedValue(false),
       reviewUncertain: vi.fn(),
+      retryRejected: vi.fn(),
     };
     const storage = {
       save: vi.fn().mockResolvedValue({

@@ -93,7 +93,7 @@ describe('isolated bot simulation', () => {
         'Envío (Envia): $18.000 COP\n' +
         'Total contra entrega: $138.000 COP\n' +
         'Cliente: Cliente de ejemplo\n' +
-        'Dirección: Calle 10 # 20-30\n' +
+        'Dirección: Calle 10 número 20\n' +
         'Medellín, Antioquia\n\n' +
         '¿Confirmas tu pedido para reservarlo?\n' +
         '• confirmar\n' +
@@ -161,6 +161,46 @@ describe('isolated bot simulation', () => {
     expect(result.events.at(-1)?.reply).toBe(
       'Pedido PED-DEMO confirmado; reservamos tu producto. Te avisaremos cuando la guía esté lista.',
     );
+  });
+
+  it('uses an edited delivery address in the renewed order review', () => {
+    const result = simulateBotFlow(createDefaultBotFlow(), [
+      ...messages.slice(0, 8),
+      'ninguna',
+      'cambiar dirección',
+      'Carrera 55 # 10-20',
+      'confirmar',
+    ]);
+    const renewed = result.events
+      .filter((event) => event.action === 'collect_address')
+      .at(-1);
+    expect(renewed?.state).toBe('awaiting_confirmation');
+    expect(renewed?.reply).toContain('Carrera 55 # 10-20');
+    expect(renewed?.reply).not.toContain('Calle 10 # 20-30');
+  });
+
+  it('does not accept a reference that was not in the simulated catalog', () => {
+    const result = simulateBotFlow(createDefaultBotFlow(), [
+      'hola',
+      '37',
+      'REF 99',
+    ]);
+    expect(result.events.at(-1)).toMatchObject({
+      state: 'showing_models',
+      reply:
+        'Esa referencia no está en el menú vigente. Elige una de las fotos enviadas o escribe “más modelos”.',
+      action: null,
+    });
+  });
+
+  it('hands the invalid-locality scenario to the owner after two failed lookups', () => {
+    const result = simulateBotFlow(
+      createDefaultBotFlow(),
+      [...messages.slice(0, 6), 'Bogotá', 'Bogota'],
+      'invalid_locality',
+    );
+    expect(result.events.at(-1)?.action).toBe('human_takeover');
+    expect(result.events.at(-1)?.reply).toContain('propietaria');
   });
 
   it('renews and shows the quote before accepting the second confirmation', () => {

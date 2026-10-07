@@ -86,17 +86,21 @@ export function simulateBotFlow(
   let attempts = 0;
   let human = false;
   let expired = false;
+  let invalidReferenceAttempts = 0;
+  let invalidLocalityAttempts = 0;
+  let editingAddress = false;
+  let editingLocality = false;
   let outputFixture = BOT_FLOW_DEMO_FIXTURE;
   const money = (value: number) =>
     new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(value);
-  const variables = {
+  const variables = () => ({
     talla: outputFixture.size,
     referencia: outputFixture.reference,
     nombre: 'Cliente de ejemplo',
     pedido: outputFixture.orderNumber,
     total: `$${money(outputFixture.totalCop)} COP`,
     transportadora: outputFixture.carrier,
-  };
+  });
   const events = messages.map((input) => {
     let transition: ConversationTransition = human
       ? {
@@ -117,21 +121,90 @@ export function simulateBotFlow(
               ...transition,
               reply: `${definition.steps.catalog.message}\n${definition.steps.reference.message}`,
             };
-    if (transition.action === 'select_reference')
-      transition = {
-        ...transition,
-        state: 'awaiting_name',
-        reply: definition.steps.name.message,
-      };
-    if (transition.action === 'collect_locality')
-      transition =
-        scenario === 'invalid_locality'
+    if (transition.action === 'edit_address') editingAddress = true;
+    if (transition.action === 'edit_locality') editingLocality = true;
+    if (transition.action === 'select_reference') {
+      const selectedReference = transition.input?.replace(/^REF\s*/i, '');
+      if (selectedReference !== outputFixture.reference) {
+        invalidReferenceAttempts += 1;
+        if (invalidReferenceAttempts >= 2) {
+          human = true;
+          transition = {
+            state: 'showing_models',
+            reply:
+              'No pude identificar la referencia. Una asesora continuará esta conversación y te ayudará a elegir el modelo.',
+            action: 'human_takeover',
+          };
+        } else {
+          transition = {
+            state: 'showing_models',
+            reply:
+              'Esa referencia no está en el menú vigente. Elige una de las fotos enviadas o escribe “más modelos”.',
+          };
+        }
+      } else {
+        invalidReferenceAttempts = 0;
+        transition = {
+          ...transition,
+          state: 'awaiting_name',
+          reply: definition.steps.name.message,
+        };
+      }
+    }
+    if (transition.action === 'collect_locality') {
+      if (scenario === 'invalid_locality') {
+        invalidLocalityAttempts += 1;
+        if (invalidLocalityAttempts >= 2) {
+          human = true;
+          transition = {
+            state: 'awaiting_locality',
+            reply:
+              'No pude identificar el municipio. La propietaria continuará esta conversación y confirmará la dirección de tu pedido.',
+            action: 'human_takeover',
+          };
+        } else {
+          transition = {
+            state: 'awaiting_locality',
+            reply:
+              'No encontramos el municipio en el departamento seleccionado. Revisa la ortografía o escribe otro municipio del departamento.',
+          };
+        }
+      } else {
+        invalidLocalityAttempts = 0;
+        outputFixture = {
+          ...outputFixture,
+          locality: transition.input ?? outputFixture.locality,
+        };
+        transition = editingLocality
           ? {
-              state: 'awaiting_locality',
-              reply:
-                'No encontramos el municipio en el departamento seleccionado. Confirma el nombre.',
+              ...transition,
+              state: 'awaiting_confirmation',
+              reply: formatOrderReview(
+                createDemoSummary(outputFixture),
+                definition,
+              ),
             }
           : { ...transition, reply: definition.steps.address.message };
+        editingLocality = false;
+      }
+    }
+    if (transition.action === 'collect_address') {
+      outputFixture = {
+        ...outputFixture,
+        address: transition.input ?? outputFixture.address,
+      };
+      if (editingAddress) {
+        transition = {
+          ...transition,
+          state: 'awaiting_confirmation',
+          reply: formatOrderReview(
+            createDemoSummary(outputFixture),
+            definition,
+          ),
+        };
+        editingAddress = false;
+      }
+    }
     if (
       transition.action === 'collect_notes' ||
       (transition.action === 'collect_address' &&
@@ -179,7 +252,7 @@ export function simulateBotFlow(
       reply:
         transition.reply === null
           ? null
-          : renderFlowMessage(transition.reply, variables),
+          : renderFlowMessage(transition.reply, variables()),
       action: transition.action ?? null,
     };
   });

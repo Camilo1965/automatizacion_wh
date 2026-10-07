@@ -92,6 +92,7 @@ export async function readBackupMetricsFile(
     const raw = await readFile(path, 'utf8');
     const parsed = JSON.parse(raw) as Partial<BackupMetricsSnapshot> & {
       lastBackupOk?: unknown;
+      lastBackupErrorAt?: unknown;
     };
     const snapshot: BackupMetricsSnapshot = {
       lastSuccessfulBackupAt:
@@ -106,11 +107,17 @@ export async function readBackupMetricsFile(
         typeof parsed.lastRestoreDrillOk === 'boolean'
           ? parsed.lastRestoreDrillOk
           : null,
+      lastBackupErrorAt:
+        typeof parsed.lastBackupErrorAt === 'string'
+          ? parsed.lastBackupErrorAt
+          : null,
     };
-    if (typeof parsed.lastBackupOk === 'boolean') {
-      return { ...snapshot, lastBackupOk: parsed.lastBackupOk };
-    }
-    return snapshot;
+    return {
+      ...snapshot,
+      ...(typeof parsed.lastBackupOk === 'boolean'
+        ? { lastBackupOk: parsed.lastBackupOk }
+        : {}),
+    };
   } catch {
     return null;
   }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 
 import type { ConversationMessagePublic } from '../api/conversations-api';
 import { getErrorMessage } from '../api/client';
@@ -24,61 +24,123 @@ export function ConversationTimeline({
 }: {
   messages: readonly ConversationMessagePublic[];
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const wasAtBottom = useRef(true);
+  const previous = useRef<{
+    firstId: string | undefined;
+    lastId: string | undefined;
+    scrollHeight: number;
+    scrollTop: number;
+  } | null>(null);
+  const [showLatest, setShowLatest] = useState(false);
+  const firstId = messages[0]?.id;
+  const lastId = messages.at(-1)?.id;
+
+  useLayoutEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    const before = previous.current;
+    const prepended =
+      before !== null && firstId !== before.firstId && lastId === before.lastId;
+    if (prepended && before !== null) {
+      element.scrollTop =
+        before.scrollTop + (element.scrollHeight - before.scrollHeight);
+    } else if (before === null || wasAtBottom.current) {
+      element.scrollTop = element.scrollHeight;
+    }
+    const atBottom =
+      element.scrollHeight - element.clientHeight - element.scrollTop < 48;
+    wasAtBottom.current = atBottom;
+    setShowLatest(!atBottom);
+    previous.current = {
+      firstId,
+      lastId,
+      scrollHeight: element.scrollHeight,
+      scrollTop: element.scrollTop,
+    };
+  }, [firstId, lastId, messages.length]);
+
+  function updateScrollPosition() {
+    const element = scrollRef.current;
+    if (!element) return;
+    const atBottom =
+      element.scrollHeight - element.clientHeight - element.scrollTop < 48;
+    wasAtBottom.current = atBottom;
+    setShowLatest(!atBottom);
+  }
+
   return (
-    <div
-      className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
-      role="log"
-      aria-label="Mensajes"
-      aria-live="polite"
-    >
-      {messages.map((message) => {
-        if (message.source === 'system') {
-          return message.eventType === 'guide_created' ? (
-            <GuideEventCard key={message.id} event={message} />
-          ) : (
-            <OrderStatusEventCard key={message.id} event={message} />
-          );
-        }
-        const outbound = message.source !== 'customer';
-        const attachmentLabel =
-          message.messageType === 'document'
-            ? 'Documento adjunto no disponible'
-            : message.messageType === 'image'
-              ? 'Imagen adjunta no disponible'
-              : null;
-        return (
-          <article
-            className={cn(
-              'max-w-[85%] rounded-[1.125rem] border px-3 py-2 text-sm shadow-[var(--shadow-card)]',
-              outbound
-                ? 'ml-auto border-foreground bg-foreground text-background'
-                : 'mr-auto border-border bg-muted text-foreground',
-            )}
-            key={message.id}
-          >
-            {message.text ? (
-              <p className="whitespace-pre-wrap">{message.text}</p>
-            ) : null}
-            {attachmentLabel ? (
-              <p className="mt-1 rounded-lg border border-current/20 px-2 py-1 text-xs">
-                {attachmentLabel}
-              </p>
-            ) : null}
-            <small
+    <div className="relative min-h-0 flex-1">
+      <div
+        ref={scrollRef}
+        onScroll={updateScrollPosition}
+        className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain scroll-smooth"
+        role="log"
+        aria-label="Mensajes"
+        aria-live="polite"
+      >
+        {messages.map((message) => {
+          if (message.source === 'system') {
+            return message.eventType === 'guide_created' ? (
+              <GuideEventCard key={message.id} event={message} />
+            ) : (
+              <OrderStatusEventCard key={message.id} event={message} />
+            );
+          }
+          const outbound = message.source !== 'customer';
+          const attachmentLabel =
+            message.messageType === 'document'
+              ? 'Documento adjunto no disponible'
+              : message.messageType === 'image'
+                ? 'Imagen adjunta no disponible'
+                : null;
+          return (
+            <article
               className={cn(
-                'mt-1 block text-[0.7rem]',
-                outbound ? 'text-background/70' : 'text-muted-foreground',
+                'max-w-[85%] rounded-[1.125rem] border px-3 py-2 text-sm shadow-[var(--shadow-card)]',
+                outbound
+                  ? 'ml-auto border-foreground bg-foreground text-background'
+                  : 'mr-auto border-border bg-muted text-foreground',
               )}
+              key={message.id}
             >
-              {new Date(message.occurredAt).toLocaleTimeString('es-CO', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}{' '}
-              · {statusLabels[message.status]}
-            </small>
-          </article>
-        );
-      })}
+              {message.text ? (
+                <p className="whitespace-pre-wrap">{message.text}</p>
+              ) : null}
+              {attachmentLabel ? (
+                <p className="mt-1 rounded-lg border border-current/20 px-2 py-1 text-xs">
+                  {attachmentLabel}
+                </p>
+              ) : null}
+              <small
+                className={cn(
+                  'mt-1 block text-[0.7rem]',
+                  outbound ? 'text-background/70' : 'text-muted-foreground',
+                )}
+              >
+                {new Date(message.occurredAt).toLocaleTimeString('es-CO', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}{' '}
+                · {statusLabels[message.status]}
+              </small>
+            </article>
+          );
+        })}
+      </div>
+      {showLatest ? (
+        <Button
+          className="absolute bottom-3 left-1/2 -translate-x-1/2 shadow-lg"
+          variant="secondary"
+          onClick={() => {
+            const element = scrollRef.current;
+            if (!element) return;
+            element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' });
+          }}
+        >
+          Ir al mensaje más reciente
+        </Button>
+      ) : null}
     </div>
   );
 }

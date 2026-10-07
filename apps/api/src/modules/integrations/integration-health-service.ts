@@ -5,7 +5,7 @@ type Dependencies = Readonly<{
   mediaStorage(): Promise<void>;
   whatsappConfigured: boolean | (() => Promise<boolean>);
   shippingConfigured: boolean | (() => Promise<boolean>);
-  schedulerHealthy: boolean;
+  schedulerHealthy: boolean | (() => Promise<boolean>);
 }>;
 
 export class IntegrationHealthService {
@@ -23,6 +23,10 @@ export class IntegrationHealthService {
       typeof this.dependencies.shippingConfigured === 'boolean'
         ? this.dependencies.shippingConfigured
         : await this.dependencies.shippingConfigured();
+    const schedulerHealthy =
+      typeof this.dependencies.schedulerHealthy === 'boolean'
+        ? this.dependencies.schedulerHealthy
+        : await this.dependencies.schedulerHealthy();
     const probe = async (operation: () => Promise<void>) => {
       try {
         await operation();
@@ -51,11 +55,9 @@ export class IntegrationHealthService {
           : 'Credenciales de 99envíos pendientes',
       },
       scheduler: {
-        status: this.dependencies.schedulerHealthy ? 'up' : 'down',
+        status: schedulerHealthy ? 'up' : 'down',
         checkedAt,
-        detail: this.dependencies.schedulerHealthy
-          ? null
-          : 'Scheduler sin latido reciente',
+        detail: schedulerHealthy ? null : 'Scheduler sin latido reciente',
       },
     };
   }

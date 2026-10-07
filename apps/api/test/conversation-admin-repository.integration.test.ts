@@ -98,6 +98,67 @@ describe('conversation owner control', () => {
     }
   });
 
+  it('reports pending outbound counts for the matching conversation in list and get', async () => {
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const [first] = await sql<{ id: string }[]>`
+      INSERT INTO whatsapp_conversations
+        (customer_phone, state, mode, last_inbound_message_at)
+      VALUES ('+573001234561', 'awaiting_size', 'bot', now()) RETURNING id
+    `;
+    const [second] = await sql<{ id: string }[]>`
+      INSERT INTO whatsapp_conversations
+        (customer_phone, state, mode, last_inbound_message_at)
+      VALUES ('+573001234562', 'awaiting_size', 'bot', now()) RETURNING id
+    `;
+    for (const [id, count, prefix] of [
+      [first!.id, 2, 'first'],
+      [second!.id, 5, 'second'],
+    ] as const) {
+      for (let index = 0; index < count; index++) {
+        await sql`
+          INSERT INTO whatsapp_outbound_messages
+            (conversation_id, idempotency_key, customer_phone, message_type, text_body)
+          VALUES (${id}, ${`${prefix}:${index}`}, '+573001234560', 'text', 'Pendiente')
+        `;
+      }
+    }
+    await sql.end({ timeout: 5 });
+
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresConversationAdminRepository(database);
+    try {
+      await expect(repository.get(first!.id)).resolves.toMatchObject({
+        pendingOutbound: 2,
+      });
+      await expect(repository.get(second!.id)).resolves.toMatchObject({
+        pendingOutbound: 5,
+      });
+      const page = await repository.list({ limit: 10 });
+      expect(
+        page.items.find((item) => item.id === first!.id)?.pendingOutbound,
+      ).toBe(2);
+      expect(
+        page.items.find((item) => item.id === second!.id)?.pendingOutbound,
+      ).toBe(5);
+    } finally {
+      await database.close();
+      const cleanup = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        await cleanup`
+          DELETE FROM whatsapp_conversation_messages
+          WHERE conversation_id IN (${first!.id}, ${second!.id})
+        `;
+        await cleanup`
+          DELETE FROM whatsapp_outbound_messages
+          WHERE conversation_id IN (${first!.id}, ${second!.id})
+        `;
+        await cleanup`DELETE FROM whatsapp_conversations WHERE id IN (${first!.id}, ${second!.id})`;
+      } finally {
+        await cleanup.end({ timeout: 5 });
+      }
+    }
+  });
+
   it('releases control without creating a new bot message', async () => {
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
     const [conversation] = await sql<{ id: string }[]>`

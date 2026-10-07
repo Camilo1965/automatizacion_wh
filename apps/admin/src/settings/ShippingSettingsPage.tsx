@@ -15,6 +15,7 @@ import {
   apiRequestNoContent,
   getErrorMessage,
 } from '../api/client';
+import { useAuth } from '../auth/AuthProvider';
 import { PageHeader } from '@/components/PageHeader';
 import { GeneralShippingPolicy } from './shipping/GeneralShippingPolicy';
 import { LocalityExceptions } from './shipping/LocalityExceptions';
@@ -42,6 +43,8 @@ function policyFromRule(rule: ShippingRulePublic): ShippingPolicy {
 }
 
 export function ShippingSettingsPage() {
+  const { user } = useAuth();
+  const canManage = user?.role === 'owner';
   const [globalPolicy, setGlobalPolicy] =
     useState<ShippingPolicy>(DEFAULT_POLICY);
   const [municipalPolicy, setMunicipalPolicy] =
@@ -201,11 +204,17 @@ export function ShippingSettingsPage() {
         loading={loadState === 'loading'}
         onRetry={() => void load()}
       />
+      {!canManage && loadState === 'ready' ? (
+        <p className="rounded-2xl border border-border bg-muted p-4 text-sm text-muted-foreground">
+          Puedes consultar estas preferencias. Solo la propietaria puede
+          modificarlas o desactivar reglas de cobertura.
+        </p>
+      ) : null}
       <GeneralShippingPolicy
         policy={globalPolicy}
         carriers={carriers}
         pending={pending}
-        disabled={loadState !== 'ready'}
+        disabled={loadState !== 'ready' || !canManage}
         validationError={globalValidationError}
         onChange={setGlobalPolicy}
         onSave={(event) => void saveGlobal(event)}
@@ -219,7 +228,7 @@ export function ShippingSettingsPage() {
         localityCarrierCode={localityCarrierCode}
         rules={rules}
         pending={pending}
-        disabled={loadState !== 'ready'}
+        disabled={loadState !== 'ready' || !canManage}
         validationError={municipalValidationError}
         error={error}
         saved={saved}

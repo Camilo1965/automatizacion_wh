@@ -99,14 +99,14 @@ export function LocalityExceptions({
               <summary className="cursor-pointer text-sm font-medium text-foreground">
                 Editar excepción municipal
               </summary>
-              <div className="mt-4">
+              <fieldset disabled={disabled} className="mt-4 min-w-0">
                 <PolicyFields
                   prefix="municipal"
                   policy={municipalPolicy}
                   carriers={carriers}
                   onChange={onMunicipalChange}
                 />
-              </div>
+              </fieldset>
             </details>
             {validationError ? (
               <ErrorMessage message={validationError} />
@@ -140,7 +140,7 @@ export function LocalityExceptions({
               </Button>
               <Button
                 variant="secondary"
-                disabled={!/^\d{8}$/.test(localityCarrierCode)}
+                disabled={disabled || !/^\d{8}$/.test(localityCarrierCode)}
                 type="button"
                 onClick={onSimulate}
               >

@@ -9,6 +9,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const apiProxyPort = process.env.CAMILA_E2E_API_PORT ?? '3000';
 
 export default defineConfig({
+  ...(process.env.CAMILA_E2E_ENV_DIR === undefined
+    ? {}
+    : { envDir: process.env.CAMILA_E2E_ENV_DIR }),
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

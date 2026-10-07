@@ -5,6 +5,7 @@ import {
   AuthenticationRequiredError,
   InvalidCredentialsError,
   InvalidMfaCodeError,
+  MfaAlreadyEnabledError,
   MfaEncryptionRequiredError,
   MfaNotConfiguredError,
   PasswordMismatchError,
@@ -92,6 +93,10 @@ export function mapDomainError(
 
   if (error instanceof MfaNotConfiguredError) {
     return sendApiError(reply, 400, error.code, error.message);
+  }
+
+  if (error instanceof MfaAlreadyEnabledError) {
+    return sendApiError(reply, 409, error.code, error.message);
   }
 
   if (error instanceof MfaEncryptionRequiredError) {

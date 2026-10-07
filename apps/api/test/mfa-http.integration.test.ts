@@ -192,6 +192,37 @@ describe('MFA HTTP enrollment and login', () => {
 
     const sql = postgres(testDatabaseUrl, { max: 1, prepare: false });
     try {
+      const [factorBefore] = await sql<
+        { encrypted_secret: string; enabled: boolean }[]
+      >`SELECT encrypted_secret, enabled FROM admin_mfa_secrets`;
+      expect(factorBefore?.enabled).toBe(true);
+
+      const repeatedSetup = await app.inject({
+        method: 'POST',
+        url: '/api/admin/auth/mfa/setup',
+        headers: { origin: adminOrigin, cookie },
+      });
+      expect(repeatedSetup.statusCode).toBe(409);
+      expect(repeatedSetup.json()).toMatchObject({
+        error: { code: 'mfa_already_enabled' },
+      });
+
+      const [user] = await sql<{ id: string }[]>`
+        SELECT id FROM admin_users WHERE username = 'camila'
+      `;
+      await expect(
+        new PostgresAdminAuthRepository(database).upsertMfaSecret({
+          userId: user!.id,
+          encryptedSecret: 'replacement-secret',
+          enabled: false,
+          createdAt: clock,
+        }),
+      ).rejects.toMatchObject({ name: 'MfaAlreadyEnabledError' });
+
+      const [factor] = await sql<
+        { encrypted_secret: string; enabled: boolean }[]
+      >`SELECT encrypted_secret, enabled FROM admin_mfa_secrets`;
+      expect(factor).toEqual(factorBefore);
       const hashes = await sql<{ code_hash: string }[]>`
         SELECT code_hash FROM admin_mfa_recovery_codes
       `;

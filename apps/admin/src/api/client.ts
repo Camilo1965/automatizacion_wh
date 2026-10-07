@@ -179,12 +179,32 @@ export async function apiDownload(path: string): Promise<Blob> {
 
 export function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiClientError) {
-    return error.message;
+    const localized = new Map<string, string>([
+      ['request_error', 'No se pudo completar la solicitud.'],
+      ['invalid_response', 'La respuesta del servidor no es válida.'],
+      ['rate_limit_exceeded', 'Espera un momento e inténtalo de nuevo.'],
+      ['internal_error', fallback],
+    ]).get(error.code);
+    if (localized !== undefined) return localized;
+    if (/[¿¡áéíóúñ]/i.test(error.message) || looksLikeSpanish(error.message)) {
+      return error.message;
+    }
+    return fallback;
   }
-  if (error instanceof Error && error.message.trim() !== '') {
+  if (
+    error instanceof Error &&
+    error.message.trim() !== '' &&
+    (/[¿¡áéíóúñ]/i.test(error.message) || looksLikeSpanish(error.message))
+  ) {
     return error.message;
   }
   return fallback;
+}
+
+function looksLikeSpanish(message: string): boolean {
+  return /\b(no|el|la|los|las|se|puede|debe|pedido|gu[ií]a|cliente|datos|ingresa|intenta|revisa|confirma|v[aá]lid[oa]|duplicad[oa]|agotad[oa])\b/i.test(
+    message,
+  );
 }
 
 export function getFieldError(error: unknown): string | undefined {

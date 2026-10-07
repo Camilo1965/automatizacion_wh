@@ -31,11 +31,27 @@ describe('loadConfig', () => {
       retentionExecutionEnabled: false,
       metricsEnabled: true,
       workerMetricsPort: 9091,
+      trustedProxyAddresses: [],
     });
   });
 
   it('defaults STORAGE_DRIVER to local outside production', () => {
     expect(loadConfig(validEnvironment).storageDriver).toBe('local');
+  });
+
+  it('accepts only explicit proxy peer IP addresses', () => {
+    expect(
+      loadConfig({
+        ...validEnvironment,
+        TRUSTED_PROXY_ADDRESSES: '172.30.0.10, ::1',
+      }).trustedProxyAddresses,
+    ).toEqual(['172.30.0.10', '::1']);
+    expect(() =>
+      loadConfig({
+        ...validEnvironment,
+        TRUSTED_PROXY_ADDRESSES: '0.0.0.0/0',
+      }),
+    ).toThrow(ConfigurationError);
   });
 
   it('requires STORAGE_DRIVER=s3 in production with S3 settings', () => {

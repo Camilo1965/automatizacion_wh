@@ -81,7 +81,7 @@ export class PostgresConversationAdminRepository implements ConversationAdminRep
         pendingOutbound: sql<number>`(
           SELECT count(*)::int
           FROM whatsapp_outbound_messages AS outbound
-          WHERE outbound.conversation_id = ${whatsappConversations.id}
+          WHERE outbound.conversation_id = "whatsapp_conversations"."id"
             AND outbound.status = 'pending'
         )`,
       })
@@ -112,7 +112,7 @@ export class PostgresConversationAdminRepository implements ConversationAdminRep
         pendingOutbound: sql<number>`(
           SELECT count(*)::int
           FROM whatsapp_outbound_messages AS outbound
-          WHERE outbound.conversation_id = ${whatsappConversations.id}
+          WHERE outbound.conversation_id = "whatsapp_conversations"."id"
             AND outbound.status = 'pending'
         )`,
       })

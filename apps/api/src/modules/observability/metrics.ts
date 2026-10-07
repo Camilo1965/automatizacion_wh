@@ -203,6 +203,14 @@ export class MetricsRegistry {
     this.setGauge('kairo_worker_heartbeat_age_seconds', {}, ageSeconds);
   }
 
+  setWorkerSchedulerInitialized(initialized: boolean): void {
+    this.setGauge(
+      'kairo_worker_scheduler_initialized',
+      {},
+      initialized ? 1 : 0,
+    );
+  }
+
   setQueueDepth(queue: JobQueue, depth: number): void {
     this.setGauge('kairo_queue_depth', { queue }, depth);
   }
@@ -371,6 +379,7 @@ export type BackupMetricsSnapshot = Readonly<{
   lastBackupAgeSeconds: number | null;
   lastRestoreDrillOk: boolean | null;
   lastBackupOk?: boolean;
+  lastBackupErrorAt?: string | null;
 }>;
 
 export function applyBackupSnapshot(
@@ -386,10 +395,14 @@ export function applyBackupSnapshot(
     const parsed = Date.parse(snapshot.lastSuccessfulBackupAt);
     metrics.setLastBackupUnixtime(Number.isNaN(parsed) ? null : parsed / 1000);
     metrics.setLastBackupAgeSeconds(
-      snapshot.lastBackupAgeSeconds ??
-        (Number.isNaN(parsed) ? null : Math.max(0, (nowMs - parsed) / 1000)),
+      Number.isNaN(parsed) ? null : Math.max(0, (nowMs - parsed) / 1000),
     );
-    metrics.setLastBackupOk(snapshot.lastBackupOk ?? true);
+    const errorAt = snapshot.lastBackupErrorAt
+      ? Date.parse(snapshot.lastBackupErrorAt)
+      : Number.NEGATIVE_INFINITY;
+    metrics.setLastBackupOk(
+      snapshot.lastBackupOk ?? (!Number.isNaN(errorAt) && errorAt <= parsed),
+    );
   }
   metrics.setLastRestoreDrillOk(snapshot.lastRestoreDrillOk);
 }

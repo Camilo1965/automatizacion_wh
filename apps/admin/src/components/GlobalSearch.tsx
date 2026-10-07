@@ -27,9 +27,10 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
   }, [query]);
 
   const needle = debouncedQuery;
+  const isOrderNumberQuery = /^\d+$/.test(needle);
   const search = useQuery({
     queryKey: ['global-search', needle],
-    enabled: needle.length >= 2,
+    enabled: needle.length >= 2 || isOrderNumberQuery,
     queryFn: async () => {
       const params = new URLSearchParams({ q: needle, limit: '12' });
       return apiRequest(`/search?${params}`, {
@@ -118,7 +119,7 @@ export function GlobalSearch({ onClose }: { onClose: () => void }) {
           </button>
         </header>
         <div className="max-h-80 overflow-y-auto p-3" aria-live="polite">
-          {needle.length < 2 ? (
+          {needle.length < 2 && !isOrderNumberQuery ? (
             <p className="text-sm text-muted-foreground">
               Escribe al menos dos caracteres.
             </p>

@@ -135,6 +135,7 @@ export async function buildApp(
 
   const app = Fastify({
     bodyLimit: 1024 * 1024,
+    trustProxy: [...(dependencies.config.trustedProxyAddresses ?? [])],
     genReqId(req) {
       return (
         normalizeCorrelationId(req.headers[CORRELATION_HEADER]) ?? randomUUID()

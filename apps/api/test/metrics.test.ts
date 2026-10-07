@@ -113,12 +113,16 @@ describe('metrics registry', () => {
     metrics.recordGuideOutcome('uncertain');
     metrics.recordInventoryConflict('insufficient_stock');
     metrics.recordProviderFailure('shipping');
-    applyBackupSnapshot(metrics, {
-      lastSuccessfulBackupAt: '2026-09-21T12:00:00.000Z',
-      lastBackupAgeSeconds: 3600,
-      lastRestoreDrillOk: true,
-      lastBackupOk: true,
-    });
+    applyBackupSnapshot(
+      metrics,
+      {
+        lastSuccessfulBackupAt: '2026-09-21T12:00:00.000Z',
+        lastBackupAgeSeconds: 3600,
+        lastRestoreDrillOk: true,
+        lastBackupOk: true,
+      },
+      Date.parse('2026-09-21T13:00:00.000Z'),
+    );
     metrics.recordSchedulerSuccess(true);
     metrics.recordSyntheticFailure('provider');
 
@@ -150,6 +154,23 @@ describe('metrics registry', () => {
     expect(normalizeCorrelationId('corr-12345678')).toBe('corr-12345678');
     expect(normalizeCorrelationId('bad id')).toBeUndefined();
     expect(normalizeCorrelationId('short')).toBeUndefined();
+  });
+
+  it('recomputes backup age and reports when the newest attempt failed', () => {
+    const metrics = new MetricsRegistry();
+    applyBackupSnapshot(
+      metrics,
+      {
+        lastSuccessfulBackupAt: '2026-10-01T12:00:00.000Z',
+        lastBackupAgeSeconds: 0,
+        lastRestoreDrillOk: null,
+        lastBackupErrorAt: '2026-10-02T12:00:00.000Z',
+      },
+      Date.parse('2026-10-03T12:00:00.000Z'),
+    );
+    const body = metrics.renderPrometheus();
+    expect(body).toContain('kairo_last_backup_age_seconds 172800');
+    expect(body).toContain('kairo_last_backup_ok 0');
   });
 });
 

@@ -83,3 +83,12 @@ export class MfaNotConfiguredError extends Error {
     this.name = 'MfaNotConfiguredError';
   }
 }
+
+export class MfaAlreadyEnabledError extends Error {
+  readonly code = 'mfa_already_enabled';
+
+  constructor(message = 'MFA is already enabled for this account') {
+    super(message);
+    this.name = 'MfaAlreadyEnabledError';
+  }
+}

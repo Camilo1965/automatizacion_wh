@@ -139,6 +139,12 @@ export async function reviewUncertainGuide(
   });
 }
 
+export async function retryRejectedGuide(orderId: string): Promise<void> {
+  return apiRequestNoContent(`/orders/${orderId}/shipping-guide/retry`, {
+    method: 'POST',
+  });
+}
+
 export async function downloadGuidePdf(
   orderId: string,
   orderNumber?: string,

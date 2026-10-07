@@ -10,11 +10,16 @@ import { ShippingSettingsPage } from './ShippingSettingsPage';
 
 const base = '/api/admin';
 
-function shippingHandlers(options?: { simulateFail?: boolean }) {
+function shippingHandlers(options?: {
+  simulateFail?: boolean;
+  role?: 'owner' | 'operator';
+}) {
   let simulateFail = options?.simulateFail ?? true;
   return [
     http.get(`${base}/auth/session`, () =>
-      HttpResponse.json({ data: { user: adminUser } }),
+      HttpResponse.json({
+        data: { user: { ...adminUser, role: options?.role ?? 'owner' } },
+      }),
     ),
     http.get(`${base}/shipping/preferences`, () =>
       HttpResponse.json({
@@ -116,7 +121,9 @@ describe('ShippingSettingsPage sections and simulator recovery', () => {
     );
     renderWithProviders(<ShippingSettingsPage />);
 
-    expect(await screen.findByText('Carga fallida')).toBeVisible();
+    expect(
+      await screen.findByText('No se pudieron cargar las preferencias'),
+    ).toBeVisible();
     expect(
       screen.getByRole('button', { name: 'Guardar preferencia general' }),
     ).toBeDisabled();
@@ -130,6 +137,18 @@ describe('ShippingSettingsPage sections and simulator recovery', () => {
       ).toBeEnabled();
     });
     expect(requests).toBe(2);
+  });
+
+  it('keeps shipping controls read-only for operators and explains the owner role', async () => {
+    server.use(...shippingHandlers({ role: 'operator' }));
+    renderWithProviders(<ShippingSettingsPage />);
+
+    expect(
+      await screen.findByText(/Solo la propietaria puede modificarlas/i),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Guardar preferencia general' }),
+    ).toBeDisabled();
   });
 
   it('starts a new municipal rule from the loaded global policy and explains replacement', async () => {

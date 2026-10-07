@@ -58,6 +58,11 @@ type ConversationPort = Readonly<{
     expectedEditAction: 'edit_address' | 'edit_locality' | null;
     expectedGeneration: number;
   }): Promise<boolean>;
+  invalidateSummary?(input: {
+    conversationId: string;
+    orderId: string;
+    version: number;
+  }): Promise<boolean>;
   handOverUnquotedSummary?(input: {
     conversationId: string;
     orderId: string;
@@ -679,12 +684,12 @@ export class WhatsAppSalesService {
             'stale_summary',
           ].includes(error.code)
         ) {
-          await this.queueText(
-            result.conversationId,
-            input,
-            'La cotización venció o cambió. Revisa el nuevo total y confirma nuevamente.',
-            'quote-refresh',
-          );
+          const invalidated = await this.conversations.invalidateSummary?.({
+            conversationId: result.conversationId,
+            orderId: result.activeOrderId,
+            version: result.activeSummaryVersion,
+          });
+          if (!invalidated) return;
           await this.prepareSummary(result, input);
           return;
         }

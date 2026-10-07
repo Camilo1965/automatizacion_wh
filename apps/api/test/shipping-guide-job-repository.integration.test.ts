@@ -1,8 +1,10 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { eq } from 'drizzle-orm';
 import postgres from 'postgres';
 
 import { createPostgresDatabase } from '../src/database/client.js';
 import { runMigrations } from '../src/database/migrate.js';
+import { shippingGuideJobs } from '../src/database/schema/index.js';
 import { PostgresShippingGuideJobRepository } from '../src/modules/shipping/postgres-shipping-guide-job-repository.js';
 import { ShippingGuideWorker } from '../src/modules/shipping/shipping-guide-worker.js';
 import { requireTestDatabaseUrl } from './helpers/test-database.js';
@@ -47,7 +49,71 @@ describe('shipping guide jobs', () => {
         status: 'uncertain',
         preShipmentNumber: null,
       });
+      await expect(repository.retryRejected(first.id)).resolves.toBe(false);
       await expect(repository.claimNext()).resolves.toBeNull();
+    } finally {
+      await database.close();
+    }
+  });
+
+  it('retries only a definitively rejected guide once and creates one shipment', async () => {
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresShippingGuideJobRepository(database);
+    try {
+      const job = await repository.enqueue(
+        '11111111-1111-4111-8111-111111111111',
+      );
+      const claimed = await repository.claimNext();
+      expect(claimed?.id).toBe(job.id);
+      await repository.markFailed(job.id, 'ShippingRequestError');
+
+      const retries = await Promise.all([
+        repository.retryRejected(job.id),
+        repository.retryRejected(job.id),
+      ]);
+      expect(retries.filter(Boolean)).toHaveLength(1);
+
+      const client = {
+        createPreShipment: vi.fn().mockResolvedValue({
+          preShipmentNumber: 'PRE-RETRY-1',
+          freightCop: 11900,
+        }),
+      };
+      const worker = new ShippingGuideWorker(
+        repository,
+        {
+          get: vi.fn().mockResolvedValue({
+            status: 'confirmed',
+            referenceModelName: 'Tenis',
+            referenceCode: '01',
+            unitPriceCop: 120000,
+            size: '37',
+            quantity: 1,
+            customer: { name: 'Ana Ruiz', phone: '573001234567' },
+            destination: {
+              address: 'Calle 1',
+              localityCarrierCode: '05001000',
+              deliveryNotes: null,
+            },
+          }),
+        },
+        client,
+        { open: vi.fn().mockResolvedValue(undefined) },
+      );
+      await expect(worker.runOnce()).resolves.toBe(true);
+      await expect(worker.runOnce()).resolves.toBe(false);
+      expect(client.createPreShipment).toHaveBeenCalledTimes(1);
+
+      const [stored] = await database.orm
+        .select({ status: shippingGuideJobs.status })
+        .from(shippingGuideJobs)
+        .where(eq(shippingGuideJobs.id, job.id));
+      expect(stored?.status).toBe('created');
+
+      const refused = await repository.enqueue(
+        '11111111-1111-4111-8111-111111111111',
+      );
+      expect(await repository.retryRejected(refused.id)).toBe(false);
     } finally {
       await database.close();
     }

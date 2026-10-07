@@ -12,6 +12,7 @@ import {
   AuthenticationRequiredError,
   InvalidCredentialsError,
   InvalidMfaCodeError,
+  MfaAlreadyEnabledError,
   MfaEncryptionRequiredError,
   MfaNotConfiguredError,
   PasswordMismatchError,
@@ -444,12 +445,17 @@ export class AuthService {
   }
 
   async beginMfaEnrollment(userId: string): Promise<MfaEnrollmentBeginResult> {
-    const crypto = requireMfaCrypto(this.mfaCrypto);
     const user = await this.repository.findUserById(userId);
     if (user === null) {
       throw new UserNotFoundError('User was not found');
     }
 
+    const existingMfa = await this.repository.findMfaSecretByUserId(userId);
+    if (existingMfa?.enabled) {
+      throw new MfaAlreadyEnabledError();
+    }
+
+    const crypto = requireMfaCrypto(this.mfaCrypto);
     const secret = generateTotpSecret();
     const now = this.now();
     await this.repository.upsertMfaSecret({

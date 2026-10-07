@@ -56,6 +56,24 @@ export async function registerShippingRoutes(
         return reply.status(204).send();
       },
     );
+    app.post(
+      '/orders/:orderId/shipping-guide/retry',
+      async (request, reply) => {
+        const user = await manageShipping(request);
+        const { orderId } = OrderIdParamsSchema.parse(request.params);
+        await shippingGuideService.retryRejected(orderId);
+        await auditService?.record({
+          action: 'shipping_guide.retry_requested',
+          result: 'success',
+          actorUserId: user.id,
+          actorUsername: user.username,
+          targetType: 'shipping_guide',
+          targetId: orderId,
+          correlationId: request.id,
+        });
+        return reply.status(202).send();
+      },
+    );
   } else {
     const unavailable = async (
       request: FastifyRequest,
@@ -71,6 +89,7 @@ export async function registerShippingRoutes(
     };
     app.get('/orders/:orderId/shipping-guide/pdf', unavailable);
     app.post('/orders/:orderId/shipping-guide/review', unavailable);
+    app.post('/orders/:orderId/shipping-guide/retry', unavailable);
   }
 
   const publicShipping = (

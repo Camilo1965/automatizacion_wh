@@ -417,6 +417,9 @@ export function BotFlowPage() {
                           more: 'Más modelos',
                           confirm: 'Confirmar',
                           cancel: 'Cancelar',
+                          editAddress: 'Cambiar dirección',
+                          editLocality: 'Cambiar municipio',
+                          editProduct: 'Cambiar producto',
                         } as Record<string, string>
                       )[key]
                     }

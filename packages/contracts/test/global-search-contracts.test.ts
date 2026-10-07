@@ -6,7 +6,8 @@ import {
 } from '../src/index.js';
 
 describe('global search contracts', () => {
-  it('requires at least two characters and caps limit', () => {
+  it('allows a single numeric order search and caps limit', () => {
+    expect(GlobalSearchQuerySchema.parse({ q: '1' })).toMatchObject({ q: '1' });
     expect(GlobalSearchQuerySchema.parse({ q: '37' })).toEqual({
       q: '37',
       limit: 12,

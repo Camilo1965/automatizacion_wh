@@ -12,6 +12,7 @@ export default defineConfig(
       'node_modules/**',
       'entregables/**',
       'proposal_work/**',
+      '.superpowers/**',
     ],
   },
   eslint.configs.recommended,

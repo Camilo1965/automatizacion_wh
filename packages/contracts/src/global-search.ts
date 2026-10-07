@@ -21,7 +21,15 @@ export type GlobalSearchHit = z.infer<typeof GlobalSearchHitSchema>;
 
 export const GlobalSearchQuerySchema = z
   .object({
-    q: z.string().trim().min(2).max(80),
+    q: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .refine((value) => value.length >= 2 || /^\d$/.test(value), {
+        message:
+          'Search query must be at least 2 characters unless it is a single digit',
+      }),
     limit: z.coerce.number().int().min(1).max(20).default(12),
   })
   .strict();

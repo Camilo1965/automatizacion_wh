@@ -192,6 +192,23 @@ export class PostgresShippingGuideJobRepository {
       .where(eq(shippingGuideJobs.id, id));
   }
 
+  async retryRejected(id: string): Promise<boolean> {
+    assertGuideJobTransition('failed', 'retry_rejected');
+    return this.database.orm.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(shippingGuideJobs)
+        .set({ status: 'pending', errorCode: null, updatedAt: new Date() })
+        .where(
+          sql`${shippingGuideJobs.id} = ${id}
+            AND ${shippingGuideJobs.status} = 'failed'
+            AND ${shippingGuideJobs.errorCode} = 'ShippingRequestError'
+            AND ${shippingGuideJobs.preShipmentNumber} IS NULL`,
+        )
+        .returning({ id: shippingGuideJobs.id });
+      return updated !== undefined;
+    });
+  }
+
   async findByOrderId(orderId: string) {
     const [job] = await this.database.orm
       .select()

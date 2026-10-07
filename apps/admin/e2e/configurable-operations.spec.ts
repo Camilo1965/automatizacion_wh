@@ -55,12 +55,12 @@ test('owner publishes localities, edits the bot and configures a municipal insur
   await expect(page.getByRole('alertdialog')).not.toBeVisible();
   await page.getByRole('tab', { name: 'Simular' }).click();
   await page
-    .getByRole('button', { name: 'Probar borrador', exact: true })
+    .getByRole('button', { name: 'Conversación paso a paso', exact: true })
     .click();
   await expect(
-    page.getByText(`Bot: ${welcomeMessage}`, {
-      exact: true,
-    }),
+    page
+      .getByRole('log', { name: 'Conversación simulada' })
+      .getByText(welcomeMessage, { exact: true }),
   ).toBeVisible();
   const flows = await page.request.get(`${E2E_API_ORIGIN}/api/admin/bot-flow`);
   expect((await flows.json()).data.activeVersionId).toBeTruthy();

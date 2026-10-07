@@ -76,6 +76,9 @@ describe('BotFlowPage editing and simulation', () => {
     const user = userEvent.setup();
     renderWithProviders(<BotFlowPage />);
     expect(await screen.findByText('Borrador guardado')).toBeVisible();
+    expect(screen.getByLabelText('Cambiar dirección')).toBeVisible();
+    expect(screen.getByLabelText('Cambiar municipio')).toBeVisible();
+    expect(screen.getByLabelText('Cambiar producto')).toBeVisible();
     await user.click(screen.getByRole('button', { name: '2. Talla' }));
     expect(screen.getByText(/dos respuestas no válidas/i)).toBeVisible();
     expect(

@@ -13,8 +13,29 @@ export function operationalLabel(value: string | null | undefined): string {
     collect_address: 'Esperando datos de envío',
     choose_shipping: 'Esperando tipo de envío',
     confirm_order: 'Esperando confirmación',
+    awaiting_size: 'Esperando talla',
+    showing_models: 'Mostrando modelos',
+    awaiting_name: 'Esperando nombre',
+    awaiting_reuse_confirmation: 'Esperando confirmación de datos anteriores',
+    awaiting_phone: 'Esperando celular',
+    awaiting_department: 'Esperando departamento',
+    awaiting_locality: 'Esperando municipio',
+    awaiting_address: 'Esperando dirección',
+    awaiting_notes: 'Esperando indicaciones',
+    awaiting_shipping: 'Cotizando envío',
+    awaiting_confirmation: 'Esperando confirmación',
+    completed: 'Pedido confirmado',
+    pending: 'Pendiente',
+    processing: 'En proceso',
+    created: 'Creada',
+    uncertain: 'Requiere revisión',
+    failed: 'Falló',
+    open: 'Abierta',
+    resolved: 'Resuelta',
+    owner: 'Propietaria',
+    operator: 'Operador',
   };
   return value === null || value === undefined
     ? 'Pendiente'
-    : (labels[value] ?? value.replaceAll('_', ' '));
+    : (labels[value] ?? 'Estado operativo');
 }

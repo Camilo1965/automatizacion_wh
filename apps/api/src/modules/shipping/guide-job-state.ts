@@ -6,7 +6,8 @@ export type GuideJobAction =
   | 'mark_created'
   | 'mark_uncertain'
   | 'mark_failed'
-  | 'resolve_uncertain';
+  | 'resolve_uncertain'
+  | 'retry_rejected';
 
 const transitions: Readonly<
   Record<GuideJobStatus, Partial<Record<GuideJobAction, GuideJobStatus>>>
@@ -19,7 +20,7 @@ const transitions: Readonly<
   },
   uncertain: { resolve_uncertain: 'created' },
   created: {},
-  failed: {},
+  failed: { retry_rejected: 'pending' },
 };
 
 export function assertGuideJobTransition(

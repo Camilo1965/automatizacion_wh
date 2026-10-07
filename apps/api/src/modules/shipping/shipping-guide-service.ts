@@ -15,6 +15,7 @@ type Repository = Readonly<{
   findByOrderId(orderId: string): Promise<GuideJob | null>;
   attachPdf(jobId: string, pdf: StoredGuidePdf): Promise<boolean>;
   reviewUncertain(jobId: string, preShipmentNumber: string): Promise<boolean>;
+  retryRejected(jobId: string): Promise<boolean>;
 }>;
 
 type Client = Readonly<{
@@ -123,6 +124,16 @@ export class ShippingGuideService {
     }
   }
 
+  async retryRejected(orderId: string): Promise<void> {
+    const job = await this.requireJob(orderId);
+    if (!(await this.repository.retryRejected(job.id))) {
+      throw new ShippingDomainError(
+        'guide_retry_not_allowed',
+        'Only a rejected guide request without a pre-shipment number can be retried',
+      );
+    }
+  }
+
   private async requireJob(orderId: string): Promise<GuideJob> {
     const job = await this.repository.findByOrderId(orderId);
     if (job === null)
@@ -136,5 +147,5 @@ export class ShippingGuideService {
 
 export type ShippingGuideOperations = Pick<
   ShippingGuideService,
-  'fetchPdf' | 'reviewUncertain'
+  'fetchPdf' | 'reviewUncertain' | 'retryRejected'
 >;

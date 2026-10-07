@@ -25,7 +25,12 @@ export const InventoryMovementPublicSchema = z
     previousQuantity: quantitySchema,
     newQuantity: quantitySchema,
     delta: deltaSchema,
-    reason: z.enum(['initial', 'manual_adjustment']),
+    reason: z.enum([
+      'initial',
+      'manual_adjustment',
+      'order_dispatched',
+      'order_returned',
+    ]),
     note: z.string().nullable(),
     createdAt: z.string().datetime(),
   })

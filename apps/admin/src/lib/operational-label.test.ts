@@ -7,4 +7,11 @@ describe('operationalLabel', () => {
     expect(operationalLabel('choose_shipping')).toBe('Esperando tipo de envío');
     expect(operationalLabel('draft')).toBe('Esperando al cliente');
   });
+
+  it('never exposes unknown internal state codes to operators', () => {
+    expect(operationalLabel('awaiting_new_internal_state')).toBe(
+      'Estado operativo',
+    );
+    expect(operationalLabel('uncertain')).toBe('Requiere revisión');
+  });
 });

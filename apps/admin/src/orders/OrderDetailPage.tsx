@@ -12,8 +12,10 @@ import {
   downloadGuidePdf,
   getShipping,
   reviewUncertainGuide,
+  retryRejectedGuide,
   selectShippingQuote,
 } from '../api/orders-api';
+import { useAuth } from '../auth/AuthProvider';
 import { getErrorMessage } from '../api/client';
 import { Button } from '../components/Button';
 import { ErrorMessage } from '../components/ErrorMessage';
@@ -60,6 +62,7 @@ const actionCopy: Record<
 
 export function OrderDetailPage() {
   const { orderId = '' } = useParams();
+  const { user } = useAuth();
   const client = useQueryClient();
   const query = useQuery({
     queryKey: ['order', orderId],
@@ -128,11 +131,19 @@ export function OrderDetailPage() {
     onSuccess: refresh,
   });
   const [reviewNumber, setReviewNumber] = useState('');
+  const [retryGuideOpen, setRetryGuideOpen] = useState(false);
   const [pendingAction, setPendingAction] =
     useState<OrderLifecycleAction | null>(null);
   const review = useMutation({
     mutationFn: () => reviewUncertainGuide(orderId, reviewNumber),
     onSuccess: refresh,
+  });
+  const retryGuide = useMutation({
+    mutationFn: () => retryRejectedGuide(orderId),
+    onSuccess: async () => {
+      setRetryGuideOpen(false);
+      await refresh();
+    },
   });
   const action = useMutation({
     mutationFn: (value: OrderLifecycleAction) => orderAction(orderId, value),
@@ -446,6 +457,24 @@ export function OrderDetailPage() {
                 </Button>
               </form>
             ) : null}
+            {user?.role === 'owner' &&
+            shipping.data.guide.status === 'failed' &&
+            shipping.data.guide.preShipmentNumber === null &&
+            shipping.data.guide.errorCode === 'ShippingRequestError' ? (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  99envíos rechazó la solicitud sin asignar número de guía. Si
+                  ya corregiste la causa, puedes reintentarla una vez.
+                </p>
+                <Button
+                  variant="secondary"
+                  onClick={() => setRetryGuideOpen(true)}
+                  type="button"
+                >
+                  Reintentar guía rechazada
+                </Button>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}
@@ -504,6 +533,15 @@ export function OrderDetailPage() {
           if (pendingAction !== null) action.mutate(pendingAction);
         }}
       />
+      <ConfirmDialog
+        open={retryGuideOpen}
+        title="Reintentar creación de guía"
+        message="KAIRO solo habilita este reintento porque 99envíos rechazó la solicitud y no existe un número de preenvío. Confirma que corregiste los datos; los resultados inciertos no se pueden reintentar desde aquí."
+        confirmLabel="Reintentar guía"
+        busy={retryGuide.isPending}
+        onCancel={() => setRetryGuideOpen(false)}
+        onConfirm={() => retryGuide.mutate()}
+      />
       {save.isError ||
       summary.isError ||
       action.isError ||
@@ -511,7 +549,8 @@ export function OrderDetailPage() {
       quote.isError ||
       chooseQuote.isError ||
       pdf.isError ||
-      review.isError ? (
+      review.isError ||
+      retryGuide.isError ? (
         <ErrorMessage
           message={getErrorMessage(
             save.error ??
@@ -521,7 +560,8 @@ export function OrderDetailPage() {
               quote.error ??
               chooseQuote.error ??
               pdf.error ??
-              review.error,
+              review.error ??
+              retryGuide.error,
             'No se pudo actualizar el pedido',
           )}
         />

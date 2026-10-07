@@ -82,19 +82,19 @@ describe('GlobalSearchService', () => {
       {
         kind: 'order',
         id: 'order-name',
-        label: '1 · Ana',
+        label: 'PED-000001 · Ana',
         href: '/orders/order-name',
       },
       {
         kind: 'order',
         id: 'order-phone',
-        label: '2 · +573002222222',
+        label: 'PED-000002 · +573002222222',
         href: '/orders/order-phone',
       },
       {
         kind: 'order',
         id: 'order-fallback',
-        label: '3 · Cliente',
+        label: 'PED-000003 · Cliente',
         href: '/orders/order-fallback',
       },
       {

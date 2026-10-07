@@ -20,6 +20,13 @@ function likePattern(query: string): string {
   return `%${escapeLikePattern(query)}%`;
 }
 
+function parseOrderNumber(query: string): number | null {
+  const match = /^(?:(?:pedido|ped)\s*[-#]?\s*)?0*(\d+)$/i.exec(query.trim());
+  if (match === null) return null;
+  const value = Number(match[1]);
+  return Number.isSafeInteger(value) && value > 0 ? value : null;
+}
+
 export class GlobalSearchService {
   constructor(private readonly database: PostgresDatabase) {}
 
@@ -28,12 +35,13 @@ export class GlobalSearchService {
     limit: number;
   }): Promise<readonly GlobalSearchHit[]> {
     const needle = input.q.trim();
-    if (needle.length < 2) return [];
+    const orderNumber = parseOrderNumber(needle);
+    if (needle.length < 2 && orderNumber === null) return [];
     const pattern = likePattern(needle);
     const perKind = Math.max(1, Math.ceil(input.limit / 3));
 
     const [orders, conversations, references] = await Promise.all([
-      this.searchOrders(pattern, perKind),
+      this.searchOrders(pattern, perKind, orderNumber),
       this.searchConversations(pattern, perKind),
       this.searchReferences(pattern, perKind),
     ]);
@@ -44,6 +52,7 @@ export class GlobalSearchService {
   private async searchOrders(
     pattern: string,
     limit: number,
+    orderNumber: number | null,
   ): Promise<GlobalSearchHit[]> {
     const rows = await this.database.orm
       .select({
@@ -58,6 +67,7 @@ export class GlobalSearchService {
           ${salesOrders.customerName} ILIKE ${pattern} ESCAPE '\\'
           OR ${salesOrders.customerPhone} ILIKE ${pattern} ESCAPE '\\'
           OR CAST(${salesOrders.orderNumber} AS TEXT) ILIKE ${pattern} ESCAPE '\\'
+          OR (${orderNumber}::bigint IS NOT NULL AND ${salesOrders.orderNumber} = ${orderNumber})
         )`,
       )
       .orderBy(desc(salesOrders.createdAt), desc(salesOrders.id))
@@ -66,7 +76,7 @@ export class GlobalSearchService {
     return rows.map((row) => ({
       kind: 'order' as const,
       id: row.id,
-      label: `${row.orderNumber} · ${row.customerName ?? row.customerPhone ?? 'Cliente'}`,
+      label: `PED-${String(row.orderNumber).padStart(6, '0')} · ${row.customerName ?? row.customerPhone ?? 'Cliente'}`,
       href: `/orders/${row.id}`,
     }));
   }

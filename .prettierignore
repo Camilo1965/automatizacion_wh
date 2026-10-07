@@ -6,5 +6,6 @@ entregables
 proposal_work
 ROADMAP.md
 docs/superpowers
+.superpowers
 apps/api/drizzle/meta
 *.tsbuildinfo

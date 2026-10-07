@@ -1,9 +1,10 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
 export const DEFAULT_HEARTBEAT_MAX_AGE_MS = 90_000;
 
 export const DEFAULT_WORKER_HEALTH_FILE =
-  process.env.WORKER_HEALTH_FILE?.trim() || '/tmp/kairo-worker-health.json';
+  process.env.WORKER_HEALTH_FILE?.trim() || '/tmp/kairo/worker-health.json';
 
 export type WorkerHealthSnapshot = Readonly<{
   schedulerInitialized: boolean;
@@ -82,12 +83,37 @@ export class WorkerHealthMonitor {
   }
 
   async persist(): Promise<void> {
+    await mkdir(path.dirname(this.healthFilePath), { recursive: true });
+    const temporaryPath = `${this.healthFilePath}.${process.pid}.tmp`;
     await writeFile(
-      this.healthFilePath,
+      temporaryPath,
       `${JSON.stringify(this.snapshot())}\n`,
       'utf8',
     );
+    await rename(temporaryPath, this.healthFilePath);
   }
+}
+
+export async function isWorkerSchedulerHealthy(input?: {
+  healthFilePath?: string;
+  nowMs?: number;
+  heartbeatMaxAgeMs?: number;
+}): Promise<boolean> {
+  const snapshot = await readWorkerHealthSnapshot(
+    input?.healthFilePath ?? DEFAULT_WORKER_HEALTH_FILE,
+  );
+  if (snapshot === null || !snapshot.schedulerInitialized) return false;
+  const lastHeartbeatAtMs =
+    snapshot.lastHeartbeatAt === null
+      ? Number.NaN
+      : Date.parse(snapshot.lastHeartbeatAt);
+  const nowMs = input?.nowMs ?? Date.now();
+  const maxAgeMs = input?.heartbeatMaxAgeMs ?? DEFAULT_HEARTBEAT_MAX_AGE_MS;
+  return (
+    Number.isFinite(lastHeartbeatAtMs) &&
+    lastHeartbeatAtMs <= nowMs + 5_000 &&
+    nowMs - lastHeartbeatAtMs <= maxAgeMs
+  );
 }
 
 export async function readWorkerHealthSnapshot(

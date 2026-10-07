@@ -89,6 +89,7 @@ describe('admin shipping HTTP API', () => {
         sha256: 'a'.repeat(64),
       }),
       reviewUncertain: vi.fn(),
+      retryRejected: vi.fn(),
     };
     const authService = {
       getSession: async (token?: string) => {
@@ -367,6 +368,22 @@ describe('admin shipping HTTP API', () => {
       orderId,
       '954101306101',
     );
+    const retry = await app.inject({
+      method: 'POST',
+      url: `/api/admin/orders/${orderId}/shipping-guide/retry`,
+      headers: {
+        cookie: 'camila_admin_session=good',
+        origin: config.adminOrigin,
+      },
+    });
+    expect(retry.statusCode).toBe(202);
+    expect(guideService.retryRejected).toHaveBeenCalledWith(orderId);
+    const operatorRetry = await app.inject({
+      method: 'POST',
+      url: `/api/admin/orders/${orderId}/shipping-guide/retry`,
+      headers: operatorHeaders,
+    });
+    expect(operatorRetry.statusCode).toBe(403);
     await app.close();
 
     const unconfigured = await buildApp({

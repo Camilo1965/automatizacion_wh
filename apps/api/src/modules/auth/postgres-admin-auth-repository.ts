@@ -16,7 +16,11 @@ import type {
   AdminUserRecord,
   SessionWithUser,
 } from './admin-auth-repository.js';
-import { UsernameConflictError, UserNotFoundError } from './auth-errors.js';
+import {
+  MfaAlreadyEnabledError,
+  UsernameConflictError,
+  UserNotFoundError,
+} from './auth-errors.js';
 
 type UserRow = typeof adminUsers.$inferSelect;
 type SessionRow = typeof adminSessions.$inferSelect;
@@ -365,11 +369,12 @@ export class PostgresAdminAuthRepository implements AdminAuthRepository {
           encryptedSecret: input.encryptedSecret,
           enabled: input.enabled,
         },
+        setWhere: eq(adminMfaSecrets.enabled, false),
       })
       .returning();
     const row = rows[0];
     if (row === undefined) {
-      throw new Error('Failed to upsert MFA secret');
+      throw new MfaAlreadyEnabledError();
     }
     return {
       userId: row.userId,

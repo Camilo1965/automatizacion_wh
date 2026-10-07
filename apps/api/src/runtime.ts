@@ -285,7 +285,28 @@ export async function createRuntime(
       shippingConfigured: async () =>
         (await integrationSettingsService?.getShipping()) != null ||
         shippingFallback !== undefined,
-      schedulerHealthy: true,
+      schedulerHealthy: async () => {
+        if (config.metricsEnabled === false) return false;
+        try {
+          const response = await fetch(
+            `http://worker:${config.workerMetricsPort ?? 9091}/metrics`,
+            config.metricsToken === undefined
+              ? {}
+              : { headers: { authorization: `Bearer ${config.metricsToken}` } },
+          );
+          if (!response.ok) return false;
+          const body = await response.text();
+          const initialized = body.match(
+            /^kairo_worker_scheduler_initialized\s+(\S+)$/m,
+          )?.[1];
+          const age = Number(
+            body.match(/^kairo_worker_heartbeat_age_seconds\s+(\S+)$/m)?.[1],
+          );
+          return initialized === '1' && Number.isFinite(age) && age <= 90;
+        } catch {
+          return false;
+        }
+      },
     }),
     photoStorage,
     ...(shippingQuoteService === undefined ? {} : { shippingQuoteService }),

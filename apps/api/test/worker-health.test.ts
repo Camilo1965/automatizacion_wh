@@ -8,6 +8,7 @@ import {
   DEFAULT_HEARTBEAT_MAX_AGE_MS,
   WorkerHealthMonitor,
   evaluateWorkerReadiness,
+  isWorkerSchedulerHealthy,
   readWorkerHealthSnapshot,
   runWorkerHealthCheck,
 } from '../src/modules/health/worker-health.js';
@@ -109,6 +110,30 @@ describe('WorkerHealthMonitor', () => {
 
     const snapshot = await readWorkerHealthSnapshot(healthFilePath);
     expect(snapshot).toEqual(raw);
+  });
+
+  it('reports scheduler health from the persisted heartbeat age', async () => {
+    directory = await mkdtemp(path.join(tmpdir(), 'kairo-worker-health-'));
+    const healthFilePath = path.join(directory, 'health.json');
+    const now = Date.parse('2026-10-06T12:00:00.000Z');
+    await writeFile(
+      healthFilePath,
+      JSON.stringify({
+        schedulerInitialized: true,
+        lastHeartbeatAt: new Date(now - 10_000).toISOString(),
+        pid: 1,
+      }),
+      'utf8',
+    );
+    await expect(
+      isWorkerSchedulerHealthy({ healthFilePath, nowMs: now }),
+    ).resolves.toBe(true);
+    await expect(
+      isWorkerSchedulerHealthy({
+        healthFilePath,
+        nowMs: now + DEFAULT_HEARTBEAT_MAX_AGE_MS + 1,
+      }),
+    ).resolves.toBe(false);
   });
 });
 

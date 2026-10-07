@@ -40,6 +40,8 @@ function cookieFromResponse(setCookie: string | string[] | undefined): string {
 describe('global search HTTP', () => {
   let app: FastifyInstance;
   let mediaRoot: string;
+  let orderCode: string;
+  let orderNumber: number;
 
   beforeAll(async () => {
     await runMigrations(databaseUrl);
@@ -72,14 +74,17 @@ describe('global search HTTP', () => {
         INSERT INTO catalog_references (id, code, model_name, color, price_cop)
         VALUES ('22222222-2222-4222-8222-222222222222', '01', 'Tenis Search', 'Negro', 120000)
       `;
-      await sql`
+      const [order] = await sql<{ order_number: number }[]>`
         INSERT INTO sales_orders (id, reference_id, size, quantity, customer_name, customer_phone, status)
         VALUES (
           '11111111-1111-4111-8111-111111111111',
           '22222222-2222-4222-8222-222222222222',
           37, 1, 'Ana Busqueda', '+573001112233', 'confirmed'
         )
+        RETURNING order_number
       `;
+      orderNumber = order!.order_number;
+      orderCode = `PED-${String(orderNumber).padStart(6, '0')}`;
       await sql`
         INSERT INTO whatsapp_conversations (id, customer_phone, state, mode, last_inbound_message_at)
         VALUES (
@@ -122,10 +127,31 @@ describe('global search HTTP', () => {
       expect.arrayContaining([
         expect.objectContaining({
           kind: 'order',
-          label: expect.stringContaining('Ana Busqueda'),
+          label: expect.stringContaining(orderCode),
         }),
       ]),
     );
+
+    for (const query of [
+      orderCode,
+      `pedido ${orderCode.slice(4)}`,
+      String(orderNumber),
+    ]) {
+      const byOrderId = await app.inject({
+        method: 'GET',
+        url: `/api/admin/search?q=${encodeURIComponent(query)}`,
+        headers: { cookie, origin: adminOrigin },
+      });
+      expect(byOrderId.statusCode, `${query}: ${byOrderId.body}`).toBe(200);
+      expect(byOrderId.json().data.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'order',
+            id: '11111111-1111-4111-8111-111111111111',
+          }),
+        ]),
+      );
+    }
 
     const byPhone = await app.inject({
       method: 'GET',

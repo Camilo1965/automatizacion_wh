@@ -110,7 +110,7 @@ describe('WhatsApp outbound repository', () => {
     const orderId = randomUUID();
     const referenceId = randomUUID();
     const guideId = randomUUID();
-    const referenceCode = `OUTBOX-${randomUUID().slice(0, 8)}`;
+    const referenceCode = `OUTBOX-${randomUUID().slice(0, 8).toUpperCase()}`;
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
     try {
       await sql`

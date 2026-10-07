@@ -114,7 +114,7 @@ describe('conversation transcript persistence', () => {
       `;
       await sql`
         INSERT INTO catalog_references (id, code, model_name, color, price_cop)
-        VALUES (${referenceId}, ${`STATUS-${orderId.slice(0, 12)}`}, 'Tenis', 'Negro', 120000)
+        VALUES (${referenceId}, ${`STATUS-${orderId.slice(0, 12).toUpperCase()}`}, 'Tenis', 'Negro', 120000)
       `;
       await sql`
         INSERT INTO sales_orders (id, reference_id, size, quantity, status)

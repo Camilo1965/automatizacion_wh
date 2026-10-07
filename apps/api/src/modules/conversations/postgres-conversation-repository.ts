@@ -163,6 +163,13 @@ export class PostgresConversationRepository {
           duplicate.stateAfter === 'awaiting_reuse_confirmation' &&
           existing.state === 'awaiting_reuse_confirmation' &&
           existing.activeOrderId !== null;
+        const recoverConfirmation =
+          duplicate.conversationId === existing?.id &&
+          existing.mode === 'bot' &&
+          existing.state === 'completed' &&
+          duplicate.continuationAction === 'confirm_order' &&
+          existing.activeOrderId !== null &&
+          existing.activeSummaryVersion !== null;
         const recoverSummary =
           duplicate.conversationId === existing?.id &&
           existing.mode === 'bot' &&
@@ -250,6 +257,15 @@ export class PostgresConversationRepository {
                 customerId: existing.customerId,
                 action: 'reuse_destination' as const,
                 activeOrderId: existing.activeOrderId,
+              }
+            : {}),
+          ...(recoverConfirmation
+            ? {
+                conversationId: duplicate.conversationId,
+                action: 'confirm_order' as const,
+                activeOrderId: existing.activeOrderId,
+                activeSummaryVersion: existing.activeSummaryVersion,
+                summaryGeneration: existing.summaryGeneration,
               }
             : {}),
         };
@@ -445,6 +461,7 @@ export class PostgresConversationRepository {
         continuationAction:
           transition.action === 'select_reference' ||
           transition.action === 'human_takeover' ||
+          transition.action === 'confirm_order' ||
           transition.action === 'edit_address' ||
           transition.action === 'edit_locality' ||
           (existing?.summaryEditAction != null &&
@@ -750,6 +767,27 @@ export class PostgresConversationRepository {
       });
       return true;
     });
+  }
+
+  async invalidateSummary(input: {
+    conversationId: string;
+    orderId: string;
+    version: number;
+  }): Promise<boolean> {
+    const rows = await this.database.orm
+      .update(whatsappConversations)
+      .set({ activeSummaryVersion: null, updatedAt: new Date() })
+      .where(
+        and(
+          eq(whatsappConversations.id, input.conversationId),
+          eq(whatsappConversations.activeOrderId, input.orderId),
+          eq(whatsappConversations.activeSummaryVersion, input.version),
+          eq(whatsappConversations.mode, 'bot'),
+          eq(whatsappConversations.state, 'completed'),
+        ),
+      )
+      .returning({ id: whatsappConversations.id });
+    return rows.length === 1;
   }
 
   async handOverUnquotedSummary(input: {

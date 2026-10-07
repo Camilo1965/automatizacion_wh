@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isIP } from 'node:net';
 
 export type StorageDriver = 'local' | 's3';
 
@@ -56,6 +57,8 @@ export type AppConfig = Readonly<{
   releaseSha?: string;
   /** Path to backup heartbeat JSON for metrics gauges. */
   backupMetricsPath?: string;
+  /** Exact reverse-proxy peer IPs allowed to supply forwarded client addresses. */
+  trustedProxyAddresses?: readonly string[];
 }>;
 
 export class ConfigurationError extends Error {
@@ -169,6 +172,13 @@ function parsePort(value: string | undefined): number | undefined {
 
 export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
   const issues: string[] = [];
+  const trustedProxyAddresses = (environment.TRUSTED_PROXY_ADDRESSES ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (trustedProxyAddresses.some((value) => isIP(value) === 0)) {
+    issues.push('TRUSTED_PROXY_ADDRESSES');
+  }
 
   const nodeEnvResult = nodeEnvSchema.safeParse(
     environment.NODE_ENV ?? 'development',
@@ -520,6 +530,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     ...(errorTrackingDsn === undefined ? {} : { errorTrackingDsn }),
     ...(releaseSha === undefined ? {} : { releaseSha }),
     ...(backupMetricsPath === undefined ? {} : { backupMetricsPath }),
+    trustedProxyAddresses,
     ...(whatsappWebhookVerifyToken === undefined
       ? {}
       : { whatsappWebhookVerifyToken }),

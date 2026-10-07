@@ -91,19 +91,22 @@ function privacyHandlers() {
 }
 
 describe('PrivacySettingsPage', () => {
-  it('shows inventory, policy versions, dry-run and [HUMANO] legal note', async () => {
+  it('presents privacy details in business Spanish and hides technical identifiers by default', async () => {
     server.use(...privacyHandlers());
     renderWithProviders(<PrivacySettingsPage />);
 
     expect(
-      await screen.findByRole('heading', { name: /Inventario y retención/i }),
+      await screen.findByRole('heading', { name: /Privacidad de clientes/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/sales_orders_customer_pii/)).toBeInTheDocument();
-    expect(screen.getAllByText(/\[HUMANO\]/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Pedidos y comprobantes/)).toBeInTheDocument();
+    expect(screen.getByText('Detalles técnicos')).toBeInTheDocument();
+    expect(screen.getByText(/v1 · Borrador/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/KAIRO no elimina datos automáticamente/),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Simular \(dry-run\)/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/v1 · draft/)).toBeInTheDocument();
   });
 
   it('submits dry-run with password confirmation', async () => {
@@ -111,7 +114,7 @@ describe('PrivacySettingsPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<PrivacySettingsPage />);
 
-    await screen.findByRole('heading', { name: /Inventario y retención/i });
+    await screen.findByRole('heading', { name: /Privacidad de clientes/i });
     await user.type(
       screen.getByLabelText(/Contraseña actual/i),
       'password1234',

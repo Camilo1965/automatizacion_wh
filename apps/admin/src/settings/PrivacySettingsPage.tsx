@@ -93,7 +93,7 @@ export function PrivacySettingsPage() {
     onSuccess: async () => {
       setError(null);
       setMessage(
-        'Política activada. Ejecución automática sigue OFF hasta RETENTION_EXECUTION_ENABLED=true y aprobación [HUMANO].',
+        'Política activada. El borrado automático sigue apagado y requiere una habilitación y aprobación por separado.',
       );
       await queryClient.invalidateQueries({ queryKey: ['privacy-policies'] });
     },
@@ -169,9 +169,15 @@ export function PrivacySettingsPage() {
     <section className="space-y-6">
       <PageHeader
         eyebrow="Privacidad"
-        title="Inventario y retención"
-        description="Políticas versionadas. Duraciones legales Colombia: [HUMANO]. Ejecución automática desactivada por defecto."
+        title="Privacidad de clientes"
+        description="Consulta qué datos gestiona KAIRO y revisa las herramientas de privacidad disponibles."
       />
+
+      <p className="rounded-2xl border border-border bg-muted p-4 text-sm text-muted-foreground">
+        KAIRO no elimina datos automáticamente. Los plazos de conservación deben
+        definirse con asesoría legal antes de activar una política; las acciones
+        de exportación y anonimización requieren reautenticación.
+      </p>
 
       {error !== null ? <ErrorMessage message={error} /> : null}
       {message !== null ? (
@@ -211,26 +217,30 @@ export function PrivacySettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Inventario de clases</CardTitle>
+          <CardTitle>Datos que gestiona KAIRO</CardTitle>
           <CardDescription>
-            {inventoryQuery.data?.capabilityNote}. Legal:{' '}
-            {inventoryQuery.data?.legalDurationsStatus}
+            Revisa las categorías de información y las acciones disponibles.
+            Plazos legales:{' '}
+            {legalStatusLabel(inventoryQuery.data?.legalDurationsStatus)}.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <ul className="space-y-2 text-sm">
             {(inventoryQuery.data?.items ?? []).map((item) => (
               <li key={item.dataClass} className="border-b pb-2">
-                <div className="font-medium">{item.dataClass}</div>
-                <div className="text-muted-foreground">
-                  Tablas: {item.tables.join(', ')}
+                <div className="font-medium">
+                  {dataClassLabel(item.dataClass)}
                 </div>
-                <div className="text-muted-foreground">
-                  Acciones: {item.allowedActions.join(', ')}
-                </div>
-                <div className="text-muted-foreground">
-                  {item.relationshipStrategy}
-                </div>
+                <details className="mt-2 text-xs text-muted-foreground">
+                  <summary className="cursor-pointer">
+                    Detalles técnicos
+                  </summary>
+                  <div className="mt-2 space-y-1">
+                    <p>Almacenamiento interno: {item.tables.join(', ')}</p>
+                    <p>Acciones admitidas: {item.allowedActions.join(', ')}</p>
+                    <p>{item.relationshipStrategy}</p>
+                  </div>
+                </details>
               </li>
             ))}
           </ul>
@@ -241,15 +251,15 @@ export function PrivacySettingsPage() {
         <CardHeader>
           <CardTitle>Versiones de política</CardTitle>
           <CardDescription>
-            Las políticas quedan en borrador hasta aprobación legal [HUMANO] y
-            activación con reautenticación.
+            Las políticas quedan en borrador hasta contar con revisión legal y
+            activarlas con reautenticación.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <ul className="space-y-2 text-sm">
             {(policiesQuery.data ?? []).map((policy) => (
               <li key={policy.id}>
-                v{policy.version} · {policy.status}
+                Política v{policy.version} · {operationalLabel(policy.status)}
                 {policy.activatedAt !== null
                   ? ` · activada ${policy.activatedAt}`
                   : ''}
@@ -257,8 +267,8 @@ export function PrivacySettingsPage() {
             ))}
             {(policiesQuery.data ?? []).length === 0 ? (
               <li className="text-muted-foreground">
-                Sin políticas aún. Crea borradores vía API/CLI tras matriz
-                legal.
+                Aún no hay una política preparada. Primero debe acordarse y
+                documentarse el plazo de conservación con asesoría legal.
               </li>
             ) : null}
           </ul>
@@ -286,20 +296,20 @@ export function PrivacySettingsPage() {
         <CardHeader>
           <CardTitle>Ejecuciones y reportes</CardTitle>
           <CardDescription>
-            Progreso, reanudación y firma del informe. Execute requiere
-            RETENTION_EXECUTION_ENABLED=true.
+            Revisa simulaciones y el estado de las solicitudes realizadas.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <ul className="space-y-2 text-sm">
             {(runsQuery.data ?? []).map((run) => (
               <li key={run.id}>
-                {run.mode} · {run.status} · política v{run.policyVersion}
+                {modeLabel(run.mode)} · {operationalLabel(run.status)} ·
+                política v{run.policyVersion}
                 {run.report !== null
                   ? ` · firma ${run.report.signature.slice(0, 12)}…`
                   : ''}
                 {run.errorMessage !== null
-                  ? ` · error: ${run.errorMessage}`
+                  ? ' · requiere revisión del equipo'
                   : ''}
               </li>
             ))}
@@ -361,4 +371,45 @@ export function PrivacySettingsPage() {
       </Card>
     </section>
   );
+}
+
+function legalStatusLabel(status: string | undefined): string {
+  if (status === 'approved') return 'revisados';
+  if (status === 'pending' || status === 'missing')
+    return 'pendientes de definir';
+  return 'por revisar';
+}
+
+function dataClassLabel(value: string): string {
+  const labels: Record<string, string> = {
+    sales_orders_customer_pii: 'Pedidos y comprobantes',
+    whatsapp_conversations_pii: 'Conversaciones con clientes',
+    whatsapp_messages_pii: 'Mensajes de clientes',
+    customers_pii: 'Datos de contacto',
+    customer_contact: 'Datos de contacto',
+    customer_destinations: 'Direcciones de entrega',
+    conversations: 'Conversaciones',
+    orders: 'Pedidos y comprobantes',
+    guides: 'Guías de envío',
+    audit_events: 'Registro de actividad',
+  };
+  return labels[value] ?? 'Otra información operativa';
+}
+
+function modeLabel(value: string): string {
+  if (value === 'dry_run') return 'Simulación';
+  if (value === 'execute') return 'Ejecución';
+  return 'Solicitud';
+}
+
+function operationalLabel(value: string): string {
+  const labels: Record<string, string> = {
+    draft: 'Borrador',
+    active: 'Activa',
+    completed: 'Completada',
+    failed: 'Requiere revisión',
+    running: 'En curso',
+    paused: 'Pausada',
+  };
+  return labels[value] ?? 'Estado actualizado';
 }

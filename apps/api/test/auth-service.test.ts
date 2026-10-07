@@ -12,6 +12,7 @@ import type {
 import {
   AuthenticationRequiredError,
   InvalidCredentialsError,
+  MfaAlreadyEnabledError,
   PasswordMismatchError,
   UsernameConflictError,
   UserNotFoundError,
@@ -241,6 +242,9 @@ class MemoryAdminAuthRepository implements AdminAuthRepository {
     enabled: boolean;
     createdAt: Date;
   }): Promise<AdminMfaSecretRecord> {
+    if (this.mfaSecrets.get(input.userId)?.enabled) {
+      throw new MfaAlreadyEnabledError();
+    }
     const record: AdminMfaSecretRecord = {
       userId: input.userId,
       encryptedSecret: input.encryptedSecret,
@@ -538,5 +542,29 @@ describe('AuthService', () => {
     );
     await expect(service.logout(null)).resolves.toBeUndefined();
     await expect(service.logout('unknown-token')).resolves.toBeUndefined();
+  });
+
+  it('never replaces the secret of an already enabled MFA factor', async () => {
+    const repository = new MemoryAdminAuthRepository();
+    const user = await repository.createUser({
+      username: 'owner',
+      passwordHash: 'unused',
+      role: 'owner',
+    });
+    const original = {
+      userId: user.id,
+      encryptedSecret: 'keep-this-secret',
+      enabled: true,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    };
+    repository.mfaSecrets.set(user.id, original);
+    const service = new AuthService(repository, {
+      mfaSigningKeyBase64: Buffer.alloc(32).toString('base64'),
+    });
+
+    await expect(service.beginMfaEnrollment(user.id)).rejects.toBeInstanceOf(
+      MfaAlreadyEnabledError,
+    );
+    expect(repository.mfaSecrets.get(user.id)).toEqual(original);
   });
 });

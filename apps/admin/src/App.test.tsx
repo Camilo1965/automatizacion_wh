@@ -722,10 +722,10 @@ describe('Catalog flows', () => {
     renderWithProviders(<App />, { initialEntries: [`/references/${id}`] });
 
     expect(await screen.findByText(/\+2/)).toBeInTheDocument();
-    expect(screen.getByText(/manual_adjustment/)).toBeInTheDocument();
+    expect(screen.getByText(/Ajuste manual/)).toBeInTheDocument();
     expect(
       screen.getByText(
-        new Date('2026-09-06T14:00:00.000Z').toLocaleString('es-ES'),
+        new Date('2026-09-06T14:00:00.000Z').toLocaleString('es-CO'),
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/-1/)).not.toBeInTheDocument();
@@ -746,7 +746,7 @@ describe('Catalog flows', () => {
     renderWithProviders(<App />, { initialEntries: ['/catalog'] });
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'An unexpected error occurred',
+      'No se pudo cargar el catálogo',
     );
   });
 
@@ -765,7 +765,7 @@ describe('Catalog flows', () => {
     renderWithProviders(<App />, { initialEntries: ['/catalog'] });
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'La respuesta del servidor no es válida',
+      'La respuesta del servidor no es válida.',
     );
   });
 

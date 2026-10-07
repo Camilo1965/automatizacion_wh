@@ -55,6 +55,7 @@ async function main(): Promise<void> {
     {
       onSchedulerReady: () => {
         health.markSchedulerInitialized();
+        runtime.metrics.setWorkerSchedulerInitialized(true);
       },
       onLoopHeartbeat: pulse,
     },
