@@ -2,6 +2,10 @@
 
 **Estado Task 13 (2026-09-22):** plantillas y runbooks listos (`verified` automatable). El 2026-09-23 UTC se hicieron pruebas de lectura con credenciales locales. Existe además un registro histórico de creación de guía TCC y validación visual de PDF el 2026-09-08 ([cierre de fase 5](../history/phase-5-closeout.md)); no está ligado a un hash de la versión candidata ni sustituye la aceptación del build actual. Webhooks/mensajes Meta y una repetición verificable de guía/PDF en el release candidato siguen **`[HUMANO]` / BLOCKING**.
 
+## Evidencia automatizada del candidato local
+
+**Candidato `bccfea2` (2026-10-15):** `verify-local` PASS — 645 tests unitarios, 203 de integración (1 omitida por proveedor opcional), 32 E2E de navegador (1 omitida por secreto opcional de WhatsApp), build y presupuesto JS PASS. `security:all` PASS — Gitleaks sin hallazgos en 234 commits, Trivy filesystem sin vulnerabilidades críticas/altas y las cuatro imágenes de producción sin vulnerabilidades críticas/altas. `production:smoke` PASS — login/rutas, S3, backup cifrado, verificación, restauración aislada, heartbeat y separación API/worker. Este smoke usa proveedores y almacenamiento locales desechables; no prueba conexión real con Meta ni 99envíos.
+
 Usar una fila por evento. Redactar PII (teléfonos → últimos 4). **Nunca** tokens, app secrets, JWT ni PII completa.
 
 | Fecha UTC  | Proveedor | Acción                            | Pedido / wamid (parcial) | Resultado                                                                                          | Operador    | Autorización                                   |
