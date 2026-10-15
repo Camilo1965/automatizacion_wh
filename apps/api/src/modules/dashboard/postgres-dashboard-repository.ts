@@ -19,6 +19,7 @@ type DashboardRow = {
   cod_value_cop: number;
   guides_created: number;
   reserved_units: number;
+  failed_outbound: number;
 };
 
 export class PostgresDashboardRepository implements DashboardRepository {
@@ -88,7 +89,11 @@ export class PostgresDashboardRepository implements DashboardRepository {
         (
           SELECT coalesce(sum(delta), 0)::int FROM reservation_movements
           WHERE reason = 'confirmed' AND delta > 0 AND created_at >= ${start}::timestamptz AND created_at < ${end}::timestamptz
-        ) AS reserved_units
+        ) AS reserved_units,
+        (
+          SELECT count(*)::int FROM whatsapp_outbound_messages
+          WHERE status = 'failed'
+        ) AS failed_outbound
     `);
     const row = rows[0];
     if (!row) throw new Error('Dashboard aggregate returned no row');
@@ -101,7 +106,7 @@ export class PostgresDashboardRepository implements DashboardRepository {
         awaitingConfirmation: row.awaiting_confirmation,
         closurePending: row.closure_pending,
         lowStockReferences: row.low_stock_references,
-        integrationFailures: 0,
+        integrationFailures: row.failed_outbound,
       },
       today: {
         newConversations: row.new_conversations,

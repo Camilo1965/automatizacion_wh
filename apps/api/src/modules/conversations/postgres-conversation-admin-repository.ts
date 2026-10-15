@@ -1,7 +1,10 @@
 import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
 
 import type { PostgresDatabase } from '../../database/client.js';
-import { whatsappConversations } from '../../database/schema/index.js';
+import {
+  customers,
+  whatsappConversations,
+} from '../../database/schema/index.js';
 
 export type AdminConversation = Readonly<{
   id: string;
@@ -12,6 +15,10 @@ export type AdminConversation = Readonly<{
   selectedSize: string | null;
   activeOrderId: string | null;
   pendingOutbound: number;
+  customerName: string | null;
+  lastPreview: string | null;
+  unreadCount: number;
+  lastMessageAt: Date | null;
   lastInboundMessageAt: Date;
   updatedAt: Date;
 }>;
@@ -25,6 +32,7 @@ export interface ConversationAdminRepository {
     nextCursor: Readonly<{ updatedAt: Date; id: string }> | null;
   }>;
   get(conversationId: string): Promise<AdminConversation | null>;
+  markRead?(conversationId: string): Promise<boolean>;
   takeControl(conversationId: string): Promise<void>;
   releaseControl(conversationId: string): Promise<void>;
   getManualContext?(conversationId: string): Promise<{
@@ -37,7 +45,17 @@ export interface ConversationAdminRepository {
 function mapConversation(
   row: typeof whatsappConversations.$inferSelect,
   pendingOutbound: number,
+  customerName: string | null,
+  lastPreview: string | null,
+  unreadCount: number,
+  lastMessageAt: Date | null,
 ): AdminConversation {
+  const mappedLastMessageAt =
+    lastMessageAt === null
+      ? null
+      : lastMessageAt instanceof Date
+        ? lastMessageAt
+        : new Date(String(lastMessageAt));
   return {
     id: row.id,
     customerPhone: row.customerPhone,
@@ -47,6 +65,10 @@ function mapConversation(
     selectedSize: row.selectedSize,
     activeOrderId: row.activeOrderId,
     pendingOutbound,
+    customerName,
+    lastPreview,
+    unreadCount,
+    lastMessageAt: mappedLastMessageAt,
     lastInboundMessageAt: row.lastInboundMessageAt,
     updatedAt: row.updatedAt,
   };
@@ -84,8 +106,41 @@ export class PostgresConversationAdminRepository implements ConversationAdminRep
           WHERE outbound.conversation_id = "whatsapp_conversations"."id"
             AND outbound.status = 'pending'
         )`,
+        customerName: customers.displayName,
+        lastPreview: sql<string | null>`(
+          SELECT COALESCE(
+            NULLIF(BTRIM(message.text_body), ''),
+            CASE message.message_type
+              WHEN 'image' THEN 'Imagen adjunta'
+              WHEN 'audio' THEN 'Audio adjunto'
+              WHEN 'document' THEN 'Documento adjunto'
+              WHEN 'event' THEN 'Actualización del pedido'
+              ELSE 'Mensaje'
+            END
+          )
+          FROM whatsapp_conversation_messages AS message
+          WHERE message.conversation_id = "whatsapp_conversations"."id"
+          ORDER BY message.occurred_at DESC, message.id DESC
+          LIMIT 1
+        )`,
+        unreadCount: sql<number>`(
+          SELECT count(*)::int
+          FROM whatsapp_conversation_messages AS message
+          WHERE message.conversation_id = "whatsapp_conversations"."id"
+            AND message.source = 'customer'
+            AND message.occurred_at > COALESCE(
+              "whatsapp_conversations"."last_read_at",
+              '-infinity'::timestamptz
+            )
+        )`,
+        lastMessageAt: sql<Date | null>`(
+          SELECT max(message.occurred_at)
+          FROM whatsapp_conversation_messages AS message
+          WHERE message.conversation_id = "whatsapp_conversations"."id"
+        )`,
       })
       .from(whatsappConversations)
+      .leftJoin(customers, eq(customers.id, whatsappConversations.customerId))
       .where(conditions)
       .orderBy(
         desc(whatsappConversations.updatedAt),
@@ -96,7 +151,14 @@ export class PostgresConversationAdminRepository implements ConversationAdminRep
     const last = pageRows.at(-1)?.conversation;
     return {
       items: pageRows.map((row) =>
-        mapConversation(row.conversation, row.pendingOutbound),
+        mapConversation(
+          row.conversation,
+          row.pendingOutbound,
+          row.customerName,
+          row.lastPreview,
+          row.unreadCount,
+          row.lastMessageAt,
+        ),
       ),
       nextCursor:
         rows.length > limit && last !== undefined
@@ -115,13 +177,62 @@ export class PostgresConversationAdminRepository implements ConversationAdminRep
           WHERE outbound.conversation_id = "whatsapp_conversations"."id"
             AND outbound.status = 'pending'
         )`,
+        customerName: customers.displayName,
+        lastPreview: sql<string | null>`(
+          SELECT COALESCE(
+            NULLIF(BTRIM(message.text_body), ''),
+            CASE message.message_type
+              WHEN 'image' THEN 'Imagen adjunta'
+              WHEN 'audio' THEN 'Audio adjunto'
+              WHEN 'document' THEN 'Documento adjunto'
+              WHEN 'event' THEN 'Actualización del pedido'
+              ELSE 'Mensaje'
+            END
+          )
+          FROM whatsapp_conversation_messages AS message
+          WHERE message.conversation_id = "whatsapp_conversations"."id"
+          ORDER BY message.occurred_at DESC, message.id DESC
+          LIMIT 1
+        )`,
+        unreadCount: sql<number>`(
+          SELECT count(*)::int
+          FROM whatsapp_conversation_messages AS message
+          WHERE message.conversation_id = "whatsapp_conversations"."id"
+            AND message.source = 'customer'
+            AND message.occurred_at > COALESCE(
+              "whatsapp_conversations"."last_read_at",
+              '-infinity'::timestamptz
+            )
+        )`,
+        lastMessageAt: sql<Date | null>`(
+          SELECT max(message.occurred_at)
+          FROM whatsapp_conversation_messages AS message
+          WHERE message.conversation_id = "whatsapp_conversations"."id"
+        )`,
       })
       .from(whatsappConversations)
+      .leftJoin(customers, eq(customers.id, whatsappConversations.customerId))
       .where(eq(whatsappConversations.id, conversationId))
       .limit(1);
     return row === undefined
       ? null
-      : mapConversation(row.conversation, row.pendingOutbound);
+      : mapConversation(
+          row.conversation,
+          row.pendingOutbound,
+          row.customerName,
+          row.lastPreview,
+          row.unreadCount,
+          row.lastMessageAt,
+        );
+  }
+
+  async markRead(conversationId: string): Promise<boolean> {
+    const rows = await this.database.orm
+      .update(whatsappConversations)
+      .set({ lastReadAt: new Date() })
+      .where(eq(whatsappConversations.id, conversationId))
+      .returning({ id: whatsappConversations.id });
+    return rows.length > 0;
   }
 
   async getManualContext(conversationId: string) {

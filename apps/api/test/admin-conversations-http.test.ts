@@ -24,6 +24,7 @@ const config: AppConfig = {
 describe('admin conversation HTTP API', () => {
   it('requires the owner session and allows taking control', async () => {
     const takeControl = vi.fn().mockResolvedValue(undefined);
+    const markRead = vi.fn().mockResolvedValue(true);
     const repository = {
       list: vi.fn().mockResolvedValue({
         items: [
@@ -46,6 +47,7 @@ describe('admin conversation HTTP API', () => {
         pendingOutbound: 0,
       }),
       takeControl,
+      markRead,
       releaseControl: vi.fn(),
     };
     const authService = {
@@ -87,6 +89,25 @@ describe('admin conversation HTTP API', () => {
     );
     expect(list.json().data.items[0]).not.toHaveProperty('displayName');
     expect(list.json().data.nextCursor).toBeNull();
+    const anonymousRead = await app.inject({
+      method: 'POST',
+      url: '/api/admin/conversations/11111111-1111-4111-8111-111111111111/read',
+      headers: { origin: config.adminOrigin },
+    });
+    expect(anonymousRead.statusCode).toBe(401);
+    const read = await app.inject({
+      method: 'POST',
+      url: '/api/admin/conversations/11111111-1111-4111-8111-111111111111/read',
+      headers: {
+        cookie: 'camila_admin_session=good',
+        origin: config.adminOrigin,
+      },
+    });
+    expect(read.statusCode).toBe(200);
+    expect(read.json()).toEqual({ data: null });
+    expect(markRead).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+    );
     const take = await app.inject({
       method: 'POST',
       url: '/api/admin/conversations/11111111-1111-4111-8111-111111111111/take-control',

@@ -327,7 +327,7 @@ Criterio de avance: talla → fotos → selección → datos → resumen funcion
 
 Dependencia: fases 0 y 3; integración final con fase 4. Estimación: 18–30 horas.
 
-Estado de ingeniería: flujo local implementado con cotizaciones versionadas, selección automática por municipio, total contra entrega, cola persistente de guía, PDF recuperable y revisión humana. La cuenta autorizada validó login, cotización, creación de guía TCC y PDF. La prueba reveló que el resumen inicial del portal puede tardar en reflejar preenvíos; “Envíos completos” es la fuente de revisión antes de resolver estados inciertos.
+Estado de ingeniería: flujo local implementado con cotizaciones versionadas, selección automática por municipio, total contra entrega, cola persistente de guía, PDF recuperable y revisión humana. Un ejercicio histórico documentó login, cotización, creación de guía TCC y PDF; esa evidencia no está asociada a un hash/tag del release candidato actual. La prueba reveló que el resumen inicial del portal puede tardar en reflejar preenvíos; “Envíos completos” es la fuente de revisión antes de resolver estados inciertos. La repetición end-to-end con el build candidato sigue siendo gate de lanzamiento.
 
 - [x] Crear un adaptador aislado de autenticación y creación de preenvío; cotización y PDF siguen pendientes.
 - [x] Gestionar token de cuenta únicamente en servidor para cada operación autenticada.
@@ -342,7 +342,8 @@ Estado de ingeniería: flujo local implementado con cotizaciones versionadas, se
 - [x] Guardar número de preenvío, transportadora y flete de la respuesta.
 - [x] Descargar PDF y permitir reintentar su obtención sin crear otra guía.
 - [x] Mostrar cotizaciones, errores, PDF y acciones de revisión en el panel.
-- [x] Completar una prueba controlada de guía y PDF, verificando el total contraentrega y la lectura idempotente del archivo almacenado.
+- [x] Completar históricamente una prueba controlada de guía y PDF, verificando el total contraentrega y la lectura idempotente del archivo almacenado.
+- [ ] Repetir y registrar guía/PDF con autorización explícita contra el release candidato; abrir e imprimir el documento y verificar cancelación en el portal de 99envíos.
 
 Entregable: confirmación de pedido que produce guía y PDF válidos.
 

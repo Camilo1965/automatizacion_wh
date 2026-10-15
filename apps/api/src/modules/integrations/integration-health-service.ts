@@ -45,13 +45,15 @@ export class IntegrationHealthService {
       whatsapp: {
         status: whatsappConfigured ? 'up' : 'degraded',
         checkedAt,
-        detail: whatsappConfigured ? null : 'Credenciales o webhook pendientes',
+        detail: whatsappConfigured
+          ? 'Credenciales presentes; esta revisión no consulta Meta en vivo.'
+          : 'Credenciales o verificación del webhook pendientes',
       },
       shipping: {
         status: shippingConfigured ? 'up' : 'degraded',
         checkedAt,
         detail: shippingConfigured
-          ? null
+          ? 'Credenciales presentes; esta revisión no consulta 99envíos en vivo.'
           : 'Credenciales de 99envíos pendientes',
       },
       scheduler: {

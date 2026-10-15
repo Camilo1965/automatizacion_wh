@@ -4,10 +4,6 @@
 # env file and scoped S3 users. Never start this override under camila-prod.
 
 services:
-  postgres:
-    ports:
-      - '127.0.0.1:55432:5432'
-
   migrate:
     image: ${SMOKE_API_IMAGE:-camila-api:local}
     env_file:
@@ -81,8 +77,8 @@ services:
   caddy:
     # Compose appends ordinary ports lists; replace production's public 80/443.
     ports: !override
-      - '127.0.0.1:18080:80'
-      - '127.0.0.1:18443:443'
+      - '127.0.0.1:${SMOKE_HTTP_PORT:?set SMOKE_HTTP_PORT}:80'
+      - '127.0.0.1:${SMOKE_HTTPS_PORT:?set SMOKE_HTTPS_PORT}:443'
     environment:
       CAMILA_DOMAIN: ${CAMILA_DOMAIN:-localhost}
       CADDY_GLOBAL_OPTIONS: ${CADDY_GLOBAL_OPTIONS:-}

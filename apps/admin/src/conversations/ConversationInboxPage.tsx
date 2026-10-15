@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   useInfiniteQuery,
   useMutation,
@@ -10,6 +10,7 @@ import {
   listConversationMessages,
   listConversations,
   getConversation,
+  markConversationRead,
   sendConversationMessage,
   setConversationControl,
 } from '../api/conversations-api';
@@ -73,6 +74,35 @@ export function ConversationInboxPage() {
   const selected = visibleConversations?.find(
     (item) => item.id === effectiveSelectedId,
   );
+  const selectedLastActivity =
+    selected?.lastMessageAt ?? selected?.lastInboundMessageAt;
+  const selectedUnreadCount = selected?.unreadCount ?? 0;
+  const selectedConversationId = selected?.id;
+  const lastReadRequest = useRef<string | null>(null);
+  const markRead = useMutation({
+    mutationFn: markConversationRead,
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: ['conversations'] });
+    },
+    onError: (error) => {
+      showToast(
+        getErrorMessage(error, 'No se pudo actualizar el estado de lectura'),
+      );
+    },
+  });
+
+  useEffect(() => {
+    if (!selectedConversationId || selectedUnreadCount === 0) return;
+    const requestKey = `${selectedConversationId}:${selectedLastActivity ?? ''}`;
+    if (lastReadRequest.current === requestKey) return;
+    lastReadRequest.current = requestKey;
+    markRead.mutate(selectedConversationId);
+  }, [
+    markRead,
+    selectedConversationId,
+    selectedLastActivity,
+    selectedUnreadCount,
+  ]);
 
   const showMobileThread = mobileThreadOpen;
 

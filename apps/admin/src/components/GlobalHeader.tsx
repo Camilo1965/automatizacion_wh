@@ -72,7 +72,9 @@ export function GlobalHeader({
             aria-label="Abrir configuración de WhatsApp"
           >
             <StatusBadge tone={whatsappReady ? 'success' : 'warning'}>
-              {whatsappReady ? 'WhatsApp listo' : 'WhatsApp por validar'}
+              {whatsappReady
+                ? 'WhatsApp configurado'
+                : 'WhatsApp por configurar'}
             </StatusBadge>
           </Link>
           <Link

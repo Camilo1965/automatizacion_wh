@@ -159,6 +159,61 @@ describe('conversation owner control', () => {
     }
   });
 
+  it('summarizes customer identity, latest message and unread inbound messages', async () => {
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const phone = `+573${Math.floor(Math.random() * 1_000_000_000)
+      .toString()
+      .padStart(9, '0')}`;
+    const [customer] = await sql<{ id: string }[]>`
+      INSERT INTO customers (normalized_phone, display_name)
+      VALUES (${phone}, 'Ana Gómez') RETURNING id
+    `;
+    const [conversation] = await sql<{ id: string }[]>`
+      INSERT INTO whatsapp_conversations
+        (customer_phone, customer_id, state, mode, last_inbound_message_at, last_read_at)
+      VALUES (${phone}, ${customer!.id}, 'awaiting_size', 'human', '2026-10-14T20:10:00Z', '2026-10-14T20:00:00Z')
+      RETURNING id
+    `;
+    await sql`
+      INSERT INTO whatsapp_conversation_messages
+        (conversation_id, source, message_type, text_body, status, occurred_at)
+      VALUES
+        (${conversation!.id}, 'customer', 'text', 'Hola, ¿hay talla 37?', 'received', '2026-10-14T20:01:00Z'),
+        (${conversation!.id}, 'customer', 'text', 'Me interesa el negro', 'received', '2026-10-14T20:10:00Z'),
+        (${conversation!.id}, 'owner_panel', 'text', 'Sí, te ayudo con la talla', 'sent', '2026-10-14T20:11:00Z')
+    `;
+    await sql.end({ timeout: 5 });
+
+    const database = createPostgresDatabase(databaseUrl);
+    const repository = new PostgresConversationAdminRepository(database);
+    try {
+      const [listed] = (await repository.list({ limit: 10 })).items.filter(
+        (item) => item.id === conversation!.id,
+      );
+      expect(listed).toMatchObject({
+        customerName: 'Ana Gómez',
+        lastPreview: 'Sí, te ayudo con la talla',
+        unreadCount: 2,
+        lastMessageAt: new Date('2026-10-14T20:11:00Z'),
+      });
+
+      await repository.markRead(conversation!.id);
+      await expect(repository.get(conversation!.id)).resolves.toMatchObject({
+        unreadCount: 0,
+      });
+    } finally {
+      await database.close();
+      const cleanup = postgres(databaseUrl, { max: 1, prepare: false });
+      try {
+        await cleanup`DELETE FROM whatsapp_conversation_messages WHERE conversation_id = ${conversation!.id}`;
+        await cleanup`DELETE FROM whatsapp_conversations WHERE id = ${conversation!.id}`;
+        await cleanup`DELETE FROM customers WHERE id = ${customer!.id}`;
+      } finally {
+        await cleanup.end({ timeout: 5 });
+      }
+    }
+  });
+
   it('releases control without creating a new bot message', async () => {
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
     const [conversation] = await sql<{ id: string }[]>`

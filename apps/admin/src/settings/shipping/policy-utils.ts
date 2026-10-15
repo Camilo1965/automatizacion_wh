@@ -41,6 +41,20 @@ export function copyGlobalForMunicipality(
   };
 }
 
+export function restrictToCarrier(
+  policy: ShippingPolicy,
+  carrier: string,
+): ShippingPolicy {
+  return {
+    ...policy,
+    preferredCarrier: carrier,
+    fallbackPolicy: 'block',
+    allowedCarriers: [carrier],
+    excludedCarriers: undefined,
+    orderedCarriers: [],
+  };
+}
+
 export function policyValidationMessage(policy: ShippingPolicy): string | null {
   const allowed = policy.allowedCarriers;
   const excluded = policy.excludedCarriers ?? [];
@@ -76,10 +90,10 @@ export function describePolicy(policy: ShippingPolicy): string {
       : 'se detiene si no está disponible';
   const offer =
     policy.offerMode === 'customer_choice'
-      ? 'selecciona automáticamente la alternativa económica'
+      ? 'seguro económico automático'
       : policy.offerMode === 'economy_only'
-        ? 'envía sin seguro adicional'
-        : `exige envío protegido con seguro ${policy.protectedInsurance === 'plus' ? 'Plus' : 'estándar'}`;
+        ? 'sin seguro adicional'
+        : `seguro protegido ${policy.protectedInsurance === 'plus' ? 'Plus' : 'estándar'}`;
   const allowed = policy.allowedCarriers;
   const scope =
     allowed === undefined
@@ -90,7 +104,7 @@ export function describePolicy(policy: ShippingPolicy): string {
   const excluded = policy.excludedCarriers?.length
     ? ` Excluidas: ${policy.excludedCarriers.map(carrierName).join(', ')}.`
     : '';
-  return `Prefiere ${carrier}, ${fallback} y ${offer}.${scope}${excluded}`;
+  return `Prefiere ${carrier}; ${fallback}. Seguro: ${offer}.${scope}${excluded}`;
 }
 
 export function policyModeLabel(policy: ShippingPolicy): string {

@@ -161,6 +161,10 @@ export const handlers = [
       authError ?? HttpResponse.json({ data: { items: [], nextCursor: null } })
     );
   }),
+  http.post(`${base}/conversations/:conversationId/read`, () => {
+    const authError = requireAuth();
+    return authError ?? HttpResponse.json({ data: null });
+  }),
   http.get(`${base}/search`, ({ request }) => {
     const authError = requireAuth();
     if (authError) return authError;

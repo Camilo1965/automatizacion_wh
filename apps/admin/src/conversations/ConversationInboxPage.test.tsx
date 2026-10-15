@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
@@ -32,6 +32,36 @@ function conversationFixture(
 }
 
 describe('ConversationInboxPage', () => {
+  it('marks the selected conversation as read when it contains unread messages', async () => {
+    const markRead = vi.fn(() => HttpResponse.json({ data: null }));
+    server.use(
+      http.get('/api/admin/conversations', () =>
+        HttpResponse.json({
+          data: {
+            items: [
+              {
+                ...conversationFixture(conversationId, '+573001234567'),
+                unreadCount: 1,
+                lastMessageAt: '2026-09-10T12:00:00.000Z',
+              },
+            ],
+            nextCursor: null,
+          },
+        }),
+      ),
+      http.post(`/api/admin/conversations/${conversationId}/read`, markRead),
+      http.get('/api/admin/conversations/:conversationId/messages', () =>
+        HttpResponse.json({ data: { items: [], nextCursor: null } }),
+      ),
+    );
+    renderWithProviders(
+      <ToastProvider>
+        <ConversationInboxPage />
+      </ToastProvider>,
+    );
+    await waitFor(() => expect(markRead).toHaveBeenCalledTimes(1));
+  });
+
   it('opens a historical conversation by URL even when it is absent from the first inbox page', async () => {
     const olderId = '88888888-8888-4888-8888-888888888888';
     server.use(

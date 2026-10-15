@@ -52,4 +52,38 @@ describe('DashboardService', () => {
       new Date('2026-09-11T05:00:00.000Z'),
     );
   });
+
+  it('surfaces providers that have not been configured in the attention queue', async () => {
+    const repository = {
+      getSummary: vi.fn().mockResolvedValue({
+        queues: {
+          conversations: 0,
+          guideIncidents: 0,
+          readyToDispatch: 0,
+          awaitingConfirmation: 0,
+          closurePending: false,
+          lowStockReferences: 0,
+          integrationFailures: 0,
+        },
+        today: {
+          newConversations: 0,
+          confirmedOrders: 0,
+          dispatchedOrders: 0,
+          codValueCop: 0,
+          guidesCreated: 0,
+          reservedUnits: 0,
+          averageFirstResponseSeconds: null,
+        },
+      }),
+    };
+    const service = new DashboardService(
+      repository,
+      () => new Date('2026-09-10T15:00:00.000Z'),
+      async () => ({ whatsappConfigured: false, shippingConfigured: false }),
+    );
+
+    const result = await service.getSummary();
+
+    expect(result.queues.integrationFailures).toBe(2);
+  });
 });

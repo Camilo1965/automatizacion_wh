@@ -6,6 +6,7 @@ import {
   DEFAULT_POLICY,
   describePolicy,
   policyValidationMessage,
+  restrictToCarrier,
 } from './policy-utils';
 
 describe('municipal shipping policy helpers', () => {
@@ -33,6 +34,33 @@ describe('municipal shipping policy helpers', () => {
     expect(municipal.allowedCarriers).not.toBe(global.allowedCarriers);
     expect(municipal.packageDefaults).not.toBe(global.packageDefaults);
     expect(describePolicy(municipal)).toMatch(/solo TCC está permitida/i);
+  });
+
+  it('restricts a policy to one carrier and blocks unavailable-carrier fallback', () => {
+    const policy = restrictToCarrier(
+      {
+        ...DEFAULT_POLICY,
+        protectedInsurance: 'plus',
+        packageDefaults: {
+          weightKg: 1,
+          lengthCm: 30,
+          widthCm: 20,
+          heightCm: 12,
+        },
+      },
+      'tcc',
+    );
+
+    expect(policy).toMatchObject({
+      preferredCarrier: 'tcc',
+      fallbackPolicy: 'block',
+      allowedCarriers: ['tcc'],
+      orderedCarriers: [],
+      protectedInsurance: 'plus',
+      packageDefaults: { weightKg: 1 },
+    });
+    expect(policyValidationMessage(policy)).toBeNull();
+    expect(describePolicy(policy)).toMatch(/solo TCC está permitida/i);
   });
 
   const conflicts: [string, Partial<ShippingPolicy>, RegExp][] = [

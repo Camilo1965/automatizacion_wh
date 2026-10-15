@@ -34,7 +34,7 @@
     "@inquirer/password": "4.0.23",
     "@smithy/node-http-handler": "4.12.1",
     "drizzle-orm": "0.45.2",
-    "fastify": "5.12.3",
+    "fastify": "5.12.7",
     "fastify-raw-body": "6.0.1",
     "file-type": "22.0.2",
     "postgres": "3.4.9",
@@ -43,7 +43,7 @@
   "devDependencies": {
     "@types/node": "26.4.1",
     "@vitest/coverage-v8": "5.0.0",
-    "drizzle-kit": "0.31.10",
+    "drizzle-kit": "0.31.11",
     "tsx": "4.23.13",
     "typescript": "6.0.3",
     "vitest": "5.0.0"

@@ -51,7 +51,7 @@ export function OperationalChart({
       </p>
       <div className="h-64 w-full" aria-hidden="true">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data}>
+          <BarChart data={data} accessibilityLayer={false}>
             <CartesianGrid
               stroke={GRID}
               strokeDasharray="3 3"

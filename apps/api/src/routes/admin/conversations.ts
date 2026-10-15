@@ -88,6 +88,28 @@ export async function registerConversationsRoutes(
       }
       return reply.status(200).send({ data: conversation });
     });
+    if (conversationAdminRepository.markRead !== undefined) {
+      app.post(
+        '/conversations/:conversationId/read',
+        async (request, reply) => {
+          await authenticate(request);
+          const { conversationId } = ConversationIdParamsSchema.parse(
+            request.params,
+          );
+          const marked =
+            await conversationAdminRepository.markRead!(conversationId);
+          if (!marked) {
+            return reply.status(404).send({
+              error: {
+                code: 'conversation_not_found',
+                message: 'Conversation was not found',
+              },
+            });
+          }
+          return reply.status(200).send({ data: null });
+        },
+      );
+    }
     if (conversationTranscriptRepository !== undefined) {
       app.get(
         '/conversations/:conversationId/messages',

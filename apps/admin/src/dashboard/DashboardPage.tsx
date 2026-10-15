@@ -56,7 +56,7 @@ const priorityDefinitions = [
   },
   {
     label: 'Integraciones',
-    detail: 'Servicios configurados con fallas o sin verificación.',
+    detail: 'Faltan credenciales de proveedores o hay mensajes rechazados.',
     to: '/settings/integrations',
     field: 'integrationFailures',
     tone: 'danger',

@@ -132,11 +132,44 @@ test('owner publishes localities, edits the bot and configures a municipal insur
           ['critical', 'serious'].includes(violation.impact ?? ''),
         ),
       ).toEqual([]);
+      const layout = await page.evaluate(() => {
+        const width = window.innerWidth;
+        const overflowingElements = Array.from(
+          document.querySelectorAll<HTMLElement>('body *'),
+        )
+          .map((element) => ({
+            element: element.tagName.toLowerCase(),
+            className:
+              typeof element.className === 'string' ? element.className : '',
+            right: Math.round(element.getBoundingClientRect().right),
+            scrollWidth: element.scrollWidth,
+          }))
+          .filter((element) => element.right > width + 1)
+          .slice(0, 8);
+        return {
+          width,
+          scrollWidth: document.documentElement.scrollWidth,
+          layoutBoxes: Array.from(
+            document.querySelectorAll<HTMLElement>(
+              'body, #root, #root > div, main, main > section, [data-slot="tabs"], [data-slot="tabs-content"]',
+            ),
+          ).map((element) => ({
+            element: element.tagName.toLowerCase(),
+            className:
+              typeof element.className === 'string' ? element.className : '',
+            left: Math.round(element.getBoundingClientRect().left),
+            right: Math.round(element.getBoundingClientRect().right),
+            width: Math.round(element.getBoundingClientRect().width),
+            minWidth: getComputedStyle(element).minWidth,
+            flex: getComputedStyle(element).flex,
+          })),
+          overflowingElements,
+        };
+      });
       expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth,
-        ),
-      ).toBe(true);
+        layout.scrollWidth,
+        `${route} overflows ${layout.width}px: ${JSON.stringify(layout)}`,
+      ).toBeLessThanOrEqual(layout.width);
       if (
         route === '/settings/bot-flow' ||
         route === '/settings/shipping' ||

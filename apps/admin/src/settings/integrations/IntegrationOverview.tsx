@@ -28,26 +28,23 @@ function ProviderHealthCard({
           }
         >
           {check.status === 'up'
-            ? 'Activo'
+            ? 'Configurado'
             : check.status === 'down'
               ? 'Incidencia'
-              : 'Degradado'}
+              : 'Pendiente'}
         </StatusBadge>
       </CardHeader>
       <CardContent className="space-y-2">
         <p className="text-sm text-muted-foreground">
-          {check.status === 'up'
-            ? `Último éxito: ${new Date(check.checkedAt).toLocaleString('es-CO')}`
-            : check.status === 'down'
-              ? `Último fallo: ${new Date(check.checkedAt).toLocaleString('es-CO')}`
-              : `Última revisión: ${new Date(check.checkedAt).toLocaleString('es-CO')}`}
+          {`Última revisión local: ${new Date(check.checkedAt).toLocaleString('es-CO')}`}
         </p>
         {check.detail ? (
           <p className="text-sm text-muted-foreground">{check.detail}</p>
         ) : null}
         <p className="text-xs text-muted-foreground">
-          Canal externo: usa el ciclo credenciales → prueba → activación →
-          verificación.
+          La configuración no confirma acceso actual al proveedor. Usa el ciclo
+          credenciales → prueba → activación y valida un evento real antes de
+          operar.
         </p>
       </CardContent>
     </Card>

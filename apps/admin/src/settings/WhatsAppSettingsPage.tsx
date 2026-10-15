@@ -30,7 +30,7 @@ export function WhatsAppSettingsPage() {
     <section className="space-y-6" aria-labelledby="whatsapp-settings-title">
       <PageHeader
         title="WhatsApp Business"
-        description="Estado real del número, el webhook y la aplicación móvil."
+        description="Configuración del número, credenciales del webhook y validación del canal."
       />
       <Card className="rounded-3xl border-border shadow-[var(--shadow-card)]">
         <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
@@ -41,12 +41,13 @@ export function WhatsAppSettingsPage() {
                 : 'WhatsApp Business con coexistencia'}
             </CardTitle>
             <CardDescription>
-              Conexión y checklist operativo del canal.
+              Configuración guardada. La conexión real se confirma con una
+              prueba de credenciales y un mensaje entrante.
             </CardDescription>
           </div>
           <StatusBadge tone={data.webhookConfigured ? 'success' : 'warning'}>
             {data.webhookConfigured
-              ? 'Webhook configurado'
+              ? 'Credenciales guardadas'
               : 'Webhook pendiente'}
           </StatusBadge>
         </CardHeader>

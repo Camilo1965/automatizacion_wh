@@ -14,6 +14,7 @@
  * Partial runs (no Docker / resource limits): docs/release/_task8-smoke-partial.md
  */
 import { randomBytes } from 'node:crypto';
+import { createServer } from 'node:net';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -43,7 +44,7 @@ const evidencePartial = join(evidenceDir, '_task8-smoke-partial.md');
 
 const composeFiles = projectScopedComposeFiles(smokeProject);
 
-const baseUrl = process.env.SMOKE_BASE_URL ?? 'https://localhost:18443';
+let baseUrl = process.env.SMOKE_BASE_URL ?? null;
 
 function log(message) {
   console.log(`[production-smoke] ${message}`);
@@ -70,7 +71,35 @@ function randomSecret(bytes = 24) {
   return randomBytes(bytes).toString('base64url');
 }
 
-function writeStagingEnv() {
+async function availablePort(excluded = new Set()) {
+  while (true) {
+    const server = createServer();
+    const port = await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', () => {
+        const address = server.address();
+        if (address === null || typeof address === 'string') {
+          reject(new Error('Could not reserve a staging port'));
+          return;
+        }
+        resolve(address.port);
+      });
+    });
+    await new Promise((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+    if (!excluded.has(port)) return port;
+  }
+}
+
+async function writeStagingEnv() {
+  const httpPort =
+    Number(process.env.SMOKE_HTTP_PORT) || (await availablePort());
+  const httpsPort =
+    Number(process.env.SMOKE_HTTPS_PORT) ||
+    (await availablePort(new Set([httpPort])));
+  const selectedBaseUrl = baseUrl ?? `https://localhost:${httpsPort}`;
+  baseUrl = selectedBaseUrl;
   const secrets = {
     integrationEncryptionKey: randomBytes(32).toString('base64'),
     backupEncryptionKey: randomBytes(32).toString('base64'),
@@ -85,7 +114,16 @@ function writeStagingEnv() {
     adminUsername: 'smoke-owner',
   };
 
-  writeFileSync(envPath, renderStagingEnv(secrets, smokeProject), 'utf8');
+  writeFileSync(
+    envPath,
+    renderStagingEnv(secrets, smokeProject, {
+      httpPort,
+      httpsPort,
+      adminOrigin: new URL(selectedBaseUrl).origin,
+    }),
+    'utf8',
+  );
+  log(`staging listeners selected http=${httpPort} https=${httpsPort}`);
   return {
     adminUsername: secrets.adminUsername,
     adminPassword: secrets.adminPassword,
@@ -394,7 +432,7 @@ async function main() {
     }
     passed.push('docker-available');
 
-    secrets = writeStagingEnv();
+    secrets = await writeStagingEnv();
     passed.push('env-written');
     log(`wrote disposable ${envFileName}`);
 
@@ -479,7 +517,7 @@ async function main() {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        origin: 'https://localhost:18443',
+        origin: new URL(baseUrl).origin,
       },
       body: JSON.stringify({
         username: secrets.adminUsername,
@@ -507,7 +545,7 @@ async function main() {
     const session = await fetch(`${baseUrl}/api/admin/auth/session`, {
       headers: {
         cookie: cookieHeader,
-        origin: 'https://localhost:18443',
+        origin: new URL(baseUrl).origin,
       },
     });
     if (!session.ok) {

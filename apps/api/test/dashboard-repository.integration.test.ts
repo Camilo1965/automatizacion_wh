@@ -14,7 +14,7 @@ describe('PostgresDashboardRepository', () => {
   beforeEach(async () => {
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
     try {
-      await sql`TRUNCATE TABLE inventory_closures, shipping_guide_jobs, shipping_quotes, order_confirmations, order_summaries, reservation_movements, order_status_events, sales_orders, whatsapp_conversations, catalog_stock, catalog_references CASCADE`;
+      await sql`TRUNCATE TABLE inventory_closures, shipping_guide_jobs, shipping_quotes, order_confirmations, order_summaries, reservation_movements, order_status_events, whatsapp_outbound_messages, sales_orders, whatsapp_conversations, catalog_stock, catalog_references CASCADE`;
       await sql`INSERT INTO catalog_references (id, code, model_name, color, price_cop, active) VALUES ('11111111-1111-4111-8111-111111111111', '01', 'Tenis', 'Negro', 120000, true)`;
       await sql`INSERT INTO catalog_stock (reference_id, size, physical_quantity, reserved_quantity) VALUES ('11111111-1111-4111-8111-111111111111', 37, 2, 1)`;
       await sql`INSERT INTO sales_orders (id, status, reference_id, size, quantity, latest_summary_version, confirmed_summary_version, created_at, updated_at) VALUES
@@ -61,6 +61,28 @@ describe('PostgresDashboardRepository', () => {
           averageFirstResponseSeconds: null,
         },
       });
+    } finally {
+      await database.close();
+    }
+  });
+
+  it('adds failed WhatsApp deliveries to the integration attention queue', async () => {
+    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    try {
+      await sql`INSERT INTO whatsapp_outbound_messages
+        (idempotency_key, customer_phone, message_type, status)
+        VALUES ('dashboard-failed-outbound', '+573001234567', 'text', 'failed')`;
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+
+    const database = createPostgresDatabase(databaseUrl);
+    try {
+      const result = await new PostgresDashboardRepository(database).getSummary(
+        new Date('2026-09-10T05:00:00Z'),
+        new Date('2026-09-11T05:00:00Z'),
+      );
+      expect(result.queues.integrationFailures).toBe(1);
     } finally {
       await database.close();
     }

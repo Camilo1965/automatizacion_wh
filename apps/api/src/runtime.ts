@@ -1,5 +1,3 @@
-import { access } from 'node:fs/promises';
-
 import { loadConfig, type AppConfig } from './config.js';
 import {
   createPostgresDatabase,
@@ -147,9 +145,8 @@ export async function createRuntime(
     },
   );
   const catalogRepository = new PostgresCatalogRepository(database);
-  const photoStorage = new LocalPhotoStorage(
-    createObjectStorage(config, 'photos'),
-  );
+  const mediaObjectStorage = createObjectStorage(config, 'photos');
+  const photoStorage = new LocalPhotoStorage(mediaObjectStorage);
   const catalogService = new DefaultCatalogService(
     catalogRepository,
     photoStorage,
@@ -190,6 +187,24 @@ export async function createRuntime(
             : { integrationId: config.ninetyNineEnviosIntegrationId }),
         }
       : undefined;
+  const whatsappConfigured = async () => {
+    const active = await integrationSettingsService?.getWhatsApp();
+    if (active !== null && active !== undefined) {
+      return Boolean(active.appSecret && active.webhookVerifyToken);
+    }
+    return Boolean(
+      config.whatsappAccessToken &&
+      config.whatsappPhoneNumberId &&
+      config.whatsappAppSecret &&
+      config.whatsappWebhookVerifyToken,
+    );
+  };
+  const shippingConfigured = async () => {
+    const active = await integrationSettingsService?.getShipping();
+    return active !== null && active !== undefined
+      ? true
+      : shippingFallback !== undefined;
+  };
   const shippingClient =
     integrationSettingsService !== undefined || shippingFallback !== undefined
       ? new ConfiguredNinetyNineEnviosClient(
@@ -263,6 +278,11 @@ export async function createRuntime(
     manualMessageService,
     dashboardService: new DashboardService(
       new PostgresDashboardRepository(database),
+      () => new Date(),
+      async () => ({
+        whatsappConfigured: await whatsappConfigured(),
+        shippingConfigured: await shippingConfigured(),
+      }),
     ),
     globalSearchService: new GlobalSearchService(database),
     connectionCapabilityService: new ConnectionCapabilityService({
@@ -277,14 +297,11 @@ export async function createRuntime(
     inventoryClosureService,
     integrationHealthService: new IntegrationHealthService({
       database: () => database.ping(),
-      mediaStorage: () => access(config.mediaRoot),
-      whatsappConfigured: async () =>
-        (await integrationSettingsService?.getWhatsApp()) != null ||
-        (config.whatsappAccessToken !== undefined &&
-          config.whatsappPhoneNumberId !== undefined),
-      shippingConfigured: async () =>
-        (await integrationSettingsService?.getShipping()) != null ||
-        shippingFallback !== undefined,
+      mediaStorage: async () => {
+        await mediaObjectStorage.exists('kairo-health-probe');
+      },
+      whatsappConfigured,
+      shippingConfigured,
       schedulerHealthy: async () => {
         if (config.metricsEnabled === false) return false;
         try {

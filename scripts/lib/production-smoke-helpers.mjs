@@ -81,7 +81,15 @@ function assertEnvValue(name, value) {
   }
 }
 
-export function renderStagingEnv(secrets, project) {
+export function renderStagingEnv(
+  secrets,
+  project,
+  {
+    httpPort = 18080,
+    httpsPort = 18443,
+    adminOrigin = 'https://localhost:18443',
+  } = {},
+) {
   const [apiImage, workerImage, adminImage, backupImage] =
     smokeImageTags(project);
   for (const field of REQUIRED_SECRET_FIELDS) {
@@ -109,7 +117,9 @@ PORT=3000
 LOG_LEVEL=info
 CAMILA_DOMAIN=localhost
 CADDY_SITE_OPTIONS=tls internal
-ADMIN_ORIGIN=https://localhost:18443
+ADMIN_ORIGIN=${adminOrigin}
+SMOKE_HTTP_PORT=${httpPort}
+SMOKE_HTTPS_PORT=${httpsPort}
 MEDIA_ROOT=/data/media
 STORAGE_DRIVER=s3
 S3_ENDPOINT=http://minio:9000

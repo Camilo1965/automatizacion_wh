@@ -199,6 +199,49 @@ describe('ShippingSettingsPage sections and simulator recovery', () => {
     ).toBeVisible();
   });
 
+  it('saves a one-carrier municipal preset that blocks fallback', async () => {
+    const user = userEvent.setup();
+    let savedPolicy: unknown;
+    server.use(
+      ...shippingHandlers(),
+      http.post(`${base}/shipping/rules`, async ({ request }) => {
+        savedPolicy = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderWithProviders(<ShippingSettingsPage />);
+    const municipal = await screen.findByRole('region', {
+      name: 'Excepciones por localidad',
+    });
+    await user.selectOptions(
+      within(municipal).getByLabelText('Departamento', { exact: true }),
+      'Antioquia',
+    );
+    await user.selectOptions(
+      within(municipal).getByLabelText('Municipio', { exact: true }),
+      '05001000',
+    );
+    await user.click(
+      within(municipal).getByRole('button', {
+        name: 'Solo TCC en este municipio',
+      }),
+    );
+    expect(
+      within(municipal).getByText(/Solo TCC está permitida/i),
+    ).toBeVisible();
+    await user.click(
+      within(municipal).getByRole('button', { name: 'Guardar regla' }),
+    );
+    await waitFor(() => {
+      expect(savedPolicy).toMatchObject({
+        localityCarrierCode: '05001000',
+        preferredCarrier: 'tcc',
+        fallbackPolicy: 'block',
+        allowedCarriers: ['tcc'],
+      });
+    });
+  });
+
   it('blocks a contradictory municipal rule before sending it', async () => {
     const user = userEvent.setup();
     server.use(...shippingHandlers());

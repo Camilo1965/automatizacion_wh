@@ -17,11 +17,7 @@ Plantilla montada: [docker/Caddyfile.example](../../docker/Caddyfile.example).
 pnpm production:smoke
 ```
 
-Este comando usa un proyecto Compose exclusivo; no combines el override staging con el nombre de proyecto `camila-prod`.
-
-- HTTP: `http://127.0.0.1:18080`
-- HTTPS: `https://127.0.0.1:18443` con `CAMILA_DOMAIN=localhost` y `CADDY_SITE_OPTIONS=tls internal`
-- `ADMIN_ORIGIN=https://localhost:18443`
+Este comando usa un proyecto Compose exclusivo, reserva puertos loopback libres y genera `ADMIN_ORIGIN` con el puerto HTTPS real del run. No publica el puerto de PostgreSQL al host. Al terminar, imprime los puertos elegidos. No combines el override staging con el nombre de proyecto `camila-prod`.
 
 ```bash
 curl -k -sS --resolve localhost:18443:127.0.0.1 https://localhost:18443/health/live

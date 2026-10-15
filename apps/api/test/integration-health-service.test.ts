@@ -15,6 +15,8 @@ describe('IntegrationHealthService', () => {
     );
     const result = await service.check();
     expect(result.database.status).toBe('up');
+    expect(result.whatsapp.status).toBe('up');
+    expect(result.whatsapp.detail).toContain('no consulta Meta en vivo');
     expect(result.shipping.status).toBe('degraded');
   });
 });

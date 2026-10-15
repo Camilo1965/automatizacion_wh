@@ -99,7 +99,15 @@ describe('production smoke helpers', () => {
   });
 
   it('renders complete staging configuration with distinct media and backup credentials', () => {
-    const contents = renderStagingEnv(secrets, `kairo-smoke-${'a'.repeat(16)}`);
+    const contents = renderStagingEnv(
+      secrets,
+      `kairo-smoke-${'a'.repeat(16)}`,
+      {
+        httpPort: 28081,
+        httpsPort: 28444,
+        adminOrigin: 'https://localhost:28444',
+      },
+    );
 
     expect(envValue(contents, 'S3_ACCESS_KEY_ID')).toBe(secrets.mediaAccessKey);
     expect(envValue(contents, 'BACKUP_S3_ACCESS_KEY_ID')).toBe(
@@ -124,6 +132,9 @@ describe('production smoke helpers', () => {
     expect(envValue(contents, 'SMOKE_API_IMAGE')).toBe(
       `kairo-smoke-${'a'.repeat(16)}-api:local`,
     );
+    expect(envValue(contents, 'SMOKE_HTTP_PORT')).toBe('28081');
+    expect(envValue(contents, 'SMOKE_HTTPS_PORT')).toBe('28444');
+    expect(envValue(contents, 'ADMIN_ORIGIN')).toBe('https://localhost:28444');
   });
 
   it('extracts the uploaded backup identifier from command output', () => {

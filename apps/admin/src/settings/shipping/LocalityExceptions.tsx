@@ -18,7 +18,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PolicyFields } from './PolicyFields';
-import { describePolicy } from './policy-utils';
+import { carrierName, describePolicy, restrictToCarrier } from './policy-utils';
 
 export function LocalityExceptions({
   municipalPolicy,
@@ -87,6 +87,32 @@ export function LocalityExceptions({
               value={selectedLocality}
               onChange={onLocalityChange}
             />
+            <fieldset className="space-y-2 rounded-[1.125rem] border border-border bg-muted/30 p-4">
+              <legend className="px-1 text-sm font-medium text-foreground">
+                Atajo: una sola transportadora
+              </legend>
+              <p className="text-sm text-muted-foreground">
+                Elige un municipio y limita sus guías a una transportadora. Si
+                no tiene cobertura, KAIRO detendrá el pedido para revisión.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {carriers.map((carrier) => (
+                  <Button
+                    key={carrier}
+                    type="button"
+                    variant="secondary"
+                    disabled={disabled || pending || selectedLocality === null}
+                    onClick={() =>
+                      onMunicipalChange(
+                        restrictToCarrier(municipalPolicy, carrier),
+                      )
+                    }
+                  >
+                    Solo {carrierName(carrier)} en este municipio
+                  </Button>
+                ))}
+              </div>
+            </fieldset>
             <Button
               type="button"
               variant="secondary"

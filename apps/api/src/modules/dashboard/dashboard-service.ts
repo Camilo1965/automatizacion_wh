@@ -2,6 +2,13 @@ import type { DashboardSummary } from '@camila/contracts';
 
 export type DashboardCounts = Omit<DashboardSummary, 'generatedAt'>;
 
+export type DashboardIntegrationReadiness = Readonly<{
+  whatsappConfigured: boolean;
+  shippingConfigured: boolean;
+}>;
+export type DashboardIntegrationReadinessProvider =
+  () => Promise<DashboardIntegrationReadiness>;
+
 export interface DashboardRepository {
   getSummary(dayStart: Date, dayEnd: Date): Promise<DashboardCounts>;
 }
@@ -23,6 +30,7 @@ export class DashboardService {
   constructor(
     private readonly repository: DashboardRepository,
     private readonly clock: () => Date = () => new Date(),
+    private readonly integrationReadiness?: DashboardIntegrationReadinessProvider,
   ) {}
 
   async getSummary(
@@ -31,10 +39,26 @@ export class DashboardService {
     const now = this.clock();
     const [dayStart, dayEnd] = bogotaDayBounds(now);
     const days = range === 'today' ? 1 : range === '7d' ? 7 : 30;
-    const counts = await this.repository.getSummary(
-      new Date(dayStart.getTime() - (days - 1) * 24 * 60 * 60 * 1000),
-      dayEnd,
-    );
-    return { ...counts, generatedAt: now.toISOString() };
+    const [counts, readiness] = await Promise.all([
+      this.repository.getSummary(
+        new Date(dayStart.getTime() - (days - 1) * 24 * 60 * 60 * 1000),
+        dayEnd,
+      ),
+      this.integrationReadiness?.(),
+    ]);
+    return {
+      ...counts,
+      queues:
+        readiness === undefined
+          ? counts.queues
+          : {
+              ...counts.queues,
+              integrationFailures:
+                counts.queues.integrationFailures +
+                Number(!readiness.whatsappConfigured) +
+                Number(!readiness.shippingConfigured),
+            },
+      generatedAt: now.toISOString(),
+    };
   }
 }

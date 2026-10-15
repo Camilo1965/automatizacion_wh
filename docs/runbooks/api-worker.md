@@ -26,7 +26,7 @@ docker compose -f compose.prod.yaml --env-file .env.prod up -d --build
 pnpm production:smoke
 ```
 
-Staging publica Caddy en `127.0.0.1:18080` / `18443` con `tls internal`. No requiere DNS público. El comando crea un proyecto Compose y etiquetas de imagen únicos y borra únicamente sus propios recursos. No arranques `compose.staging.yaml` manualmente bajo el proyecto `camila-prod`.
+Staging asigna puertos loopback libres para Caddy y usa `tls internal`; no requiere DNS público ni publica PostgreSQL al host. El comando crea un proyecto Compose y etiquetas de imagen únicos y borra únicamente sus propios recursos. No arranques `compose.staging.yaml` manualmente bajo el proyecto `camila-prod`.
 
 ## Migraciones
 

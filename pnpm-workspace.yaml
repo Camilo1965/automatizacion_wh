@@ -6,6 +6,12 @@ allowBuilds:
   msw: true
 saveExact: true
 engineStrict: true
+overrides:
+  brace-expansion: 5.0.12
+  fast-uri@^3.0.0: 3.1.8
+  fast-uri@^4.0.0: 4.2.2
+  esbuild@~0.18.20: 0.25.4
+  source-map-js: 1.2.2
 minimumReleaseAgeExclude:
   - lucide-react@1.44.0
   - '@aws-sdk/client-s3@3.1137.0'

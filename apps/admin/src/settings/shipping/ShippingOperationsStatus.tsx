@@ -83,7 +83,7 @@ export function ShippingOperationsStatus({
               tone={activeRules > 0 ? 'success' : 'info'}
               outcome={
                 activeRules > 0
-                  ? `${activeRules} excepciones municipales activas.`
+                  ? `${activeRules} ${activeRules === 1 ? 'excepción municipal activa.' : 'excepciones municipales activas.'}`
                   : 'Sin excepciones municipales; aplica la preferencia general.'
               }
               nextStep="abre novedades de entrega si hay guías con incidencia."

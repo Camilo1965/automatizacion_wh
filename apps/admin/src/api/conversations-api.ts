@@ -13,6 +13,10 @@ const conversationSchema = z
     selectedSize: z.string().nullable().optional(),
     activeOrderId: z.string().uuid().nullable().optional(),
     pendingOutbound: z.number().int().nonnegative(),
+    customerName: z.string().nullable().optional(),
+    lastPreview: z.string().nullable().optional(),
+    unreadCount: z.number().int().nonnegative().optional(),
+    lastMessageAt: z.string().datetime().nullable().optional(),
     lastInboundMessageAt: z.string().datetime().optional(),
     updatedAt: z.string().datetime().optional(),
   })
@@ -53,6 +57,18 @@ export async function getConversation(
       schema: detailSchema,
     })
   ).data;
+}
+
+export async function markConversationRead(
+  conversationId: string,
+): Promise<void> {
+  await apiRequest(
+    `/conversations/${encodeURIComponent(conversationId)}/read`,
+    {
+      method: 'POST',
+      schema: z.object({ data: z.null() }).strict(),
+    },
+  );
 }
 
 const messagesResponseSchema = z
